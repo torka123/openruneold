@@ -319,6 +319,7 @@ public class ProtectedAccess(
             mes("Invalid teleport!", ChatType.Engine)
             return
         }
+        context.teleportHooks.beforeTeleport(player, dest, teleportType)
         PathingEntityCommon.telejump(player, collision, dest)
     }
 
@@ -339,6 +340,7 @@ public class ProtectedAccess(
             mes("Invalid teleport!", ChatType.Engine)
             return
         }
+        context.teleportHooks.beforeTeleport(player, dest, teleportType)
         PathingEntityCommon.teleport(player, collision, dest)
     }
 
@@ -375,6 +377,7 @@ public class ProtectedAccess(
             mes("Invalid teleport!", ChatType.Engine)
             return
         }
+        context.teleportHooks.beforeTeleport(player, end, teleportType)
         PathingEntityCommon.exactMove(player, start, end, delay1, delay2, dir, collision)
     }
 
@@ -393,6 +396,11 @@ public class ProtectedAccess(
     }
 
     public fun anim(seq: String, delay: Int = 0) {
+        player.anim(seq, delay)
+    }
+
+    /** Plays a cache sequence by its verified revision-specific ID. */
+    public fun anim(seq: Int, delay: Int = 0) {
         player.anim(seq, delay)
     }
 

@@ -5,6 +5,7 @@ import org.rsmod.api.area.checker.AreaChecker
 import org.rsmod.api.market.MarketPrices
 import org.rsmod.api.player.dialogue.align.TextAlignment
 import org.rsmod.api.player.hit.processor.InstantPlayerHitProcessor
+import org.rsmod.api.player.hook.PlayerTeleportHooks
 import org.rsmod.api.player.interact.HeldInteractions
 import org.rsmod.api.player.interact.LocInteractions
 import org.rsmod.api.player.interact.NpcInteractions
@@ -37,6 +38,7 @@ constructor(
     private val marketPrices: MarketPrices,
     private val instantHitProcessor: InstantPlayerHitProcessor,
     private val teleportValidator: PlayerTeleportValidator,
+    private val teleportHooks: PlayerTeleportHooks,
 ) {
     public fun create(): ProtectedAccessContext =
         ProtectedAccessContext(
@@ -56,6 +58,7 @@ constructor(
             getMarketPrices = { marketPrices },
             getInstantHitProcessor = { instantHitProcessor },
             getTeleportValidator = { teleportValidator },
+            getTeleportHooks = { teleportHooks },
         )
 
     public companion object {
@@ -77,6 +80,7 @@ constructor(
                 getMarketPrices = { error("No market prices provided.") },
                 getInstantHitProcessor = { error("No instant hit processor provided.") },
                 getTeleportValidator = { error("No teleport validator provided.") },
+                getTeleportHooks = { PlayerTeleportHooks.EMPTY },
             )
 
         /**
