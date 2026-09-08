@@ -70,5 +70,5 @@ constructor(
     private fun Player.hasInvSpace(obj: Obj): Boolean = transaction(obj).success
 
     private fun Player.transaction(obj: Obj): TransactionResultList<InvObj> =
-        invAdd(inv, obj.type, obj.count, autoCommit = false)
+        invAdd(inv, obj.type, obj.count, vars = obj.vars, autoCommit = false)
 }

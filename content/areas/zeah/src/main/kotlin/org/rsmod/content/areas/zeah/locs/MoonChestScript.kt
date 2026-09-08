@@ -3,7 +3,12 @@ package org.rsmod.content.areas.zeah.locs
 import dtx.core.ArgMap
 import dtx.core.RollResult
 import dtx.core.flatten
+import dev.openrune.rscm.RSCM.asRSCM
+import dev.openrune.rscm.RSCMType
 import jakarta.inject.Inject
+import org.rsmod.api.collectionlog.CollectionLogAwardKind
+import org.rsmod.api.collectionlog.CollectionLogAwardSource
+import org.rsmod.api.collectionlog.CollectionLogService
 import org.rsmod.api.droptable.DropRollItem
 import org.rsmod.api.droptable.DropTableRegistry
 import org.rsmod.api.droptable.rollCount
@@ -33,6 +38,7 @@ constructor(
     private val locRepo: LocRepository,
     private val objRepo: ObjRepository,
     private val dropRegistry: DropTableRegistry,
+    private val collectionLog: CollectionLogService,
 ) : PluginScript() {
 
     override fun ScriptContext.startup() {
@@ -53,21 +59,41 @@ constructor(
         locRepo.change(loc, CHEST_OPEN, CHEST_OPEN_TICKS)
         mes("You find some treasure in the chest!")
 
-        VarPlayerIntMapSetter.set(player, VARP_KC, player.vars[VARP_KC] + 1)
+        val chestCount = player.vars[VARP_KC] + 1
+        VarPlayerIntMapSetter.set(player, VARP_KC, chestCount)
 
         val table = dropRegistry.forLoc(CHEST_CLOSED) ?: return
         when (val result = table.roll(player, ArgMap()).flatten()) {
             is RollResult.Nothing -> Unit
-            is RollResult.Single -> giveDrop(result.result)
-            is RollResult.ListOf -> result.results.forEach { giveDrop(it) }
+            is RollResult.Single -> giveDrop(result.result, chestCount, 0)
+            is RollResult.ListOf ->
+                result.results.forEachIndexed { index, drop ->
+                    giveDrop(drop, chestCount, index)
+                }
         }
         delay(1)
     }
 
-    private fun ProtectedAccess.giveDrop(drop: DropRollItem) {
+    private fun ProtectedAccess.giveDrop(
+        drop: DropRollItem,
+        chestCount: Int,
+        awardIndex: Int,
+    ) {
         if (drop.isNothing || !drop.condition(player)) return
         val obj = drop.transformObj(player) ?: drop.obj
-        invAddOrDrop(objRepo, obj, drop.rollCount(random))
+        val amount = drop.rollCount(random)
+        invAddOrDrop(objRepo, obj, amount)
+        collectionLog.record(
+            player = player,
+            itemId = obj.asRSCM(RSCMType.OBJ),
+            amount = amount,
+            source =
+                CollectionLogAwardSource(
+                    CollectionLogAwardKind.SpecialContainer,
+                    "lunar-chest",
+                ),
+            eventId = "${player.uid}:$chestCount:$awardIndex",
+        )
     }
 
     private fun ProtectedAccess.combineKeyHalves() {

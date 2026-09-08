@@ -19,6 +19,22 @@ import org.rsmod.game.inv.InvObj
  */
 class BankInvScriptTest {
     @Test
+    fun GameTestState.`withdraw repairs bank slots that are missing tab metadata`() =
+        runGameTest(BankInvScript::class) {
+            val bank = openBank(player)
+            bank[0] = InvObj(1, 1)
+            bank[1] = InvObj(2, 1)
+            assertEquals(0, player.bankTabSizeMain)
+
+            player.ifButton(bank_components.main_inventory, comsub = 0, op = MAIN_INV_WITHDRAW_1)
+            advance()
+
+            assertEquals(InvObj(1, 1), player.inv[0])
+            assertEquals(InvObj(2, 1), bank[0])
+            assertEquals(1, player.bankTabSizeMain)
+        }
+
+    @Test
     fun GameTestState.`withdraw single obj`() =
         runGameTest(BankInvScript::class) {
             val bank = openBank(player)

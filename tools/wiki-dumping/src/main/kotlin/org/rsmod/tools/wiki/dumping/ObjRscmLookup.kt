@@ -27,13 +27,19 @@ class ObjRscmLookup {
         displayName: String,
         noted: Boolean = false,
     ): String? {
-        resolvePresetItemId(displayName)?.let { return it }
+        resolvePresetItemId(displayName)?.let {
+            return it
+        }
 
         itemLookup.resolveItemId(displayName)?.let { itemId ->
             if (noted) {
-                resolveNotedFromItemId(itemId)?.let { return it }
+                resolveNotedFromItemId(itemId)?.let {
+                    return it
+                }
             } else {
-                toRscm(itemId)?.let { return it }
+                toRscm(itemId)?.let {
+                    return it
+                }
             }
         }
 
@@ -44,16 +50,23 @@ class ObjRscmLookup {
         }
     }
 
-    /** Resolves spawn-line names that use the infobox base name instead of the disambiguated page title. */
+    /**
+     * Resolves spawn-line names that use the infobox base name instead of the disambiguated page
+     * title.
+     */
     suspend fun resolveWikiItemOnPage(
         itemLookup: ItemWikiLookup,
         spawnName: String,
         pageTitle: String,
         noted: Boolean = false,
     ): String? {
-        resolveWikiItem(itemLookup, spawnName, noted)?.let { return it }
+        resolveWikiItem(itemLookup, spawnName, noted)?.let {
+            return it
+        }
         if (!spawnName.equals(pageTitle, ignoreCase = true)) {
-            resolveWikiItem(itemLookup, pageTitle, noted)?.let { return it }
+            resolveWikiItem(itemLookup, pageTitle, noted)?.let {
+                return it
+            }
         }
         return null
     }
@@ -65,7 +78,11 @@ class ObjRscmLookup {
             resolvePresetItemId(displayName) != null || resolveByDisplayName(displayName) != null
         }
 
-    fun canResolveWithCachedWikiId(itemLookup: ItemWikiLookup, displayName: String, noted: Boolean = false): Boolean =
+    fun canResolveWithCachedWikiId(
+        itemLookup: ItemWikiLookup,
+        displayName: String,
+        noted: Boolean = false,
+    ): Boolean =
         itemLookup.cachedItemId(displayName)?.let { itemId ->
             if (noted) {
                 resolveNotedFromItemId(itemId) != null
@@ -76,7 +93,9 @@ class ObjRscmLookup {
 
     fun resolveByDisplayName(displayName: String): String? {
         val cacheKey = displayName.trim().lowercase()
-        displayNameCache[cacheKey]?.let { return it }
+        displayNameCache[cacheKey]?.let {
+            return it
+        }
 
         val resolved =
             resolveWikiDisplayNameAlias(displayName)
@@ -100,11 +119,14 @@ class ObjRscmLookup {
 
     private fun resolveNotedByDisplayName(displayName: String): String? {
         val cacheKey = "noted:${displayName.trim().lowercase()}"
-        displayNameCache[cacheKey]?.let { return it }
+        displayNameCache[cacheKey]?.let {
+            return it
+        }
 
         val resolved =
-            resolveWikiDisplayNameAlias(displayName)?.let { lookupObjKey("cert_${it.removePrefix("obj.")}") }
-                ?: keyCandidates(displayName).firstNotNullOfOrNull { lookupObjKey("cert_$it") }
+            resolveWikiDisplayNameAlias(displayName)?.let {
+                lookupObjKey("cert_${it.removePrefix("obj.")}")
+            } ?: keyCandidates(displayName).firstNotNullOfOrNull { lookupObjKey("cert_$it") }
         displayNameCache[cacheKey] = resolved
         return resolved
     }
@@ -113,14 +135,21 @@ class ObjRscmLookup {
     private fun resolvePresetItemId(displayName: String): String? {
         val normalized = displayName.trim().lowercase()
         WIKI_DISPLAY_NAME_ITEM_IDS[normalized]?.let { itemId ->
-            toRscm(itemId)?.let { return it }
+            toRscm(itemId)?.let {
+                return it
+            }
         }
 
-        val tier = CLUE_SCROLL_TIER_PATTERN.matchEntire(normalized)?.groupValues?.get(1) ?: return null
+        val tier =
+            CLUE_SCROLL_TIER_PATTERN.matchEntire(normalized)?.groupValues?.get(1) ?: return null
         CLUE_SCROLL_TIER_ITEM_IDS[tier]?.let { itemId ->
-            toRscm(itemId)?.let { return it }
+            toRscm(itemId)?.let {
+                return it
+            }
         }
-        CLUE_SCROLL_TIER_OBJ_KEYS[tier]?.let { return lookupObjKey(it) }
+        CLUE_SCROLL_TIER_OBJ_KEYS[tier]?.let {
+            return lookupObjKey(it)
+        }
         return lookupObjKey("trail_clue_$tier") ?: lookupObjKey("clue_scroll_$tier")
     }
 
@@ -129,23 +158,25 @@ class ObjRscmLookup {
         val baseRaw = match.groupValues[1].trim()
         val dose = match.groupValues[2]
 
-        val candidates =
-            buildList {
-                val plusCompact = baseRaw.lowercase().replace(Regex("""[^a-z0-9+]+"""), "")
-                if (plusCompact.isNotBlank()) {
-                    add("$plusCompact$dose")
-                }
-                val firstToken =
-                    baseRaw.substringBefore(' ').lowercase().replace(Regex("""[^a-z0-9]+"""), "")
-                if (firstToken.isNotBlank()) {
-                    add("${firstToken}_salve_${dose}_dose")
-                }
-                val lastWord =
-                    baseRaw.substringAfterLast(' ', baseRaw).lowercase().replace(Regex("""[^a-z0-9]+"""), "")
-                if (lastWord.isNotBlank()) {
-                    add("${dose}dose2$lastWord")
-                }
+        val candidates = buildList {
+            val plusCompact = baseRaw.lowercase().replace(Regex("""[^a-z0-9+]+"""), "")
+            if (plusCompact.isNotBlank()) {
+                add("$plusCompact$dose")
             }
+            val firstToken =
+                baseRaw.substringBefore(' ').lowercase().replace(Regex("""[^a-z0-9]+"""), "")
+            if (firstToken.isNotBlank()) {
+                add("${firstToken}_salve_${dose}_dose")
+            }
+            val lastWord =
+                baseRaw
+                    .substringAfterLast(' ', baseRaw)
+                    .lowercase()
+                    .replace(Regex("""[^a-z0-9]+"""), "")
+            if (lastWord.isNotBlank()) {
+                add("${dose}dose2$lastWord")
+            }
+        }
 
         return candidates.distinct().firstNotNullOfOrNull { lookupObjKey(it) }
     }
@@ -157,9 +188,9 @@ class ObjRscmLookup {
         if (base.isBlank() || qualifier.isBlank()) {
             return null
         }
-        return listOf("${base}_$qualifier", "${qualifier}_$base")
-            .distinct()
-            .firstNotNullOfOrNull { lookupObjKey(it) }
+        return listOf("${base}_$qualifier", "${qualifier}_$base").distinct().firstNotNullOfOrNull {
+            lookupObjKey(it)
+        }
     }
 
     private fun variantBaseKey(base: String): String = base.replace("_s_", "_").removeSuffix("_s")
@@ -180,11 +211,7 @@ class ObjRscmLookup {
     private fun reverseObj(itemId: Int): String? = reverseMapping(RSCMType.OBJ, itemId)
 
     private fun reverseMapping(type: RSCMType, id: Int): String? {
-        val mapped =
-            runCatching { RSCM.getReverseMapping(type, id) }
-                .getOrNull()
-                ?.trim()
-                .orEmpty()
+        val mapped = runCatching { RSCM.getReverseMapping(type, id) }.getOrNull()?.trim().orEmpty()
         if (mapped.isBlank() || mapped == "-1") {
             return null
         }
@@ -193,33 +220,38 @@ class ObjRscmLookup {
 
     private fun hasMapping(fullKey: String): Boolean =
         runCatching {
-            RSCM.getRSCM(fullKey)
-            true
-        }.getOrDefault(false)
+                RSCM.getRSCM(fullKey)
+                true
+            }
+            .getOrDefault(false)
 
     private fun keyCandidates(displayName: String): List<String> {
         val normalized = normalizeItemKey(displayName)
         val compact = normalized.replace("_", "")
         val parenthetical =
-            Regex("""^(.+?)\s*\((.+)\)$""").find(displayName.trim())?.let { match ->
-                val base = normalizeItemKey(match.groupValues[1])
-                val qualifier = normalizeItemKey(match.groupValues[2])
-                listOf(
-                    "${base}_$qualifier",
-                    "${base}_($qualifier)",
-                    "${base}($qualifier)",
-                    "${base}${qualifier.replace("_", "")}",
-                )
-            }.orEmpty()
+            Regex("""^(.+?)\s*\((.+)\)$""")
+                .find(displayName.trim())
+                ?.let { match ->
+                    val base = normalizeItemKey(match.groupValues[1])
+                    val qualifier = normalizeItemKey(match.groupValues[2])
+                    listOf(
+                        "${base}_$qualifier",
+                        "${base}_($qualifier)",
+                        "${base}($qualifier)",
+                        "${base}${qualifier.replace("_", "")}",
+                    )
+                }
+                .orEmpty()
 
         return buildList {
-            add(normalized)
-            if (compact != normalized) {
-                add(compact)
+                add(normalized)
+                if (compact != normalized) {
+                    add(compact)
+                }
+                addAll(parenthetical)
+                addAll(parenthetical.map { it.replace("_", "") }.filter { it !in this })
             }
-            addAll(parenthetical)
-            addAll(parenthetical.map { it.replace("_", "") }.filter { it !in this })
-        }.distinct()
+            .distinct()
     }
 
     private fun normalizeItemKey(displayName: String): String =
@@ -232,10 +264,7 @@ class ObjRscmLookup {
         // --- Manual overrides: edit these when wiki id lookup is wrong or unavailable ---
 
         /** Display name → item id (reverse RSCM). Used before wiki lookup. */
-        private val WIKI_DISPLAY_NAME_ITEM_IDS =
-            mapOf(
-                "key (medium)" to 19812,
-            )
+        private val WIKI_DISPLAY_NAME_ITEM_IDS = mapOf("key (medium)" to 19812)
 
         /** Clue scroll tier → representative item id (wiki uses generic tier names). */
         private val CLUE_SCROLL_TIER_ITEM_IDS =
@@ -248,7 +277,10 @@ class ObjRscmLookup {
                 "master" to 19835,
             )
 
-        /** Clue scroll tier → obj key fallback when [CLUE_SCROLL_TIER_ITEM_IDS] reverse lookup fails. */
+        /**
+         * Clue scroll tier → obj key fallback when [CLUE_SCROLL_TIER_ITEM_IDS] reverse lookup
+         * fails.
+         */
         private val CLUE_SCROLL_TIER_OBJ_KEYS =
             mapOf(
                 "beginner" to "trail_clue_beginner",

@@ -27,10 +27,14 @@ public value class VarPlayerIntMap(public val backing: Int2IntMap = Int2IntOpenH
 
     public operator fun get(key: String): Int {
         if (key.startsWith("varp")) {
-            val varp = ServerCacheManager.getVarp(key.asRSCM(RSCMType.VARP))?: error("Unable to find varp: $key")
+            val varp =
+                ServerCacheManager.getVarp(key.asRSCM(RSCMType.VARP))
+                    ?: error("Unable to find varp: $key")
             return get(varp)
         } else {
-            val varbit = ServerCacheManager.getVarbit(key.asRSCM(RSCMType.VARBIT)) ?: error("Unable to find varbit: $key")
+            val varbit =
+                ServerCacheManager.getVarbit(key.asRSCM(RSCMType.VARBIT))
+                    ?: error("Unable to find varbit: $key")
             return get(varbit)
         }
     }

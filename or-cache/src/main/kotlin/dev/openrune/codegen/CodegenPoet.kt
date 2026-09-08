@@ -27,7 +27,9 @@ internal fun enumInternalSlug(id: Int): String {
     }
 }
 
-/** KotlinPoet `addImport(KClass)` requires non-empty `names`; use package + [ClassName.simpleNames]. */
+/**
+ * KotlinPoet `addImport(KClass)` requires non-empty `names`; use package + [ClassName.simpleNames].
+ */
 internal fun FileSpec.Builder.addImportClass(cn: ClassName): FileSpec.Builder =
     addImport(cn.packageName, *cn.simpleNames.toTypedArray())
 
@@ -40,7 +42,10 @@ internal fun referencedOpenRuneClassNames(root: TypeName): Set<ClassName> {
                 if (t.packageName == "kotlin" || t.packageName.startsWith("java.")) {
                     return
                 }
-                if (t.packageName.startsWith("dev.openrune") || t.packageName.startsWith("org.rsmod")) {
+                if (
+                    t.packageName.startsWith("dev.openrune") ||
+                        t.packageName.startsWith("org.rsmod")
+                ) {
                     out += t
                 }
             }

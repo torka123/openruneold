@@ -59,6 +59,7 @@ constructor(
                 attackStyle = attackStyle,
                 specialMultiplier = specialMultiplier,
                 roundUp = roundUp,
+                slayerTask = target.isSlayerTask(player),
             )
         player.maxHit = maxHit
         return maxHit
@@ -73,11 +74,11 @@ constructor(
         attackStyle: MeleeAttackStyle?,
         specialMultiplier: Double,
         roundUp: Boolean = false,
+        slayerTask: Boolean = target.isSlayerTask(source),
     ): Int {
         val meleeAttributes = meleeAttributes.collect(source, attackType)
         addProcAttributes(meleeAttributes)
 
-        val slayerTask = target.isSlayerTask(source)
         val npcAttributes = npcAttributes.collect(target, targetCurrHp, targetMaxHp, slayerTask)
 
         val modifiedDamage =

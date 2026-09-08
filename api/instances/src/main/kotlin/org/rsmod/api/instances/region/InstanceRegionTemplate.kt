@@ -9,6 +9,7 @@ internal fun buildRegionTemplate(
     regionIds: List<Int>,
     level: Int,
     rotation: InstanceRegionRotation = InstanceRegionRotation.NONE,
+    copyAllLevels: Boolean = false,
 ): RegionStaticTemplate {
     require(regionIds.isNotEmpty()) { "regionIds must not be empty." }
 
@@ -29,12 +30,22 @@ internal fun buildRegionTemplate(
             destZoneLength > RegionRepository.SMALL_REGION_ZONE_LENGTH
 
     val builder: RegionStaticTemplate.() -> Unit = {
-        copy(copyZoneX, copyZoneZ, level) {
-            this.zoneWidth = zoneWidth
-            this.zoneLength = zoneLength
-            this.rotation = rotation.steps
-            regionZoneX = 0
-            regionZoneZ = 0
+        if (copyAllLevels) {
+            copyAllLevels(copyZoneX, copyZoneZ) {
+                this.zoneWidth = zoneWidth
+                this.zoneLength = zoneLength
+                this.rotation = rotation.steps
+                regionZoneX = 0
+                regionZoneZ = 0
+            }
+        } else {
+            copy(copyZoneX, copyZoneZ, level) {
+                this.zoneWidth = zoneWidth
+                this.zoneLength = zoneLength
+                this.rotation = rotation.steps
+                regionZoneX = 0
+                regionZoneZ = 0
+            }
         }
     }
 

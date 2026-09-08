@@ -1,8 +1,8 @@
 package dev.openrune.codegen
 
 /**
- * VarType → KotlinPoet [TypeName], DB column codec class, and scalar reader names for generated
- * row wrappers.
+ * VarType → KotlinPoet [TypeName], DB column codec class, and scalar reader names for generated row
+ * wrappers.
  */
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.INT
@@ -81,12 +81,7 @@ private fun varTypeCodegen(vt: VarType): VarTypeCodegen =
                 scalarOptionalReader = "intOptional",
             )
         VarType.LONG ->
-            VarTypeCodegen(
-                LONG,
-                CodecPlacement.Nested to "IntCodec",
-                "long",
-                "longOptional",
-            )
+            VarTypeCodegen(LONG, CodecPlacement.Nested to "IntCodec", "long", "longOptional")
         VarType.STRING ->
             VarTypeCodegen(
                 STRING,
@@ -95,30 +90,13 @@ private fun varTypeCodegen(vt: VarType): VarTypeCodegen =
                 "stringOptional",
             )
         VarType.SEQ ->
-            VarTypeCodegen(
-                typeSeq,
-                CodecPlacement.Nested to "SeqCodec",
-                scalarReader = "seq",
-            )
+            VarTypeCodegen(typeSeq, CodecPlacement.Nested to "SeqCodec", scalarReader = "seq")
         VarType.SPOTANIM ->
-            VarTypeCodegen(
-                typeSpot,
-                CodecPlacement.Nested to "SpotCodec",
-                scalarReader = "spot",
-            )
+            VarTypeCodegen(typeSpot, CodecPlacement.Nested to "SpotCodec", scalarReader = "spot")
         VarType.NPC ->
-            VarTypeCodegen(
-                typeNpc,
-                CodecPlacement.Nested to "NpcTypeCodec",
-                "npc",
-                "npcOptional",
-            )
+            VarTypeCodegen(typeNpc, CodecPlacement.Nested to "NpcTypeCodec", "npc", "npcOptional")
         VarType.LOC ->
-            VarTypeCodegen(
-                typeLoc,
-                CodecPlacement.Nested to "LocTypeCodec",
-                scalarReader = "loc",
-            )
+            VarTypeCodegen(typeLoc, CodecPlacement.Nested to "LocTypeCodec", scalarReader = "loc")
         VarType.OBJ ->
             VarTypeCodegen(
                 typeObj,
@@ -183,21 +161,17 @@ private fun varTypeCodegen(vt: VarType): VarTypeCodegen =
                 "obj",
                 "objOptional",
             )
-        VarType.GRAPHIC ->
-            VarTypeCodegen(codec = CodecPlacement.TopLevel to "GraphicIdCodec")
+        VarType.GRAPHIC -> VarTypeCodegen(codec = CodecPlacement.TopLevel to "GraphicIdCodec")
         VarType.SEQ -> VarTypeCodegen(codec = CodecPlacement.TopLevel to "SeqIdCodec")
         VarType.MODEL -> VarTypeCodegen(codec = CodecPlacement.TopLevel to "ModelIdCodec")
-        VarType.CATEGORY ->
-            VarTypeCodegen(codec = CodecPlacement.TopLevel to "CategoryIdCodec")
+        VarType.CATEGORY -> VarTypeCodegen(codec = CodecPlacement.TopLevel to "CategoryIdCodec")
         VarType.INV -> VarTypeCodegen(codec = CodecPlacement.TopLevel to "InvIdCodec")
         VarType.IDKIT -> VarTypeCodegen(codec = CodecPlacement.TopLevel to "IdkIdCodec")
         VarType.VARP -> VarTypeCodegen(codec = CodecPlacement.TopLevel to "VarpIdCodec")
         VarType.STRUCT -> VarTypeCodegen(codec = CodecPlacement.TopLevel to "StructIdCodec")
-        VarType.DBTABLE ->
-            VarTypeCodegen(codec = CodecPlacement.TopLevel to "DbtableIdCodec")
+        VarType.DBTABLE -> VarTypeCodegen(codec = CodecPlacement.TopLevel to "DbtableIdCodec")
         VarType.SYNTH -> VarTypeCodegen(codec = CodecPlacement.TopLevel to "SynthIdCodec")
-        VarType.LOCSHAPE ->
-            VarTypeCodegen(codec = CodecPlacement.TopLevel to "LocShapeIdCodec")
+        VarType.LOCSHAPE -> VarTypeCodegen(codec = CodecPlacement.TopLevel to "LocShapeIdCodec")
         else -> VarTypeCodegen()
     }
 

@@ -2,6 +2,7 @@ package org.rsmod.content.areas.wilderness
 
 import jakarta.inject.Inject
 import org.rsmod.api.area.checker.AreaChecker
+import org.rsmod.api.area.checker.isInEdgevilleDungeon
 import org.rsmod.api.area.checker.wildernessLevel
 import org.rsmod.api.attr.AttributeKey
 import org.rsmod.api.player.hook.PlayerTeleportValidateHook
@@ -9,14 +10,14 @@ import org.rsmod.api.player.hook.TeleportType
 import org.rsmod.game.entity.Player
 
 public class WildernessTeleportHook @Inject constructor() : PlayerTeleportValidateHook {
-    override fun validate(
-        player: Player,
-        type: TeleportType,
-        areaChecker: AreaChecker,
-    ): String? {
+    override fun validate(player: Player, type: TeleportType, areaChecker: AreaChecker): String? {
         val level = player.coords.wildernessLevel(areaChecker)
         if (level < 0) {
             return null
+        }
+
+        if (player.coords.isInEdgevilleDungeon() && type != TeleportType.Exempt) {
+            return "A magical force prevents you from teleporting out of this dungeon."
         }
 
         if (type == TeleportType.Chronicle) {
@@ -46,8 +47,7 @@ public class WildernessTeleportHook @Inject constructor() : PlayerTeleportValida
                 TeleportType.Standard -> STANDARD_MAX_WILDERNESS_LEVEL
                 TeleportType.Chronicle,
                 TeleportType.Minigame,
-                TeleportType.Exempt,
-                -> return null
+                TeleportType.Exempt -> return null
             }
 
         if (level > maxLevel) {

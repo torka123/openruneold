@@ -38,7 +38,7 @@ public object MeleeMaxHitOperations {
             modified = scale(modified, multiplier = 7, divisor = 6)
         }
 
-        if (MeleeAttr.Arclight in meleeAttributes && NpcAttr.Demon in npcAttributes) {
+        if ((MeleeAttr.Arclight in meleeAttributes || MeleeAttr.Emberlight in meleeAttributes) && NpcAttr.Demon in npcAttributes) {
             modified =
                 if (NpcAttr.DemonbaneResistance in npcAttributes) {
                     scale(modified, multiplier = 149, divisor = 100)

@@ -9,12 +9,16 @@ import org.rsmod.api.droptable.DropRollItem
 import org.rsmod.api.droptable.KillRollContext
 import org.rsmod.game.entity.Player
 
-public fun RSPrerollTableBuilder<Player, DropRollItem>.brimstoneKeyRoll(konarTaskBonus: Boolean = false) {
-    100 outOf 100 rolls
+public fun RSPrerollTableBuilder<Player, DropRollItem>.brimstoneKeyRoll(
+    konarTaskBonus: Boolean = false
+) {
+    100 outOf
+        100 rolls
         singleRollable {
             shouldInclude { player, otherArgs ->
                 val npc = otherArgs[KillRollContext.npc] ?: return@shouldInclude false
-                val areaChecker = otherArgs[KillRollContext.areaChecker] ?: return@shouldInclude false
+                val areaChecker =
+                    otherArgs[KillRollContext.areaChecker] ?: return@shouldInclude false
                 player.shouldDropBrimstoneKey(npc, areaChecker) && npc.type.combatLevel > 0
             }
             selectResult { _, otherArgs ->

@@ -7,14 +7,21 @@ import org.rsmod.content.interfaces.journal.tab.SideJournalTab
 import org.rsmod.content.interfaces.journal.tab.openJournalTab
 import org.rsmod.content.interfaces.journal.tab.sideJournalTab
 import org.rsmod.content.interfaces.journal.tab.switchJournalTab
+import org.rsmod.content.systems.dailyadventure.DailyAdventureUi
 import org.rsmod.events.EventBus
 import org.rsmod.game.entity.Player
 import org.rsmod.plugin.scripts.PluginScript
 import org.rsmod.plugin.scripts.ScriptContext
 
-class JournalTabScript @Inject constructor(private val eventBus: EventBus) : PluginScript() {
+class JournalTabScript
+@Inject
+constructor(private val eventBus: EventBus, private val dailyAdventureUi: DailyAdventureUi) :
+    PluginScript() {
     override fun ScriptContext.startup() {
-        onIfOpen("interface.side_journal") { player.openActiveJournal() }
+        onIfOpen("interface.side_journal") {
+            dailyAdventureUi.syncNativeState(player)
+            player.openActiveJournal()
+        }
 
         onIfOverlayButton("component.side_journal:summary_list") {
             player.switchJournalTab(SideJournalTab.Summary)
@@ -27,9 +34,18 @@ class JournalTabScript @Inject constructor(private val eventBus: EventBus) : Plu
         onIfOverlayButton("component.side_journal:task_list") {
             player.switchJournalTab(SideJournalTab.Tasks)
         }
+
+        // Capture 20260822T133202 line 2855: `if_buttonx com=side_journal:adventurepath_list
+        // (629:26), op=1`, immediately followed by `side_journal_tab 1 -> 3`.
+        onIfOverlayButton("component.side_journal:adventurepath_list") {
+            player.switchJournalTab(SideJournalTab.AdventurePaths)
+        }
     }
 
     private fun Player.openActiveJournal() = openJournalTab(sideJournalTab, eventBus)
 
-    private fun Player.switchJournalTab(open: SideJournalTab) = switchJournalTab(open, eventBus)
+    private fun Player.switchJournalTab(open: SideJournalTab) {
+        if (open == SideJournalTab.AdventurePaths) dailyAdventureUi.syncNativeState(this)
+        switchJournalTab(open, eventBus)
+    }
 }

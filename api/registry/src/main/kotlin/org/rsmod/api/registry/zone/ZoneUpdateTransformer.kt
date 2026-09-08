@@ -22,6 +22,36 @@ import org.rsmod.map.zone.ZoneGrid
 public object ZoneUpdateTransformer {
     public fun collectEnclosedProtList(updates: ZoneUpdateList): List<ZoneProt> = updates.protList
 
+    /**
+     * Collects the observer-specific enclosed prots from [updates] for the given [observerId]:
+     * private obj updates only when visible to the observer, and obj reveals for everyone except
+     * the obj's receiver. Used by both the root-world zone update path and the world-entity (deck)
+     * zone update path.
+     */
+    public fun toObserverEnclosedProtList(
+        updates: Iterable<ZoneProt>,
+        observerId: Long?,
+    ): List<ZoneProt> {
+        val enclosed = ArrayList<ZoneProt>()
+        for (update in updates) {
+            val partial = update as? PartialFollowsZoneProt ?: continue
+            val prot =
+                when (partial) {
+                    is ObjPrivateZoneProt ->
+                        if (partial.isVisibleTo(observerId)) partial.backing else null
+                    is LocPrivateZoneProt ->
+                        if (partial.isVisibleTo(observerId)) partial.backing else null
+                    is ObjReveal ->
+                        if (observerId == partial.obj.receiverId) null else partial.backing
+                    else -> partial.backing
+                }
+            if (prot != null) {
+                enclosed += prot
+            }
+        }
+        return enclosed
+    }
+
     public fun toPersistentLocChange(loc: LocInfo): ZoneProt {
         val zoneGrid = ZoneGrid.from(loc.coords)
         return if (loc.id == LocRegistry.DELETED_LOC_ID) {
@@ -50,9 +80,19 @@ public object ZoneUpdateTransformer {
         )
     }
 
+    public fun toPrivateLocAddChangeProt(loc: LocInfo, observerId: Long): ZoneProt {
+        val prot = toLocAddChangeProt(loc)
+        return LocPrivateZoneProt(observerId, prot)
+    }
+
     public fun toLocDelProt(loc: LocInfo): ZoneProt {
         val zoneGrid = ZoneGrid.from(loc.coords)
         return LocDel(zoneGrid.x, zoneGrid.z, loc.shapeId, loc.angleId)
+    }
+
+    public fun toPrivateLocDelProt(loc: LocInfo, observerId: Long): ZoneProt {
+        val prot = toLocDelProt(loc)
+        return LocPrivateZoneProt(observerId, prot)
     }
 
     public fun toLocAnim(loc: LocInfo, seq: Int): ZoneProt {
@@ -119,6 +159,14 @@ public object ZoneUpdateTransformer {
         return MapAnim(spotanim, delay, height, zoneGrid.x, zoneGrid.z)
     }
 
+    public fun toPrivateMapAnimProt(
+        spotanim: Int,
+        coord: CoordGrid,
+        height: Int,
+        delay: Int,
+        observerId: Long,
+    ): ZoneProt = LocPrivateZoneProt(observerId, toMapAnimProt(spotanim, coord, height, delay))
+
     public fun toMapProjAnimProt(projAnim: ProjAnim): ZoneProt {
         return MapProjAnimV2(
             id = projAnim.spotanim,
@@ -148,6 +196,11 @@ public object ZoneUpdateTransformer {
 
         override val category: ServerProtCategory
             get() = backing.category
+    }
+
+    public class LocPrivateZoneProt(public val observerId: Long, override val backing: ZoneProt) :
+        PartialFollowsZoneProt {
+        public fun isVisibleTo(observer: Long?): Boolean = observerId == observer
     }
 
     public interface ObjPrivateZoneProt : PartialFollowsZoneProt {

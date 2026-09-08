@@ -94,6 +94,11 @@ public fun Player.mapMultiway(checker: AreaChecker): Boolean {
     return checker.inArea("area.multiway", coords)
 }
 
+/** @return `true` if player-versus-npc combat is multiway at the player's current tile. */
+public fun Player.mapNpcMultiway(checker: AreaChecker): Boolean {
+    return mapMultiway(checker) || checker.inArea("area.npc_multiway", coords)
+}
+
 /**
  * Selects the proper hexadecimal color based on the player's client mode and chatbox transparency.
  *
@@ -159,4 +164,3 @@ public fun Player.hasAtLeast99s(requiredCount: Int): Boolean {
         return statMap.getBaseLevel("stat.${enum.value?.lowercase()}") >= 99
     } >= requiredCount
 }
-

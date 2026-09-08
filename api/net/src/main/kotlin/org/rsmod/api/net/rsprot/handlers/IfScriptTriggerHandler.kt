@@ -14,10 +14,8 @@ import org.rsmod.game.ui.Component
 
 class IfScriptTriggerHandler
 @Inject
-constructor(
-    private val eventBus: EventBus,
-    private val protectedAccess: ProtectedAccessLauncher,
-) : MessageHandler<IfScriptTrigger> {
+constructor(private val eventBus: EventBus, private val protectedAccess: ProtectedAccessLauncher) :
+    MessageHandler<IfScriptTrigger> {
     private val logger = InlineLogger()
 
     private val IfScriptTrigger.asComponent: Component

@@ -3,6 +3,12 @@ package org.rsmod.api.area.checker
 import org.rsmod.map.CoordGrid
 
 public fun CoordGrid.wildernessLevel(areaChecker: AreaChecker): Int {
+    if (isInCorporealBeastLair()) {
+        return corporealBeastLairWildernessLevel()
+    }
+    if (isInEdgevilleDungeon()) {
+        return EDGEVILLE_DUNGEON_WILDERNESS_LEVEL
+    }
     if (!isInWilderness(areaChecker)) {
         return -1
     }

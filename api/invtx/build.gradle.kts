@@ -19,4 +19,10 @@ dependencies {
     implementation(projects.engine.map)
     implementation(projects.engine.objtx)
     implementation(projects.engine.plugin)
+    testImplementation(kotlin("test"))
+}
+
+tasks.test {
+    workingDir = rootProject.projectDir
+    systemProperty("junit.jupiter.execution.parallel.enabled", "false")
 }

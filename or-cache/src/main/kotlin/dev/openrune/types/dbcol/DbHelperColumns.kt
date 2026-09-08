@@ -41,9 +41,8 @@ import org.rsmod.map.CoordGrid
  */
 public fun DbHelper.area(internal: String): AreaType = column(internal, AreaTypeCodec)
 
-public fun DbHelper.boolean(internal: String): Boolean = column(internal,
-    DbColumnCodec.BooleanCodec
-)
+public fun DbHelper.boolean(internal: String): Boolean =
+    column(internal, DbColumnCodec.BooleanCodec)
 
 public fun DbHelper.component(internal: String): ComponentType =
     column(internal, ComponentTypeCodec)
@@ -51,7 +50,9 @@ public fun DbHelper.component(internal: String): ComponentType =
 public fun DbHelper.coord(internal: String): CoordGrid = column(internal, CoordGridCodec)
 
 public fun DbHelper.spot(internal: String): SpotAnimType = column(internal, DbColumnCodec.SpotCodec)
-public fun DbHelper.seq(internal: String): SequenceServerType = column(internal, DbColumnCodec.SeqCodec)
+
+public fun DbHelper.seq(internal: String): SequenceServerType =
+    column(internal, DbColumnCodec.SeqCodec)
 
 public fun DbHelper.dbRow(internal: String): DBRowType = column(internal, DbRowTypeCodec)
 

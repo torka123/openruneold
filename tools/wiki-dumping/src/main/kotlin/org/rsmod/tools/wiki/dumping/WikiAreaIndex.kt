@@ -45,7 +45,8 @@ data class WikiAreaRegion(
         for (current in polygon) {
             val (x1, z1) = current
             val (x0, z0) = previous
-            val intersects = (z1 > z) != (z0 > z) && x < (x0 - x1) * (z - z1) / (z0 - z1).toDouble() + x1
+            val intersects =
+                (z1 > z) != (z0 > z) && x < (x0 - x1) * (z - z1) / (z0 - z1).toDouble() + x1
             if (intersects) {
                 inside = !inside
             }
@@ -61,7 +62,8 @@ data class ResolvedArea(
     val sectionLabel: String? = null,
 )
 
-class WikiAreaIndex private constructor(
+class WikiAreaIndex
+private constructor(
     private val wikiRegions: List<WikiAreaRegion>,
     private val localRegions: List<WikiAreaRegion>,
     private val rlhdRegions: List<WikiAreaRegion>,
@@ -81,14 +83,8 @@ class WikiAreaIndex private constructor(
             val winning = specificMatches.maxWith(areaMatchComparator)
             val mostSpecific = specificMatches.minByOrNull { it.rankArea }
             val sectionLabel =
-                mostSpecific
-                    ?.takeIf { it.slug != winning.slug }
-                    ?.name
-                    ?.let(::formatSectionLabel)
-            return promoteToParent(
-                winning = winning,
-                sectionLabel = sectionLabel,
-            )
+                mostSpecific?.takeIf { it.slug != winning.slug }?.name?.let(::formatSectionLabel)
+            return promoteToParent(winning = winning, sectionLabel = sectionLabel)
         }
 
         val fallbackMatches =
@@ -111,10 +107,7 @@ class WikiAreaIndex private constructor(
             AreaSource.RLHD -> 0
         }
 
-    private fun promoteToParent(
-        winning: WikiAreaRegion,
-        sectionLabel: String?,
-    ): ResolvedArea {
+    private fun promoteToParent(winning: WikiAreaRegion, sectionLabel: String?): ResolvedArea {
         val parentSlug = shortestPromotableParentSlug(winning) ?: winning.slug
         val label =
             when {
@@ -148,7 +141,8 @@ class WikiAreaIndex private constructor(
             .joinToString(" ") { word -> word.replaceFirstChar { it.uppercase() } }
     }
 
-    val regionCount: Int get() = wikiRegions.size + localRegions.size + rlhdRegions.size
+    val regionCount: Int
+        get() = wikiRegions.size + localRegions.size + rlhdRegions.size
 
     companion object {
         private const val DEFAULT_AREA_DIR = ".data/raw-cache/map/area"
@@ -179,12 +173,13 @@ class WikiAreaIndex private constructor(
 
             log.info(
                 "loaded ${fromWiki.size} wiki + ${fromJson.size} local + ${fromRlhd.size} RLHD " +
-                    "area region(s) for spawn bucketing",
+                    "area region(s) for spawn bucketing"
             )
             val wikiMerged = mergeRegions(fromWiki)
             val localMerged = mergeRegions(fromJson)
             val rlhdMerged = mergeRegions(fromRlhd)
-            val regionsBySlug = mergeRegions(wikiMerged + localMerged + rlhdMerged).associateBy { it.slug }
+            val regionsBySlug =
+                mergeRegions(wikiMerged + localMerged + rlhdMerged).associateBy { it.slug }
             return WikiAreaIndex(
                 wikiRegions = wikiMerged,
                 localRegions = localMerged,
@@ -235,41 +230,44 @@ class WikiAreaIndex private constructor(
                     continue
                 }
                 runCatching {
-                    val entries: List<AreaJsonFile> = mapper.readValue(path.toFile().readText())
-                    for (entry in entries) {
-                        val polygons =
-                            entry.polygons.map { polygon ->
-                                polygon.vertices.map { vertex -> vertex.x to vertex.z }
-                            }
-                        if (polygons.isEmpty()) {
-                            continue
-                        }
-                        val levels =
-                            entry.levels
-                                .filter { it in 0..3 }
-                                .sorted()
-                                .let { sorted ->
-                                    if (sorted.isEmpty()) {
-                                        0..3
-                                    } else {
-                                        sorted.first()..sorted.last()
-                                    }
+                        val entries: List<AreaJsonFile> = mapper.readValue(path.toFile().readText())
+                        for (entry in entries) {
+                            val polygons =
+                                entry.polygons.map { polygon ->
+                                    polygon.vertices.map { vertex -> vertex.x to vertex.z }
                                 }
-                        regions +=
-                            WikiAreaRegion(
-                                name = entry.name,
-                                slug = path.nameWithoutExtension,
-                                source = AreaSource.LOCAL_JSON,
-                                polygons = polygons,
-                                levels = levels,
-                                rankArea = polygons.sumOf(::boundingBoxArea),
-                            )
+                            if (polygons.isEmpty()) {
+                                continue
+                            }
+                            val levels =
+                                entry.levels
+                                    .filter { it in 0..3 }
+                                    .sorted()
+                                    .let { sorted ->
+                                        if (sorted.isEmpty()) {
+                                            0..3
+                                        } else {
+                                            sorted.first()..sorted.last()
+                                        }
+                                    }
+                            regions +=
+                                WikiAreaRegion(
+                                    name = entry.name,
+                                    slug = path.nameWithoutExtension,
+                                    source = AreaSource.LOCAL_JSON,
+                                    polygons = polygons,
+                                    levels = levels,
+                                    rankArea = polygons.sumOf(::boundingBoxArea),
+                                )
+                        }
                     }
-                }.onFailure { error ->
-                    log.warn("failed to read area json ${path.fileName}: ${error.message}")
-                }
+                    .onFailure { error ->
+                        log.warn("failed to read area json ${path.fileName}: ${error.message}")
+                    }
             }
-            log.verbose("loaded ${regions.size} area region(s) from ${areaDir.toAbsolutePath().normalize()}")
+            log.verbose(
+                "loaded ${regions.size} area region(s) from ${areaDir.toAbsolutePath().normalize()}"
+            )
             return regions
         }
 
@@ -309,7 +307,11 @@ class WikiAreaIndex private constructor(
                         source = existing.source,
                         polygons = existing.polygons + region.polygons,
                         boxes = existing.boxes + region.boxes,
-                        levels = min(existing.levels.first, region.levels.first)..max(existing.levels.last, region.levels.last),
+                        levels =
+                            min(existing.levels.first, region.levels.first)..max(
+                                    existing.levels.last,
+                                    region.levels.last,
+                                ),
                         rankArea = max(existing.rankArea, region.rankArea),
                     )
             }
@@ -329,11 +331,7 @@ class WikiAreaIndex private constructor(
         }
 
         private fun slugify(name: String): String =
-            name
-                .lowercase()
-                .replace("'", "")
-                .replace(Regex("""[^a-z0-9]+"""), "_")
-                .trim('_')
+            name.lowercase().replace("'", "").replace(Regex("""[^a-z0-9]+"""), "_").trim('_')
 
         private val PARENTHETICAL_LOCATION = Regex("""\(([^)]+)\)\s*$""")
 
@@ -356,12 +354,7 @@ class WikiAreaIndex private constructor(
         val polygons: List<AreaJsonPolygon> = emptyList(),
     )
 
-    private data class AreaJsonPolygon(
-        val vertices: List<AreaJsonVertex> = emptyList(),
-    )
+    private data class AreaJsonPolygon(val vertices: List<AreaJsonVertex> = emptyList())
 
-    private data class AreaJsonVertex(
-        val x: Int,
-        val z: Int,
-    )
+    private data class AreaJsonVertex(val x: Int, val z: Int)
 }

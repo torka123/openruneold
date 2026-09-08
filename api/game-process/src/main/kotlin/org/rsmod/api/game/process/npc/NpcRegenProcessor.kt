@@ -26,7 +26,9 @@ public class NpcRegenProcessor {
         attackLvl = attackLvl.stepToward(baseAttackLvl)
         strengthLvl = strengthLvl.stepToward(baseStrengthLvl)
         defenceLvl = defenceLvl.stepToward(baseDefenceLvl)
-        hitpoints = hitpoints.stepToward(baseHitpointsLvl)
+        if (!suppressHitpointsRegen) {
+            hitpoints = hitpoints.stepToward(baseHitpointsLvl)
+        }
         rangedLvl = rangedLvl.stepToward(baseRangedLvl)
         magicLvl = magicLvl.stepToward(baseMagicLvl)
     }

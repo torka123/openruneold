@@ -1,11 +1,11 @@
 package org.rsmod.tools.wiki.dumping
 
-import org.rsmod.api.droptable.toml.DropTableTomlWriter
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
-import org.rsmod.api.droptable.toml.TomlDropTableDef
+import org.rsmod.api.droptable.toml.DropTableTomlWriter
 import org.rsmod.api.droptable.toml.TomlChanceEntry
+import org.rsmod.api.droptable.toml.TomlDropTableDef
 import org.rsmod.api.droptable.toml.TomlGuaranteedEntry
 import org.rsmod.api.droptable.toml.TomlSeparateRoll
 import org.rsmod.api.droptable.toml.TomlWeightedEntry
@@ -19,7 +19,8 @@ private val CLUE_SCROLL_BOX_TRANSFORM_NOTE =
     Regex("""scroll\s*box|x\s*marks\s*the\s*spot""", RegexOption.IGNORE_CASE)
 
 object DropTableTomlExporter {
-    fun isSimpleForTomlExport(spec: GeneratedDropTableSpec): Boolean = tomlExportBlockers(spec).isEmpty()
+    fun isSimpleForTomlExport(spec: GeneratedDropTableSpec): Boolean =
+        tomlExportBlockers(spec).isEmpty()
 
     fun tomlExportBlockers(spec: GeneratedDropTableSpec): List<String> {
         val blockers = mutableListOf<String>()
@@ -28,15 +29,20 @@ object DropTableTomlExporter {
         }
         spec.preRollSeparateRolls.forEach { roll ->
             if (roll.entries.isEmpty()) {
-                blockers += "pre-roll separate roll ${roll.accessNumerator}/${roll.accessDenominator} has no entries"
+                blockers +=
+                    "pre-roll separate roll ${roll.accessNumerator}/${roll.accessDenominator} has no entries"
             }
-            roll.entries.filterNot { it.isSimpleTomlEntry() }.forEach { entry ->
-                blockers += "pre-roll separate entry not TOML-simple: ${entry.obj.ifBlank { entry.wikiName }}"
-            }
+            roll.entries
+                .filterNot { it.isSimpleTomlEntry() }
+                .forEach { entry ->
+                    blockers +=
+                        "pre-roll separate entry not TOML-simple: ${entry.obj.ifBlank { entry.wikiName }}"
+                }
         }
         spec.separateRolls.forEach { roll ->
             if (roll.entries.isEmpty()) {
-                blockers += "main separate roll ${roll.accessNumerator}/${roll.accessDenominator} has no entries"
+                blockers +=
+                    "main separate roll ${roll.accessNumerator}/${roll.accessDenominator} has no entries"
             }
             roll.entries.forEach { entry ->
                 entry.tomlEntryBlockers().forEach { reason ->
@@ -52,9 +58,9 @@ object DropTableTomlExporter {
                 blockers += "herb roll variants on ${access.tableRef}"
             }
         }
-        spec.guaranteed.filterNot { it.isSimpleTomlEntry() }.forEach { entry ->
-            blockers += "guaranteed entry not TOML-simple: ${entry.obj}"
-        }
+        spec.guaranteed
+            .filterNot { it.isSimpleTomlEntry() }
+            .forEach { entry -> blockers += "guaranteed entry not TOML-simple: ${entry.obj}" }
         spec.preRoll.forEach { entry ->
             if (!entry.isSimpleTomlEntry()) {
                 blockers += "pre-roll entry not TOML-simple: ${entry.obj}"
@@ -65,12 +71,14 @@ object DropTableTomlExporter {
         }
         spec.main.forEach { entry ->
             entry.tomlEntryBlockers().forEach { reason ->
-                blockers += "main entry not TOML-simple (${entry.obj.ifBlank { entry.wikiName }}): $reason"
+                blockers +=
+                    "main entry not TOML-simple (${entry.obj.ifBlank { entry.wikiName }}): $reason"
             }
         }
         spec.tertiary.forEach { entry ->
             if (!entry.isSimpleTomlTertiaryEntry()) {
-                blockers += "tertiary entry not TOML-simple: ${entry.obj.ifBlank { entry.wikiName }}"
+                blockers +=
+                    "tertiary entry not TOML-simple: ${entry.obj.ifBlank { entry.wikiName }}"
             } else if (!entry.brimstoneCombatRoll && entry.chanceDenominator() == null) {
                 blockers += "tertiary entry missing outOf: ${entry.obj.ifBlank { entry.wikiName }}"
             }
@@ -94,12 +102,14 @@ object DropTableTomlExporter {
         val mainEntries = buildList {
             addAll(spec.main.map { it.toTomlWeightedEntry() })
             addAll(
-                spec.subtableAccesses.filter { it.isTomlExportableSharedAccess() }.map { access ->
-                    TomlWeightedEntry(
-                        weight = access.numerator,
-                        shared = access.sharedTableName(),
-                    )
-                },
+                spec.subtableAccesses
+                    .filter { it.isTomlExportableSharedAccess() }
+                    .map { access ->
+                        TomlWeightedEntry(
+                            weight = access.numerator,
+                            shared = access.sharedTableName(),
+                        )
+                    }
             )
             val nothingWeight = spec.poolPaddingWeight()
             if (nothingWeight > 0) {
@@ -149,7 +159,11 @@ object DropTableTomlOutputLayout {
     const val MONSTERS_DIR = "monsters"
 
     fun resolveTableFile(tomlRoot: Path, tableVarName: String): Path {
-        val fileName = tableVarName.removeSuffix("DropTable").replace(Regex("([a-z])([A-Z])"), "$1_$2").lowercase()
+        val fileName =
+            tableVarName
+                .removeSuffix("DropTable")
+                .replace(Regex("([a-z])([A-Z])"), "$1_$2")
+                .lowercase()
         return tomlRoot.resolve(MONSTERS_DIR).resolve("$fileName.toml")
     }
 }
@@ -234,7 +248,7 @@ private fun ResolvedDropEntry.toTomlChanceEntry(): TomlChanceEntry =
         numerator = weight ?: 1,
         denominator =
             exportClueDenominator(
-                chanceDenominator() ?: error("Chance entry '${obj}' is missing outOf."),
+                chanceDenominator() ?: error("Chance entry '${obj}' is missing outOf.")
             ),
         obj = obj,
         count = formatTomlCount(),
@@ -293,9 +307,7 @@ private fun org.rsmod.tools.wiki.dumping.wiki.WikiQuestDropRequirement.toTomlQue
 private const val LOOTING_BAG_OBJ = "obj.looting_bag"
 private const val BRIMSTONE_KEY_OBJ = "obj.konar_key"
 
-data class TomlExportConfig(
-    val tomlRoot: Path,
-)
+data class TomlExportConfig(val tomlRoot: Path)
 
 fun defaultTomlOutputDir(repoRoot: Path?): Path =
     if (repoRoot != null) {

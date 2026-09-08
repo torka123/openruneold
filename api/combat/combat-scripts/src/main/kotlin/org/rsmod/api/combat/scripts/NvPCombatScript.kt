@@ -10,6 +10,7 @@ import org.rsmod.api.combat.commons.types.RangedAttackType
 import org.rsmod.api.combat.player.aggressiveNpc
 import org.rsmod.api.config.refs.params
 import org.rsmod.api.npc.access.StandardNpcAccess
+import org.rsmod.api.npc.mapNpcMultiway
 import org.rsmod.api.player.isInPvnCombat
 import org.rsmod.api.player.isInPvpCombat
 import org.rsmod.api.script.advanced.onDefaultAiApPlayer2
@@ -37,7 +38,7 @@ constructor(private val combat: NvPCombat, private val areaChecker: AreaChecker)
     }
 
     private fun StandardNpcAccess.canAttack(target: Player): Boolean {
-        val singleCombat = !mapMultiway(areaChecker)
+        val singleCombat = !npc.mapNpcMultiway(areaChecker)
         if (singleCombat) {
             if (target.isInPvpCombat()) {
                 return false
@@ -56,7 +57,9 @@ constructor(private val combat: NvPCombat, private val areaChecker: AreaChecker)
         val attackType = resolveAttackType()
         return when {
             attackType.isRanged ->
-                CombatAttack.NpcRanged(RangedAttackType.from(attackType) ?: RangedAttackType.Standard)
+                CombatAttack.NpcRanged(
+                    RangedAttackType.from(attackType) ?: RangedAttackType.Standard
+                )
             // `maxHit = 0` defers max-hit resolution to the npc's magic stats in [NvPCombat].
             attackType.isMagic -> CombatAttack.NpcMagic(maxHit = 0)
             else -> CombatAttack.NpcMelee(MeleeAttackType.from(attackType))

@@ -21,15 +21,12 @@ public data class DatabaseConfig(
 
             val (triple, usesEmbeddedPostgres) =
                 when {
-                    embedded != null && !gameJdbcOverridesEmbedded ->
-                        embedded to true
+                    embedded != null && !gameJdbcOverridesEmbedded -> embedded to true
                     gameJdbc.isNotEmpty() -> {
-                        val pg = checkNotNull(dbPg) { "database.postgres required when jdbc-url is set" }
-                        Triple(
-                            gameJdbc,
-                            pg.user.trim().ifBlank { "openrune" },
-                            pg.password,
-                        ) to false
+                        val pg =
+                            checkNotNull(dbPg) { "database.postgres required when jdbc-url is set" }
+                        Triple(gameJdbc, pg.user.trim().ifBlank { "openrune" }, pg.password) to
+                            false
                     }
                     embedded != null -> embedded to true
                     else -> {
@@ -60,7 +57,8 @@ public data class DatabaseConfig(
                 jdbcUrl.equals(STOCK_GAME_JDBC_LOCALHOST, ignoreCase = true)
 
         private const val STOCK_GAME_JDBC_127 = "jdbc:postgresql://127.0.0.1:5432/openrune_game"
-        private const val STOCK_GAME_JDBC_LOCALHOST = "jdbc:postgresql://localhost:5432/openrune_game"
+        private const val STOCK_GAME_JDBC_LOCALHOST =
+            "jdbc:postgresql://localhost:5432/openrune_game"
 
         private fun fromBase(
             base: Triple<String, String, String>,
@@ -71,8 +69,7 @@ public data class DatabaseConfig(
                 System.getenv("OPENRUNE_JDBC_URL")?.trim()?.takeIf { it.isNotBlank() } ?: baseJdbc
             val user =
                 System.getenv("OPENRUNE_DB_USER")?.trim()?.takeIf { it.isNotBlank() } ?: baseUser
-            val password =
-                System.getenv("OPENRUNE_DB_PASSWORD")?.trim() ?: basePassword
+            val password = System.getenv("OPENRUNE_DB_PASSWORD")?.trim() ?: basePassword
             return DatabaseConfig(
                 jdbcUrl = jdbcUrl,
                 user = user,

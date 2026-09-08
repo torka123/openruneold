@@ -4,6 +4,7 @@ import org.rsmod.api.player.dialogue.Dialogue
 import org.rsmod.content.slayer.SlayerTaskChoiceInterface
 import org.rsmod.content.slayer.core.MortimerAssignment
 import org.rsmod.content.slayer.core.MortimerModifiers
+import org.rsmod.content.slayer.core.SlayerAssignmentChoices
 import org.rsmod.content.slayer.core.SlayerTaskManager
 import org.rsmod.content.slayer.core.SlayerTaskManager.AssignPreviousResult
 import org.rsmod.content.slayer.dialogue.GenericDialogue.rewardsOrShopDialogue
@@ -40,7 +41,10 @@ object MortimerDialogue {
 
     suspend fun Dialogue.needAnotherAssignment() {
         chatPlayer(neutral, "I need another assignment.")
-        handleAssignment()
+        chatNpc(
+            neutral,
+            "I no longer issue regular assignments. Speak to Krystilia in Edgeville for the Wilderness roster.",
+        )
     }
 
     private suspend fun Dialogue.firstMeeting() {
@@ -54,7 +58,7 @@ object MortimerDialogue {
         )
         chatNpc(
             neutral,
-            "If you slay for me, I will give you the choice of two different creatures to be assigned. If you continue to prove your worth to me, I could be convinced to offer three choices instead of two.",
+            "If you slay for me, I will give you the choice of three different creatures to be assigned.",
         )
         chatPlayer(quiz, "What's the catch?")
         chatNpc(
@@ -104,16 +108,23 @@ object MortimerDialogue {
             return
         }
 
-        if (MortimerAssignment.hasPendingChoice(access)) {
-            val master =
-                SlayerTaskManager.findMasterByNpc(MortimerAssignment.NPC) ?: return
-            val offers = MortimerAssignment.readStoredOffers(access, master)
-            if (offers.isNotEmpty()) {
+        if (SlayerAssignmentChoices.hasPendingChoice(access)) {
+            val master = SlayerAssignmentChoices.pendingMaster(access.player)
+            if (
+                master != null &&
+                    MortimerAssignment.isMortimer(master) &&
+                    SlayerAssignmentChoices.hasValidStoredOffers(access, master)
+            ) {
                 chatNpc(neutral, "Take your pick. Which of these appeals to you?")
-                SlayerTaskChoiceInterface.openAndAwait(access)
+                SlayerTaskChoiceInterface.open(access)
                 return
             }
-            MortimerAssignment.clearOffers(access)
+            if (master != null && !MortimerAssignment.isMortimer(master)) {
+                val name = SlayerAssignmentChoices.pendingMasterName(access.player) ?: "another Slayer master"
+                chatNpc(neutral, "You already have assignment choices waiting from $name. Pick one of those first.")
+                return
+            }
+            SlayerAssignmentChoices.clearOffers(access)
         }
 
         val capeOffer = SlayerTaskManager.rollCapePerkOffer(access, MortimerAssignment.NPC)
@@ -141,7 +152,7 @@ object MortimerDialogue {
             1 -> {
                 chatPlayer(neutral, "Yes please.")
                 when (SlayerTaskManager.assignPreviousTask(access, MortimerAssignment.NPC)) {
-                    AssignPreviousResult.Success, AssignPreviousResult.BlockedPrevious -> {
+                    AssignPreviousResult.Success -> {
                         val task = SlayerTaskManager.getCurrentSlayerTask(access)
                         if (task != null) {
                             val count = access.vars["varp.slayer_count"]
@@ -151,6 +162,7 @@ object MortimerDialogue {
                             )
                         }
                     }
+                    AssignPreviousResult.BlockedPrevious,
                     AssignPreviousResult.Failed -> offerNewChoices()
                 }
             }
@@ -167,15 +179,13 @@ object MortimerDialogue {
                 chatNpc(neutral, "I can't assign you a task right now.")
                 return
             }
-        val offers = MortimerAssignment.rollOffers(access, master)
-        if (offers.isNullOrEmpty()) {
+        val offers = SlayerAssignmentChoices.rollOffers(access, master)
+        if (offers == null || !SlayerAssignmentChoices.storeOffers(access, master, offers)) {
             chatNpc(neutral, SlayerTaskManager.assignmentUnavailableMessage(access, master))
             return
         }
-
-        MortimerAssignment.storeOffers(access, offers)
         chatNpc(neutral, "Take your pick. Which of these appeals to you?")
-        SlayerTaskChoiceInterface.openAndAwait(access)
+        SlayerTaskChoiceInterface.open(access)
     }
 
     private suspend fun Dialogue.combatDifficultyDialogue() {
@@ -278,16 +288,14 @@ object MortimerDialogue {
         )
         chatNpc(
             neutral,
-            "And finally, if you complete 50 of my assignments, I'll give you three different tasks to choose from instead of my normal two!",
+            "No matter how many assignments you've completed, I'll always give you three different tasks to choose from.",
         )
         chatPlayer(quiz, "So, how many of your tasks have I completed so far?")
         val count = MortimerAssignment.tasksCompleted(access.player)
         val message =
             when {
-                count >= 50 ->
-                    "By my records, I count $count, so you've already proven yourself more than capable of handling all my mortifiers!"
                 count >= 40 ->
-                    "By my records, I count $count. Keep at it and you'll unlock the third task choice."
+                    "By my records, I count $count, so you've unlocked every mortifier I offer."
                 count >= 25 ->
                     "By my records, I count $count. You're making good progress."
                 count >= 15 ->

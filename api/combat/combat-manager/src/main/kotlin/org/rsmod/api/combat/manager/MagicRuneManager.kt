@@ -1,10 +1,10 @@
 package org.rsmod.api.combat.manager
 
-import dev.openrune.definition.type.VarBitType
 import dev.openrune.types.ItemServerType
 import jakarta.inject.Inject
 import kotlin.collections.any
 import kotlin.contracts.contract
+import org.rsmod.api.combat.commons.magic.AncientMagicksAccessPolicy
 import org.rsmod.api.combat.commons.magic.MagicSpell
 import org.rsmod.api.combat.commons.magic.Spellbook
 import org.rsmod.api.config.refs.BaseParams
@@ -81,6 +81,25 @@ constructor(
             return false
         }
         return hasRunes(player, spell)
+    }
+
+    /**
+     * Checks whether [spell] is currently castable without consuming requirements or sending a
+     * failure message. This is used when an item may transparently substitute another spell and
+     * must fall back to the player's original selection when the substitute is unavailable.
+     */
+    public fun canCastSpellSilently(
+        player: Player,
+        spell: MagicSpell,
+        book: Spellbook = player.spellbook,
+    ): Boolean {
+        if (spell.spellbook != book || player.magicLvl < spell.levelReq) {
+            return false
+        }
+        if (book == Spellbook.Ancients && !AncientMagicksAccessPolicy.canAccess(player)) {
+            return false
+        }
+        return validateSpell(player, spell).all(MagicRunes.Validation::isValid)
     }
 
     /**
@@ -227,6 +246,12 @@ constructor(
         spell: MagicSpell,
         book: Spellbook,
     ): CastResult.Failure? {
+        if (
+            spell.spellbook == Spellbook.Ancients && !AncientMagicksAccessPolicy.canAccess(player)
+        ) {
+            player.mes("You need to unlock Ancient Magicks before casting this spell.")
+            return CastResult.Failure.AncientMagicksLocked
+        }
         if (spell.spellbook != book) {
             // Official behavior: This does not send a message - it simply no-ops.
             return CastResult.Failure.IncorrectSpellbook
@@ -365,6 +390,8 @@ constructor(
             public object MissingLevelRequirement : Failure()
 
             public object IncorrectSpellbook : Failure()
+
+            public object AncientMagicksLocked : Failure()
         }
     }
 

@@ -7,6 +7,8 @@ kotlin {
 }
 
 dependencies {
+    implementation(projects.api.attr)
+    implementation(libs.guice)
     implementation(projects.api.mechanics.toxins)
     implementation(projects.api.config)
     implementation(projects.api.npc)
@@ -19,4 +21,5 @@ dependencies {
     implementation(projects.engine.game)
     implementation(projects.engine.map)
     implementation(projects.engine.routefinder)
+    testImplementation(kotlin("test"))
 }

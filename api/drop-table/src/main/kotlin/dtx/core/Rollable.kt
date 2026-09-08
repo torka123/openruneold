@@ -1,6 +1,6 @@
 package dtx.core
 
-public interface Rollable<T, R>: RollableHooks<T, R> {
+public interface Rollable<T, R> : RollableHooks<T, R> {
 
     public fun selectResult(target: T, otherArgs: ArgMap): RollResult<R>
 
@@ -20,7 +20,7 @@ public interface Rollable<T, R>: RollableHooks<T, R> {
 
     public companion object {
 
-        public data object EmptyRollable: Rollable<Any?, Any?> by EmptyRollable
+        public data object EmptyRollable : Rollable<Any?, Any?> by EmptyRollable
 
         public fun <T, R> Empty(): Rollable<T, R> {
             return EmptyRollable as Rollable<T, R>

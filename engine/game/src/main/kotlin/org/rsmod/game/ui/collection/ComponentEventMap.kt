@@ -27,9 +27,11 @@ public class ComponentEventMap(
     }
 
     public fun add(internal: String, range: IntRange, events: Long) {
-
         val type = ServerCacheManager.fromComponent(internal.asRSCM(RSCMType.COMPONENT))
+        add(type, range, events)
+    }
 
+    public fun add(type: ComponentType, range: IntRange, events: Long) {
         val eventList = interfaces.computeIfAbsent(type.interfaceId) { mutableListOf() }
         val event = Event.from(type.component, range.first, range.last, events)
         eventList.add(event)
@@ -42,9 +44,7 @@ public class ComponentEventMap(
     public data class Event(val component: Int, val start: Int, val end: Int, val events: Long) {
         public companion object {
             public fun from(component: Int, start: Int, end: Int, events: Long): Event {
-                val clampedStart = if (start == -1) 0 else start
-                val clampedEnd = if (end == -1) Int.MAX_VALUE else end
-                return Event(component, clampedStart, clampedEnd, events)
+                return Event(component, start, end, events)
             }
         }
     }

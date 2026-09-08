@@ -23,6 +23,9 @@ public class UserInterfaceMap(
 ) {
     @InternalApi public var closeModal: Boolean = false
 
+    /** A running button action can ignore repeat clicks without blocking movement or other input. */
+    public var ignoredOverlayButton: Component = Component.NULL
+
     public var frameResizable: Boolean = false
 
     public var frameWidth: Int = 0
@@ -48,7 +51,8 @@ public class UserInterfaceMap(
 
     public fun containsTopLevel(topLevel: InterfaceType): Boolean = this.topLevel.id == topLevel.id
 
-    public fun containsTopLevel(topLevel: String): Boolean = this.topLevel.id == topLevel.asRSCM(RSCMType.INTERFACE)
+    public fun containsTopLevel(topLevel: String): Boolean =
+        this.topLevel.id == topLevel.asRSCM(RSCMType.INTERFACE)
 
     public fun containsOverlay(overlay: InterfaceType): Boolean =
         overlays.backing.containsValue(overlay.id)
@@ -58,7 +62,8 @@ public class UserInterfaceMap(
 
     public fun containsModal(modal: InterfaceType): Boolean = modals.backing.containsValue(modal.id)
 
-    public fun containsModal(modal: String): Boolean = modals.backing.containsValue(modal.asRSCM(RSCMType.INTERFACE))
+    public fun containsModal(modal: String): Boolean =
+        modals.backing.containsValue(modal.asRSCM(RSCMType.INTERFACE))
 
     public fun containsGameframe(type: String): Boolean =
         gameframe.backing.containsValue(type.asRSCM(RSCMType.INTERFACE))
@@ -69,7 +74,8 @@ public class UserInterfaceMap(
 
     public fun getModal(key: ComponentType): Component = modals.backing.get(key)
 
-    public fun getModalOrNull(key: String): Component? = getModal(ServerCacheManager.fromComponent(key)).orNull()
+    public fun getModalOrNull(key: String): Component? =
+        getModal(ServerCacheManager.fromComponent(key)).orNull()
 
     public fun getGameframe(key: ComponentType): Component = gameframe.backing.get(key)
 

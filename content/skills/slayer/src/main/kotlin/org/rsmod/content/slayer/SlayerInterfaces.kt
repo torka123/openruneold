@@ -20,7 +20,6 @@ object SlayerInterfaces {
 
         val master = SlayerTaskManager.findMasterByNpc(npcId) ?: return
 
-        VarPlayerIntMapSetter.set(access.player, "varbit.slayer_master", master.masterId)
         VarPlayerIntMapSetter.set(access.player, "varbit.slayer_master_in_focus", master.masterId)
 
         access.player.ifSetEvents(CONFIRM_COMPONENT, 0..200, IfEvent.Op1)

@@ -105,12 +105,7 @@ public object DropTableTomlWriter {
         appendHooks(sb, entry.toHooks())
     }
 
-    private fun appendCount(
-        sb: StringBuilder,
-        count: String?,
-        countMin: Int?,
-        countMax: Int?,
-    ) {
+    private fun appendCount(sb: StringBuilder, count: String?, countMin: Int?, countMax: Int?) {
         when {
             countMin != null && countMax != null -> {
                 if (countMin == countMax) {
@@ -152,12 +147,14 @@ public object DropTableTomlWriter {
         if (hooks.requireWilderness) {
             sb.appendLine("require_wilderness = true")
         }
-        hooks.quest?.takeIf { it.isNotBlank() }?.let { quest ->
-            sb.appendLine("quest = ${quote(quest)}")
-            hooks.questMode?.takeIf { it.isNotBlank() }?.let { mode ->
-                sb.appendLine("quest_mode = ${quote(mode)}")
+        hooks.quest
+            ?.takeIf { it.isNotBlank() }
+            ?.let { quest ->
+                sb.appendLine("quest = ${quote(quest)}")
+                hooks.questMode
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { mode -> sb.appendLine("quest_mode = ${quote(mode)}") }
             }
-        }
     }
 
     private fun quote(value: String): String =

@@ -169,6 +169,26 @@ count = 1
 weight = 12
 shared = "gem"
 
+# Independent OSRS sigil roll: 1/585, then Elysian 1/7, Spectral 3/7, Arcane 3/7.
+[[main.separate_rolls]]
+numerator = 1
+denominator = 585
+
+[[main.separate_rolls.entries]]
+weight = 1
+obj = "obj.elysian_sigil"
+count = 1
+
+[[main.separate_rolls.entries]]
+weight = 3
+obj = "obj.spectral_sigil"
+count = 1
+
+[[main.separate_rolls.entries]]
+weight = 3
+obj = "obj.arcane_sigil"
+count = 1
+
 [[tertiary]]
 numerator = 1
 denominator = 1000

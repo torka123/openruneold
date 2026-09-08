@@ -4,6 +4,7 @@ area_id = "area.wilderness"
 levels = [0, 1, 2, 3]
 includes = [
     "area.wilderness_dungeons",
+    "area.edgeville_dungeon",
     "area.minor_wilderness_bosses_dungeons",
     "area.demonic_ruins",
     "area.chaos_temple",

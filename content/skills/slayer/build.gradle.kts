@@ -19,6 +19,8 @@ dependencies {
     implementation(projects.api.random)
     implementation(projects.api.script)
     implementation(projects.engine.game)
+    implementation(projects.engine.routefinder)
     implementation(projects.api.invtx)
+    implementation(projects.api.utils.utilsLogging)
     implementation(projects.content.skills.utils)
 }

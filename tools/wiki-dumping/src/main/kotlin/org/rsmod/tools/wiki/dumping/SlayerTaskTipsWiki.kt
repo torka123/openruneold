@@ -30,7 +30,9 @@ object SlayerTaskTipsWiki {
 
         val wikiRows = parseTipsFromWikitext(tipsWikitext)
         if (wikiRows.isEmpty()) {
-            System.err.println("[slayer-dump] No tips parsed from wiki wikitext; check Slayer_task_tips page format.")
+            System.err.println(
+                "[slayer-dump] No tips parsed from wiki wikitext; check Slayer_task_tips page format."
+            )
         }
 
         for ((monster, tip) in wikiRows) {
@@ -54,49 +56,47 @@ object SlayerTaskTipsWiki {
         return ResolveResult(tipsByTargetId = taskTips, unmappedMonsters = unmapped.distinct())
     }
 
-    fun renderTaskTipsEnum(tipsByTargetId: Map<Int, String>): String =
-        buildString {
-            appendLine("# https://oldschool.runescape.wiki/w/Slayer_task_tips")
-            appendLine("# Task id -> tip (dialogue). Regenerate: SlayerTaskWikiDumper main.")
-            appendLine()
-            appendLine("[[enum]]")
-            appendLine("isServerOnly = true")
-            appendLine("id = \"enum.slayer_task_tips\"")
-            appendLine("keyType = \"INT\"")
-            appendLine("valueType = \"STRING\"")
-            appendLine()
-            appendLine("[enum.values]")
-            for ((targetId, tip) in tipsByTargetId.toSortedMap()) {
-                appendLine("$targetId = \"${escapeTomlString(tip)}\"")
-            }
+    fun renderTaskTipsEnum(tipsByTargetId: Map<Int, String>): String = buildString {
+        appendLine("# https://oldschool.runescape.wiki/w/Slayer_task_tips")
+        appendLine("# Task id -> tip (dialogue). Regenerate: SlayerTaskWikiDumper main.")
+        appendLine()
+        appendLine("[[enum]]")
+        appendLine("isServerOnly = true")
+        appendLine("id = \"enum.slayer_task_tips\"")
+        appendLine("keyType = \"INT\"")
+        appendLine("valueType = \"STRING\"")
+        appendLine()
+        appendLine("[enum.values]")
+        for ((targetId, tip) in tipsByTargetId.toSortedMap()) {
+            appendLine("$targetId = \"${escapeTomlString(tip)}\"")
         }
+    }
 
     fun renderNpcTipsToml(
         entries: List<SlayerTargetMonsterEntry>,
         tipsByTargetId: Map<Int, String>,
-    ): String =
-        buildString {
-            appendLine("# https://oldschool.runescape.wiki/w/Slayer_task_tips")
-            appendLine("# NPC param.slayer_task_tip. Regenerate: SlayerTaskWikiDumper main.")
-            appendLine()
+    ): String = buildString {
+        appendLine("# https://oldschool.runescape.wiki/w/Slayer_task_tips")
+        appendLine("# NPC param.slayer_task_tip. Regenerate: SlayerTaskWikiDumper main.")
+        appendLine()
 
-            val tipToTargets = linkedMapOf<String, LinkedHashSet<String>>()
-            for (entry in entries) {
-                val tip = tipsByTargetId[entry.targetId] ?: continue
-                val bucket = tipToTargets.getOrPut(tip) { linkedSetOf() }
-                for (npc in entry.targets) {
-                    bucket += npc
-                }
-            }
-
-            for ((tip, targets) in tipToTargets) {
-                if (targets.isEmpty()) continue
-                appendLine("[[npc_tip]]")
-                appendLine("targets = [${targets.sorted().joinToString(", ") { "\"$it\"" }}]")
-                appendLine("tip = \"${escapeTomlString(tip)}\"")
-                appendLine()
+        val tipToTargets = linkedMapOf<String, LinkedHashSet<String>>()
+        for (entry in entries) {
+            val tip = tipsByTargetId[entry.targetId] ?: continue
+            val bucket = tipToTargets.getOrPut(tip) { linkedSetOf() }
+            for (npc in entry.targets) {
+                bucket += npc
             }
         }
+
+        for ((tip, targets) in tipToTargets) {
+            if (targets.isEmpty()) continue
+            appendLine("[[npc_tip]]")
+            appendLine("targets = [${targets.sorted().joinToString(", ") { "\"$it\"" }}]")
+            appendLine("tip = \"${escapeTomlString(tip)}\"")
+            appendLine()
+        }
+    }
 
     fun escapeTomlString(value: String): String = value.replace("\\", "\\\\").replace("\"", "\\\"")
 
@@ -129,7 +129,8 @@ object SlayerTaskTipsWiki {
                 } else {
                     monster to tip
                 }
-            }.toList()
+            }
+            .toList()
 
     private fun parseTipsTable(table: String): List<Pair<String, String>> {
         val rowBlocks = table.split(rowSplit).drop(1)
@@ -155,15 +156,10 @@ object SlayerTaskTipsWiki {
     private fun monsterNamesFromCell(cell: String): List<String> {
         val titles = WikiLinks.extractPageTitles(cell)
         if (titles.isNotEmpty()) {
-            return titles.map { title ->
-                title
-                    .removePrefix("Slayer task/")
-                    .trim()
-            }
+            return titles.map { title -> title.removePrefix("Slayer task/").trim() }
         }
         val stripped =
-            WikiText
-                .stripTemplates(cell)
+            WikiText.stripTemplates(cell)
                 .replace(Regex("""\[\[([^\]|#]+)(?:\|[^\]]*)?\]\]"""), "$1")
                 .replace(Regex("""\[\[|\]\]"""), "")
                 .trim()
@@ -172,7 +168,9 @@ object SlayerTaskTipsWiki {
 
     private fun isHeaderRow(cells: List<String>): Boolean {
         val joined = cells.joinToString(" ").lowercase()
-        return "monster" in joined && "tip" in joined && cells.getOrNull(1)?.length?.let { it < 48 } == true
+        return "monster" in joined &&
+            "tip" in joined &&
+            cells.getOrNull(1)?.length?.let { it < 48 } == true
     }
 
     private fun cellsFromRow(rowBlock: String): List<String> {
@@ -195,8 +193,14 @@ object SlayerTaskTipsWiki {
         entries: List<SlayerTargetMonsterEntry>,
     ): Int? {
         for (key in DbrowSlayerTaskIndex.normalizeKeys(monster)) {
-            DbrowSlayerTaskIndex.resolve(key, taskIndex)?.takeIf { it > 0 }?.let { return it }
-            assignmentIndex[key]?.let { return it }
+            DbrowSlayerTaskIndex.resolve(key, taskIndex)
+                ?.takeIf { it > 0 }
+                ?.let {
+                    return it
+                }
+            assignmentIndex[key]?.let {
+                return it
+            }
         }
 
         val norm = DbrowSlayerTaskIndex.normalize(monster)

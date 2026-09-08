@@ -7,6 +7,8 @@ import org.rsmod.api.db.gateway.GameDbManager
 import org.rsmod.api.db.gateway.model.fold
 import org.rsmod.api.net.central.CentralSocialResult
 import org.rsmod.api.net.central.CentralSocialService
+import org.rsmod.api.net.social.SocialRuntimeService
+import org.rsmod.api.social.isChatMuted
 import org.rsmod.api.social.writeSocialMessage
 import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
@@ -19,6 +21,7 @@ constructor(
     private val playerList: PlayerList,
     private val db: GameDbManager,
     private val social: CentralSocialService,
+    private val runtime: SocialRuntimeService,
 ) : MessageHandler<MessagePrivate> {
     override fun handle(player: Player, message: MessagePrivate) {
         val uid = player.uid
@@ -28,14 +31,25 @@ constructor(
         val senderDisplayName = player.displayName.ifBlank { player.username }
         val senderCrown = player.modLevel.clientCode
 
+        if (player.isChatMuted()) {
+            player.writeSocialMessage("You are muted and cannot send messages.")
+            return
+        }
+        if (text.isBlank()) return
+        if (!runtime.allowMessage(characterId)) {
+            player.writeSocialMessage("You are sending messages too quickly.")
+            return
+        }
+
         if (characterId <= 0) {
             player.writeSocialMessage("Private messaging is not available right now.")
             return
         }
 
         db.request(
-            request = {
+            request = { connection ->
                 social.sendPrivateMessage(
+                    connection = connection,
                     fromCharacterId = characterId,
                     targetName = targetName,
                     senderDisplayName = senderDisplayName,

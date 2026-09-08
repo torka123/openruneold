@@ -1,0 +1,114 @@
+# Revision-240 Wilderness doors/gates with real open states. These use the shared generic
+# door engines so the visual state and collision update for every player.
+
+[[object]]
+id = "loc.wild_door"
+inherit = "loc.wild_door"
+contentGroup = "content.closed_single_door"
+[object.params]
+"param.next_loc_stage" = "loc.wild_door_open"
+"param.opensound" = "synth.door_open"
+
+[[object]]
+id = "loc.wild_door_open"
+inherit = "loc.wild_door_open"
+contentGroup = "content.opened_single_door"
+[object.params]
+"param.next_loc_stage" = "loc.wild_door"
+"param.closesound" = "synth.door_close"
+
+[[object]]
+id = "loc.wild_doubledoor_l"
+inherit = "loc.wild_doubledoor_l"
+contentGroup = "content.closed_left_door"
+[object.params]
+"param.next_loc_stage" = "loc.wild_doubledoor_open_l"
+"param.opensound" = "synth.door_open"
+
+[[object]]
+id = "loc.wild_doubledoor_r"
+inherit = "loc.wild_doubledoor_r"
+contentGroup = "content.closed_right_door"
+[object.params]
+"param.next_loc_stage" = "loc.wild_doubledoor_open_r"
+"param.opensound" = "synth.door_open"
+
+[[object]]
+id = "loc.wild_doubledoor_open_l"
+inherit = "loc.wild_doubledoor_open_l"
+contentGroup = "content.opened_left_door"
+[object.params]
+"param.next_loc_stage" = "loc.wild_doubledoor_l"
+"param.closesound" = "synth.door_close"
+
+[[object]]
+id = "loc.wild_doubledoor_open_r"
+inherit = "loc.wild_doubledoor_open_r"
+contentGroup = "content.opened_right_door"
+[object.params]
+"param.next_loc_stage" = "loc.wild_doubledoor_r"
+"param.closesound" = "synth.door_close"
+
+[[object]]
+id = "loc.metalgateclosedl"
+inherit = "loc.metalgateclosedl"
+contentGroup = "content.closed_left_picketgate"
+[object.params]
+"param.next_loc_stage" = "loc.metalgateopenl"
+"param.opensound" = "synth.picketgate_open"
+
+[[object]]
+id = "loc.metalgateclosedr"
+inherit = "loc.metalgateclosedr"
+contentGroup = "content.closed_right_picketgate"
+[object.params]
+"param.next_loc_stage" = "loc.metalgateopenr"
+"param.opensound" = "synth.picketgate_open"
+
+[[object]]
+id = "loc.metalgateopenl"
+inherit = "loc.metalgateopenl"
+contentGroup = "content.opened_left_picketgate"
+[object.params]
+"param.next_loc_stage" = "loc.metalgateclosedl"
+"param.closesound" = "synth.picketgate_close"
+
+[[object]]
+id = "loc.metalgateopenr"
+inherit = "loc.metalgateopenr"
+contentGroup = "content.opened_right_picketgate"
+[object.params]
+"param.next_loc_stage" = "loc.metalgateclosedr"
+"param.closesound" = "synth.picketgate_close"
+
+[[object]]
+id = "loc.prisondoor"
+inherit = "loc.prisondoor"
+contentGroup = "content.closed_single_door"
+[object.params]
+"param.next_loc_stage" = "loc.prisondooropen"
+"param.opensound" = "synth.door_open"
+
+[[object]]
+id = "loc.prisondooropen"
+inherit = "loc.prisondooropen"
+contentGroup = "content.opened_single_door"
+[object.params]
+"param.next_loc_stage" = "loc.prisondoor"
+"param.closesound" = "synth.door_close"
+
+[[object]]
+id = "loc.prisondoor_r"
+inherit = "loc.prisondoor_r"
+contentGroup = "content.closed_single_door"
+[object.params]
+"param.next_loc_stage" = "loc.prisondooropen_r"
+"param.opensound" = "synth.door_open"
+
+[[object]]
+id = "loc.prisondooropen_r"
+inherit = "loc.prisondooropen_r"
+contentGroup = "content.opened_single_door"
+[object.params]
+"param.next_loc_stage" = "loc.prisondoor_r"
+"param.closesound" = "synth.door_close"

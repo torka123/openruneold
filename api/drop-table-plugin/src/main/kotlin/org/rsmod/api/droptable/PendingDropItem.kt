@@ -7,10 +7,8 @@ import org.rsmod.game.entity.Player
 public fun DropRollItem.requiresRollableWrapper(): Boolean =
     killCondition != null || bonusDrops.isNotEmpty()
 
-public class PendingDropItemConfig internal constructor(
-    public val obj: String,
-    public var count: IntRange,
-) {
+public class PendingDropItemConfig
+internal constructor(public val obj: String, public var count: IntRange) {
     public var countChoices: List<Int>? = null
     public var condition: (Player) -> Boolean = { true }
     public var transformObj: (Player) -> String? = { null }

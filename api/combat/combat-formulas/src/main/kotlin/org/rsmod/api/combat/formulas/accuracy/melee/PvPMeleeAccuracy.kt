@@ -11,6 +11,7 @@ import org.rsmod.api.combat.formulas.attributes.CombatNpcAttributes
 import org.rsmod.api.combat.formulas.attributes.collector.CombatMeleeAttributeCollector
 import org.rsmod.api.combat.weapon.styles.AttackStyles
 import org.rsmod.api.player.bonus.WornBonuses
+import org.rsmod.api.random.GameRandom
 import org.rsmod.game.entity.Player
 
 public class PvPMeleeAccuracy
@@ -27,6 +28,7 @@ constructor(
         attackStyle: MeleeAttackStyle?,
         blockType: MeleeAttackType?,
         specialMultiplier: Double,
+        defenceMultiplier: Double = 1.0,
     ): Int =
         computeHitChance(
             source = player,
@@ -35,6 +37,7 @@ constructor(
             attackStyle = attackStyle,
             blockType = blockType,
             specialMultiplier = specialMultiplier,
+            defenceMultiplier = defenceMultiplier,
         )
 
     public fun computeHitChance(
@@ -44,6 +47,7 @@ constructor(
         attackStyle: MeleeAttackStyle?,
         blockType: MeleeAttackType?,
         specialMultiplier: Double,
+        defenceMultiplier: Double = 1.0,
     ): Int {
         val npcAttributes = EnumSet.noneOf(CombatNpcAttributes::class.java)
         val meleeAttributes = meleeAttributes.collect(source, attackType)
@@ -52,7 +56,7 @@ constructor(
             computeAttackRoll(source, attackType, attackStyle, meleeAttributes, npcAttributes)
         val attackRoll = (baseAttackRoll * specialMultiplier).toInt()
 
-        val defenceRoll = computeDefenceRoll(target, blockType)
+        val defenceRoll = (computeDefenceRoll(target, blockType) * defenceMultiplier).toInt()
 
         val hitChance = AccuracyOperations.calculateHitChance(attackRoll, defenceRoll)
         return MeleeAccuracyOperations.modifyHitChance(
@@ -62,6 +66,29 @@ constructor(
             meleeAttributes = meleeAttributes,
             npcAttributes = npcAttributes,
         )
+    }
+
+    /**
+     * Rolls a fixed fraction of the attacker's final attack roll against one random defensive
+     * roll. This differs from normal accuracy, where both sides roll randomly.
+     */
+    public fun rollFixedAttackRoll(
+        player: Player,
+        target: Player,
+        attackType: MeleeAttackType?,
+        attackStyle: MeleeAttackStyle?,
+        blockType: MeleeAttackType?,
+        attackMultiplier: Double,
+        random: GameRandom,
+        defenceMultiplier: Double = 1.0,
+    ): Boolean {
+        val npcAttributes = EnumSet.noneOf(CombatNpcAttributes::class.java)
+        val meleeAttributes = meleeAttributes.collect(player, attackType)
+        val attackRoll =
+            (computeAttackRoll(player, attackType, attackStyle, meleeAttributes, npcAttributes) *
+                attackMultiplier).toInt()
+        val defenceRoll = (computeDefenceRoll(target, blockType) * defenceMultiplier).toInt()
+        return attackRoll > random.of(defenceRoll.coerceAtLeast(0) + 1)
     }
 
     public fun computeAttackRoll(

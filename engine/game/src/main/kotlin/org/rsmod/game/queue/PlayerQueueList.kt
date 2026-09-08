@@ -20,12 +20,7 @@ public class PlayerQueueList {
     public val isNotEmpty: Boolean
         get() = size > 0
 
-    public fun add(
-        type: String,
-        category: QueueCategory,
-        remainingCycles: Int,
-        args: Any? = null,
-    ) {
+    public fun add(type: String, category: QueueCategory, remainingCycles: Int, args: Any? = null) {
         val queue = Queue(type.asRSCM(RSCMType.QUEUE), category.id, remainingCycles, args)
         val node = Node(queue, prev = last)
         add(node)

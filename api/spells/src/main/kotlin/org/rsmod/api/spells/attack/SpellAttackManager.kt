@@ -1,25 +1,41 @@
 package org.rsmod.api.spells.attack
 
 import dev.openrune.types.ItemServerType
-import dev.openrune.types.aconverted.SpotanimType
-import dev.openrune.types.aconverted.SynthType
 import jakarta.inject.Inject
 import org.rsmod.api.combat.commons.CombatAttack
+import org.rsmod.api.combat.commons.CombatEffects
 import org.rsmod.api.combat.commons.magic.MagicSpell
+import org.rsmod.api.combat.commons.magic.MagicSpellChecks
+import org.rsmod.api.combat.formulas.attributes.AhrimPassiveState
+import org.rsmod.api.combat.formulas.attributes.FrostweaverState
 import org.rsmod.api.combat.manager.MagicRuneManager
 import org.rsmod.api.combat.manager.MagicRuneManager.Companion.consumedRune
 import org.rsmod.api.combat.manager.MagicRuneManager.Companion.isFailure
 import org.rsmod.api.combat.manager.PlayerAttackManager
 import org.rsmod.api.config.constants
+import org.rsmod.api.player.hat
+import org.rsmod.api.player.legs
 import org.rsmod.api.player.protect.ProtectedAccess
+import org.rsmod.api.player.righthand
+import org.rsmod.api.player.stat.statSub
+import org.rsmod.api.player.torso
 import org.rsmod.api.player.vars.boolVarBit
+import org.rsmod.api.player.worn.EquipmentChecks
+import org.rsmod.api.random.GameRandom
+import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.PathingEntity
+import org.rsmod.game.entity.Player
 import org.rsmod.game.hit.Hit
+import org.rsmod.game.hit.HitImpactHandler
 import org.rsmod.game.proj.ProjAnim
 
 public class SpellAttackManager
 @Inject
-constructor(private val manager: PlayerAttackManager, private val runes: MagicRuneManager) {
+constructor(
+    private val manager: PlayerAttackManager,
+    private val runes: MagicRuneManager,
+    private val random: GameRandom,
+) {
     private val ProtectedAccess.autocastEnabled by boolVarBit("varbit.autocast_set")
 
     /**
@@ -59,13 +75,28 @@ constructor(private val manager: PlayerAttackManager, private val runes: MagicRu
         val castResult = runes.attemptCast(source.player, attack.spell)
 
         if (castResult.isFailure()) {
+            AhrimPassiveState.clear(source.player)
             stopCombat(source)
             return castResult
         }
 
         giveCastXp(source, attack)
+        val player = source.player
+        val fullAhrim =
+            EquipmentChecks.isAhrimSet(player.hat, player.torso, player.legs, player.righthand)
+        AhrimPassiveState.begin(
+            player,
+            fullAhrim && random.randomBoolean(AhrimPassiveState.PROC_DENOMINATOR),
+        )
         return castResult
     }
+
+    /** Returns whether combat is currently continuing from the player's selected autocast. */
+    public fun isAutocasting(source: ProtectedAccess): Boolean = source.autocastEnabled
+
+    /** A non-consuming, message-free check for transparent spell substitutions. */
+    public fun canCastSilently(source: ProtectedAccess, spell: MagicSpell): Boolean =
+        runes.canCastSpellSilently(source.player, spell)
 
     /**
      * Grants Magic experience to the player based on [MagicSpell.castXp] from the given
@@ -190,8 +221,71 @@ constructor(private val manager: PlayerAttackManager, private val runes: MagicRu
         damage: Int,
         clientDelay: Int,
         hitDelay: Int = 1 + (clientDelay / 30),
-    ): Hit =
-        manager.queueMagicHit(
+        effectHandler: HitImpactHandler? = null,
+    ): Hit {
+        val fullBlueMoon =
+            EquipmentChecks.isBlueMoonSet(
+                source.player.hat,
+                source.player.torso,
+                source.player.legs,
+                source.player.righthand,
+            )
+        if (fullBlueMoon) {
+            val denominator =
+                when {
+                    MagicSpellChecks.isGraspSpell(spell) -> FrostweaverState.GRASP_DENOMINATOR
+                    MagicSpellChecks.isBindSpell(spell) || MagicSpellChecks.isIceSpell(spell) ->
+                        FrostweaverState.STANDARD_OR_ICE_DENOMINATOR
+                    else -> null
+                }
+            if (denominator != null && random.randomBoolean(denominator)) {
+                FrostweaverState.trigger(source.player)
+            }
+        }
+
+        val ahrimTriggered = AhrimPassiveState.consume(source.player)
+        val iceBindTicks = MagicSpellChecks.iceBindTicks(spell)
+        val builtInImpactHandler =
+            if (ahrimTriggered || iceBindTicks != null) {
+                HitImpactHandler { impact ->
+                    val impacted = impact.target
+                    if (ahrimTriggered) {
+                        when (impacted) {
+                            is Npc ->
+                                impacted.strengthLvl =
+                                    (impacted.strengthLvl - AhrimPassiveState.STRENGTH_DRAIN)
+                                        .coerceAtLeast(0)
+                            is Player ->
+                                impacted.statSub(
+                                    "stat.strength",
+                                    constant = AhrimPassiveState.STRENGTH_DRAIN,
+                                    percent = 0,
+                                )
+                        }
+                        impacted.spotanim("spotanim.barrows_ahirm_blighted_aura")
+                    }
+                    if (iceBindTicks != null && impact.damage >= 1) {
+                        when (impacted) {
+                            is Player -> CombatEffects.freeze(impacted, iceBindTicks)
+                            is Npc -> CombatEffects.bind(impacted, iceBindTicks)
+                        }
+                    }
+                }
+            } else {
+                null
+            }
+        val impactHandler =
+            when {
+                builtInImpactHandler == null -> effectHandler
+                effectHandler == null -> builtInImpactHandler
+                else ->
+                    HitImpactHandler { impact ->
+                        builtInImpactHandler.onImpact(impact)
+                        effectHandler.onImpact(impact)
+                    }
+            }
+
+        return manager.queueMagicHit(
             source = source.player,
             target = target,
             spell = spell,
@@ -199,6 +293,33 @@ constructor(private val manager: PlayerAttackManager, private val runes: MagicRu
             clientDelay = clientDelay,
             hitDelay = hitDelay,
             retaliationDelay = hitDelay,
+            impactHandler = impactHandler,
+        )
+    }
+
+    /**
+     * Queues Twinflame's echo without awarding XP or rolling independent armour-set effects. The
+     * echo's damage has already been derived from the first successful hit.
+     */
+    public fun queueMagicEchoHit(
+        source: ProtectedAccess,
+        target: PathingEntity,
+        damage: Int,
+        clientDelay: Int,
+        hitDelay: Int,
+    ): Hit =
+        manager.queueMagicHit(
+            source = source.player,
+            target = target,
+            // The echo is a derived damage-only follow-up, not another spell cast. Leaving the
+            // spell unset prevents target mechanics from rerolling accuracy, elemental weakness,
+            // resource effects, or area splashes a second time.
+            spell = null,
+            damage = damage,
+            clientDelay = clientDelay,
+            hitDelay = hitDelay,
+            retaliationDelay = hitDelay,
+            notifyAttackLaunch = false,
         )
 
     /** @see [PlayerAttackManager.queueSplashHit] */
@@ -208,14 +329,16 @@ constructor(private val manager: PlayerAttackManager, private val runes: MagicRu
         spell: ItemServerType,
         clientDelay: Int,
         hitDelay: Int = 1 + (clientDelay / 30),
-    ): Hit =
-        manager.queueSplashHit(
+    ): Hit {
+        AhrimPassiveState.clear(source.player)
+        return manager.queueSplashHit(
             source = source.player,
             target = target,
             spell = spell,
             clientDelay = clientDelay,
             hitDelay = hitDelay,
         )
+    }
 
     /** @see [PlayerAttackManager.playMagicHitFx] */
     public fun playHitFx(
@@ -262,4 +385,14 @@ constructor(private val manager: PlayerAttackManager, private val runes: MagicRu
         spotanim: String,
         projanim: String,
     ): ProjAnim = manager.spawnProjectile(source.player, target, spotanim, projanim)
+
+    /** @see [PlayerAttackManager.spawnProjectileWithImpactOffset] */
+    public fun spawnProjectileWithImpactOffset(
+        source: ProtectedAccess,
+        target: PathingEntity,
+        spotanim: String,
+        projanim: String,
+        impactOffset: Int,
+    ): ProjAnim =
+        manager.spawnProjectileWithImpactOffset(source.player, target, spotanim, projanim, impactOffset)
 }

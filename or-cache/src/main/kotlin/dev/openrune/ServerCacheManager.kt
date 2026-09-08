@@ -2,11 +2,12 @@ package dev.openrune
 
 import com.github.michaelbull.logging.InlineLogger
 import dev.openrune.OsrsCacheProvider.*
-import dev.openrune.cache.CacheManager
 import dev.openrune.cache.DBTABLEINDEX
+import dev.openrune.cache.INTERFACES
 import dev.openrune.cache.filestore.definition.ComponentDecoder
 import dev.openrune.cache.filestore.definition.FontDecoder
 import dev.openrune.cache.filestore.definition.InterfaceType
+import dev.openrune.cache.filestore.definition.InterfaceTypeFactory
 import dev.openrune.cache.getOrDefault
 import dev.openrune.codec.osrs.BasTypeDecoder
 import dev.openrune.codec.osrs.HealthBarDecoder
@@ -34,20 +35,15 @@ import dev.openrune.definition.util.CacheVarLiteral
 import dev.openrune.filesystem.Cache
 import dev.openrune.gamevals.GameValProvider
 import dev.openrune.net.CacheJs5GroupProvider
-import dev.openrune.rscm.RSCM
 import dev.openrune.rscm.RSCM.asRSCM
-import dev.openrune.rscm.RSCMType
 import dev.openrune.types.*
 import dev.openrune.types.VarConType
-import dev.openrune.types.aconverted.AreaType
-import dev.openrune.types.aconverted.CategoryType
-import dev.openrune.types.aconverted.MidiType
-import dev.openrune.types.aconverted.SpotanimType
-import dev.openrune.types.aconverted.SynthType
 import dev.openrune.types.varp.VarpServerType
+import io.netty.buffer.Unpooled
 import java.nio.BufferUnderflowException
 import java.nio.file.Path
 import java.nio.file.Paths
+
 object ServerCacheManager {
 
     private val items: MutableMap<Int, ItemServerType> = mutableMapOf()
@@ -123,7 +119,8 @@ object ServerCacheManager {
             StructDecoder().load(cache, structs)
             DBRowDecoder().load(cache, dbrows)
             DBTableDecoder().load(cache, dbtables)
-            ComponentDecoder(cache,rev).load(interfaces)
+            ComponentDecoder(cache, rev).load(interfaces)
+            loadUnnamedInterfaces(cache, rev)
             MesAnimDecoder().load(cache, mesanim)
             StatTypeDecoder().load(cache, statTypes)
             ProjectileTypeDecoder().load(cache, projectiles)
@@ -144,6 +141,25 @@ object ServerCacheManager {
             throw e
         }
         return cache
+    }
+
+    /** Loads custom interface groups which do not have a stock Jagex IFTYPES gameval entry. */
+    private fun loadUnnamedInterfaces(cache: Cache, rev: Int) {
+        val decoder = ComponentDecoder(cache, rev)
+        for (group in cache.archives(INTERFACES)) {
+            if (interfaces[group]?.components?.isNotEmpty() == true) continue
+            val components = mutableMapOf<Int, ComponentType>()
+            for (file in cache.files(INTERFACES, group)) {
+                val bytes = cache.data(INTERFACES, group, file) ?: continue
+                val packed = (group shl 16) or file
+                components[file] =
+                    decoder.read(packed, Unpooled.wrappedBuffer(bytes), "custom_component_$file")
+            }
+            if (components.isNotEmpty()) {
+                interfaces[group] =
+                    InterfaceTypeFactory.create(components, group, "custom_interface_$group")
+            }
+        }
     }
 
     private fun loadMasterRowIndexes(cache: Cache) {
@@ -299,9 +315,11 @@ object ServerCacheManager {
             }
             return out
         }
-        val fallback = rowsByTableId ?: synchronized(this) {
-            rowsByTableId ?: buildRowsByTableId().also { rowsByTableId = it }
-        }
+        val fallback =
+            rowsByTableId
+                ?: synchronized(this) {
+                    rowsByTableId ?: buildRowsByTableId().also { rowsByTableId = it }
+                }
         return fallback[tableId].orEmpty()
     }
 

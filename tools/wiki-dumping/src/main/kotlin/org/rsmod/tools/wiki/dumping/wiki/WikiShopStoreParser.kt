@@ -36,8 +36,8 @@ object WikiShopStoreParser {
         }
 
     /**
-     * Skillcape shop invs duplicate the regular stock plus a cape-only table under
-     * `===Skill cape===` / `===Skill cape(t)===` in `==Stock==`.
+     * Skillcape shop invs duplicate the regular stock plus a cape-only table under `===Skill
+     * cape===` / `===Skill cape(t)===` in `==Stock==`.
      */
     fun parseSkillcapeShop(wikitext: String, trimmed: Boolean): ParsedStoreTable? {
         val stockSection = extractStockSection(wikitext) ?: return null
@@ -54,7 +54,10 @@ object WikiShopStoreParser {
         return baseTable.copy(lines = baseTable.lines + capeLines)
     }
 
-    private fun splitSkillcapeStockSection(stockSection: String, trimmed: Boolean): Pair<String, String?>? {
+    private fun splitSkillcapeStockSection(
+        stockSection: String,
+        trimmed: Boolean,
+    ): Pair<String, String?>? {
         for (match in level3Heading.findAll(stockSection)) {
             val heading = match.groupValues[1].trim()
             if (!heading.contains("cape", ignoreCase = true)) {
@@ -113,14 +116,20 @@ object WikiShopStoreParser {
         when (sectionKey?.lowercase()) {
             "food" -> WikiText.extractSectionByHeading(wikitext, foodStoreHeading)
             "items" -> WikiText.extractSectionByHeading(wikitext, itemsStoreHeading)
-            "east", "eastern" -> WikiText.extractSectionByHeading(wikitext, easternBakerHeading)
-            "west", "western" -> WikiText.extractSectionByHeading(wikitext, westernBakerHeading)
+            "east",
+            "eastern" -> WikiText.extractSectionByHeading(wikitext, easternBakerHeading)
+            "west",
+            "western" -> WikiText.extractSectionByHeading(wikitext, westernBakerHeading)
             "blackjacks" -> extractLevel2Section(wikitext, "Blackjacks")
             "runes" -> extractLevel2Section(wikitext, "Runes")
             "clothing" -> extractLevel2Section(wikitext, "Clothing")
-            "basic", "basic stock" -> extractLevel2Section(wikitext, "Basic stock")
+            "basic",
+            "basic stock" -> extractLevel2Section(wikitext, "Basic stock")
             null -> extractStockSection(wikitext) ?: wikitext
-            else -> extractLevel2Section(wikitext, sectionKey) ?: extractStockSection(wikitext) ?: wikitext
+            else ->
+                extractLevel2Section(wikitext, sectionKey)
+                    ?: extractStockSection(wikitext)
+                    ?: wikitext
         }
 
     private fun extractLevel2Section(wikitext: String, heading: String): String? {
@@ -139,7 +148,10 @@ object WikiShopStoreParser {
         return afterHeading.substring(0, nextHeading)
     }
 
-    /** Tabber tabs written as `Label=` / `|-|Label=` without a `<tabber>` wrapper (e.g. Daga's Scimitar Smithy). */
+    /**
+     * Tabber tabs written as `Label=` / `|-|Label=` without a `<tabber>` wrapper (e.g. Daga's
+     * Scimitar Smithy).
+     */
     private fun extractPlainTabberTab(body: String, tabName: String): String? {
         val target = normalizeNameNotes(tabName)
         for (chunk in body.split(Regex("""\|-\|"""))) {
@@ -190,7 +202,10 @@ object WikiShopStoreParser {
         return afterHeading.substring(0, nextHeading)
     }
 
-    /** Crafting/service panels documented as wikitables with `{{plinkt|…}}` rows (e.g. Custom Fur Clothing). */
+    /**
+     * Crafting/service panels documented as wikitables with `{{plinkt|…}}` rows (e.g. Custom Fur
+     * Clothing).
+     */
     private fun parsePlinktWikitable(body: String): List<ParsedStoreLine> {
         if (!body.contains("{|", ignoreCase = false)) {
             return emptyList()
@@ -219,9 +234,7 @@ object WikiShopStoreParser {
                 break
             }
 
-            val headBlock =
-                WikiText.extractBalancedTemplate(body, headStart)
-                    ?: break
+            val headBlock = WikiText.extractBalancedTemplate(body, headStart) ?: break
             val headContent = stripTemplateHeader(headBlock, "StoreTableHead")
             val headParams = WikiTemplateParser.parseParams(headContent)
             val lines = mutableListOf<ParsedStoreLine>()
@@ -233,29 +246,24 @@ object WikiShopStoreParser {
                 val lineStart = body.indexOf("{{StoreLine", index, ignoreCase = true)
 
                 val nextStop =
-                    listOfNotNull(
-                        nextHead.takeIf { it >= 0 },
-                        bottomStart.takeIf { it >= 0 },
-                    ).minOrNull()
+                    listOfNotNull(nextHead.takeIf { it >= 0 }, bottomStart.takeIf { it >= 0 })
+                        .minOrNull()
 
                 if (lineStart < 0 || (nextStop != null && lineStart > nextStop)) {
                     if (bottomStart >= 0) {
-                        val bottomBlock = WikiText.extractBalancedTemplate(body, bottomStart) ?: break
+                        val bottomBlock =
+                            WikiText.extractBalancedTemplate(body, bottomStart) ?: break
                         index = bottomStart + bottomBlock.length
                     }
                     break
                 }
 
-                val lineBlock =
-                    WikiText.extractBalancedTemplate(body, lineStart)
-                        ?: break
+                val lineBlock = WikiText.extractBalancedTemplate(body, lineStart) ?: break
                 val lineContent = stripTemplateHeader(lineBlock, "StoreLine")
                 val lineParams = WikiTemplateParser.parseParams(lineContent)
                 val name = sanitizeWikiText(lineParams["name"].orEmpty())
                 val bucketName =
-                    lineParams["bucketname"]
-                        ?.let(::sanitizeBucketName)
-                        ?.takeIf { it.isNotBlank() }
+                    lineParams["bucketname"]?.let(::sanitizeBucketName)?.takeIf { it.isNotBlank() }
                 if (name.isNotBlank()) {
                     val stock = parseStockCount(lineParams["stock"])
                     if (stock == null) {
@@ -278,7 +286,10 @@ object WikiShopStoreParser {
                     sellMultiplier = headParams["sellmultiplier"]?.toIntOrNull(),
                     buyMultiplier = headParams["buymultiplier"]?.toIntOrNull(),
                     delta = headParams["delta"]?.toIntOrNull(),
-                    nameNotes = headParams["namenotes"]?.let(::sanitizeWikiText)?.takeIf { it.isNotBlank() },
+                    nameNotes =
+                        headParams["namenotes"]?.let(::sanitizeWikiText)?.takeIf {
+                            it.isNotBlank()
+                        },
                     hiddenStock =
                         headParams["hidestock"]?.equals("y", ignoreCase = true) == true ||
                             headParams["hiderestock"]?.equals("y", ignoreCase = true) == true,
@@ -304,7 +315,10 @@ object WikiShopStoreParser {
         return section to nameNotes
     }
 
-    private fun selectTable(tables: List<ParsedStoreTable>, nameNotesKey: String?): ParsedStoreTable? {
+    private fun selectTable(
+        tables: List<ParsedStoreTable>,
+        nameNotesKey: String?,
+    ): ParsedStoreTable? {
         if (tables.isEmpty()) {
             return null
         }
@@ -324,18 +338,14 @@ object WikiShopStoreParser {
     }
 
     fun normalizeNameNotes(value: String): String =
-        value
-            .trim()
-            .removePrefix("(")
-            .removeSuffix(")")
-            .trim()
-            .lowercase()
+        value.trim().removePrefix("(").removeSuffix(")").trim().lowercase()
 
     private fun stripTemplateHeader(block: String, templateName: String): String {
         val prefix = "{{$templateName|"
         val altPrefix = "{{$templateName}}"
         return when {
-            block.startsWith(prefix, ignoreCase = true) -> block.substring(prefix.length).removeSuffix("}}").trim()
+            block.startsWith(prefix, ignoreCase = true) ->
+                block.substring(prefix.length).removeSuffix("}}").trim()
             block.startsWith(altPrefix, ignoreCase = true) -> ""
             else -> block.removePrefix("{{").substringAfter('|').removeSuffix("}}").trim()
         }
@@ -356,7 +366,11 @@ object WikiShopStoreParser {
 
     private fun parseStockCount(raw: String?): Int? {
         val value = raw?.trim().orEmpty()
-        if (value.isBlank() || value.equals("inf", ignoreCase = true) || value.equals("n/a", ignoreCase = true)) {
+        if (
+            value.isBlank() ||
+                value.equals("inf", ignoreCase = true) ||
+                value.equals("n/a", ignoreCase = true)
+        ) {
             return null
         }
         return value.toIntOrNull()

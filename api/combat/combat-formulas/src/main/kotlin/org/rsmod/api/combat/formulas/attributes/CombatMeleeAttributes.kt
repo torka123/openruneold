@@ -8,6 +8,7 @@ public enum class CombatMeleeAttributes {
     SalveAmuletE,
     BlackMask,
     Arclight,
+    Emberlight,
     BurningClaws,
     Obsidian,
     TzHaarWeapon,

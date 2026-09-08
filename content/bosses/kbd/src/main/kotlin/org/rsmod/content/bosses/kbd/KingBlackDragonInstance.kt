@@ -27,8 +27,6 @@ class KingBlackDragonInstance @Inject constructor(
     override fun ScriptContext.configure() {
         val row = settingsRowData()
 
-        //TODO MAKE THE LEAVER LIKE YOU PULLED IT AND CORRECT ANIM
-
         onEnterObject { enterPublicRoom(INSTANCE) }
 
         row.enterLocObjects().forEach { loc ->
@@ -36,7 +34,14 @@ class KingBlackDragonInstance @Inject constructor(
             onOpLoc2(loc) { peekPublicRoom() }
         }
 
-        onExitObject { defaultLeaveFlow() }
+        onExitObject { pullExitLever() }
+    }
+
+    private suspend fun ProtectedAccess.pullExitLever() {
+        anim("seq.human_leverdown")
+        soundSynth("synth.lever")
+        delay(1)
+        defaultLeaveFlow()
     }
 
     private fun ProtectedAccess.peekPublicRoom() {

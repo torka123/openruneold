@@ -11,8 +11,10 @@ dependencies {
     implementation(projects.api.config)
     implementation(projects.api.generated)
     implementation(projects.api.combat.combatCommons)
+    implementation(projects.api.combat.combatFormulas)
     implementation(projects.api.combat.combatManager)
     implementation(projects.api.player)
+    implementation(projects.api.random)
 
 
     implementation(projects.engine.game)

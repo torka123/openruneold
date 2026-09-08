@@ -16,6 +16,7 @@ import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
 import org.rsmod.game.hit.Hit
 import org.rsmod.game.hit.HitBuilder
+import org.rsmod.game.hit.HitImpactHandler
 import org.rsmod.game.hit.HitType
 
 /* Standard hit functions. */
@@ -67,6 +68,7 @@ public fun Npc.queueHit(
     hitmark: HitmarkTypeGroup = visHitmark(),
     sourceWeapon: ItemServerType? = null,
     sourceSecondary: ItemServerType? = null,
+    impactHandler: HitImpactHandler? = null,
 ): Hit {
     val builder =
         InternalNpcHits.createBuilder(
@@ -78,7 +80,7 @@ public fun Npc.queueHit(
             hitmark = hitmark,
             clientDelay = 0,
         )
-    return modifyAndQueueHit(delay, builder, modifier)
+    return modifyAndQueueHit(delay, builder, modifier, impactHandler)
 }
 
 /**
@@ -132,6 +134,7 @@ public fun Npc.queueHit(
     hitmark: HitmarkTypeGroup = visHitmark(),
     specific: Boolean = false,
     sourceSecondary: ItemServerType? = null,
+    impactHandler: HitImpactHandler? = null,
 ): Hit {
     val builder =
         InternalNpcHits.createBuilder(
@@ -143,7 +146,7 @@ public fun Npc.queueHit(
             clientDelay = 0,
             specific = specific,
         )
-    return modifyAndQueueHit(delay, builder, modifier)
+    return modifyAndQueueHit(delay, builder, modifier, impactHandler)
 }
 
 /**
@@ -186,6 +189,7 @@ public fun Npc.queueHit(
     damage: Int,
     modifier: NpcHitModifier,
     hitmark: HitmarkTypeGroup = visHitmark(),
+    impactHandler: HitImpactHandler? = null,
 ): Hit {
     val builder =
         InternalNpcHits.createBuilder(
@@ -196,7 +200,7 @@ public fun Npc.queueHit(
             hitmark = hitmark,
             clientDelay = 0,
         )
-    return modifyAndQueueHit(delay, builder, modifier)
+    return modifyAndQueueHit(delay, builder, modifier, impactHandler)
 }
 
 /**
@@ -215,15 +219,21 @@ public fun Npc.visHitmark(): HitmarkTypeGroup {
     if (current != null) {
         return current
     }
-    val lit = RSCM.getReverseMapping(RSCMType.HITMARK,visType.param(params.hitmark_lit).id)
-    val tint = RSCM.getReverseMapping(RSCMType.HITMARK,visType.param(params.hitmark_tint).id)
-    val max = RSCM.getReverseMapping(RSCMType.HITMARK,visType.param(params.hitmark_max).id)
+    val lit = RSCM.getReverseMapping(RSCMType.HITMARK, visType.param(params.hitmark_lit).id)
+    val tint = RSCM.getReverseMapping(RSCMType.HITMARK, visType.param(params.hitmark_tint).id)
+    val max = RSCM.getReverseMapping(RSCMType.HITMARK, visType.param(params.hitmark_max).id)
     val hitmark = HitmarkTypeGroup(lit, tint, max)
     this.cachedHitmark = hitmark
     return hitmark
 }
 
-private fun Npc.modifyAndQueueHit(delay: Int, builder: HitBuilder, modifier: NpcHitModifier): Hit {
+private fun Npc.modifyAndQueueHit(
+    delay: Int,
+    builder: HitBuilder,
+    modifier: NpcHitModifier,
+    impactHandler: HitImpactHandler?,
+): Hit {
+    builder.impactHandler = impactHandler
     modifier.modify(builder, this)
     val hit = builder.build()
     queue("queue.hit", delay, hit)

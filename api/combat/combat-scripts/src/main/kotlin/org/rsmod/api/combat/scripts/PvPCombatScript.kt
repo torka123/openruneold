@@ -2,14 +2,17 @@ package org.rsmod.api.combat.scripts
 
 import jakarta.inject.Inject
 import org.rsmod.api.combat.PvPCombat
+import org.rsmod.api.combat.commons.CombatAttack
 import org.rsmod.api.combat.commons.magic.MagicSpell
 import org.rsmod.api.combat.commons.styles.AttackStyle
+import org.rsmod.api.combat.commons.types.AttackType
 import org.rsmod.api.combat.manager.MagicRuneManager
 import org.rsmod.api.combat.player.aggressiveNpc
 import org.rsmod.api.combat.player.attackRange
 import org.rsmod.api.combat.player.pkPredator1
 import org.rsmod.api.combat.player.resolveAutocastSpell
 import org.rsmod.api.combat.player.resolveCombatAttack
+import org.rsmod.api.combat.player.specialAttackType
 import org.rsmod.api.combat.weapon.styles.AttackStyles
 import org.rsmod.api.combat.weapon.types.AttackTypes
 import org.rsmod.api.death.PvPAttackValidateHook
@@ -22,6 +25,8 @@ import org.rsmod.api.script.advanced.onApPlayer2
 import org.rsmod.api.script.advanced.onOpPlayer1
 import org.rsmod.api.script.advanced.onOpPlayer2
 import org.rsmod.api.script.onApPlayerT
+import org.rsmod.api.specials.SpecialAttackRegistry
+import org.rsmod.api.specials.SpecialAttackType
 import org.rsmod.api.spells.MagicSpellRegistry
 import org.rsmod.api.spells.autocast.AutocastWeapons
 import org.rsmod.game.entity.Player
@@ -38,6 +43,7 @@ constructor(
     private val spells: MagicSpellRegistry,
     private val runes: MagicRuneManager,
     private val autocast: AutocastWeapons,
+    private val specials: SpecialAttackRegistry,
     private val attackValidateHooks: Set<PvPAttackValidateHook>,
 ) : PluginScript() {
     override fun ScriptContext.startup() {
@@ -50,10 +56,34 @@ constructor(
         }
     }
 
+    private fun ProtectedAccess.hasSelectedMagicSpecial(): Boolean =
+        specialAttackType == SpecialAttackType.Weapon && specials.isMagicSpecial(player.righthand)
+
+    private fun ProtectedAccess.resolveDefaultCombatAttack(
+        type: AttackType?,
+        style: AttackStyle?,
+        magicSpecialSelected: Boolean = hasSelectedMagicSpecial(),
+    ): CombatAttack.PlayerAttack {
+        val spell =
+            if (magicSpecialSelected) {
+                null
+            } else {
+                resolveAutocastSpell(spells, runes, autocast)
+            }
+        return resolveCombatAttack(
+            player.righthand,
+            type,
+            style,
+            spell,
+            forceMagicStaffAttack = magicSpecialSelected,
+        )
+    }
+
     private suspend fun ProtectedAccess.attemptCombatAp(target: Player) {
         val type = types.get(player)
         val style = styles.get(player)
-        val attackRange = attackRange(style)
+        val magicSpecialSelected = hasSelectedMagicSpecial()
+        val attackRange = attackRange(style, forceMagicRange = magicSpecialSelected)
 
         // Weapons such as salamanders have an attack range of `1` but can attack with both ranged
         // and magic. These attacks should be treated as ap range, not op.
@@ -75,8 +105,7 @@ constructor(
             return
         }
 
-        val spell = resolveAutocastSpell(spells, runes, autocast)
-        val attack = resolveCombatAttack(player.righthand, type, style, spell)
+        val attack = resolveDefaultCombatAttack(type, style, magicSpecialSelected)
         combat.attack(this, target, attack)
     }
 
@@ -87,8 +116,7 @@ constructor(
         val type = types.get(player)
         val style = styles.get(player)
 
-        val spell = resolveAutocastSpell(spells, runes, autocast)
-        val attack = resolveCombatAttack(player.righthand, type, style, spell)
+        val attack = resolveDefaultCombatAttack(type, style)
         combat.attack(this, target, attack)
     }
 

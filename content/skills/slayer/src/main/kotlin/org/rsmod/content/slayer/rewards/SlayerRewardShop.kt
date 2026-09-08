@@ -52,7 +52,7 @@ internal object SlayerRewardShop {
             return
         }
 
-        val result = access.invAdd(access.inv, type.internalName, totalItems, strict = false)
+        val result = access.invAdd(access.inv, type.internalName, totalItems, strict = true)
         if (result.err != null) {
             SlayerRewardsPoints.addPoints(access.player, totalCost)
             access.mes("Not enough space in your inventory.")

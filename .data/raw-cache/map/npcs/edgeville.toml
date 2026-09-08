@@ -131,12 +131,20 @@ coords = "0_48_54_24_36"
 ## Edgeville Bank Tiling
 
 [[spawn]]
+npc = "npc.clan_clerk"
+coords = "0_48_54_22_36"
+
+[[spawn]]
 npc = "npc.banker1"
 coords = "0_48_54_26_36"
 
 [[spawn]]
 npc = "npc.lost_property_merchant_combatty"
 coords = "0_48_54_18_38"
+
+[[spawn]]
+npc = "npc.poh_estate_agent"
+coords = "0_48_54_20_36"
 
 ## Edgeville Doris House
 
@@ -263,4 +271,3 @@ npc = "npc.man3"
 coords = "0_48_54_29_53"
 
 ## Edgeville Path Overlay End
-

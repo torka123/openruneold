@@ -8,5 +8,6 @@ public class MapPackers : CacheTask() {
         MapNpcPacker.encodeCacheMapNpc(cache)
         MapObjPacker.encodeCacheMapObj(cache)
         MapAreaPacker.encodeCacheMapArea(cache)
+        MapLocRemovalPacker.apply(cache)
     }
 }

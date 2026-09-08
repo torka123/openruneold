@@ -50,6 +50,7 @@ constructor(
             attackStyle = attackStyle,
             blockType = blockType,
             specialMultiplier = specialMultiplier,
+            slayerTask = target.isSlayerTask(player),
         )
     }
 
@@ -65,10 +66,10 @@ constructor(
         attackStyle: RangedAttackStyle?,
         blockType: RangedAttackType?,
         specialMultiplier: Double,
+        slayerTask: Boolean = target.isSlayerTask(source),
     ): Int {
         val rangeAttributes = rangedAttributes.collect(source, attackType, attackStyle)
 
-        val slayerTask = target.isSlayerTask(source)
         val npcAttributes = npcAttributes.collect(target, targetCurrHp, targetMaxHp, slayerTask)
 
         val baseAttackRoll =

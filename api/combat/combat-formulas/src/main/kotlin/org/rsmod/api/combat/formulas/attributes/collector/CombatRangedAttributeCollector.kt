@@ -1,12 +1,11 @@
 package org.rsmod.api.combat.formulas.attributes.collector
 
-import dev.openrune.types.ItemServerType
 import java.util.EnumSet
 import org.rsmod.api.combat.commons.styles.RangedAttackStyle
 import org.rsmod.api.combat.commons.types.RangedAttackType
+import org.rsmod.api.combat.formulas.SlayerHelmCombatChecks.providesImbuedRangedMagicTaskBoost
 import org.rsmod.api.combat.formulas.attributes.CombatRangedAttributes
 import org.rsmod.api.config.constants
-import org.rsmod.api.config.refs.BaseParams
 import org.rsmod.api.player.front
 import org.rsmod.api.player.hat
 import org.rsmod.api.player.legs
@@ -78,8 +77,7 @@ public class CombatRangedAttributeCollector {
             attributes += CombatRangedAttributes.SalveAmuletI
         }
 
-        val helmType = getOrNull(helm)
-        if (helmType != null && helmType.hasImbuedBlackMaskAttribute()) {
+        if (helm.providesImbuedRangedMagicTaskBoost()) {
             attributes += CombatRangedAttributes.BlackMaskI
         }
 
@@ -113,9 +111,5 @@ public class CombatRangedAttributeCollector {
         }
 
         return attributes
-    }
-
-    private fun ItemServerType.hasImbuedBlackMaskAttribute(): Boolean {
-        return param(BaseParams.blackmask_imbued) != 0 || param(BaseParams.slayer_helm_imbued) != 0
     }
 }

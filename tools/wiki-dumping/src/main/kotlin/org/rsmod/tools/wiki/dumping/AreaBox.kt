@@ -12,9 +12,7 @@ data class AreaBox(
         get() = (maxX - minX).toLong() * (maxZ - minZ)
 
     fun contains(x: Int, z: Int, level: Int): Boolean =
-        x in minX..maxX &&
-            z in minZ..maxZ &&
-            level in minLevel..maxLevel
+        x in minX..maxX && z in minZ..maxZ && level in minLevel..maxLevel
 
     companion object {
         private const val REGION_SIZE = 64
@@ -34,13 +32,7 @@ data class AreaBox(
 
         fun fromInts(values: IntArray): AreaBox? =
             when (values.size) {
-                2 ->
-                    AreaBox(
-                        minX = values[0],
-                        minZ = values[1],
-                        maxX = values[0],
-                        maxZ = values[1],
-                    )
+                2 -> AreaBox(minX = values[0], minZ = values[1], maxX = values[0], maxZ = values[1])
                 3 ->
                     AreaBox(
                         minX = values[0],

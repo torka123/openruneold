@@ -4,12 +4,9 @@ import dev.openrune.tables.production.productionTable
 
 object Herblore {
 
-    /**
-     * Table for creating unfinished potions (herb + vial of water)
-     */
+    /** Table for creating unfinished potions (herb + vial of water) */
     fun unfinishedPotions() =
         productionTable("dbtable.herblore_unfinished", serverOnly = true) {
-
             row("dbrow.herblore_guam_unfinished") {
                 production {
                     input("obj.guam_leaf")
@@ -136,15 +133,11 @@ object Herblore {
                     category("Unfinished Potions")
                 }
             }
-
         }
 
-    /**
-     * Table for creating finished potions (unfinished potion + secondary ingredient)
-     */
+    /** Table for creating finished potions (unfinished potion + secondary ingredient) */
     fun finishedPotions() =
         productionTable("dbtable.herblore_finished", serverOnly = true) {
-
             row("dbrow.herblore_attack_potion") {
                 production {
                     input("obj.guamvial")
@@ -789,12 +782,9 @@ object Herblore {
                     category("Potions")
                 }
             }
-
         }
 
-    /**
-     * Table for cleaning grimy herbs (unidentified -> clean)
-     */
+    /** Table for cleaning grimy herbs (unidentified -> clean) */
     fun cleaningHerbs() =
         productionTable("dbtable.herblore_cleaning", serverOnly = true) {
             row("dbrow.herblore_clean_guam") {
@@ -938,13 +928,9 @@ object Herblore {
             }
         }
 
-
-    /**
-     * Table for creating barbarian mixes (two-dose potion + roe/caviar)
-     */
+    /** Table for creating barbarian mixes (two-dose potion + roe/caviar) */
     fun barbarianMixes() =
         productionTable("dbtable.herblore_barbarian_mixes", serverOnly = true) {
-
             row("dbrow.herblore_attack_mix") {
                 production {
                     input("obj.2dose1attack")
@@ -1145,15 +1131,11 @@ object Herblore {
                     category("Barbarian Mixes")
                 }
             }
-
         }
 
-    /**
-     * Table for creating swamp tar
-     */
+    /** Table for creating swamp tar */
     fun swampTar() =
         productionTable("dbtable.herblore_swamp_tar", serverOnly = true) {
-
             row("dbrow.herblore_guam_tar") {
                 production {
                     input("obj.guam_leaf")
@@ -1199,15 +1181,11 @@ object Herblore {
                     category("Swamp Tar")
                 }
             }
-
         }
 
-    /**
-     * Table for crushing items with pestle and mortar
-     */
+    /** Table for crushing items with pestle and mortar */
     fun crushing() =
         productionTable("dbtable.herblore_crushing", serverOnly = true) {
-
             row("dbrow.herblore_crush_bird_nest") {
                 production {
                     input("obj.bird_nest_empty")

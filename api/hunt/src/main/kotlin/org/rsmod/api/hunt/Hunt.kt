@@ -112,6 +112,9 @@ constructor(
         maxDistance: Int,
         vis: HuntVis,
     ): Boolean {
+        if (!sameHuntPlane(source, target)) {
+            return false
+        }
         val distance = source.chebyshevDistance(target)
         if (distance > maxDistance) {
             return false
@@ -127,3 +130,6 @@ constructor(
         private const val ZONE_LENGTH_EXCLUSIVE = ZoneGrid.LENGTH - 1
     }
 }
+
+internal fun sameHuntPlane(source: CoordGrid, target: CoordGrid): Boolean =
+    source.level == target.level

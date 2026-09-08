@@ -1,16 +1,15 @@
 package org.rsmod.tools.wiki.dumping
 
+import dtx.rs.brimstoneRarityDenominator
 import org.rsmod.tools.wiki.dumping.wiki.HerbDropTableParser
 import org.rsmod.tools.wiki.dumping.wiki.HerbRollVariant
 import org.rsmod.tools.wiki.dumping.wiki.ParsedWikiDrop
 import org.rsmod.tools.wiki.dumping.wiki.WikiCompanionDropParser
+import org.rsmod.tools.wiki.dumping.wiki.WikiCompanionDropSpec
 import org.rsmod.tools.wiki.dumping.wiki.WikiDropNotes
+import org.rsmod.tools.wiki.dumping.wiki.WikiDropSection
 import org.rsmod.tools.wiki.dumping.wiki.WikiQuestDropMode
 import org.rsmod.tools.wiki.dumping.wiki.WikiQuestDropRequirement
-import org.rsmod.tools.wiki.dumping.wiki.WikiDropParser
-import org.rsmod.tools.wiki.dumping.wiki.WikiDropSection
-import org.rsmod.tools.wiki.dumping.wiki.WikiCompanionDropSpec
-import dtx.rs.brimstoneRarityDenominator
 
 data class UnknownDropRateEntry(
     val wikiPage: String,
@@ -90,19 +89,18 @@ data class GeneratedDropTableSpec(
             preRollSeparateRolls.isNotEmpty() ||
             tertiary.isNotEmpty()
 
-    fun allResolvedEntries(): List<ResolvedDropEntry> =
-        buildList {
-            addAll(guaranteed)
-            addAll(main)
-            addAll(preRoll)
-            addAll(tertiary)
-            for (roll in separateRolls) {
-                addAll(roll.entries)
-            }
-            for (roll in preRollSeparateRolls) {
-                addAll(roll.entries)
-            }
+    fun allResolvedEntries(): List<ResolvedDropEntry> = buildList {
+        addAll(guaranteed)
+        addAll(main)
+        addAll(preRoll)
+        addAll(tertiary)
+        for (roll in separateRolls) {
+            addAll(roll.entries)
         }
+        for (roll in preRollSeparateRolls) {
+            addAll(roll.entries)
+        }
+    }
 
     companion object {
         private const val PRE_ROLL_SUBSECTION = "Pre-roll"
@@ -172,12 +170,13 @@ data class GeneratedDropTableSpec(
                 }
 
             val primaryDenominator =
-                byDenominator.maxWithOrNull(
-                    compareBy<Map.Entry<Int, List<ResolvedDropEntry>>> { it.value.size }
-                        .thenBy { entry -> entry.value.sumOf { it.weight ?: 0 } }
-                        .thenBy { -it.key },
-                )?.key
-                    ?: 128
+                byDenominator
+                    .maxWithOrNull(
+                        compareBy<Map.Entry<Int, List<ResolvedDropEntry>>> { it.value.size }
+                            .thenBy { entry -> entry.value.sumOf { it.weight ?: 0 } }
+                            .thenBy { -it.key }
+                    )
+                    ?.key ?: 128
 
             val mainEntries = byDenominator[primaryDenominator].orEmpty()
             val separateRolls =
@@ -220,7 +219,10 @@ object DropTableCodeGenerator {
 
     fun generate(spec: GeneratedDropTableSpec): String = generateFile(listOf(spec))
 
-    fun generateFile(specs: List<GeneratedDropTableSpec>, packageName: String = "org.rsmod.content.drops.tables"): String {
+    fun generateFile(
+        specs: List<GeneratedDropTableSpec>,
+        packageName: String = "org.rsmod.content.drops.tables",
+    ): String {
         require(specs.isNotEmpty())
 
         val builder = StringBuilder()
@@ -231,7 +233,8 @@ object DropTableCodeGenerator {
             }
         val needsNothingPadding = specs.any(::mainMaxRollRequiresNothing)
         val needsNothingImports = needsNothingIfRing || needsNothingPadding
-        val needsPreRoll = specs.any { it.preRoll.isNotEmpty() || it.preRollSeparateRolls.isNotEmpty() }
+        val needsPreRoll =
+            specs.any { it.preRoll.isNotEmpty() || it.preRollSeparateRolls.isNotEmpty() }
         val needsBodyTypeConstants =
             specs.any { spec ->
                 spec.allResolvedEntries().any { entry ->
@@ -239,33 +242,25 @@ object DropTableCodeGenerator {
                 }
             }
         val needsLootingBagChecks =
-            specs.any { spec ->
-                spec.allResolvedEntries().any { it.requiresLootingBagCondition() }
-            }
+            specs.any { spec -> spec.allResolvedEntries().any { it.requiresLootingBagCondition() } }
         val needsBrimstoneKeyChecks =
             specs.any { spec ->
-                spec.allResolvedEntries().any { it.requiresBrimstoneKeyCondition() && !it.brimstoneCombatRoll }
+                spec.allResolvedEntries().any {
+                    it.requiresBrimstoneKeyCondition() && !it.brimstoneCombatRoll
+                }
             }
         val needsBrimstoneKeyRoll =
-            specs.any { spec ->
-                spec.tertiary.any { it.brimstoneCombatRoll }
-            }
+            specs.any { spec -> spec.tertiary.any { it.brimstoneCombatRoll } }
         val needsQuestChecks =
-            specs.any { spec ->
-                spec.allResolvedEntries().any { it.requiresQuestCondition() }
-            }
+            specs.any { spec -> spec.allResolvedEntries().any { it.requiresQuestCondition() } }
         val needsDropRollableImports =
             specs.any { spec ->
                 spec.allResolvedEntries().any { entry -> entry.bonusDrops.isNotEmpty() }
             }
         val needsClueScrollTransformImports =
-            specs.any { spec ->
-                spec.allResolvedEntries().any { it.isClueScrollBoxTransform() }
-            }
+            specs.any { spec -> spec.allResolvedEntries().any { it.isClueScrollBoxTransform() } }
         val needsRingOfWealthChecks =
-            specs.any { spec ->
-                spec.tertiary.any { it.ringOfWealthClueRate() != null }
-            }
+            specs.any { spec -> spec.tertiary.any { it.ringOfWealthClueRate() != null } }
         val needsWildernessChecks =
             specs.any { spec ->
                 spec.tertiary.any { it.ringOfWealthClueRate()?.requiresWilderness == true }
@@ -316,7 +311,7 @@ object DropTableCodeGenerator {
                 tableVarName = "dropTable",
                 tableIdentifier = "Drop Table",
                 unmappedLabel = null,
-            ),
+            )
         )
         return builder.toString().trim()
     }
@@ -406,7 +401,9 @@ object DropTableCodeGenerator {
     private fun StringBuilder.appendTable(spec: GeneratedDropTableSpec) {
         appendLine("@field:RegisterDropTable")
         appendLine("@JvmField")
-        appendLine("public val ${spec.tableVarName}: RSDropTable<Player, DropRollItem> = RSDropTable(")
+        appendLine(
+            "public val ${spec.tableVarName}: RSDropTable<Player, DropRollItem> = RSDropTable("
+        )
         appendLine("    tableIdentifier = ${spec.tableIdentifier.kotlinString()},")
         appendNpcList(spec.npcRscmKeys)
         if (spec.areaRscmKeys.isNotEmpty()) {
@@ -425,7 +422,11 @@ object DropTableCodeGenerator {
             appendPreRollTable(spec.preRoll, spec.preRollSeparateRolls)
         }
 
-        if (spec.main.isNotEmpty() || spec.subtableAccesses.isNotEmpty() || spec.separateRolls.isNotEmpty()) {
+        if (
+            spec.main.isNotEmpty() ||
+                spec.subtableAccesses.isNotEmpty() ||
+                spec.separateRolls.isNotEmpty()
+        ) {
             appendMainTable(
                 spec.tableIdentifier,
                 spec.main,
@@ -480,16 +481,29 @@ object DropTableCodeGenerator {
         itemLookup: ItemWikiLookup,
         objLookup: ObjRscmLookup,
     ): ResolvedDropEntry? {
-        val obj = objLookup.resolveWikiItem(itemLookup, drop.name, noted = drop.isNoted) ?: return null
-        val bonusDrops = resolveBonusDrops(drop.wikiNotes.companionDrops, itemLookup, objLookup, drop.name, drop.quantity)
+        val obj =
+            objLookup.resolveWikiItem(itemLookup, drop.name, noted = drop.isNoted) ?: return null
+        val bonusDrops =
+            resolveBonusDrops(
+                drop.wikiNotes.companionDrops,
+                itemLookup,
+                objLookup,
+                drop.name,
+                drop.quantity,
+            )
 
         return when (drop.section) {
-            WikiDropSection.Guaranteed ->
-                resolvedEntry(drop, obj, bonusDrops)
+            WikiDropSection.Guaranteed -> resolvedEntry(drop, obj, bonusDrops)
 
             WikiDropSection.Main ->
                 parseMainRarity(drop.rarity)?.let { (weight, denominator) ->
-                    resolvedEntry(drop, obj, bonusDrops, weight = weight, rollDenominator = denominator)
+                    resolvedEntry(
+                        drop,
+                        obj,
+                        bonusDrops,
+                        weight = weight,
+                        rollDenominator = denominator,
+                    )
                 }
 
             WikiDropSection.Tertiary ->
@@ -551,9 +565,14 @@ object DropTableCodeGenerator {
                 val legsName =
                     spec.wikiNames.firstOrNull { name ->
                         name.contains("platelegs", ignoreCase = true) ||
-                            (name.contains("legs", ignoreCase = true) && !name.contains("skirt", ignoreCase = true))
+                            (name.contains("legs", ignoreCase = true) &&
+                                !name.contains("skirt", ignoreCase = true))
                     }
-                val skirtName = spec.wikiNames.firstOrNull { name -> name.contains("plateskirt", ignoreCase = true) || name.contains("skirt", ignoreCase = true) }
+                val skirtName =
+                    spec.wikiNames.firstOrNull { name ->
+                        name.contains("plateskirt", ignoreCase = true) ||
+                            name.contains("skirt", ignoreCase = true)
+                    }
                 if (legsName != null) {
                     objLookup.resolveWikiItem(itemLookup, legsName)?.let { obj ->
                         resolved +=
@@ -578,8 +597,13 @@ object DropTableCodeGenerator {
             }
 
             for (name in spec.wikiNames) {
-                WikiCompanionDropParser
-                    .resolveObj(itemLookup, objLookup, name, primaryDropName, spec.droppedTogether)
+                WikiCompanionDropParser.resolveObj(
+                        itemLookup,
+                        objLookup,
+                        name,
+                        primaryDropName,
+                        spec.droppedTogether,
+                    )
                     ?.let { obj ->
                         val count =
                             spec.count.takeIf { it > 1 }
@@ -617,7 +641,11 @@ object DropTableCodeGenerator {
 
     private fun ResolvedDropEntry.canUseItemChainSyntax(): Boolean = bonusDrops.isEmpty()
 
-    private fun formatDropCount(count: Int, countMax: Int?, parenthesizeRange: Boolean = false): String =
+    private fun formatDropCount(
+        count: Int,
+        countMax: Int?,
+        parenthesizeRange: Boolean = false,
+    ): String =
         if (countMax != null && countMax > count) {
             val range = "$count..$countMax"
             if (parenthesizeRange) "($range)" else range
@@ -649,7 +677,9 @@ object DropTableCodeGenerator {
             return
         }
 
-        appendLine("$indent${roll.accessNumerator} outOf ${roll.accessDenominator} rolls rsPlayerWeightedTable {")
+        appendLine(
+            "$indent${roll.accessNumerator} outOf ${roll.accessDenominator} rolls rsPlayerWeightedTable {"
+        )
         for (entry in roll.entries) {
             appendWeightedLine(entry, indent = "$indent    ")
         }
@@ -689,7 +719,9 @@ object DropTableCodeGenerator {
         val nothingWeight = computePoolPaddingWeight(main, mainMaxRoll, subtableAccesses)
         if (nothingWeight > 0) {
             if (hasExplicitNothing) {
-                appendLine("        // Pool padding (F2P drops removed / subtable access missing from wiki parse)")
+                appendLine(
+                    "        // Pool padding (F2P drops removed / subtable access missing from wiki parse)"
+                )
             }
             appendLine("        $nothingWeight weight nothing()")
         }
@@ -701,7 +733,7 @@ object DropTableCodeGenerator {
         if (access.needsHardcodedSharedTable) {
             appendLine(
                 "        // Needs hardcoded shared table: ${access.wikiLabel} " +
-                    "(${access.numerator}/${access.denominator})",
+                    "(${access.numerator}/${access.denominator})"
             )
         }
 
@@ -755,7 +787,9 @@ object DropTableCodeGenerator {
         if (isUnknownWikiDropRate(rarity) || rarity.equals("Always", ignoreCase = true)) {
             return null
         }
-        parseDecimalFraction(rarity.trim())?.let { return it }
+        parseDecimalFraction(rarity.trim())?.let {
+            return it
+        }
         val weight = rarity.trim().toIntOrNull() ?: return null
         return weight to weight
     }
@@ -764,7 +798,9 @@ object DropTableCodeGenerator {
         if (rarity.equals("Always", ignoreCase = true)) {
             return 1 to 1
         }
-        parseBrimstoneRarity(rarity)?.let { return it }
+        parseBrimstoneRarity(rarity)?.let {
+            return it
+        }
         if (isUnknownWikiDropRate(rarity)) {
             return null
         }
@@ -834,15 +870,15 @@ object DropTableCodeGenerator {
         return 1 to outOf
     }
 
-    fun isBrimstoneRarityTemplate(rarity: String): Boolean = BRIMSTONE_RARITY_TEMPLATE.containsMatchIn(rarity.trim())
+    fun isBrimstoneRarityTemplate(rarity: String): Boolean =
+        BRIMSTONE_RARITY_TEMPLATE.containsMatchIn(rarity.trim())
 
-    fun hasBrimstoneKonarBonus(rarity: String): Boolean = BRIMSTONE_BONUS_FLAG.containsMatchIn(rarity)
+    fun hasBrimstoneKonarBonus(rarity: String): Boolean =
+        BRIMSTONE_BONUS_FLAG.containsMatchIn(rarity)
 
-    private val BRIMSTONE_RARITY_TEMPLATE =
-        Regex("""(?i)\{\{\s*Brimstone\s+rarity\s*\|\s*(\d+)""")
+    private val BRIMSTONE_RARITY_TEMPLATE = Regex("""(?i)\{\{\s*Brimstone\s+rarity\s*\|\s*(\d+)""")
 
-    private val BRIMSTONE_BONUS_FLAG =
-        Regex("""(?i)(?:\|\s*bonus\s*=\s*yes|\|\s*yes\s*\}\})""")
+    private val BRIMSTONE_BONUS_FLAG = Regex("""(?i)(?:\|\s*bonus\s*=\s*yes|\|\s*yes\s*\}\})""")
 
     private fun StringBuilder.appendNpcList(npcRscmKeys: List<String>) {
         val npcList = npcRscmKeys.distinct().sorted().joinToString(", ") { it.kotlinString() }
@@ -866,19 +902,25 @@ object DropTableCodeGenerator {
         if (roll.entries.size == 1) {
             val entry = roll.entries.first()
             if (entry.isNothing) {
-                appendLine("$indent${roll.accessNumerator} outOf ${roll.accessDenominator} separate ringNothing()")
+                appendLine(
+                    "$indent${roll.accessNumerator} outOf ${roll.accessDenominator} separate ringNothing()"
+                )
                 return
             }
             appendResolvedDropLine(
                 entry = entry,
                 indent = indent,
-                header = "${roll.accessNumerator} outOf ${roll.accessDenominator} separate ${entry.obj.kotlinString()}",
-                fallbackPrefix = "$indent${roll.accessNumerator} outOf ${roll.accessDenominator} separate ",
+                header =
+                    "${roll.accessNumerator} outOf ${roll.accessDenominator} separate ${entry.obj.kotlinString()}",
+                fallbackPrefix =
+                    "$indent${roll.accessNumerator} outOf ${roll.accessDenominator} separate ",
             )
             return
         }
 
-        appendLine("$indent${roll.accessNumerator} outOf ${roll.accessDenominator} separate rsPlayerWeightedTable {")
+        appendLine(
+            "$indent${roll.accessNumerator} outOf ${roll.accessDenominator} separate rsPlayerWeightedTable {"
+        )
         for (entry in roll.entries) {
             appendWeightedLine(entry, indent = "$indent    ")
         }
@@ -936,7 +978,8 @@ object DropTableCodeGenerator {
         val killConditionBody = entry.killConditionBody()
         val hasTransform = entry.wikiNotes.hasTransformItem
         val hasManualCondition = entry.wikiNotes.hasCondition
-        val hasModifier = conditionBody != null || killConditionBody != null || hasTransform || hasManualCondition
+        val hasModifier =
+            conditionBody != null || killConditionBody != null || hasTransform || hasManualCondition
         val countArg = formatDropCount(count, countMax, parenthesizeRange = hasModifier)
         val innerIndent = "$indent    "
 
@@ -1030,7 +1073,9 @@ object DropTableCodeGenerator {
         )
     }
 
-    private fun ResolvedDropEntry.conditionBody(clueRollModifier: ClueTertiaryRollModifier? = null): String? {
+    private fun ResolvedDropEntry.conditionBody(
+        clueRollModifier: ClueTertiaryRollModifier? = null
+    ): String? {
         if (clueRollModifier?.excludeRingOfWealth == true) {
             return ringOfWealthConditionBody(requireWealth = false, requireWilderness = false)
         }
@@ -1041,8 +1086,7 @@ object DropTableCodeGenerator {
             )
         }
         return when {
-            requiresLootingBagCondition() ->
-                "player -> player.shouldDropLootingBag()"
+            requiresLootingBagCondition() -> "player -> player.shouldDropLootingBag()"
             requiresQuestCondition() -> {
                 val questRequirement = wikiNotes.questRequirements.first()
                 "player -> ${questRequirement.conditionExpression()}"
@@ -1051,7 +1095,10 @@ object DropTableCodeGenerator {
         }
     }
 
-    private fun ringOfWealthConditionExpression(requireWealth: Boolean, requireWilderness: Boolean): String {
+    private fun ringOfWealthConditionExpression(
+        requireWealth: Boolean,
+        requireWilderness: Boolean,
+    ): String {
         val checks = mutableListOf<String>()
         checks +=
             if (requireWealth) {
@@ -1065,8 +1112,10 @@ object DropTableCodeGenerator {
         return checks.joinToString(" && ")
     }
 
-    private fun ringOfWealthConditionBody(requireWealth: Boolean, requireWilderness: Boolean): String =
-        "player -> ${ringOfWealthConditionExpression(requireWealth, requireWilderness)}"
+    private fun ringOfWealthConditionBody(
+        requireWealth: Boolean,
+        requireWilderness: Boolean,
+    ): String = "player -> ${ringOfWealthConditionExpression(requireWealth, requireWilderness)}"
 
     private fun ResolvedDropEntry.killConditionBody(): String? =
         if (requiresBrimstoneKeyCondition()) {
@@ -1114,9 +1163,13 @@ object DropTableCodeGenerator {
         val needsBrimstoneKeyCondition = requiresBrimstoneKeyCondition()
         val questRequirement = wikiNotes.questRequirements.firstOrNull()
         val needsQuestCondition = questRequirement != null
-        val wealthConditionBody = clueRollModifier?.let { modifier ->
-            ringOfWealthConditionExpression(modifier.requireRingOfWealth, modifier.requireWilderness)
-        }
+        val wealthConditionBody =
+            clueRollModifier?.let { modifier ->
+                ringOfWealthConditionExpression(
+                    modifier.requireRingOfWealth,
+                    modifier.requireWilderness,
+                )
+            }
 
         val innerIndent = indent + "    "
         return buildString {
@@ -1138,7 +1191,7 @@ object DropTableCodeGenerator {
             if (needsBrimstoneKeyCondition) {
                 append(
                     ", killCondition = { player, npc, areaChecker -> " +
-                        "player.shouldDropBrimstoneKey(npc, areaChecker) }",
+                        "player.shouldDropBrimstoneKey(npc, areaChecker) }"
                 )
             }
             if (wikiNotes.hasTransformItem) {
@@ -1147,7 +1200,9 @@ object DropTableCodeGenerator {
                     append("$innerIndent player.clueScrollTransformObj(${obj.kotlinString()})\n")
                 } else {
                     for (note in wikiNotes.transformItem) {
-                        append("$innerIndent// Drops Need Manual (item): ${formatKotlinComment(note)}\n")
+                        append(
+                            "$innerIndent// Drops Need Manual (item): ${formatKotlinComment(note)}\n"
+                        )
                     }
                     append("$innerIndent null\n")
                 }
@@ -1179,8 +1234,7 @@ object DropTableCodeGenerator {
             "onBuilder { brimstoneKeyRoll() }"
         }
 
-    private fun ResolvedDropEntry.requiresQuestCondition(): Boolean =
-        wikiNotes.hasQuestRequirement
+    private fun ResolvedDropEntry.requiresQuestCondition(): Boolean = wikiNotes.hasQuestRequirement
 
     private fun ResolvedDropEntry.isClueScrollBoxTransform(): Boolean =
         wikiNotes.transformItem.any { CLUE_SCROLL_BOX_TRANSFORM_NOTE.containsMatchIn(it) }
@@ -1194,17 +1248,20 @@ object DropTableCodeGenerator {
         }
     }
 
-    private fun ResolvedBonusDrop.bonusDropExpression(indent: String): String =
-        buildString {
-            append("${indent}DropRollItem(${obj.kotlinString()}, ${formatDropCount(count, countMax)}")
-            when (bodyTypeRequired) {
-                BODYTYPE_A ->
-                    append(", condition = { player -> player.appearance.bodyType == constants.bodytype_a }")
-                BODYTYPE_B ->
-                    append(", condition = { player -> player.appearance.bodyType == constants.bodytype_b }")
-            }
-            append(")")
+    private fun ResolvedBonusDrop.bonusDropExpression(indent: String): String = buildString {
+        append("${indent}DropRollItem(${obj.kotlinString()}, ${formatDropCount(count, countMax)}")
+        when (bodyTypeRequired) {
+            BODYTYPE_A ->
+                append(
+                    ", condition = { player -> player.appearance.bodyType == constants.bodytype_a }"
+                )
+            BODYTYPE_B ->
+                append(
+                    ", condition = { player -> player.appearance.bodyType == constants.bodytype_b }"
+                )
         }
+        append(")")
+    }
 
     private fun ResolvedDropEntry.quantityRange(): Pair<Int, Int>? {
         val match = Regex("""(\d+)\s*-\s*(\d+)""").find(quantity) ?: return null

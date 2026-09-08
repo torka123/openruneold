@@ -2,51 +2,57 @@ package org.rsmod.content.drops.tables.monsters
 
 import dtx.rs.RSDropTable
 import dtx.rs.npcs
-import dtx.rs.areas
-import org.rsmod.api.droptable.rsPlayerGuaranteedTable
+import org.rsmod.api.droptable.DropRollItem
+import org.rsmod.api.droptable.RegisterDropTable
+import org.rsmod.api.droptable.nothing
+import org.rsmod.api.droptable.rsPlayerPrerollTable
 import org.rsmod.api.droptable.rsPlayerTertiaryTable
 import org.rsmod.api.droptable.rsPlayerWeightedTable
-import org.rsmod.api.droptable.rsPlayerPrerollTable
-import org.rsmod.api.droptable.dropRollable
-import org.rsmod.content.drops.tables.shared.SharedDropTables
-import org.rsmod.api.droptable.DropRollItem
 import org.rsmod.content.drops.clueScrollTransformObj
-import org.rsmod.api.droptable.nothing
-import org.rsmod.api.droptable.RegisterDropTable
+import org.rsmod.content.drops.tables.shared.SharedDropTables
 import org.rsmod.game.entity.Player
 
 @field:RegisterDropTable
 @JvmField
-public val mantaRayMonsterDropTable: RSDropTable<Player, DropRollItem> = RSDropTable(
-    tableIdentifier = "Manta ray (monster) Drops",
-    npcs = npcs("npc.sailing_manta_ray"),
-    preRoll = rsPlayerPrerollTable {
-        1 outOf 20 weight "obj.ray_barbs" count 1
-    },
-    mainTable = rsPlayerWeightedTable(total = 99) {
-        name("Manta ray (monster) Drops")
-        15 weight "obj.raw_mantaray" count 1
-        5 weight "obj.cert_bucket_sand" count 10..15
-        5 weight "obj.cert_seaweed" count 10..15
-        16 outOf 297 separate "obj.coral_pillar_frag" count 1
-        8 outOf 297 separate "obj.coral_umbral_frag" count 1
-        15 outOf 1980 separate "obj.camphor_seed" count 1
-        4 outOf 1980 separate "obj.ironwood_seed" count 1
-        1 outOf 1980 separate "obj.rosewood_seed" count 1
+public val mantaRayMonsterDropTable: RSDropTable<Player, DropRollItem> =
+    RSDropTable(
+        tableIdentifier = "Manta ray (monster) Drops",
+        npcs = npcs("npc.sailing_manta_ray"),
+        preRoll = rsPlayerPrerollTable { 1 outOf 20 weight "obj.ray_barbs" count 1 },
+        mainTable =
+            rsPlayerWeightedTable(total = 99) {
+                name("Manta ray (monster) Drops")
+                15 weight "obj.raw_mantaray" count 1
+                5 weight "obj.cert_bucket_sand" count 10..15
+                5 weight "obj.cert_seaweed" count 10..15
+                16 outOf 297 separate "obj.coral_pillar_frag" count 1
+                8 outOf 297 separate "obj.coral_umbral_frag" count 1
+                15 outOf 1980 separate "obj.camphor_seed" count 1
+                4 outOf 1980 separate "obj.ironwood_seed" count 1
+                1 outOf 1980 separate "obj.rosewood_seed" count 1
 
-        4 weight SharedDropTables.combatHerb
-        70 weight nothing()
-    },
-    tertiaries = rsPlayerTertiaryTable {
-        1 outOf 10 weight "obj.sailing_manta_ray_skin" count 1 condition { player ->
-            // Drops Need Manual: Only dropped while on an applicable bounty task.
-             true
-        }
-        1 outOf 114 weight "obj.trail_clue_hard_map001" count 1 transformObj { player ->
-             player.clueScrollTransformObj("obj.trail_clue_hard_map001")
-        }
-    },
-)
+                4 weight SharedDropTables.combatHerb
+                70 weight nothing()
+            },
+        tertiaries =
+            rsPlayerTertiaryTable {
+                1 outOf
+                    10 weight
+                    "obj.sailing_manta_ray_skin" count
+                    1 condition
+                    { player ->
+                        // Drops Need Manual: Only dropped while on an applicable bounty task.
+                        true
+                    }
+                1 outOf
+                    114 weight
+                    "obj.trail_clue_hard_map001" count
+                    1 transformObj
+                    { player ->
+                        player.clueScrollTransformObj("obj.trail_clue_hard_map001")
+                    }
+            },
+    )
 
 // Unknown wiki drop rates (text rarity — need data collection):
 //   - Toadflax seed [main/1/{{#expr:1/({{#var:rareseed}}*216) round 1}}]

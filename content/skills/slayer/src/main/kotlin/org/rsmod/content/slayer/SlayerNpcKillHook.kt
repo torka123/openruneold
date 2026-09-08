@@ -23,6 +23,8 @@ class SlayerNpcKillHook @Inject constructor(
             superiors.onSuperiorDeath(context.npc)
         }
 
+        SlayerTaskManager.getCurrentSlayerTask(context.hero) ?: return
+        if (!SlayerTaskManager.countsAsCurrentTaskKill(context.hero, context.npc)) return
         if (!SlayerTaskManager.countsKillTowardTask(context.hero, context.npc, areaChecker)) return
 
         val extraKills = ExpeditiousBracelet.rollExtraKill(context.hero, random)

@@ -27,10 +27,13 @@ object DropTableTomlReformatter {
 
     fun reformatTree(tomlRoot: Path): Int {
         var count = 0
-        tomlRoot.walk().filter { it.isRegularFile() && it.fileName.toString().endsWith(".toml") }.forEach { file ->
-            reformatFile(file)
-            count++
-        }
+        tomlRoot
+            .walk()
+            .filter { it.isRegularFile() && it.fileName.toString().endsWith(".toml") }
+            .forEach { file ->
+                reformatFile(file)
+                count++
+            }
         return count
     }
 
@@ -73,7 +76,9 @@ object DropTableTomlReformatter {
             questMode = entry.questMode?.trim()?.ifBlank { null },
         )
 
-    private fun normalizeWeighted(entry: org.rsmod.api.droptable.toml.TomlWeightedEntry): org.rsmod.api.droptable.toml.TomlWeightedEntry {
+    private fun normalizeWeighted(
+        entry: org.rsmod.api.droptable.toml.TomlWeightedEntry
+    ): org.rsmod.api.droptable.toml.TomlWeightedEntry {
         val shared = entry.shared?.trim()?.ifBlank { null }
         val obj = entry.obj?.trim()?.ifBlank { null }
         return entry.copy(
@@ -89,9 +94,7 @@ object DropTableTomlReformatter {
 }
 
 fun main(args: Array<String>) {
-    val root =
-        args.firstOrNull()?.let { Path.of(it) }
-            ?: defaultTomlOutputDir(findRepoRoot())
+    val root = args.firstOrNull()?.let { Path.of(it) } ?: defaultTomlOutputDir(findRepoRoot())
     val count = DropTableTomlReformatter.reformatTree(root)
     println("Reformatted $count drop table TOML file(s) under $root")
 }
@@ -99,7 +102,10 @@ fun main(args: Array<String>) {
 private fun findRepoRoot(): Path? {
     var dir = Path.of("").toAbsolutePath()
     repeat(8) {
-        if (dir.resolve("settings.gradle.kts").toFile().exists() || dir.resolve("build.gradle.kts").toFile().exists()) {
+        if (
+            dir.resolve("settings.gradle.kts").toFile().exists() ||
+                dir.resolve("build.gradle.kts").toFile().exists()
+        ) {
             return dir
         }
         dir = dir.parent ?: return null

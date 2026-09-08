@@ -3,7 +3,6 @@ package org.rsmod.api.player.stat
 import dev.openrune.ServerCacheManager
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
-import dev.openrune.types.StatType
 import kotlin.math.min
 import org.rsmod.annotations.InternalApi
 import org.rsmod.api.player.ui.PlayerInterfaceUpdates
@@ -17,6 +16,7 @@ public object PlayerSkillXP {
         player.addXP(stat, xp, rate)
 
     private fun Player.addXP(stat: String, xp: Double, rate: Double): Int {
+        val previousXp = statMap.getXP(stat)
         val fineXp = PlayerStatMap.toFineXP(xp * rate)
         if (fineXp.isInfinite()) {
             throw IllegalArgumentException("Total XP being added is too high! (xp=$xp, rate=$rate)")
@@ -29,7 +29,24 @@ public object PlayerSkillXP {
         }
         checkLevelUp(stat)
         updateStat(stat)
+        queuePost99Milestone(stat, previousXp, statMap.getXP(stat))
         return PlayerStatMap.normalizeFineXP(addedFineXp)
+    }
+
+    @OptIn(InternalApi::class)
+    private fun Player.queuePost99Milestone(internal: String, previousXp: Int, currentXp: Int) {
+        val level99Xp = PlayerSkillXPTable.getXPFromLevel(99)
+        val eligiblePrevious = maxOf(previousXp, level99Xp)
+        if (
+            currentXp <= level99Xp ||
+                eligiblePrevious / POST_99_MILESTONE_UNIT >= currentXp / POST_99_MILESTONE_UNIT
+        ) {
+            return
+        }
+        val stat =
+            ServerCacheManager.getStats(internal.asRSCM(RSCMType.STAT))
+                ?: error("No stat found for $internal")
+        engineQueueStatXpMilestone(stat, previousXp, currentXp)
     }
 
     private fun PlayerStatMap.addXP(stat: String, fineXp: Double): Int {
@@ -46,8 +63,9 @@ public object PlayerSkillXP {
     private fun Player.checkLevelUp(internal: String) {
         val baseLevel = statBase(internal)
 
-        val stat = ServerCacheManager.getStats(internal.asRSCM(RSCMType.STAT))
-            ?: error("No stat found for $internal")
+        val stat =
+            ServerCacheManager.getStats(internal.asRSCM(RSCMType.STAT))
+                ?: error("No stat found for $internal")
 
         if (baseLevel >= stat.maxLevel) {
             return
@@ -85,4 +103,6 @@ public object PlayerSkillXP {
             magic = player.baseMagicLvl,
             prayer = player.basePrayerLvl,
         )
+
+    private const val POST_99_MILESTONE_UNIT: Int = 1_000_000
 }

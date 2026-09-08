@@ -30,6 +30,7 @@ import org.rsmod.api.script.onIfModalButton
 import org.rsmod.api.script.onIfModalDrag
 import org.rsmod.api.script.onPlayerLogin
 import org.rsmod.api.script.onPlayerQueue
+import org.rsmod.api.specials.SpecialAttackRegistry
 import org.rsmod.content.interfaces.bank.BankTab
 import org.rsmod.content.interfaces.bank.QuantityMode
 import org.rsmod.content.interfaces.bank.alwaysPlacehold
@@ -42,6 +43,7 @@ import org.rsmod.content.interfaces.bank.leftClickQtyMode
 import org.rsmod.content.interfaces.bank.selectedTab
 import org.rsmod.content.interfaces.bank.setBankWornBonuses
 import org.rsmod.content.interfaces.bank.setBanksideExtraOps
+import org.rsmod.content.interfaces.bank.validateUnsafeDungeonBankSession
 import org.rsmod.content.interfaces.bank.util.BankSlots
 import org.rsmod.content.interfaces.bank.util.bulkShift
 import org.rsmod.content.interfaces.bank.util.leftShift
@@ -81,27 +83,57 @@ class BankInvScript
 constructor(
     private val eventBus: EventBus,
     private val wornBonuses: WornBonuses,
+    private val specialAttacks: SpecialAttackRegistry,
     private val weaponSpeeds: WeaponSpeeds,
 ) : PluginScript() {
     override fun ScriptContext.startup() {
         onPlayerLogin { player.setDefaultCapacity() }
 
-        onIfModalButton("component.bankside:items") { sideInvOp(it.comsub, it.op) }
-        onIfModalButton("component.bankmain:items") { mainInvOp(it.comsub, it.op) }
-        onIfModalButton("component.bankside:wornops") { wornInvOp(it.comsub, it.op) }
-        onIfModalButton("component.bankmain:depositinv") { depositInv() }
-        onIfModalButton("component.bankmain:depositworn") { depositWorn() }
-        onIfModalButton("component.bankmain:tabs") { selectTab(it.comsub, it.op) }
-        onIfModalButton("component.bankmain:incinerator_confirm") { incinerate(it.comsub, it.obj) }
-        onIfModalDrag("component.bankmain:tabs") { dragTab(it) }
-        onIfModalDrag("component.bankside:items") { dragSideInv(it) }
-        onIfModalDrag("component.bankmain:items") { dragMainInv(it) }
-        onIfModalDrag("component.bankside:wornops") { dragSideInv(it) }
-        onIfModalDrag("component.bankmain:items", "component.bankmain:tabs") { dragIntoTab(it) }
+        onIfModalButton("component.bankside:items") {
+            if (validateUnsafeDungeonBankSession(eventBus)) sideInvOp(it.comsub, it.op)
+        }
+        onIfModalButton("component.bankmain:items") {
+            if (validateUnsafeDungeonBankSession(eventBus)) mainInvOp(it.comsub, it.op)
+        }
+        onIfModalButton("component.bankside:wornops") {
+            if (validateUnsafeDungeonBankSession(eventBus)) wornInvOp(it.comsub, it.op)
+        }
+        onIfModalButton("component.bankmain:depositinv") {
+            if (validateUnsafeDungeonBankSession(eventBus)) depositInv()
+        }
+        onIfModalButton("component.bankmain:depositworn") {
+            if (validateUnsafeDungeonBankSession(eventBus)) depositWorn()
+        }
+        onIfModalButton("component.bankmain:tabs") {
+            if (validateUnsafeDungeonBankSession(eventBus)) selectTab(it.comsub, it.op)
+        }
+        onIfModalButton("component.bankmain:incinerator_confirm") {
+            if (validateUnsafeDungeonBankSession(eventBus)) incinerate(it.comsub, it.obj)
+        }
+        onIfModalDrag("component.bankmain:tabs") {
+            if (validateUnsafeDungeonBankSession(eventBus)) dragTab(it)
+        }
+        onIfModalDrag("component.bankside:items") {
+            if (validateUnsafeDungeonBankSession(eventBus)) dragSideInv(it)
+        }
+        onIfModalDrag("component.bankmain:items") {
+            if (validateUnsafeDungeonBankSession(eventBus)) dragMainInv(it)
+        }
+        onIfModalDrag("component.bankside:wornops") {
+            if (validateUnsafeDungeonBankSession(eventBus)) dragSideInv(it)
+        }
+        onIfModalDrag("component.bankmain:items", "component.bankmain:tabs") {
+            if (validateUnsafeDungeonBankSession(eventBus)) dragIntoTab(it)
+        }
 
-        val wornComponents = bank_equipment_tab_to_slots_map.filterValuesNotNull().map { it.key to RSCM.getReverseMapping(RSCMType.COMPONENT,it.value.packed) }
+        val wornComponents =
+            bank_equipment_tab_to_slots_map.filterValuesNotNull().map {
+                it.key to RSCM.getReverseMapping(RSCMType.COMPONENT, it.value.packed)
+            }
         for ((slot, component) in wornComponents) {
-            onIfModalButton(component) { wornOp(slot, it.op) }
+            onIfModalButton(component) {
+                if (validateUnsafeDungeonBankSession(eventBus)) wornOp(slot, it.op)
+            }
         }
 
         onPlayerQueue("queue.bank_compress") { compressBank() }
@@ -116,6 +148,7 @@ constructor(
     }
 
     private suspend fun ProtectedAccess.mainInvWithdraw(slot: Int, op: IfButtonOp) {
+        BankTab.repairLayout(player, bank)
         val obj = bank[slot] ?: return resendSlot(bank, 0)
         val objType = getInvObj(obj)
         if (objType.isPlaceholder) {
@@ -219,9 +252,10 @@ constructor(
             return false
         }
 
-        val objType = getInvObj(obj)
+        val storedObj = org.rsmod.game.obj.EnsouledHeadProvenance.normalizeStored(obj)
+        val objType = getInvObj(storedObj)
 
-        if (objType.param(params.no_bank) != 0) {
+        if (objType.param(params.no_bank) != 0 && !specialAttacks.isRegisteredItem(obj.id)) {
             mes("A magical force prevents you from banking this item!")
             return false
         }
@@ -229,7 +263,7 @@ constructor(
         val tab = selectedTab
 
         val placeholder = placeholder(objType)
-        val containedObjSlot = bank.indexOfFirst { it?.id == obj.id || it?.id == placeholder.id }
+        val containedObjSlot = bank.indexOfFirst { it?.id == storedObj.id || it?.id == placeholder.id }
         val prioritySlot =
             if (containedObjSlot != -1) {
                 containedObjSlot
@@ -290,7 +324,7 @@ constructor(
 
         // Cheap way of checking if obj has taken a new slot in bank.
         val expectedSlot = tabSlots.last + 1
-        val expectedObj = uncert(obj)
+        val expectedObj = uncert(storedObj)
         if (bank[expectedSlot]?.id == expectedObj.id) {
             tab.increaseSize(this)
         }
@@ -408,7 +442,7 @@ constructor(
 
         val uniqueInvObjs = mutableSetOf<Int>()
         for (invObj in from) {
-            val type = getOrNull(invObj) ?: continue
+            val type = invObj?.let { getInvObj(org.rsmod.game.obj.EnsouledHeadProvenance.normalizeStored(it)) } ?: continue
             val uncert = uncert(type)
             if (uncert.param(params.no_bank) != 0) {
                 continue
@@ -964,6 +998,7 @@ constructor(
     }
 
     private fun ProtectedAccess.notifySlotUpdate(slot: Int) {
+        BankTab.repairLayout(player, bank, minimumSlots = slot + 1)
         val tab = BankTab.forSlot(this, slot)
         checkNotNull(tab) { "`slot` was not associated with a valid bank tab: $slot" }
         notifySlotUpdate(tab)

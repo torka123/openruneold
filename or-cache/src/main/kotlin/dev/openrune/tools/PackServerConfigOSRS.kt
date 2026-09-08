@@ -45,7 +45,7 @@ data class PackType(
 )
 
 class PackServerConfig(
-    private val rev : Int,
+    private val rev: Int,
     private val directory: File,
     private val tokenizedReplacements: Map<String, String> = emptyMap(),
     private val tokenizedFile: Path? = null,
@@ -75,6 +75,17 @@ class PackServerConfig(
         }
     }
 
+    private val slayerDir = File(directory, "slayer")
+    private val slayerTaskIdsByNpcId =
+        SlayerTargetMonsterLoader.loadNpcSlayerTaskIds(slayerDir, mapper)
+    private val slayerTaskTipByNpcId = SlayerNpcTipLoader.loadNpcSlayerTaskTips(slayerDir, mapper)
+    private val slayerSuperiorByNpcId =
+        SlayerSuperiorMonsterLoader.loadNpcSuperiorParams(slayerDir, mapper)
+    private var slayerDefendAnimationsByNpcId: Map<Int, Int> = emptyMap()
+    private var npcAttackAnimationsByNpcId: Map<Int, Int> = emptyMap()
+    private var npcDeathAnimationsByNpcId: Map<Int, Int> = emptyMap()
+    private var slayerMasterMovementAnimationsByNpcId: Map<Int, NpcMovementAnimations> = emptyMap()
+
     init {
 
         var examinesObject: Map<Int, String> =
@@ -90,8 +101,10 @@ class PackServerConfig(
         registerMergedBaseAndTomlPackType<ObjectServerType, ObjectType>(
             table = "object",
             decoder = ObjectDecoder(rev),
-            loadBaseInto = { c, dest -> OsrsCacheProvider.ObjectDecoder(dev.openrune.revision.first).load(c, dest) },
-            codec = { base, overlay -> ObjectServerCodec(rev,base, overlay, examinesObject) },
+            loadBaseInto = { c, dest ->
+                OsrsCacheProvider.ObjectDecoder(dev.openrune.revision.first).load(c, dest)
+            },
+            codec = { base, overlay -> ObjectServerCodec(rev, base, overlay, examinesObject) },
             create = { ObjectServerType(it) },
         )
 
@@ -105,24 +118,25 @@ class PackServerConfig(
                     idStr.trim().toInt() to text.trim().removeSurrounding("\"")
                 }
 
-        val slayerDir = File(directory, "slayer")
-        val slayerTaskByNpcId = SlayerTargetMonsterLoader.loadNpcSlayerTaskIds(slayerDir, mapper)
-        val slayerTaskTipByNpcId = SlayerNpcTipLoader.loadNpcSlayerTaskTips(slayerDir, mapper)
-        val slayerSuperiorByNpcId = SlayerSuperiorMonsterLoader.loadNpcSuperiorParams(slayerDir, mapper)
-
         registerMergedBaseAndTomlPackType<NpcServerType, NpcType>(
             table = "npc",
             decoder = NpcDecoder(rev),
-            loadBaseInto = { c, dest -> OsrsCacheProvider.NPCDecoder(dev.openrune.revision.first).load(c, dest) },
+            loadBaseInto = { c, dest ->
+                OsrsCacheProvider.NPCDecoder(dev.openrune.revision.first).load(c, dest)
+            },
             codec = { base, overlay ->
                 NpcServerCodec(
                     rev,
                     base,
                     overlay,
                     examinesNpc,
-                    slayerTaskByNpcId,
+                    slayerTaskIdsByNpcId,
                     slayerTaskTipByNpcId,
                     slayerSuperiorByNpcId,
+                    slayerDefendAnimationsByNpcId,
+                    npcAttackAnimationsByNpcId,
+                    npcDeathAnimationsByNpcId,
+                    slayerMasterMovementAnimationsByNpcId,
                 )
             },
             create = { NpcServerType(it) },
@@ -131,8 +145,10 @@ class PackServerConfig(
         registerMergedBaseAndTomlPackType<ItemServerType, ItemType>(
             table = "item",
             decoder = ItemDecoder(rev),
-            loadBaseInto = { c, dest -> OsrsCacheProvider.ItemDecoder(dev.openrune.revision.first).load(c, dest) },
-            codec = { base, overlay -> ItemServerCodec(rev,base, overlay) },
+            loadBaseInto = { c, dest ->
+                OsrsCacheProvider.ItemDecoder(dev.openrune.revision.first).load(c, dest)
+            },
+            codec = { base, overlay -> ItemServerCodec(rev, base, overlay) },
             create = { ItemServerType(it) },
         )
 
@@ -284,7 +300,8 @@ class PackServerConfig(
     @OptIn(InternalAPI::class)
     override fun init(cache: Cache) {
         val parsedDefinitions = mutableMapOf<String, MutableList<Definition>>()
-        CacheManager.init(OsrsCacheProvider(Cache.load(Path.of(getCacheLocation())), revision))
+        val clientCache = Cache.load(Path.of(getCacheLocation()))
+        CacheManager.init(OsrsCacheProvider(clientCache, revision))
 
         ItemRenderDataManager.init()
 
@@ -302,6 +319,45 @@ class PackServerConfig(
         }
 
         val parsed: Map<String, List<Definition>> = parsedDefinitions
+        slayerMasterMovementAnimationsByNpcId =
+            SlayerMasterMovementAnimationResolver.resolve(
+                cache = clientCache,
+                npcs = CacheManager.getNpcs(),
+                customNpcs = parsedById(parsed, "npc"),
+                sequences = CacheManager.getAnims(),
+            )
+        slayerDefendAnimationsByNpcId =
+            SlayerNpcDefendAnimationResolver.resolve(
+                cache = clientCache,
+                npcs = CacheManager.getNpcs(),
+                customNpcs = parsedById(parsed, "npc"),
+                sequences = CacheManager.getAnims(),
+                slayerNpcIds = slayerTaskIdsByNpcId.keys,
+            )
+        val combatNpcIds =
+            CacheManager.getNpcs()
+                .values
+                .asSequence()
+                .filter { npc -> npc.combatLevel > 0 }
+                .mapTo(mutableSetOf()) { npc -> npc.id }
+                .apply { addAll(slayerTaskIdsByNpcId.keys) }
+        npcAttackAnimationsByNpcId =
+            NpcAttackAnimationResolver.resolve(
+                cache = clientCache,
+                npcs = CacheManager.getNpcs(),
+                customNpcs = parsedById(parsed, "npc"),
+                sequences = CacheManager.getAnims(),
+                combatNpcIds = combatNpcIds,
+            )
+        npcDeathAnimationsByNpcId =
+            NpcDeathAnimationResolver.resolve(
+                cache = clientCache,
+                npcs = CacheManager.getNpcs(),
+                customNpcs = parsedById(parsed, "npc"),
+                sequences = CacheManager.getAnims(),
+                combatNpcIds = combatNpcIds,
+            )
+
         val progress = progress("Packing Server Configs", packTypes.size)
         for (packType in packTypes.values) {
             progress.extraMessage = packType.table
@@ -309,6 +365,7 @@ class PackServerConfig(
             progress.step()
         }
         progress.close()
+        clientCache.close()
     }
 
     companion object {

@@ -17,7 +17,11 @@ object DropTableOutputLayout {
     const val DUPLICATE_DROP_TABLES_MANIFEST = "_duplicate_drop_tables.txt"
 
     private val LEGACY_MANIFEST_FILES =
-        setOf(SKIPPED_MONSTERS_MANIFEST, UNKNOWN_DROP_RATES_MANIFEST, DUPLICATE_DROP_TABLES_MANIFEST)
+        setOf(
+            SKIPPED_MONSTERS_MANIFEST,
+            UNKNOWN_DROP_RATES_MANIFEST,
+            DUPLICATE_DROP_TABLES_MANIFEST,
+        )
 
     fun defaultManifestOutputDir(repoRoot: Path?): Path =
         if (repoRoot != null) {
@@ -36,11 +40,14 @@ object DropTableOutputLayout {
             return
         }
 
-        monstersRoot.walk().filter { it.isRegularFile() && it.name.endsWith("DropTable.kt") }.forEach { file ->
-            if (file !in writtenFiles) {
-                file.deleteIfExists()
+        monstersRoot
+            .walk()
+            .filter { it.isRegularFile() && it.name.endsWith("DropTable.kt") }
+            .forEach { file ->
+                if (file !in writtenFiles) {
+                    file.deleteIfExists()
+                }
             }
-        }
     }
 
     /** Removes grouped subdirectories under `monsters/` (legacy layout). */
@@ -54,9 +61,7 @@ object DropTableOutputLayout {
             .toFile()
             .listFiles()
             ?.filter { it.isDirectory }
-            ?.forEach { dir ->
-                dir.deleteRecursively()
-            }
+            ?.forEach { dir -> dir.deleteRecursively() }
     }
 
     /** Removes pre-grouping flat files from `tables/` (keeps `shared/` and `monsters/`). */
@@ -71,7 +76,8 @@ object DropTableOutputLayout {
                 file.isFile &&
                     file.name.endsWith("DropTable.kt", ignoreCase = true) &&
                     !file.name.endsWith("EchoDropTable.kt", ignoreCase = true)
-            }?.forEach { it.delete() }
+            }
+            ?.forEach { it.delete() }
     }
 
     fun cleanupStaleAlternateEncounterFiles(tablesRoot: Path, log: DropDumpLog) {
@@ -80,11 +86,16 @@ object DropTableOutputLayout {
             return
         }
 
-        monstersRoot.walk().filter { it.isRegularFile() && it.name.endsWith("EchoDropTable.kt", ignoreCase = true) }.forEach { file ->
-            if (file.deleteIfExists()) {
-                log.verbose("removed stale ${file.name}")
+        monstersRoot
+            .walk()
+            .filter {
+                it.isRegularFile() && it.name.endsWith("EchoDropTable.kt", ignoreCase = true)
             }
-        }
+            .forEach { file ->
+                if (file.deleteIfExists()) {
+                    log.verbose("removed stale ${file.name}")
+                }
+            }
     }
 
     /** Removes wiki dump manifest files accidentally written under the Kotlin monsters dir. */

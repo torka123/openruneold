@@ -1,0 +1,8 @@
+{
+  "targetRevision": 240,
+  "policy": "Only explicitly listed Vorkath-specific archives may differ.",
+  "allowedArchives": [],
+  "actualChangedArchives": [],
+  "passed": true,
+  "explanation": "No cache archive was imported or rewritten because all required Vorkath assets already exist natively in revision 240."
+}

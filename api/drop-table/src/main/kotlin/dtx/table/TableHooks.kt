@@ -7,16 +7,12 @@ import dtx.core.ModifyRoll
 import dtx.core.RollableHooks
 import dtx.core.RollableHooksImpl
 
-public interface TableHooks<T, R>: RollableHooks<T, R> {
+public interface TableHooks<T, R> : RollableHooks<T, R> {
 
-    /**
-     * This is a getBaseDropRate replacement
-     */
+    /** This is a getBaseDropRate replacement */
     public fun baseRollFor(target: T): Double
 
-    /**
-     * This is a rollModifier replacement
-     */
+    /** This is a rollModifier replacement */
     public fun modifyRoll(target: T, baseRoll: Double): Double
 
     public companion object {
@@ -27,7 +23,8 @@ public interface TableHooks<T, R>: RollableHooks<T, R> {
     }
 }
 
-public data object DefaultTableHooks: TableHooks<Any?, Any?>, RollableHooks<Any?, Any?> by DefaultRollableHooks {
+public data object DefaultTableHooks :
+    TableHooks<Any?, Any?>, RollableHooks<Any?, Any?> by DefaultRollableHooks {
 
     override fun baseRollFor(target: Any?): Double {
         return 0.0
@@ -42,7 +39,7 @@ internal data class TableHooksImpl<T, R>(
     val baseRollableHooks: RollableHooks<T, R> = RollableHooksImpl(),
     val baseRollFunc: BaseRoll<T> = TableHooks.Default<T, R>()::baseRollFor,
     val modifyRollFunc: ModifyRoll<T> = TableHooks.Default<T, R>()::modifyRoll,
-): TableHooks<T, R>, RollableHooks<T, R> by baseRollableHooks {
+) : TableHooks<T, R>, RollableHooks<T, R> by baseRollableHooks {
 
     override fun baseRollFor(target: T): Double {
         return baseRollFunc(target)
@@ -53,7 +50,12 @@ internal data class TableHooksImpl<T, R>(
     }
 }
 
-public abstract class AbstractTableHooksBuilder<T, R, Hooks: TableHooks<T, R>, Builder: AbstractTableHooksBuilder<T, R, Hooks, Builder>> : AbstractRollableHooksBuilder<T, R, Hooks, Builder>() {
+public abstract class AbstractTableHooksBuilder<
+    T,
+    R,
+    Hooks : TableHooks<T, R>,
+    Builder : AbstractTableHooksBuilder<T, R, Hooks, Builder>,
+> : AbstractRollableHooksBuilder<T, R, Hooks, Builder>() {
 
     public var baseRollFunc: BaseRoll<T> = TableHooks.Default<T, R>()::baseRollFor
     public var modifyRollFunc: ModifyRoll<T> = TableHooks.Default<T, R>()::modifyRoll
@@ -76,22 +78,19 @@ public abstract class AbstractTableHooksBuilder<T, R, Hooks: TableHooks<T, R>, B
         return TableHooksImpl(
             baseRollableHooks = buildBaseRollableHooks(),
             baseRollFunc = baseRollFunc,
-            modifyRollFunc = modifyRollFunc
+            modifyRollFunc = modifyRollFunc,
         )
     }
 }
 
-public open class DefaultTableHooksBuilder<T, R>: AbstractTableHooksBuilder<T, R, TableHooks<T, R>, DefaultTableHooksBuilder<T, R>>() {
+public open class DefaultTableHooksBuilder<T, R> :
+    AbstractTableHooksBuilder<T, R, TableHooks<T, R>, DefaultTableHooksBuilder<T, R>>() {
 
     init {
-        construct {
-            buildBaseTableHooks()
-        }
+        construct { buildBaseTableHooks() }
     }
 
     internal companion object {
-        internal fun <T, R> new() = {
-            DefaultTableHooksBuilder<T, R>()
-        }
+        internal fun <T, R> new() = { DefaultTableHooksBuilder<T, R>() }
     }
 }

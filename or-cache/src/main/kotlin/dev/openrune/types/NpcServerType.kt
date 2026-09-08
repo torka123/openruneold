@@ -72,9 +72,17 @@ data class NpcServerType(
     var huntRange: Int = 5,
     var huntMode: Int? = null,
     var giveChase: Boolean = true,
-    @param:TomlField(["params"],serializer = ParamSerializer::class)
+    @param:TomlField(["params"], serializer = ParamSerializer::class)
     var paramsRaw: MutableMap<Int, Any>? = null,
 ) : Definition {
+
+    /**
+     * Server-side Slayer task categories for this NPC.
+     *
+     * An NPC can count for more than one Slayer task, which cannot be represented by the single
+     * client-style `param.slayer_task_id` value.
+     */
+    var slayerTaskIds: IntArray = intArrayOf()
 
     val internalName: String
         get() = RSCM.getReverseMapping(RSCMType.NPC, id)

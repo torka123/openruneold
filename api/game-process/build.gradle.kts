@@ -13,6 +13,7 @@ dependencies {
     implementation(libs.guice)
     implementation(libs.rsprot.api)
     implementation(projects.api.account)
+    implementation(projects.api.areaChecker)
     implementation(projects.api.config)
     implementation(projects.api.controller)
     implementation(projects.api.dbGateway)
@@ -33,5 +34,6 @@ dependencies {
     implementation(projects.engine.game)
     implementation(projects.engine.interact)
     implementation(projects.engine.map)
+    implementation(projects.engine.plugin)
     implementation(projects.engine.routefinder)
 }

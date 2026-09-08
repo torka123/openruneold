@@ -12,7 +12,9 @@ class ProductionTableRowScope(
     private val defaultCategory: String?,
 ) {
     fun production(block: ProductionRowBuilder.() -> Unit) {
-        ProductionRowBuilder(row, includeCategory, requireOutput, defaultCategory).apply(block).apply()
+        ProductionRowBuilder(row, includeCategory, requireOutput, defaultCategory)
+            .apply(block)
+            .apply()
     }
 
     fun column(col: Int, vararg values: Any) {

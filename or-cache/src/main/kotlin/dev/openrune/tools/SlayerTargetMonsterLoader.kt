@@ -10,19 +10,30 @@ import kotlin.reflect.typeOf
 object SlayerTargetMonsterLoader {
     private const val FILE_NAME = "slayer_target_monsters.toml"
 
-    fun loadNpcSlayerTaskIds(directory: File, mapper: TomlMapper): Map<Int, Int> {
+    fun loadNpcSlayerTaskIds(directory: File, mapper: TomlMapper): Map<Int, IntArray> {
         val file = File(directory, FILE_NAME)
         if (!file.exists()) return emptyMap()
 
-        val npcToTask = mutableMapOf<Int, Int>()
         val blocks = mapper.decodeRuneScapeBlocks(file.toPath())
-        for (block in blocks) {
-            if (block.name != "slayer_target_monster") continue
-            val entry = mapper.decodeRuneScape(typeOf<SlayerTargetMonster>(), block.map.properties) as SlayerTargetMonster
+        val entries =
+            blocks
+                .asSequence()
+                .filter { it.name == "slayer_target_monster" }
+                .map {
+                    mapper.decodeRuneScape(typeOf<SlayerTargetMonster>(), it.map.properties)
+                        as SlayerTargetMonster
+                }
+                .toList()
+        return mapTaskIdsByNpc(entries)
+    }
+
+    internal fun mapTaskIdsByNpc(entries: Iterable<SlayerTargetMonster>): Map<Int, IntArray> {
+        val taskIdsByNpc = linkedMapOf<Int, LinkedHashSet<Int>>()
+        for (entry in entries) {
             for (npcRef in entry.targets) {
-                npcToTask[npcRef] = entry.targetId
+                taskIdsByNpc.getOrPut(npcRef, ::LinkedHashSet).add(entry.targetId)
             }
         }
-        return npcToTask
+        return taskIdsByNpc.mapValues { (_, taskIds) -> taskIds.toIntArray() }
     }
 }

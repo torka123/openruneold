@@ -15123,31 +15123,31 @@ npc = "npc.wild_cave_abyssal"
 coords = "0_52_158_7_49"
 
 [[spawn]]
-npc = "npc.wild_cave_black_demon3"
+npc = "npc.hydra"
 coords = "0_52_158_26_8"
 
 [[spawn]]
-npc = "npc.wild_cave_black_demon3"
+npc = "npc.hydra"
 coords = "0_52_158_31_2"
 
 [[spawn]]
-npc = "npc.wild_cave_black_demon3"
+npc = "npc.hydra"
 coords = "0_52_158_33_13"
 
 [[spawn]]
-npc = "npc.wild_cave_black_demon3"
+npc = "npc.hydra"
 coords = "0_52_158_39_5"
 
 [[spawn]]
-npc = "npc.wild_cave_black_dragon"
+npc = "npc.kourend_black_dragon"
 coords = "0_52_158_28_45"
 
 [[spawn]]
-npc = "npc.wild_cave_black_dragon"
+npc = "npc.kourend_black_dragon"
 coords = "0_52_158_33_47"
 
 [[spawn]]
-npc = "npc.wild_cave_black_dragon"
+npc = "npc.kourend_black_dragon"
 coords = "0_52_158_38_43"
 
 [[spawn]]
@@ -15191,35 +15191,35 @@ npc = "npc.wild_cave_goblin"
 coords = "0_50_157_26_26"
 
 [[spawn]]
-npc = "npc.wild_cave_green_dragon"
+npc = "npc.elder_custodian_stalker"
 coords = "0_53_157_18_17"
 
 [[spawn]]
-npc = "npc.wild_cave_green_dragon2"
+npc = "npc.elder_custodian_stalker"
 coords = "0_53_157_26_15"
 
 [[spawn]]
-npc = "npc.wild_cave_green_dragon3"
+npc = "npc.elder_custodian_stalker"
 coords = "0_53_157_23_20"
 
 [[spawn]]
-npc = "npc.wild_cave_hell_hound"
+npc = "npc.ancient_wyvern"
 coords = "0_53_157_47_34"
 
 [[spawn]]
-npc = "npc.wild_cave_hell_hound"
+npc = "npc.ancient_wyvern"
 coords = "0_53_157_47_40"
 
 [[spawn]]
-npc = "npc.wild_cave_hell_hound"
+npc = "npc.ancient_wyvern"
 coords = "0_53_157_52_29"
 
 [[spawn]]
-npc = "npc.wild_cave_hell_hound"
+npc = "npc.ancient_wyvern"
 coords = "0_53_157_52_48"
 
 [[spawn]]
-npc = "npc.wild_cave_hell_hound"
+npc = "npc.ancient_wyvern"
 coords = "0_53_157_53_37"
 
 [[spawn]]
@@ -15243,67 +15243,47 @@ npc = "npc.wild_cave_imp"
 coords = "0_50_157_3_27"
 
 [[spawn]]
-npc = "npc.wild_cave_jelly_1"
-coords = "0_53_157_37_52"
-
-[[spawn]]
-npc = "npc.wild_cave_jelly_1"
-coords = "0_53_157_43_58"
-
-[[spawn]]
-npc = "npc.wild_cave_jelly_2"
-coords = "0_53_157_42_54"
-
-[[spawn]]
-npc = "npc.wild_cave_jelly_3"
+npc = "npc.kourend_dark_beast"
 coords = "0_53_157_34_54"
 
 [[spawn]]
-npc = "npc.wild_cave_jelly_3"
-coords = "0_53_157_38_56"
-
-[[spawn]]
-npc = "npc.wild_cave_jelly_4"
-coords = "0_53_157_35_58"
-
-[[spawn]]
-npc = "npc.wild_cave_jelly_4"
+npc = "npc.kourend_dark_beast"
 coords = "0_53_157_41_49"
 
 [[spawn]]
-npc = "npc.wild_cave_jelly_5"
+npc = "npc.kourend_dark_beast"
 coords = "0_53_157_32_60"
 
 [[spawn]]
-npc = "npc.wild_cave_jelly_5"
+npc = "npc.kourend_dark_beast"
 coords = "0_53_157_47_59"
 
 [[spawn]]
-npc = "npc.wild_cave_lesser_demon"
+npc = "npc.venator"
 coords = "0_52_158_12_18"
 
 [[spawn]]
-npc = "npc.wild_cave_lesser_demon"
+npc = "npc.venator_2"
 coords = "0_52_158_13_26"
 
 [[spawn]]
-npc = "npc.wild_cave_lesser_demon"
+npc = "npc.venator_3"
 coords = "0_52_158_7_26"
 
 [[spawn]]
-npc = "npc.wild_cave_lesser_demon2"
+npc = "npc.venator_4"
 coords = "0_52_158_4_13"
 
 [[spawn]]
-npc = "npc.wild_cave_lesser_demon2"
+npc = "npc.venator_5"
 coords = "0_52_158_5_18"
 
 [[spawn]]
-npc = "npc.wild_cave_lesser_demon3"
+npc = "npc.venator"
 coords = "0_52_158_11_32"
 
 [[spawn]]
-npc = "npc.wild_cave_lesser_demon3"
+npc = "npc.venator_2"
 coords = "0_52_158_9_22"
 
 [[spawn]]
@@ -15347,7 +15327,7 @@ npc = "npc.wild_cave_trader"
 coords = "0_49_159_60_48"
 
 [[spawn]]
-npc = "npc.wilderness_bandit"
+npc = "npc.wilderness_ankou"
 coords = "0_53_157_38_22"
 
 [[spawn]]
@@ -15845,4 +15825,3 @@ coords = "0_45_148_43_35"
 [[spawn]]
 npc = "npc.zqzombie_unarmed3"
 coords = "0_45_148_34_57"
-

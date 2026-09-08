@@ -31,10 +31,7 @@ object BraceletOfSlaughter {
         if (isBlockedNpc(npc)) {
             return false
         }
-        val charges = player.slaughterBraceletCharges
-        if (charges <= 0) {
-            return false
-        }
+        val charges = ensureCharges(player)
         if (!random.randomBoolean(PROC_ROLL_EXCLUSIVE)) {
             return false
         }
@@ -62,19 +59,19 @@ object BraceletOfSlaughter {
     }
 
     fun checkCharges(player: Player) {
-        val charges = player.slaughterBraceletCharges
-        if (charges <= 0) {
-            player.mes("Your bracelet of slaughter has run out of charges.")
-            if (isWearing(player)) {
-                crumbleWornBracelet(player)
-            }
-            return
-        }
+        val charges = ensureCharges(player)
         player.mes("Your bracelet of slaughter has $charges charges left.")
     }
 
     fun prepareBreak(player: Player) {
         player.slaughterBraceletCharges = MAX_CHARGES
+    }
+
+    private fun ensureCharges(player: Player): Int {
+        val charges = player.slaughterBraceletCharges
+        if (charges > 0) return charges
+        player.slaughterBraceletCharges = MAX_CHARGES
+        return MAX_CHARGES
     }
 
     private fun isBlockedNpc(npc: Npc): Boolean {

@@ -1,9 +1,9 @@
 package org.rsmod.api.account.character.stats
 
 import dev.openrune.ServerCacheManager
-import dev.or2.sql.OpenRuneSql
 import dev.openrune.rscm.RSCM
 import dev.openrune.rscm.RSCMType
+import dev.or2.sql.OpenRuneSql
 import jakarta.inject.Inject
 import org.rsmod.api.account.character.CharacterDataStage
 import org.rsmod.api.account.character.CharacterMetadataList
@@ -16,9 +16,7 @@ public class CharacterStatPipeline @Inject constructor(private val applier: Char
     CharacterDataStage.Pipeline {
     override fun append(connection: DatabaseConnection, metadata: CharacterMetadataList) {
         val select =
-            connection.prepareStatement(
-                OpenRuneSql.text("game/stats/select_for_character.sql"),
-            )
+            connection.prepareStatement(OpenRuneSql.text("game/stats/select_for_character.sql"))
 
         val stats = ArrayList<Stat>(25)
         select.use {
@@ -40,10 +38,7 @@ public class CharacterStatPipeline @Inject constructor(private val applier: Char
     }
 
     override fun save(connection: DatabaseConnection, player: Player, characterId: Int) {
-        val upsert =
-            connection.prepareStatement(
-                OpenRuneSql.text("game/stats/upsert_stat.sql"),
-            )
+        val upsert = connection.prepareStatement(OpenRuneSql.text("game/stats/upsert_stat.sql"))
 
         upsert.use {
             for (stat in ServerCacheManager.getStats().values) {

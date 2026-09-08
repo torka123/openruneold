@@ -11,14 +11,11 @@ import org.rsmod.tools.wiki.dumping.wiki.WikiClient
 import org.rsmod.tools.wiki.dumping.wiki.WikiShopInfoboxParser
 import org.rsmod.tools.wiki.dumping.wiki.WikiShopStoreParser
 
-private const val DEFAULT_MAPPINGS_RELATIVE = "tools/wiki-dumping/src/main/resources/shopmappings.csv"
+private const val DEFAULT_MAPPINGS_RELATIVE =
+    "tools/wiki-dumping/src/main/resources/shopmappings.csv"
 private const val DEFAULT_OUTPUT_RELATIVE = ".data/raw-cache/server/shops"
 
-data class ResolvedShopStock(
-    val objKey: String,
-    val count: Int,
-    val restockCycles: Int,
-)
+data class ResolvedShopStock(val objKey: String, val count: Int, val restockCycles: Int)
 
 data class ShopDumpResult(
     val inv: String,
@@ -70,7 +67,8 @@ class ShopWikiDumper(
             )
         }
 
-        val stockLines = table.lines.filter { ShopSpecialHandlers.shouldIncludeStockLine(resolvedRow, it.stock) }
+        val stockLines =
+            table.lines.filter { ShopSpecialHandlers.shouldIncludeStockLine(resolvedRow, it.stock) }
         if (stockLines.isEmpty()) {
             return skipped(resolvedRow, "no in-stock lines after filtering stock=0")
         }
@@ -124,7 +122,9 @@ class ShopWikiDumper(
         val table = result.table ?: error("missing table for ${result.inv}")
         val output = outputDir.resolve("${result.inv}.toml")
         output.parent?.createDirectories()
-        output.writeText(formatToml(result.inv, result.shopName, table, result.stock, result.unresolvedItems))
+        output.writeText(
+            formatToml(result.inv, result.shopName, table, result.stock, result.unresolvedItems)
+        )
         return output
     }
 
@@ -144,49 +144,48 @@ class ShopWikiDumper(
         table: org.rsmod.tools.wiki.dumping.wiki.ParsedStoreTable,
         stock: List<ResolvedShopStock>,
         unresolved: List<String>,
-    ): String =
-        buildString {
-            appendLine("[[inventory]]")
-            appendLine("isServerOnly = true")
-            appendLine("id = \"inv.$inv\"")
-            shopName?.let { appendLine("name = \"${tomlEscape(it)}\"") }
+    ): String = buildString {
+        appendLine("[[inventory]]")
+        appendLine("isServerOnly = true")
+        appendLine("id = \"inv.$inv\"")
+        shopName?.let { appendLine("name = \"${tomlEscape(it)}\"") }
+        appendLine()
+        appendLine("scope = \"Shared\"")
+        appendLine("stack = \"Always\"")
+        appendLine()
+        table.sellMultiplier?.let { appendLine("sellMultiplier = $it") }
+        table.buyMultiplier?.let { appendLine("buyMultiplier = $it") }
+        table.delta?.let { appendLine("delta = $it") }
+        if (table.sellMultiplier != null || table.buyMultiplier != null || table.delta != null) {
             appendLine()
-            appendLine("scope = \"Shared\"")
-            appendLine("stack = \"Always\"")
-            appendLine()
-            table.sellMultiplier?.let { appendLine("sellMultiplier = $it") }
-            table.buyMultiplier?.let { appendLine("buyMultiplier = $it") }
-            table.delta?.let { appendLine("delta = $it") }
-            if (table.sellMultiplier != null || table.buyMultiplier != null || table.delta != null) {
-                appendLine()
-            }
-            appendLine("size = ${stock.size.coerceAtLeast(1)}")
-            appendLine()
-            appendLine("protect = false")
-            appendLine("runWeight = false")
-            appendLine("restock = true")
-            appendLine("allStock = false")
-            appendLine("placeholders = false")
-            appendLine()
+        }
+        appendLine("size = ${stock.size.coerceAtLeast(1)}")
+        appendLine()
+        appendLine("protect = false")
+        appendLine("runWeight = false")
+        appendLine("restock = true")
+        appendLine("allStock = false")
+        appendLine("placeholders = false")
+        appendLine()
 
-            for (unresolvedName in unresolved) {
-                appendLine("# unresolved: $unresolvedName")
-            }
-            if (unresolved.isNotEmpty()) {
-                appendLine()
-            }
-
-            for (line in stock) {
-                appendLine("[[inventory.stock]]")
-                appendLine("obj = \"${line.objKey}\"")
-                appendLine("count = ${line.count}")
-                appendLine("restockCycles = ${line.restockCycles}")
-                appendLine()
-            }
+        for (unresolvedName in unresolved) {
+            appendLine("# unresolved: $unresolvedName")
+        }
+        if (unresolved.isNotEmpty()) {
+            appendLine()
         }
 
-    private fun tomlEscape(value: String): String = value.replace("\\", "\\\\").replace("\"", "\\\"")
+        for (line in stock) {
+            appendLine("[[inventory.stock]]")
+            appendLine("obj = \"${line.objKey}\"")
+            appendLine("count = ${line.count}")
+            appendLine("restockCycles = ${line.restockCycles}")
+            appendLine()
+        }
+    }
 
+    private fun tomlEscape(value: String): String =
+        value.replace("\\", "\\\\").replace("\"", "\\\"")
 }
 
 private fun defaultOutputDir(rootDir: String?): Path {
@@ -208,7 +207,8 @@ fun main(args: Array<String>) {
     val rootDir =
         flags.firstOrNull { it.startsWith("--root=") }?.substringAfter('=')
             ?: System.getProperty("RSPS_ROOT")
-    val wikiDumpDir = flags.firstOrNull { it.startsWith("--wiki-dump=") }?.substringAfter("--wiki-dump=")
+    val wikiDumpDir =
+        flags.firstOrNull { it.startsWith("--wiki-dump=") }?.substringAfter("--wiki-dump=")
     val mappingsPath =
         flags.firstOrNull { it.startsWith("--mappings=") }?.substringAfter('=')?.let { Path(it) }
             ?: defaultMappingsPath(rootDir)
@@ -218,29 +218,29 @@ fun main(args: Array<String>) {
     val log = DropDumpLog(quiet = quiet, verbose = verbose)
 
     runBlocking {
-        val elapsed =
-            measureTimeMillis {
-                GameValLoader.ensureLoaded(rootDir)
-                val rows =
-                    ShopNameMapper
-                        .loadDumpableRowsFromCsv(mappingsPath)
-                        .let { list ->
-                            when {
-                                invFilter.isNullOrBlank() -> list
-                                else -> list.filter { it.inv.equals(invFilter, ignoreCase = true) }
-                            }
+        val elapsed = measureTimeMillis {
+            GameValLoader.ensureLoaded(rootDir)
+            val rows =
+                ShopNameMapper.loadDumpableRowsFromCsv(mappingsPath)
+                    .let { list ->
+                        when {
+                            invFilter.isNullOrBlank() -> list
+                            else -> list.filter { it.inv.equals(invFilter, ignoreCase = true) }
                         }
-                        .let { list -> if (limit != null) list.take(limit) else list }
+                    }
+                    .let { list -> if (limit != null) list.take(limit) else list }
 
-                if (rows.isEmpty()) {
-                    System.err.println("No dumpable shop rows found in $mappingsPath")
-                    exitProcess(1)
-                }
+            if (rows.isEmpty()) {
+                System.err.println("No dumpable shop rows found in $mappingsPath")
+                exitProcess(1)
+            }
 
-                log.info("dumping ${rows.size} shop(s) -> $outputDir")
+            log.info("dumping ${rows.size} shop(s) -> $outputDir")
 
-                WikiClient.open(wikiDumpDir, onPageFetch = { title -> log.verbose("wiki: $title") }).use { wiki ->
-                    val dumper = ShopWikiDumper(wiki, ObjRscmLookup(), ItemWikiLookup(wiki, log), log)
+            WikiClient.open(wikiDumpDir, onPageFetch = { title -> log.verbose("wiki: $title") })
+                .use { wiki ->
+                    val dumper =
+                        ShopWikiDumper(wiki, ObjRscmLookup(), ItemWikiLookup(wiki, log), log)
                     outputDir.createDirectories()
 
                     var written = 0
@@ -255,13 +255,15 @@ fun main(args: Array<String>) {
                         }
                         val out = dumper.writeToml(result, outputDir)
                         written++
-                        log.info("${row.inv} -> $out (${result.stock.size} item(s), ${result.unresolvedItems.size} unresolved)")
+                        log.info(
+                            "${row.inv} -> $out (${result.stock.size} item(s), ${result.unresolvedItems.size} unresolved)"
+                        )
                     }
 
                     println()
                     println("Wrote $written shop TOML file(s) to $outputDir ($skipped skipped)")
                 }
-            }
+        }
         log.info("done in ${elapsed}ms")
     }
 }

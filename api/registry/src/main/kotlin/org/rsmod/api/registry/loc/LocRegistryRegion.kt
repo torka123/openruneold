@@ -106,7 +106,8 @@ constructor(
             return LocRegistryResult.Delete.RegionSpawned(region)
         }
 
-        val deletedMapLoc = deleteStaticLoc(regionZone, regionLocKey, normalZone, normalLocKey, loc)
+        val deletedMapLoc =
+            deleteStaticLoc(regionZone, regionLocKey, normalZone, normalLocKey, rotation, loc)
         if (deletedMapLoc) {
             return LocRegistryResult.Delete.RegionMapLoc(region)
         }
@@ -134,7 +135,7 @@ constructor(
         }
 
         val deletedMapLoc =
-            deleteStaticLoc(regionZone, regionLocKey, remappedZone, remappedLocKey, loc)
+            deleteStaticLoc(regionZone, regionLocKey, remappedZone, remappedLocKey, rotation, loc)
         if (deletedMapLoc) {
             return LocRegistryResult.Delete.RegionMapLoc(region)
         }
@@ -357,7 +358,14 @@ constructor(
                         continue
                     }
 
-                    val loc = LocInfo(regionLocKey.layer, regionCoords, entity)
+                    // Static map locs retain their source-zone angle in [mapLocs]. Their
+                    // coordinates have been rotated into the copied region above, so callers must
+                    // receive the equivalently rotated angle as well. Returning the source angle
+                    // here made findAll disagree with findType and caused dynamic-room object
+                    // replacements to be spawned with the wrong orientation.
+                    val rotatedAngle = (entity.angle + copiedZone.rotation) and ANGLE_BIT_MASK
+                    val regionEntity = entity.copy(angle = rotatedAngle)
+                    val loc = LocInfo(regionLocKey.layer, regionCoords, regionEntity)
                     yield(loc)
                 }
             }
@@ -457,6 +465,7 @@ constructor(
         regionLocKey: LocZoneKey,
         normalZone: ZoneKey,
         normalLocKey: LocZoneKey,
+        regionRot: Int,
         loc: LocInfo,
     ): Boolean {
         val staticZone = mapLocs[normalZone] ?: return false
@@ -467,11 +476,14 @@ constructor(
         // This acts as a safeguard against trying to delete a loc info that may share the same
         // layer and zone grid as the found loc, but does not share other metadata such as its
         // type, which could lead to incorrect data being used for i.e., removing its collision.
-        if (loc.entity.packed != staticLoc) {
+        val staticEntity = LocEntity(staticLoc)
+        val rotatedAngle = (staticEntity.angle + regionRot) and ANGLE_BIT_MASK
+        val regionEntity = staticEntity.copy(angle = rotatedAngle)
+        if (loc.entity.packed != regionEntity.packed) {
             return false
         }
 
-        val deletedLoc = LocEntity(staticLoc).copy(id = DELETED_LOC_ID, angle = loc.angleId)
+        val deletedLoc = staticEntity.copy(id = DELETED_LOC_ID, angle = loc.angleId)
         spawnedLocs[regionZone, regionLocKey] = deletedLoc
         removeLocCollision(loc)
         updates.locDel(loc)

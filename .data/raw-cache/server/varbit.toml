@@ -1,3 +1,5 @@
+
+
 [[varbit]]
 isServerOnly = true
 id = "varbit.music_last_id"
@@ -557,3 +559,17 @@ id = "varbit.pending_instance_row"
 varp = "varp.instance_state"
 startBit = 0
 endBit = 15
+
+[[varbit]]
+isServerOnly = true
+id = "varbit.crafting_thread_uses"
+varp = "varp.crafting_state"
+startBit = 0
+endBit = 7
+
+[[varbit]]
+isServerOnly = true
+id = "varbit.crafting_tanner_prices"
+varp = "varp.crafting_state"
+startBit = 8
+endBit = 11

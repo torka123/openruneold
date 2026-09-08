@@ -78,11 +78,7 @@ public object MapAreaPacker {
             }
 
         return polygonArea.mapSquares.map { (square, polygon) ->
-            val areaDef = MapAreaDefinition.from(
-                polygon,
-                includesById,
-                excludesById,
-            )
+            val areaDef = MapAreaDefinition.from(polygon, includesById, excludesById)
             MapAreaEntry(square, areaDef)
         }
     }

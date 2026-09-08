@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "items": [
+    {
+      "key": "donor-revision-label",
+      "status": "RESOLVED_WITH_CORRECTION",
+      "detail": "The donor source declares build 229.1 and OpenRS2 cache 2048; the supplied revision-231 label is not supported by the local evidence."
+    },
+    {
+      "key": "authoritative-reason-cache-root",
+      "status": "RESOLVED_WITH_DISTRIBUTION_EVIDENCE",
+      "detail": "The server distribution cache at server reasonps/data/cache is used. The sibling data reasonps cache is client data and packed-cache is a later packing output; server.properties was absent from the archive."
+    }
+  ]
+}

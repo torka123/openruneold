@@ -7,9 +7,8 @@ import io.netty.handler.timeout.ReadTimeoutException
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
 
-internal class WorldLinkInboundQueueHandler(
-    private val queue: BlockingQueue<ByteArray>,
-) : SimpleChannelInboundHandler<WorldLinkInboundPacket>() {
+internal class WorldLinkInboundQueueHandler(private val queue: BlockingQueue<ByteArray>) :
+    SimpleChannelInboundHandler<WorldLinkInboundPacket>() {
 
     private val closeSignalled = AtomicBoolean(false)
 
@@ -19,10 +18,7 @@ internal class WorldLinkInboundQueueHandler(
         }
     }
 
-    override fun channelRead0(
-        ctx: ChannelHandlerContext,
-        msg: WorldLinkInboundPacket,
-    ) {
+    override fun channelRead0(ctx: ChannelHandlerContext, msg: WorldLinkInboundPacket) {
         queue.put(msg.content)
     }
 
@@ -31,10 +27,7 @@ internal class WorldLinkInboundQueueHandler(
         super.channelInactive(ctx)
     }
 
-    override fun exceptionCaught(
-        ctx: ChannelHandlerContext,
-        cause: Throwable,
-    ) {
+    override fun exceptionCaught(ctx: ChannelHandlerContext, cause: Throwable) {
         when (cause) {
             is ReadTimeoutException ->
                 logger.debug { "World link read timeout (${ctx.channel().remoteAddress()})" }
@@ -51,7 +44,10 @@ internal class WorldLinkInboundQueueHandler(
     private companion object {
         private val logger = InlineLogger()
 
-        /** Empty payload is never a valid Central frame; used only as a close signal for blocking [poll]. */
+        /**
+         * Empty payload is never a valid Central frame; used only as a close signal for blocking
+         * [poll].
+         */
         val CLOSE_SENTINEL: ByteArray = byteArrayOf()
     }
 }

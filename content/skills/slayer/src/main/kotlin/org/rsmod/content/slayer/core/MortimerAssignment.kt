@@ -65,7 +65,7 @@ object MortimerAssignment {
                 master = master,
                 count = choiceCount,
             )
-        if (rolls.isEmpty()) return null
+        if (!MortimerModifiers.hasCompleteChoiceSet(rolls.size)) return null
 
         return rolls.map { roll ->
             val modifier = MortimerModifiers.rollModifier(roll.masterTask, tasksDone)
@@ -109,6 +109,15 @@ object MortimerAssignment {
         writeActiveModifier(access, offer.modifier)
         recordLastAssignmentExtras(access.player, offer.amount, offer.modifier)
         clearOffers(access)
+    }
+
+    fun onAssignmentAccepted(
+        access: ProtectedAccess,
+        amount: Int,
+        modifier: MortimerModifiers.RolledModifier?,
+    ) {
+        writeActiveModifier(access, modifier)
+        recordLastAssignmentExtras(access.player, amount, modifier)
     }
 
     fun acceptSlot(access: ProtectedAccess, slot: Int): Offer? {

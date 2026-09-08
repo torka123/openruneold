@@ -1,7 +1,7 @@
 [[area]]
 name = "Dungeons Wilderness"
 area_id = "area.wilderness_dungeons"
-levels = [0]
+levels = [0, 1, 2]
 
 [[area.polygons]]
 vertices = [
@@ -18,4 +18,26 @@ vertices = [
     [3072, 9984],
     [3008, 9984],
     [3008, 9920],
+]
+
+[[area]]
+name = "Corporeal Beast Lair Wilderness"
+area_id = "area.wilderness_dungeons"
+levels = [2]
+
+# Corp entrance chamber (map square 46,66): fixed level 20.
+[[area.polygons]]
+vertices = [
+    [2944, 4224],
+    [3007, 4224],
+    [3007, 4287],
+    [2944, 4287],
+]
+
+[[area.polygons]]
+vertices = [
+    [2944, 4352],
+    [3007, 4352],
+    [3007, 4415],
+    [2944, 4415],
 ]

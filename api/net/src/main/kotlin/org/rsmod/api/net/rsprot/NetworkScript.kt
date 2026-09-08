@@ -1,6 +1,8 @@
 package org.rsmod.api.net.rsprot
 
 import com.github.michaelbull.logging.InlineLogger
+import dev.openrune.rscm.RSCM
+import dev.openrune.rscm.RSCMType
 import jakarta.inject.Inject
 import net.rsprot.protocol.api.NetworkService
 import net.rsprot.protocol.common.RSProtConstants
@@ -8,21 +10,36 @@ import net.rsprot.protocol.common.client.OldSchoolClientType
 import org.rsmod.api.account.character.main.CharacterAccountRepository
 import org.rsmod.api.db.jdbc.GameDatabase
 import org.rsmod.api.game.process.GameLifecycle
+import org.rsmod.api.instances.events.InstancePersonalBestEvent
 import org.rsmod.api.net.central.OpenRuneCentralWorldLink
 import org.rsmod.api.net.central.logging.CentralActivityLogWriter
 import org.rsmod.api.net.rsprot.player.SessionStart
+import org.rsmod.api.net.social.ClanBroadcastKey
+import org.rsmod.api.net.social.ClanBroadcastRules
+import org.rsmod.api.net.social.ClanChatService
+import org.rsmod.api.net.social.FriendChatService
 import org.rsmod.api.player.events.interact.HeldDropEvents
+import org.rsmod.api.player.stat.statBase
+import org.rsmod.api.registry.loc.LocRegistry
+import org.rsmod.api.registry.obj.ObjRegistry
 import org.rsmod.api.registry.player.PlayerRegistry
 import org.rsmod.api.registry.region.RegionRegistry
+import org.rsmod.api.registry.zone.ZoneUpdateMap
+import org.rsmod.api.script.advanced.onAdvanceStat
+import org.rsmod.api.script.advanced.onStatXpMilestone
 import org.rsmod.api.script.onEvent
 import org.rsmod.api.server.config.ServerConfig
+import org.rsmod.api.utils.zone.SharedZoneEnclosedBuffers
 import org.rsmod.game.GameUpdate
 import org.rsmod.game.MapClock
 import org.rsmod.game.client.Client
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
+import org.rsmod.game.entity.WorldEntity
+import org.rsmod.game.entity.WorldEntityList
 import org.rsmod.game.entity.npc.NpcStateEvents
 import org.rsmod.game.entity.player.SessionStateEvent
+import org.rsmod.game.entity.worldentity.WorldEntityStateEvents
 import org.rsmod.plugin.scripts.PluginScript
 import org.rsmod.plugin.scripts.ScriptContext
 
@@ -39,13 +56,22 @@ constructor(
     private val database: GameDatabase,
     private val characterRepository: CharacterAccountRepository,
     private val playerRegistry: PlayerRegistry,
+    private val worldEntityList: WorldEntityList,
+    private val zoneUpdates: ZoneUpdateMap,
+    private val locReg: LocRegistry,
+    private val objReg: ObjRegistry,
+    private val enclosedBuffers: SharedZoneEnclosedBuffers,
     private val centralActivityLogWriter: CentralActivityLogWriter,
+    private val friendChat: FriendChatService,
+    private val clanChat: ClanChatService,
 ) : PluginScript() {
     private val logger = InlineLogger()
 
     private companion object {
         private const val DB_ONLINE_SESSION_TIMING_INFO_MS = 100L
         private const val CENTRAL_HEARTBEAT_INTERVAL_CYCLES = 50L
+        private const val SOCIAL_CHAT_POLL_INTERVAL_CYCLES = 2L
+        private const val CLAN_EVENT_REMINDER_POLL_INTERVAL_CYCLES = 100L
     }
 
     override fun ScriptContext.startup() {
@@ -64,11 +90,46 @@ constructor(
             openRuneCentral.stopInboundWatch()
             centralActivityLogWriter.stop()
         }
-        onEvent<HeldDropEvents.Drop> {
-            centralActivityLogWriter.logItemDrop(player, type, obj)
-        }
+        onEvent<HeldDropEvents.Drop> { centralActivityLogWriter.logItemDrop(player, type, obj) }
         onEvent<HeldDropEvents.Destroy> {
             centralActivityLogWriter.logItemDestroy(player, type, obj)
+        }
+        onAdvanceStat { event ->
+            val stat = event.args
+            val statKey = RSCM.getReverseMapping(RSCMType.STAT, stat.id)
+            clanChat.publishLevelBroadcast(
+                player,
+                statKey,
+                stat.displayName,
+                player.statBase(statKey),
+            )
+        }
+        onStatXpMilestone { event ->
+            val milestone = event.args
+            val statKey = RSCM.getReverseMapping(RSCMType.STAT, milestone.stat.id)
+            clanChat.publishBroadcast(
+                player = player,
+                key = ClanBroadcastKey.Post99Xp,
+                eventToken = "$statKey:${milestone.currentXp}",
+                message =
+                    "has reached ${milestone.currentXp} experience in ${milestone.stat.displayName}.",
+                rule = {
+                    ClanBroadcastRules.shouldBroadcastPost99Xp(
+                        previousXp = milestone.previousXp,
+                        currentXp = milestone.currentXp,
+                        interval = it.post99XpInterval,
+                    )
+                },
+            )
+        }
+        onEvent<InstancePersonalBestEvent> {
+            clanChat.publishBroadcast(
+                player = player,
+                key = ClanBroadcastKey.PersonalBest,
+                eventToken = "$key:$elapsedTicks",
+                message =
+                    "set a new personal best for ${key.toClanActivityName()}: $formattedDuration.",
+            )
         }
         onEvent<GameLifecycle.UpdateInfo> {
             updateService()
@@ -76,6 +137,8 @@ constructor(
         }
         onEvent<SessionStart> { startSession() }
         onEvent<SessionStateEvent.Delete> {
+            friendChat.onLogout(player)
+            clanChat.onLogout(player)
             closeSession()
             finalizeCentralSessionIfNeeded()
         }
@@ -83,6 +146,8 @@ constructor(
         onEvent<SessionStateEvent.Logout> { notifyCentralLogout() }
         onEvent<NpcStateEvents.Create> { createNpcAvatar(npc) }
         onEvent<NpcStateEvents.Delete> { deleteNpcAvatar(npc) }
+        onEvent<WorldEntityStateEvents.Create> { createWorldEntityAvatar(entity) }
+        onEvent<WorldEntityStateEvents.Delete> { deleteWorldEntityAvatar(entity) }
     }
 
     private fun initService() {
@@ -90,10 +155,19 @@ constructor(
     }
 
     private fun updateService() {
+        // `infoProtocols.update()` runs worldentity -> player -> npc in order; the npc info
+        // protocol's first step (`synchronizeModifiedWorlds`) consumes the added/removed
+        // world entity indices itself - no server-side world sync is needed.
         service.infoProtocols.update()
         if (openRuneCentral.isEnabled) {
             openRuneCentral.drainInboundRevokesOnGameThread(playerRegistry, gameUpdate)
             openRuneCentral.drainInboundSocialOnGameThread(playerRegistry)
+        }
+        if (mapClock.cycle % SOCIAL_CHAT_POLL_INTERVAL_CYCLES == 0L) {
+            clanChat.pollCrossWorld()
+        }
+        if (mapClock.cycle % CLAN_EVENT_REMINDER_POLL_INTERVAL_CYCLES == 0L) {
+            clanChat.pollEventReminders()
         }
     }
 
@@ -137,7 +211,17 @@ constructor(
         val infos = service.infoProtocols.alloc(slot, OldSchoolClientType.DESKTOP)
 
         val client = RspClient(session, infos) as Client<Any, Any>
-        val cycle = RspCycle(session, infos, regionReg)
+        val cycle =
+            RspCycle(
+                session,
+                infos,
+                regionReg,
+                worldEntityList,
+                zoneUpdates,
+                locReg,
+                objReg,
+                enclosedBuffers,
+            )
 
         player.client = client
         player.clientCycle = cycle
@@ -158,16 +242,15 @@ constructor(
         val startedAt = System.nanoTime()
         try {
             database.withTransactionBlocking { connection ->
-                characterRepository.setOnlineSession(
-                    connection,
-                    player.characterId,
-                    config.world,
-                )
+                characterRepository.setOnlineSession(connection, player.characterId, config.world)
             }
         } catch (e: Exception) {
-            logger.warn(e) { "Could not set DB online-session for characterId=${player.characterId}" }
+            logger.warn(e) {
+                "Could not set DB online-session for characterId=${player.characterId}"
+            }
         }
-        val elapsedMs = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt)
+        val elapsedMs =
+            java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt)
         if (config.loginTimingLogs && elapsedMs >= DB_ONLINE_SESSION_TIMING_INFO_MS) {
             logger.info {
                 "Login set-online-session user='${player.username}' characterId=${player.characterId} elapsed=${elapsedMs}ms"
@@ -187,7 +270,9 @@ constructor(
                 characterRepository.clearOnlineSession(connection, player.characterId)
             }
         } catch (e: Exception) {
-            logger.warn(e) { "Could not clear DB online-session for characterId=${player.characterId}" }
+            logger.warn(e) {
+                "Could not clear DB online-session for characterId=${player.characterId}"
+            }
         }
         val token = player.openRuneCentralSessionToken ?: return
         openRuneCentral.notifyLogout(token)
@@ -215,4 +300,35 @@ constructor(
             service.npcAvatarFactory.release(infoProtocol.rspAvatar)
         }
     }
+
+    private fun createWorldEntityAvatar(entity: WorldEntity) {
+        val rspAvatar =
+            service.worldEntityAvatarFactory.alloc(
+                index = entity.slotId,
+                id = entity.id,
+                ownerIndex = entity.ownerIndex,
+                sizeX = entity.sizeX,
+                sizeZ = entity.sizeZ,
+                southWestZoneX = entity.southWestZoneX,
+                southWestZoneZ = entity.southWestZoneZ,
+                minLevel = entity.minLevel,
+                maxLevel = entity.maxLevel,
+                fineX = entity.fineX,
+                fineZ = entity.fineZ,
+                projectedLevel = entity.projectedLevel,
+                activeLevel = entity.activeLevel,
+                angle = entity.angle,
+            )
+        entity.infoProtocol = RspWorldEntityInfo(rspAvatar)
+    }
+
+    private fun deleteWorldEntityAvatar(entity: WorldEntity) {
+        val infoProtocol = entity.infoProtocol
+        if (infoProtocol is RspWorldEntityInfo) {
+            service.worldEntityAvatarFactory.release(infoProtocol.rspAvatar)
+        }
+    }
+
+    private fun String.toClanActivityName(): String =
+        replace('_', ' ').replace('-', ' ').trim().ifEmpty { "an instance" }
 }

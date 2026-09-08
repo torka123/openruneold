@@ -1,4 +1,3 @@
 [[spawn]]
-npc = "npc.giants_foundry_kovac_multi"
+npc = "npc.giants_foundry_kovac"
 coords = "0_52_179_41_30"
-

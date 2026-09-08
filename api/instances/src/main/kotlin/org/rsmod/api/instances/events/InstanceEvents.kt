@@ -1,7 +1,8 @@
 package org.rsmod.api.instances.events
 
-import org.rsmod.api.instances.InstanceSpec
 import org.rsmod.api.instances.InstanceId
+import org.rsmod.api.instances.InstanceSpec
+import org.rsmod.api.instances.RaidLeaveResult
 import org.rsmod.events.KeyedEvent
 import org.rsmod.events.UnboundEvent
 import org.rsmod.game.entity.Player
@@ -43,6 +44,29 @@ public data class InstancePlayerLeaveUnboundEvent(
     public val instanceId: InstanceId,
     public val ownerId: Long,
 ) : UnboundEvent
+
+public data class InstancePlayerExternalTeleportEvent(
+    public val player: Player,
+    public val key: String,
+    public val instanceId: InstanceId,
+    public val ownerId: Long,
+) : UnboundEvent
+
+/** Emitted only after the persistent instance timer accepts a strictly faster completion. */
+public data class InstancePersonalBestEvent(
+    public val player: Player,
+    public val key: String,
+    public val elapsedTicks: Int,
+    public val formattedDuration: String,
+) : UnboundEvent
+
+public data class RaidLeaveRequestEvent(
+    public val player: Player,
+    public val key: String,
+    public val instanceId: InstanceId,
+    public var result: RaidLeaveResult = RaidLeaveResult.Unhandled,
+    override val id: Long = instanceEventId(key),
+) : KeyedEvent
 
 public data class InstanceStartedEvent(
     public val key: String,

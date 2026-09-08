@@ -4,6 +4,7 @@ import dev.openrune.ServerCacheManager
 import dev.openrune.types.ItemServerType
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.NpcList
+import org.rsmod.game.entity.PathingEntity
 import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
 import org.rsmod.game.entity.npc.NpcUid
@@ -15,7 +16,12 @@ public data class Hit(
     private val sourceUid: Int?,
     private val righthandObj: Int?,
     private val secondaryObj: Int?,
+    private val impactHandler: HitImpactHandler? = null,
+    private val validity: HitValidity? = null,
 ) {
+    /** Optional encounter/lifecycle guard evaluated before any impact side effects. */
+    public fun isValidNow(): Boolean = validity?.isValid() ?: true
+
     public val damage: Int
         get() = hitmark.damage
 
@@ -51,6 +57,15 @@ public data class Hit(
         return playerUid.resolve(playerList)
     }
 
+    /** Invokes this hit's optional [HitImpactHandler] with its final processed damage. */
+    public fun dispatchImpact(target: PathingEntity, damage: Int) {
+        impactHandler?.onImpact(HitImpact(target = target, hit = this, damage = damage))
+    }
+
     override fun toString(): String =
         "Hit(type=$type, righthandObj=$righthandObj, secondaryObj=$secondaryObj, hitmark=$hitmark)"
+}
+
+public fun interface HitValidity {
+    public fun isValid(): Boolean
 }

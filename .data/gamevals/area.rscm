@@ -56,11 +56,14 @@ revenant_caves=55
 mining_guild=56
 rune_essence_mine=57
 
+npc_multiway=32755
+edgeville_dungeon=32756
 minor_wilderness_bosses_dungeons=32757
 ferox_enclave=32758
 wilderness_dungeons=32759
 wilderness=32760
 demonic_ruins=32761
+wilderness_agility_course=32762
 chaos_temple=32763
 lumbridge=32764
 singles_plus=32765

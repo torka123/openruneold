@@ -29,9 +29,7 @@ public object WildernessMemberTeleports {
 
     public fun isMemberLevel30Teleport(obj: String): Boolean {
         val base = obj.removePrefix("obj.")
-        return LEVEL_30_BASE_NAMES.any { name ->
-            base == name || base.startsWith("${name}_")
-        }
+        return LEVEL_30_BASE_NAMES.any { name -> base == name || base.startsWith("${name}_") }
     }
 
     public fun teleportTypeFor(obj: String): TeleportType =

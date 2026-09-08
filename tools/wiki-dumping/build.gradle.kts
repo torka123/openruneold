@@ -3,12 +3,14 @@ plugins {
 }
 
 dependencies {
+    implementation(projects.api.generated)
     implementation(projects.orCache)
     implementation(projects.engine.map)
     implementation(projects.api.dropTable)
     implementation(projects.api.dropTablePlugin)
     implementation(projects.api.parsers.json)
     implementation(projects.api.parsers.toml)
+    implementation(projects.content.skills.slayer)
     implementation(libs.jackson.module.kotlin)
     implementation(libs.or2.wiki)
     implementation("io.ktor:ktor-client-cio:3.3.3")
@@ -48,4 +50,24 @@ tasks.register<JavaExec>("dumpShops") {
             "Example: ./gradlew :tools:wiki-dumping:dumpShops --args=\"--inv=axeshop --quiet\""
     classpath = sourceSets["main"].runtimeClasspath
     mainClass.set("org.rsmod.tools.wiki.dumping.ShopWikiDumperKt")
+}
+
+tasks.register<JavaExec>("dumpSlayerTasks") {
+    group = "application"
+    description =
+        "Dumps the current OSRS Wiki Slayer task NPC mappings, tips, and superior mappings. " +
+            "Set -PslayerOutput=<path> to write outside the default raw-cache directory."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("org.rsmod.tools.wiki.dumping.SlayerTaskWikiDumperKt")
+    workingDir(rootProject.projectDir)
+    providers.gradleProperty("slayerOutput").orNull?.let { output -> args(output) }
+}
+
+tasks.register<JavaExec>("exportCanonicalSlayerWiki") {
+    group = "application"
+    description = "Exports the live deny-by-default Slayer registry to docs/slayer."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("org.rsmod.tools.wiki.dumping.CanonicalSlayerWikiExporterKt")
+    workingDir(rootProject.projectDir)
+    args(rootProject.projectDir.absolutePath)
 }

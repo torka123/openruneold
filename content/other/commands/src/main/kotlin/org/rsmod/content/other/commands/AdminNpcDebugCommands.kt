@@ -19,15 +19,14 @@ import org.rsmod.plugin.scripts.ScriptContext
 
 class AdminNpcDebugCommands
 @Inject
-constructor(
-    private val npcRepo: NpcRepository,
-    private val worldRepo: WorldRepository,
-) : PluginScript() {
+constructor(private val npcRepo: NpcRepository, private val worldRepo: WorldRepository) :
+    PluginScript() {
     private val logger = InlineLogger()
 
     override fun ScriptContext.startup() {
         onCommand("npcanim", "Play animation on nearest npc", ::npcAnim) {
-            invalidArgs = "Use as ::npcanim seqId [radius] (ex: ::npcanim 7018 or ::npcanim 7018 12)"
+            invalidArgs =
+                "Use as ::npcanim seqId [radius] (ex: ::npcanim 7018 or ::npcanim 7018 12)"
         }
         onCommand("nanim", "Play animation on nearest npc", ::npcAnim) {
             invalidArgs = "Use as ::nanim seqId [radius] (ex: ::nanim 7018 or ::nanim 7018 12)"
@@ -53,12 +52,7 @@ constructor(
     private fun npcAnim(cheat: Cheat) =
         with(cheat) {
             val seqId =
-                parseRequiredIntArg(
-                    index = 0,
-                    label = "seqId",
-                    min = 0,
-                    max = RAW_VISUAL_ID_MAX,
-                )
+                parseRequiredIntArg(index = 0, label = "seqId", min = 0, max = RAW_VISUAL_ID_MAX)
                     ?: return@with
             val type = ServerCacheManager.getAnim(seqId)
             if (type == null) {
@@ -72,8 +66,7 @@ constructor(
                     default = DEFAULT_NPC_TARGET_RADIUS,
                     min = 0,
                     max = MAX_NPC_TARGET_RADIUS,
-                )
-                    ?: return@with
+                ) ?: return@with
             val npc = nearestNpc(player, radius)
             if (npc == null) {
                 player.mes("No visible NPC found within $radius tiles.")
@@ -96,8 +89,7 @@ constructor(
                     label = "spotanimId",
                     min = 0,
                     max = RAW_VISUAL_ID_MAX,
-                )
-                    ?: return@with
+                ) ?: return@with
             val height =
                 parseOptionalIntArg(
                     index = 1,
@@ -105,8 +97,7 @@ constructor(
                     default = 0,
                     min = 0,
                     max = RAW_VISUAL_ID_MAX,
-                )
-                    ?: return@with
+                ) ?: return@with
             val radius =
                 parseOptionalIntArg(
                     index = 2,
@@ -114,8 +105,7 @@ constructor(
                     default = DEFAULT_NPC_TARGET_RADIUS,
                     min = 0,
                     max = MAX_NPC_TARGET_RADIUS,
-                )
-                    ?: return@with
+                ) ?: return@with
             val npc = nearestNpc(player, radius)
             if (npc == null) {
                 player.mes("No visible NPC found within $radius tiles.")
@@ -123,7 +113,11 @@ constructor(
             }
 
             val slot = 0
-            npc.spotanim(RSCM.getReverseMapping(RSCMType.SPOTANIM,spotanimId), height = height, slot = slot)
+            npc.spotanim(
+                RSCM.getReverseMapping(RSCMType.SPOTANIM, spotanimId),
+                height = height,
+                slot = slot,
+            )
             player.mes(
                 "NPC spotanim: `${npc.name}` (${npc.id}) spot=$spotanimId${mappingSuffix(RSCMType.SPOTANIM, spotanimId)} height=$height slot=$slot"
             )
@@ -140,8 +134,7 @@ constructor(
                     label = "travelSpotanimId",
                     min = 0,
                     max = RAW_VISUAL_ID_MAX,
-                )
-                    ?: return@with
+                ) ?: return@with
             val impactSpotanimId =
                 parseOptionalIntArg(
                     index = 1,
@@ -149,8 +142,7 @@ constructor(
                     default = NO_IMPACT_SPOTANIM,
                     min = NO_IMPACT_SPOTANIM,
                     max = RAW_VISUAL_ID_MAX,
-                )
-                    ?: return@with
+                ) ?: return@with
             val radius =
                 parseOptionalIntArg(
                     index = 2,
@@ -158,8 +150,7 @@ constructor(
                     default = DEFAULT_NPC_TARGET_RADIUS,
                     min = 0,
                     max = MAX_NPC_TARGET_RADIUS,
-                )
-                    ?: return@with
+                ) ?: return@with
             val projanimId =
                 parseOptionalIntArg(
                     index = 3,
@@ -167,8 +158,7 @@ constructor(
                     default = NO_PROJECTILE_TYPE,
                     min = NO_PROJECTILE_TYPE,
                     max = RAW_VISUAL_ID_MAX,
-                )
-                    ?: return@with
+                ) ?: return@with
             val npc = nearestNpc(player, radius)
             if (npc == null) {
                 player.mes("No visible NPC found within $radius tiles.")
@@ -195,7 +185,10 @@ constructor(
                     type = projanimType,
                 )
             if (impactSpotanimId != NO_IMPACT_SPOTANIM) {
-                player.spotanim(RSCM.getReverseMapping(RSCMType.SPOTANIM,impactSpotanimId), delay = projectile.clientCycles)
+                player.spotanim(
+                    RSCM.getReverseMapping(RSCMType.SPOTANIM, impactSpotanimId),
+                    delay = projectile.clientCycles,
+                )
             }
 
             val impact =
@@ -214,19 +207,15 @@ constructor(
 
     private fun nearestNpc(player: Player, radius: Int): Npc? {
         val zoneRadius = (radius + ZONE_TILE_SIZE - 1) / ZONE_TILE_SIZE
-        return npcRepo.findAll(ZoneKey.from(player.coords), zoneRadius)
+        return npcRepo
+            .findAll(ZoneKey.from(player.coords), zoneRadius)
             .filter { it.isVisible }
             .filter { it.coords.level == player.coords.level }
             .filter { it.coords.chebyshevDistance(player.coords) <= radius }
             .minByOrNull { it.coords.chebyshevDistance(player.coords) }
     }
 
-    private fun Cheat.parseRequiredIntArg(
-        index: Int,
-        label: String,
-        min: Int,
-        max: Int,
-    ): Int? {
+    private fun Cheat.parseRequiredIntArg(index: Int, label: String, min: Int, max: Int): Int? {
         val raw = args.getOrNull(index)
         val value = raw?.toIntOrNull()
         if (value == null || value !in min..max) {
@@ -253,10 +242,7 @@ constructor(
     }
 
     private fun mappingSuffix(type: RSCMType, id: Int): String =
-        runCatching { RSCM.getReverseMapping(type, id) }
-            .getOrNull()
-            ?.let { " ($it)" }
-            ?: ""
+        runCatching { RSCM.getReverseMapping(type, id) }.getOrNull()?.let { " ($it)" } ?: ""
 
     private fun projectileTypeName(projanimId: Int): String =
         if (projanimId == NO_PROJECTILE_TYPE) {

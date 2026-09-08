@@ -6,6 +6,7 @@ import dev.openrune.types.aconverted.interf.IfSubType
 import jakarta.inject.Inject
 import org.rsmod.api.config.constants
 import org.rsmod.api.player.output.mes
+import org.rsmod.api.player.prayer.ProtectionPrayerLock
 import org.rsmod.api.player.protect.ProtectedAccess
 import org.rsmod.api.player.protect.ProtectedAccessLauncher
 import org.rsmod.api.player.stat.prayerLvl
@@ -102,10 +103,19 @@ constructor(
             disablePrayerStatRegen(prayer)
         }
         disableOverhead()
-        vars["varbit.prayer_allactive"] = quickPrayerVars
+        val quickPrayers =
+            repo.toPrayerList(quickPrayerVars).filterNot {
+                ProtectionPrayerLock.blocks(player, it.enabled)
+            }
+        if (quickPrayers.isEmpty()) {
+            mes("Your protection prayers have been disabled.")
+            player.resyncVar("varbit.quickprayer_active")
+            return
+        }
+        val activePrayerVars = quickPrayers.fold(0) { flags, prayer -> flags or (1 shl prayer.id) }
+        vars["varbit.prayer_allactive"] = activePrayerVars
         vars["varbit.quickprayer_active"] = 1
 
-        val quickPrayers = repo.toPrayerList(quickPrayerVars)
         for (prayer in quickPrayers) {
             vars[prayer.enabled] = 1
             soundSynth(prayer.sound)

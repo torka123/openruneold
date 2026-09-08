@@ -14,21 +14,22 @@ public class RSWeightedTable<T, R>(
     public val inlineSeparateRolls: List<InlineSeparateRoll<T, R>> = emptyList(),
 ) : RSTable<T, R>, WeightedTable<T, R>, TableHooks<T, R> by hooks {
 
-    override fun selectEntries(byTarget: T, otherArgs: ArgMap): List<RSWeightEntry<T, R>> = buildList {
-        var total = 0
+    override fun selectEntries(byTarget: T, otherArgs: ArgMap): List<RSWeightEntry<T, R>> =
+        buildList {
+            var total = 0
 
-        tableEntries.forEach {
-            if (it.includeInRoll(byTarget, otherArgs)) {
-                val upper = total + it.weight
-                val entry = RSWeightEntry(total, upper.toInt(), it.rollable)
-                total = entry.rangeEnd
-                add(entry)
+            tableEntries.forEach {
+                if (it.includeInRoll(byTarget, otherArgs)) {
+                    val upper = total + it.weight
+                    val entry = RSWeightEntry(total, upper.toInt(), it.rollable)
+                    total = entry.rangeEnd
+                    add(entry)
+                }
             }
         }
-    }
 
     public override val maxRoll: Double
-        get() = tableEntries.maxOf { it.weight }
+        get() = tableEntries.sumOf { it.weight }
 
     override fun selectResult(target: T, otherArgs: ArgMap): RollResult<R> {
         val entries = selectEntries(target, otherArgs)

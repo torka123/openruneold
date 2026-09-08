@@ -11,11 +11,12 @@ internal object InterfaceEvents {
         comsub: Int,
         event: IfEvent,
     ): Boolean {
+        val enabledByServer = ui.hasEvent(component, comsub, event)
         val verifyStaticEvents = comsub == -1
         return if (verifyStaticEvents) {
-            component.hasEvent(event)
+            component.hasEvent(event) || enabledByServer
         } else {
-            ui.hasEvent(component, comsub, event)
+            enabledByServer
         }
     }
 }

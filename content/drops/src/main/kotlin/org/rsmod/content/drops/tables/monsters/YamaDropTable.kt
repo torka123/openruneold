@@ -1,46 +1,37 @@
 package org.rsmod.content.drops.tables.monsters
 
 import dtx.rs.RSDropTable
+import dtx.rs.RSWeightedTable
 import dtx.rs.npcs
-import dtx.rs.areas
-import org.rsmod.api.droptable.rsPlayerGuaranteedTable
+import dtx.rs.rsChainedTable
+import org.rsmod.api.droptable.DropRollItem
+import org.rsmod.api.droptable.RegisterDropTable
 import org.rsmod.api.droptable.rsPlayerTertiaryTable
 import org.rsmod.api.droptable.rsPlayerWeightedTable
-import org.rsmod.api.droptable.DropRollItem
 import org.rsmod.content.drops.clueScrollTransformObj
-import org.rsmod.api.droptable.RegisterDropTable
 import org.rsmod.game.entity.Player
 
-@field:RegisterDropTable
-@JvmField
-public val yamaDropTable: RSDropTable<Player, DropRollItem> = RSDropTable(
-    tableIdentifier = "Yama Drops",
-    npcs = npcs("npc.yama_throne_occupied", "npc.yama_throne_unoccupied"),
-    guaranteed = rsPlayerGuaranteedTable {
-        "obj.cosmic_soul_catalyst" count 2000
-        "obj.diabolic_worms" count 250
-        "obj.oathplate_shards" count 45
-        "obj.oathplate_helm" count 1 condition { player ->
-            // Drops Need Manual: Choice of Oathplate helm
-             true
-        }
-        "obj.oathplate_chest" count 1
-        "obj.oathplate_legs" count 1
-        "obj.soulflame_horn" count 1
-        "obj.yama_binding_contract" count 1
-        "obj.purifying_sigil_top" count 1
-        "obj.yama_special_contract" count 1
-        "obj.purifying_sigil_bottom" count 1
-        "obj.yama_spell_contract" count 1
-        "obj.purifying_sigil_left" count 1
-        "obj.yama_heavyranged_contract" count 1
-        "obj.purifying_sigil_right" count 1
-        "obj.yama_2h_contract" count 1
-        "obj.purifying_sigil_middle" count 1
-        "obj.yama_pet_contract" count 1
-    },
-    mainTable = rsPlayerWeightedTable(total = 111) {
-        name("Yama Drops")
+public const val YAMA_UNIQUE_DENOMINATOR: Int = 120
+public const val YAMA_DOSSIER_DENOMINATOR: Int = 12
+public const val YAMA_LOCKBOX_DENOMINATOR: Int = 30
+public const val YAMA_SHARDS_DENOMINATOR: Int = 15
+public const val YAMA_PET_DENOMINATOR: Int = 2500
+public const val YAMA_ELITE_CLUE_DENOMINATOR: Int = 30
+
+public val yamaUniqueRoll: RSWeightedTable<Player, DropRollItem> =
+    rsPlayerWeightedTable(total = 5) {
+        3 weight
+            rsPlayerWeightedTable(total = 3) {
+                1 weight "obj.oathplate_helm" count 1
+                1 weight "obj.oathplate_chest" count 1
+                1 weight "obj.oathplate_legs" count 1
+            }
+        2 weight "obj.soulflame_horn" count 1
+    }
+
+public val yamaStandardRoll: RSWeightedTable<Player, DropRollItem> =
+    rsPlayerWeightedTable(total = 111) {
+        name("Yama standard drops")
         8 weight "obj.pineapple_pizza" count 3..4
         8 weight "obj.wild_pie" count 3..4
         8 weight "obj.3doseprayerrestore" count 2
@@ -67,25 +58,33 @@ public val yamaDropTable: RSDropTable<Player, DropRollItem> = RSDropTable(
         3 weight "obj.cert_ruby" count 40
         3 weight "obj.cert_diamond" count 40
         1 weight "obj.xbows_bolt_tips_onyx" count 150
-        2 outOf 600 separate "obj.soulflame_horn" count 1 condition { player ->
-            // Drops Need Manual: Scales with contribution; rates and quantities are shown for 100% contribution.
-             true
-        }
-        1 outOf 600 separate rsPlayerWeightedTable {
-            1 weight "obj.oathplate_helm" count 1
-            1 weight "obj.oathplate_chest" count 1
-            1 weight "obj.oathplate_legs" count 1
-        }
-        1 outOf 12 separate "obj.yama_dossier" count 1
-        1 outOf 33 separate "obj.forgotten_lockbox" count 1
-        1 outOf 17 separate "obj.oathplate_shards" count 12
-        1 outOf 100 separate "obj.yamapet" count 1
-    },
-    tertiaries = rsPlayerTertiaryTable {
-        // Drops Need Manual (rate): The drop rate is fixed at 1/2500, as long as contribution is higher than 15%.
-        1 outOf 2500 weight "obj.yamapet" count 1
-        1 outOf 28 weight "obj.trail_elite_emote_exp1" count 1 transformObj { player ->
-             player.clueScrollTransformObj("obj.trail_elite_emote_exp1")
-        }
-    },
-)
+    }
+
+internal val yamaRollChain =
+    rsChainedTable<Player, DropRollItem> {
+        1 outOf YAMA_UNIQUE_DENOMINATOR rolls yamaUniqueRoll
+        1 outOf YAMA_DOSSIER_DENOMINATOR rolls DropRollItem("obj.yama_dossier", 1)
+        1 outOf YAMA_LOCKBOX_DENOMINATOR rolls DropRollItem("obj.forgotten_lockbox", 1)
+        1 outOf YAMA_SHARDS_DENOMINATOR rolls DropRollItem("obj.oathplate_shards", 12)
+        1 outOf 1 rolls yamaStandardRoll
+    }
+
+@field:RegisterDropTable
+@JvmField
+public val yamaDropTable: RSDropTable<Player, DropRollItem> =
+    RSDropTable(
+        tableIdentifier = "Yama Drops",
+        npcs = npcs("npc.yama"),
+        mainTable = yamaRollChain,
+        tertiaries =
+            rsPlayerTertiaryTable {
+                1 outOf YAMA_PET_DENOMINATOR weight "obj.yamapet" count 1
+                1 outOf
+                    YAMA_ELITE_CLUE_DENOMINATOR weight
+                    "obj.trail_elite_emote_exp1" count
+                    1 transformObj
+                    { player ->
+                        player.clueScrollTransformObj("obj.trail_elite_emote_exp1")
+                    }
+            },
+    )

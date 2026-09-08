@@ -382,7 +382,7 @@ constructor(
             val event = HeldDropEvents.Release(player, dropSlot, obj, internal)
             eventBus.publish(event)
 
-            val type = ServerCacheManager.getItem(internal.asRSCM(RSCMType.OBJ))?: return
+            val type = ServerCacheManager.getItem(internal.asRSCM(RSCMType.OBJ)) ?: return
 
             val message = type.paramOrNull(params.release_note_message)
             message?.let(player::mes)
@@ -509,7 +509,7 @@ constructor(
         val observer = observerUUID ?: error("`observerUUID` not set for player: $this")
         val entity =
             ObjEntity(id = invObj.id, count = transaction.completed(), scope = ObjScope.Private.id)
-        val obj = Obj(coords, entity, currentMapClock, observer, ownerId = observer)
+        val obj = Obj(coords, entity, currentMapClock, observer, ownerId = observer, vars = invObj.vars)
         val dropped = repo.add(obj, dropParams.duration, dropParams.reveal)
         if (!dropped) {
             return false

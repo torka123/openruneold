@@ -27,13 +27,13 @@ public object PlayerInterfaceUpdates {
 
     public fun updateCombatTab(player: Player) {
         val righthandType = getOrNull(player.righthand)
-        val weaponCategory = WeaponCategory.getOrUnarmed(righthandType?.weaponCategory?.id)
+        val weaponCategory = WeaponCategory.getOrUnarmed(righthandType?.resolvedWeaponCategory?.id)
         updateCombatTab(player, righthandType?.name, weaponCategory.id, weaponCategory.text)
     }
 
     public fun updateWeaponCategoryText(player: Player) {
         val righthandType = getOrNull(player.righthand)
-        val weaponCategory = WeaponCategory.getOrUnarmed(righthandType?.weaponCategory?.id)
+        val weaponCategory = WeaponCategory.getOrUnarmed(righthandType?.resolvedWeaponCategory?.id)
         player.ifSetText("component.combat_interface:category", "Category: ${weaponCategory.text}")
     }
 

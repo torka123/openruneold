@@ -3,17 +3,18 @@ package org.rsmod.api.specials
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
 import dev.openrune.types.ItemServerType
-import dev.openrune.types.ProjAnimType
 import dev.openrune.types.aconverted.SpotanimType
-import dev.openrune.types.aconverted.SynthType
 import jakarta.inject.Inject
 import org.rsmod.api.combat.commons.CombatAttack
+import org.rsmod.api.combat.commons.magic.Spellbook
 import org.rsmod.api.combat.commons.styles.MagicAttackStyle
 import org.rsmod.api.combat.commons.styles.MeleeAttackStyle
 import org.rsmod.api.combat.commons.styles.RangedAttackStyle
 import org.rsmod.api.combat.commons.types.MeleeAttackType
 import org.rsmod.api.combat.commons.types.RangedAttackType
 import org.rsmod.api.combat.manager.PlayerAttackManager
+import org.rsmod.api.player.hit.modifier.PlayerHitModifier
+import org.rsmod.api.player.hit.modifier.StandardPlayerHitModifier
 import org.rsmod.api.player.protect.ProtectedAccess
 import org.rsmod.api.specials.energy.SpecialAttackEnergy
 import org.rsmod.api.specials.weapon.SpecialAttackWeapons
@@ -21,6 +22,7 @@ import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.PathingEntity
 import org.rsmod.game.entity.Player
 import org.rsmod.game.hit.Hit
+import org.rsmod.game.hit.HitImpactHandler
 import org.rsmod.game.proj.ProjAnim
 
 public class SpecialAttackManager
@@ -33,6 +35,12 @@ constructor(
     public fun hasSpecialEnergy(source: ProtectedAccess, energyInHundreds: Int): Boolean {
         return energy.hasSpecialEnergy(source.player, energyInHundreds)
     }
+
+    public fun getSpecialEnergy(source: ProtectedAccess): Int =
+        energy.getSpecialEnergy(source.player)
+
+    public fun drainAllSpecialEnergy(source: ProtectedAccess): Int =
+        energy.drainAllSpecialEnergy(source.player)
 
     public fun takeSpecialEnergy(source: ProtectedAccess, energyInHundreds: Int) {
         energy.takeSpecialEnergy(source.player, energyInHundreds)
@@ -139,6 +147,7 @@ constructor(
         attackStyle: MeleeAttackStyle?,
         blockType: MeleeAttackType?,
         multiplier: Double,
+        defenceMultiplier: Double = 1.0,
     ): Boolean =
         manager.rollMeleeAccuracy(
             source = source.player,
@@ -146,6 +155,49 @@ constructor(
             attackType = attackType,
             attackStyle = attackStyle,
             blockType = blockType,
+            multiplier = multiplier,
+            defenceMultiplier = defenceMultiplier,
+        )
+
+    /** @see [PlayerAttackManager.rollFixedMeleeAttackRoll] */
+    public fun rollFixedMeleeAttackRoll(
+        source: ProtectedAccess,
+        target: PathingEntity,
+        attackType: MeleeAttackType?,
+        attackStyle: MeleeAttackStyle?,
+        blockType: MeleeAttackType?,
+        attackMultiplier: Double,
+        defenceMultiplier: Double = 1.0,
+    ): Boolean =
+        manager.rollFixedMeleeAttackRoll(
+            source = source.player,
+            target = target,
+            attackType = attackType,
+            attackStyle = attackStyle,
+            blockType = blockType,
+            attackMultiplier = attackMultiplier,
+            defenceMultiplier = defenceMultiplier,
+        )
+
+    /**
+     * Rolls a melee attack bonus against the target's Magic defence.
+     *
+     * This is used by Magic-based melee specials such as Saradomin's blessed sword.
+     *
+     * @see [PlayerAttackManager.rollMagicalMeleeAccuracy]
+     */
+    public fun rollMagicalMeleeAccuracy(
+        source: ProtectedAccess,
+        target: PathingEntity,
+        attackType: MeleeAttackType?,
+        attackStyle: MeleeAttackStyle?,
+        multiplier: Double,
+    ): Boolean =
+        manager.rollMagicalMeleeAccuracy(
+            source = source.player,
+            target = target,
+            attackType = attackType,
+            attackStyle = attackStyle,
             multiplier = multiplier,
         )
 
@@ -174,7 +226,17 @@ constructor(
         target: PathingEntity,
         damage: Int,
         delay: Int = 1,
-    ): Hit = manager.queueMeleeHit(source.player, target, damage, delay)
+        impactHandler: HitImpactHandler? = null,
+        modifier: PlayerHitModifier = StandardPlayerHitModifier,
+    ): Hit =
+        manager.queueMeleeHit(
+            source = source.player,
+            target = target,
+            damage = damage,
+            delay = delay,
+            impactHandler = impactHandler,
+            modifier = modifier,
+        )
 
     /** @see [PlayerAttackManager.rollRangedDamage] */
     public fun rollRangedDamage(
@@ -215,6 +277,28 @@ constructor(
             attackType = attackType,
             attackStyle = attackStyle,
             blockType = blockType,
+            multiplier = multiplier,
+        )
+
+    /**
+     * Rolls ranged attack accuracy against the target's Magic defence.
+     *
+     * This is used by the Eclipse atlatl's Magic-based ranged special attack.
+     *
+     * @see [PlayerAttackManager.rollMagicalRangedAccuracy]
+     */
+    public fun rollMagicalRangedAccuracy(
+        source: ProtectedAccess,
+        target: PathingEntity,
+        attackType: RangedAttackType?,
+        attackStyle: RangedAttackStyle?,
+        multiplier: Double,
+    ): Boolean =
+        manager.rollMagicalRangedAccuracy(
+            source = source.player,
+            target = target,
+            attackType = attackType,
+            attackStyle = attackStyle,
             multiplier = multiplier,
         )
 
@@ -262,6 +346,8 @@ constructor(
         damage: Int,
         clientDelay: Int,
         hitDelay: Int = 1 + (clientDelay / 30),
+        impactHandler: HitImpactHandler? = null,
+        modifier: PlayerHitModifier = StandardPlayerHitModifier,
     ): Hit =
         manager.queueRangedHit(
             source = source.player,
@@ -270,6 +356,8 @@ constructor(
             damage = damage,
             clientDelay = clientDelay,
             hitDelay = hitDelay,
+            impactHandler = impactHandler,
+            modifier = modifier,
         )
 
     /** @see [PlayerAttackManager.queueRangedDamage] */
@@ -279,6 +367,8 @@ constructor(
         ammo: ItemServerType?,
         damage: Int,
         hitDelay: Int,
+        impactHandler: HitImpactHandler? = null,
+        modifier: PlayerHitModifier = StandardPlayerHitModifier,
     ): Hit =
         manager.queueRangedDamage(
             source = source.player,
@@ -286,6 +376,28 @@ constructor(
             ammo = ammo,
             damage = damage,
             hitDelay = hitDelay,
+            impactHandler = impactHandler,
+            modifier = modifier,
+        )
+
+    /** @see [PlayerAttackManager.rollSpellMaxHit] */
+    public fun rollSpellMaxHit(
+        source: ProtectedAccess,
+        target: PathingEntity,
+        spell: ItemServerType,
+        spellbook: Spellbook?,
+        baseMaxHit: Int,
+        attackRate: Int,
+        sunfireRune: Boolean = false,
+    ): Int =
+        manager.rollSpellMaxHit(
+            source = source.player,
+            target = target,
+            spell = spell,
+            spellbook = spellbook,
+            baseMaxHit = baseMaxHit,
+            attackRate = attackRate,
+            sunfireRune = sunfireRune,
         )
 
     /** @see [PlayerAttackManager.rollStaffAccuracy] */
@@ -338,6 +450,8 @@ constructor(
         clientDelay: Int,
         hitDelay: Int = 1 + (clientDelay / 30),
         spell: ItemServerType? = null,
+        impactHandler: HitImpactHandler? = null,
+        modifier: PlayerHitModifier = StandardPlayerHitModifier,
     ): Hit =
         manager.queueMagicHit(
             source = source.player,
@@ -346,6 +460,8 @@ constructor(
             damage = damage,
             clientDelay = clientDelay,
             hitDelay = hitDelay,
+            impactHandler = impactHandler,
+            modifier = modifier,
         )
 
     /** @see [PlayerAttackManager.spawnProjectile] */
@@ -355,6 +471,17 @@ constructor(
         spotanim: String,
         projanim: String,
     ): ProjAnim = manager.spawnProjectile(source.player, target, spotanim, projanim)
+
+    public fun spawnProjectile(
+        source: ProtectedAccess,
+        target: PathingEntity,
+        spotanim: SpotanimType,
+        projanim: String,
+    ): ProjAnim =
+        when (target) {
+            is Npc -> manager.spawnProjectile(source.player, target, spotanim, projanim)
+            is Player -> manager.spawnProjectile(source.player, target, spotanim, projanim)
+        }
 
     /** @see [PlayerAttackManager.soundArea] */
     public fun soundArea(

@@ -1,8 +1,6 @@
 package org.rsmod.api.combat.commons.npc
 
 import dev.openrune.ServerCacheManager
-import dev.openrune.rscm.RSCM
-import dev.openrune.rscm.RSCMType
 import dev.openrune.types.ItemServerType
 import dev.openrune.types.NpcMode
 import kotlin.math.max
@@ -22,6 +20,9 @@ private var Npc.aggressivePlayer by typePlayerUidVarn("varn.aggressive_player")
 private var Npc.attackingPlayer by typePlayerUidVarn("varn.attacking_player")
 
 public fun Npc.canRetaliate(): Boolean {
+    if (retainerUntil > currentMapClock) {
+        return false
+    }
     if (ignoreCombatInteractions) {
         return false
     }
@@ -76,7 +77,8 @@ private fun Npc.shouldRetaliateAp(interactions: AiPlayerInteractions, target: Pl
 
 private fun Npc.retaliate(target: Player, interactions: AiPlayerInteractions, ap: Boolean) {
     when {
-        hitpoints <= param(params.retreat) -> {
+        hitpoints <= param(params.retreat) &&
+            !org.rsmod.api.combat.commons.magic.DarkLureState.preventsRetreat(this) -> {
             playerEscape(target)
         }
         visType.wanderRange > 0 && !target.isWithinDistance(spawnCoords, aggressionRange()) -> {
@@ -92,9 +94,13 @@ private fun Npc.retaliate(target: Player, interactions: AiPlayerInteractions, ap
 }
 
 public fun Npc.combatPlayDefendAnim(clientDelay: Int = 0) {
-    val defendAnim = visType.paramOrNull(params.defend_anim)
-    if (defendAnim != null) {
-        anim(RSCM.getReverseMapping(RSCMType.SEQ, defendAnim.id), delay = clientDelay)
+    if (suppressCombatDefendAnimation) return
+    val explicit = visType.paramOrNull(params.defend_anim)?.id
+    val animation =
+        explicit?.takeIf { ServerCacheManager.getAnim(it) != null }
+            ?: visType.standAnim.takeIf { ServerCacheManager.getAnim(it) != null }
+    if (animation != null) {
+        anim(animation, delay = clientDelay)
     }
 }
 

@@ -1,6 +1,5 @@
 package org.rsmod.api.account.character.stats
 
-import dev.openrune.ServerCacheManager
 import dev.openrune.rscm.RSCM
 import dev.openrune.rscm.RSCMType
 import org.rsmod.api.account.character.CharacterDataStage

@@ -37,7 +37,7 @@ private constructor(
         onApContentNpc4("content.banker") { apOpenCollectionBox(it.npc) }
         onOpContentNpc4("content.banker") { openCollectionBox() }
         onApContentNpc3("content.banker") { apOpenBank(it.npc) }
-        onOpContentNpc3("content.banker") { openBank() }
+        onOpContentNpc3("content.banker") { openBank(it.npc) }
         onApContentNpc1("content.banker") { apTalkToBanker(it.npc) }
         onOpContentNpc1("content.banker") { talkToBanker(it.npc) }
         onApNpcU("content.banker") { apBanknote(it.npc, it.invSlot, it.objType) }
@@ -46,7 +46,7 @@ private constructor(
         onApContentNpc4("content.banker_tutor") { apOpenCollectionBox(it.npc) }
         onOpContentNpc4("content.banker_tutor") { openCollectionBox() }
         onApContentNpc3("content.banker_tutor") { apOpenBank(it.npc) }
-        onOpContentNpc3("content.banker_tutor") { openBank() }
+        onOpContentNpc3("content.banker_tutor") { openBank(it.npc) }
         onApContentNpc1("content.banker_tutor") { apTalkToBanker(it.npc) }
         onOpContentNpc1("content.banker_tutor") { talkToBanker(it.npc) }
         onApNpcU("content.banker_tutor") { apBanknote(it.npc, it.invSlot, it.objType) }
@@ -63,12 +63,12 @@ private constructor(
 
     private fun ProtectedAccess.apOpenBank(npc: Npc) {
         if (isWithinApRange(npc, distance = 2)) {
-            openBank()
+            openBank(npc)
         }
     }
 
-    private fun ProtectedAccess.openBank() {
-        tryOpenBank()
+    private fun ProtectedAccess.openBank(npc: Npc? = null) {
+        tryOpenBank(npc)
     }
 
     private suspend fun ProtectedAccess.apTalkToBanker(npc: Npc) {
@@ -204,7 +204,7 @@ private constructor(
             chatPlayer(confused, "Oh yeah... Never mind then.")
             return
         }
-        access.openBank()
+        access.openBank(npc)
     }
 
     private fun ProtectedAccess.openPin() {

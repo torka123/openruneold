@@ -3,11 +3,10 @@ package org.rsmod.tools.wiki.dumping
 /**
  * NPC id → dropped remains (`param_46` / `dropped_remains`) from preloaded [NpcDumpIndex].
  *
- * The death system spawns these automatically; wiki "100%" remains must not be duplicated in drop tables.
+ * The death system spawns these automatically; wiki "100%" remains must not be duplicated in drop
+ * tables.
  */
-class NpcDumpRemainsLookup(
-    private val remainsByNpcId: Map<Int, String>,
-) {
+class NpcDumpRemainsLookup(private val remainsByNpcId: Map<Int, String>) {
     private val explicitRemainsObjKeys: Set<String> = remainsByNpcId.values.toSet()
 
     fun remainsFor(npcId: Int): String = remainsByNpcId[npcId] ?: DEFAULT_REMAINS
@@ -81,19 +80,12 @@ class NpcDumpRemainsLookup(
     }
 
     private fun wikiNameToObjKey(displayName: String): String =
-        displayName
-            .trim()
-            .lowercase()
-            .replace(Regex("""[^a-z0-9]+"""), "_")
-            .trim('_')
+        displayName.trim().lowercase().replace(Regex("""[^a-z0-9]+"""), "_").trim('_')
 
     companion object {
         const val DEFAULT_REMAINS: String = "obj.bones"
 
         /** Wiki names for param_46-style remains that do not match suffix heuristics. */
-        private val EXPLICIT_REMAINS_WIKI_NAMES =
-            setOf(
-                "crimson fibre",
-            )
+        private val EXPLICIT_REMAINS_WIKI_NAMES = setOf("crimson fibre")
     }
 }

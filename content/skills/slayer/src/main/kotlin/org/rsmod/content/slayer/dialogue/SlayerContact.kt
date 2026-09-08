@@ -53,6 +53,7 @@ object SlayerContact {
             return
         }
 
+        val displayName = SlayerTaskManager.currentTaskDisplayName(player) ?: task.nameUppercase
         val count = vars["varp.slayer_count"]
         val master = SlayerTaskManager.getCurrentAssignedMaster(player)
         if (master?.masterId == SlayerMasters.TASK_KONAR) {
@@ -65,7 +66,7 @@ object SlayerContact {
                 mes("You're assigned to bring balance to $monster; you have $count to go.")
             }
         } else {
-            mes("You're assigned to kill ${task.nameUppercase}; you have $count to go.")
+            mes("You're assigned to kill $displayName; you have $count to go.")
         }
 
         if (MortimerAssignment.isMortimer(master)) {

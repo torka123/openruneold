@@ -50,6 +50,9 @@ public class PlayerRunUpdateProcessor {
         } else if (hasStaminaEffect()) {
             loss = (loss * 30) / 100
         }
+        if (currentMapClock < runEnergyDrainMultiplierUntil) {
+            loss *= runEnergyDrainMultiplier.coerceAtLeast(1)
+        }
 
         runEnergy = max(0, runEnergy - loss)
         if (runEnergy == 0 && isRunning()) {

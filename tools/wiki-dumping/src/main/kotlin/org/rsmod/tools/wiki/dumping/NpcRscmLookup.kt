@@ -4,11 +4,11 @@ import dev.openrune.rscm.RSCM
 import dev.openrune.rscm.RSCMType
 
 /** Wiki npc id → `npc.*` gameval key via gamevals and Joshua-F [dump.npc] fallback. */
-class NpcRscmLookup(
-    private val dumpNamesById: Map<Int, String> = emptyMap(),
-) {
+class NpcRscmLookup(private val dumpNamesById: Map<Int, String> = emptyMap()) {
     fun toRscm(npcId: Int): String? {
-        reverseNpc(npcId)?.let { return it }
+        reverseNpc(npcId)?.let {
+            return it
+        }
 
         val dumpName = dumpNamesById[npcId] ?: return null
         return lookupNpcKey(dumpName) ?: "npc.$dumpName"
@@ -36,11 +36,7 @@ class NpcRscmLookup(
     }
 
     private fun reverseMapping(type: RSCMType, id: Int): String? {
-        val mapped =
-            runCatching { RSCM.getReverseMapping(type, id) }
-                .getOrNull()
-                ?.trim()
-                .orEmpty()
+        val mapped = runCatching { RSCM.getReverseMapping(type, id) }.getOrNull()?.trim().orEmpty()
         if (mapped.isBlank() || mapped == "-1") {
             return null
         }
@@ -49,15 +45,28 @@ class NpcRscmLookup(
 
     private fun hasMapping(fullKey: String): Boolean =
         runCatching {
-            RSCM.getRSCM(fullKey)
-            true
-        }.getOrDefault(false)
+                RSCM.getRSCM(fullKey)
+                true
+            }
+            .getOrDefault(false)
 
     companion object {
         /** Sync load for tools that only need npc RSCM (e.g. slayer dumper). */
         fun load(rootDir: String? = null): NpcRscmLookup {
             val dump = NpcDumpFiles.requireLocal(rootDir)
             return load(rootDir, dump.text)
+        }
+
+        /**
+         * Uses revision-matched gamevals first and an existing local dump only as a name fallback.
+         */
+        fun loadAvailable(rootDir: String? = null): NpcRscmLookup {
+            val dump = NpcDumpFiles.readLocal(rootDir)
+            if (dump != null) {
+                return load(rootDir, dump.text)
+            }
+            GameValLoader.ensureLoaded(rootDir)
+            return NpcRscmLookup()
         }
 
         fun load(rootDir: String?, dumpText: String): NpcRscmLookup {

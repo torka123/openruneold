@@ -3,9 +3,6 @@ package org.rsmod.tools.wiki.dumping
 import java.nio.file.Path
 import kotlin.io.path.Path
 import kotlin.io.path.createDirectories
-import kotlin.io.path.exists
-import kotlin.io.path.listDirectoryEntries
-import kotlin.io.path.nameWithoutExtension
 import kotlin.io.path.writeText
 import kotlin.system.exitProcess
 import kotlin.system.measureTimeMillis
@@ -129,8 +126,7 @@ class ItemSpawnWikiDumper(
             val resolved =
                 areaIndex.resolveArea(spawn.x, spawn.z, spawn.level)
                     ?: ResolvedArea(fileSlug = WikiAreaIndex.unassignedSlug())
-            buckets
-                .getOrPut(resolved.fileSlug) { mutableListOf() } +=
+            buckets.getOrPut(resolved.fileSlug) { mutableListOf() } +=
                 spawn.copy(areaSection = resolved.sectionLabel)
         }
         return buckets.mapValues { (_, bucket) ->
@@ -138,45 +134,44 @@ class ItemSpawnWikiDumper(
         }
     }
 
-    private fun formatToml(spawns: List<ResolvedItemSpawn>): String =
-        buildString {
-            var currentSection: String? = null
-            val distinctSections = spawns.mapNotNull { it.areaSection }.distinct()
-            val hasUnsectioned = spawns.any { it.areaSection == null }
-            val closeLastSection = hasUnsectioned || distinctSections.size > 1
+    private fun formatToml(spawns: List<ResolvedItemSpawn>): String = buildString {
+        var currentSection: String? = null
+        val distinctSections = spawns.mapNotNull { it.areaSection }.distinct()
+        val hasUnsectioned = spawns.any { it.areaSection == null }
+        val closeLastSection = hasUnsectioned || distinctSections.size > 1
 
-            fun hasNamedSectionBelow(fromIndex: Int): Boolean =
-                spawns.subList(fromIndex, spawns.size).any { it.areaSection != null }
+        fun hasNamedSectionBelow(fromIndex: Int): Boolean =
+            spawns.subList(fromIndex, spawns.size).any { it.areaSection != null }
 
-            fun closeSectionIfLast(fromIndex: Int) {
-                if (!closeLastSection) {
-                    return
-                }
-                if (currentSection != null && !hasNamedSectionBelow(fromIndex)) {
-                    appendLine("## $currentSection End")
+        fun closeSectionIfLast(fromIndex: Int) {
+            if (!closeLastSection) {
+                return
+            }
+            if (currentSection != null && !hasNamedSectionBelow(fromIndex)) {
+                appendLine("## $currentSection End")
+                appendLine()
+            }
+        }
+
+        for ((index, spawn) in spawns.withIndex()) {
+            if (spawn.areaSection != currentSection) {
+                closeSectionIfLast(fromIndex = index)
+                currentSection = spawn.areaSection
+                if (spawn.areaSection != null) {
+                    appendLine("## ${spawn.areaSection}")
                     appendLine()
                 }
             }
-
-            for ((index, spawn) in spawns.withIndex()) {
-                if (spawn.areaSection != currentSection) {
-                    closeSectionIfLast(fromIndex = index)
-                    currentSection = spawn.areaSection
-                    if (spawn.areaSection != null) {
-                        appendLine("## ${spawn.areaSection}")
-                        appendLine()
-                    }
-                }
-                appendLine("[[spawn]]")
-                appendLine("obj = \"${spawn.objKey}\"")
-                appendLine("coords = \"${spawn.coords}\"")
-                if (spawn.count != 1) {
-                    appendLine("count = ${spawn.count}")
-                }
-                appendLine()
+            appendLine("[[spawn]]")
+            appendLine("obj = \"${spawn.objKey}\"")
+            appendLine("coords = \"${spawn.coords}\"")
+            if (spawn.count != 1) {
+                appendLine("count = ${spawn.count}")
             }
-            closeSectionIfLast(fromIndex = spawns.size)
+            appendLine()
         }
+        closeSectionIfLast(fromIndex = spawns.size)
+    }
 
     private fun dedupe(spawns: List<ResolvedItemSpawn>): List<ResolvedItemSpawn> =
         spawns.distinctBy { "${it.objKey}|${it.coords}|${it.count}" }
@@ -214,7 +209,8 @@ fun main(args: Array<String>) {
     val rlhdAreasUrl =
         flags.firstOrNull { it.startsWith("--rlhd-areas=") }?.substringAfter("--rlhd-areas=")
             ?: RlhdAreaLoader.DEFAULT_RLHD_AREAS_URL
-    val wikiDumpDir = flags.firstOrNull { it.startsWith("--wiki-dump=") }?.substringAfter("--wiki-dump=")
+    val wikiDumpDir =
+        flags.firstOrNull { it.startsWith("--wiki-dump=") }?.substringAfter("--wiki-dump=")
     val rootDir =
         flags.firstOrNull { it.startsWith("--root=") }?.substringAfter("--root=")
             ?: System.getProperty("RSPS_ROOT")
@@ -224,72 +220,74 @@ fun main(args: Array<String>) {
         flags.firstOrNull { it.startsWith("--out=") }?.substringAfter("--out=")?.let { Path(it) }
             ?: if (!splitByArea) defaultOutputPath() else null
     val outputDir =
-        flags.firstOrNull { it.startsWith("--out-dir=") }?.substringAfter("--out-dir=")?.let { Path(it) }
-            ?: if (splitByArea) defaultOutputDir() else null
+        flags
+            .firstOrNull { it.startsWith("--out-dir=") }
+            ?.substringAfter("--out-dir=")
+            ?.let { Path(it) } ?: if (splitByArea) defaultOutputDir() else null
     val log = DropDumpLog(quiet = quiet, verbose = verbose)
 
     runBlocking {
-        val totalElapsed =
-            measureTimeMillis {
-                GameValLoader.ensureLoaded(rootDir)
-                val objLookup = ObjRscmLookup()
+        val totalElapsed = measureTimeMillis {
+            GameValLoader.ensureLoaded(rootDir)
+            val objLookup = ObjRscmLookup()
 
-                val dumpDir = WikiClient.resolveDumpDirectory(wikiDumpDir)
-                log.info("wiki dump: ${dumpDir.absolutePath}")
+            val dumpDir = WikiClient.resolveDumpDirectory(wikiDumpDir)
+            log.info("wiki dump: ${dumpDir.absolutePath}")
 
-                WikiClient.open(wikiDumpDir = wikiDumpDir, onPageFetch = { log.onWikiFetch(it) }).use { wiki ->
-                    log.info(
-                        "loaded ${wiki.loadedPages} wiki page(s) " +
-                            "(${wiki.itemSpawnPageCount} ItemSpawnLine page(s))",
+            WikiClient.open(wikiDumpDir = wikiDumpDir, onPageFetch = { log.onWikiFetch(it) }).use {
+                wiki ->
+                log.info(
+                    "loaded ${wiki.loadedPages} wiki page(s) " +
+                        "(${wiki.itemSpawnPageCount} ItemSpawnLine page(s))"
+                )
+                val areaIndex =
+                    WikiAreaIndex.load(
+                        wikiStore = wiki.wikiDumpStore(),
+                        rootDir = repoRoot,
+                        log = log,
+                        rlhdAreasUrl = rlhdAreasUrl,
                     )
-                    val areaIndex =
-                        WikiAreaIndex.load(
-                            wikiStore = wiki.wikiDumpStore(),
-                            rootDir = repoRoot,
-                            log = log,
-                            rlhdAreasUrl = rlhdAreasUrl,
-                        )
-                    val itemLookup = ItemWikiLookup(wiki, log)
-                    val dumper = ItemSpawnWikiDumper(wiki, objLookup, itemLookup, log)
+                val itemLookup = ItemWikiLookup(wiki, log)
+                val dumper = ItemSpawnWikiDumper(wiki, objLookup, itemLookup, log)
 
-                    val pageTitles =
-                        if (dumpAll) {
-                            collectAllItemSpawnPages(wiki, limit, log)
-                        } else {
-                            positional
-                        }
-
-                    if (pageTitles.isEmpty()) {
-                        log.error("no wiki pages to scan")
-                        exitProcess(1)
-                    }
-
-                    log.info("scanning ${pageTitles.size} page(s)")
-                    val result = dumper.dumpPages(pageTitles)
-                    if (splitByArea) {
-                        val dir = outputDir ?: defaultOutputDir()
-                        val buckets = dumper.writeTomlByArea(result.spawns, areaIndex, dir)
-                        val unassigned = buckets[WikiAreaIndex.unassignedSlug()] ?: 0
-                        log.info(
-                            "wrote ${result.spawns.size} spawn(s) across ${buckets.size} file(s) " +
-                                "in ${dir.toAbsolutePath().normalize()} " +
-                                "($unassigned unassigned)",
-                        )
+                val pageTitles =
+                    if (dumpAll) {
+                        collectAllItemSpawnPages(wiki, limit, log)
                     } else {
-                        val file = outputFile ?: defaultOutputPath()
-                        dumper.writeToml(result.spawns, file)
-                        log.info(
-                            "wrote ${result.spawns.size} spawn(s) to ${file.toAbsolutePath().normalize()}",
-                        )
+                        positional
                     }
-                    if (result.unresolvedItems.isNotEmpty()) {
-                        log.warn("${result.unresolvedItems.size} unresolved item name(s)")
-                    }
-                    if (result.skippedPages.isNotEmpty()) {
-                        log.warn("${result.skippedPages.size} page(s) had no spawn lines")
-                    }
+
+                if (pageTitles.isEmpty()) {
+                    log.error("no wiki pages to scan")
+                    exitProcess(1)
+                }
+
+                log.info("scanning ${pageTitles.size} page(s)")
+                val result = dumper.dumpPages(pageTitles)
+                if (splitByArea) {
+                    val dir = outputDir ?: defaultOutputDir()
+                    val buckets = dumper.writeTomlByArea(result.spawns, areaIndex, dir)
+                    val unassigned = buckets[WikiAreaIndex.unassignedSlug()] ?: 0
+                    log.info(
+                        "wrote ${result.spawns.size} spawn(s) across ${buckets.size} file(s) " +
+                            "in ${dir.toAbsolutePath().normalize()} " +
+                            "($unassigned unassigned)"
+                    )
+                } else {
+                    val file = outputFile ?: defaultOutputPath()
+                    dumper.writeToml(result.spawns, file)
+                    log.info(
+                        "wrote ${result.spawns.size} spawn(s) to ${file.toAbsolutePath().normalize()}"
+                    )
+                }
+                if (result.unresolvedItems.isNotEmpty()) {
+                    log.warn("${result.unresolvedItems.size} unresolved item name(s)")
+                }
+                if (result.skippedPages.isNotEmpty()) {
+                    log.warn("${result.skippedPages.size} page(s) had no spawn lines")
                 }
             }
+        }
         log.summary(if (dumpAll) 1 else positional.size, totalElapsed)
     }
 }

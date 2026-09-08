@@ -36,6 +36,7 @@ public class Obj(
     public val creationCycle: Int,
     public val receiverId: Long,
     public val ownerId: Long = NULL_OBSERVER_ID,
+    public val vars: Int = 0,
 ) {
     public val x: Int
         get() = coords.x
@@ -183,18 +184,19 @@ public class Obj(
             return fromOwner(player, coords, obj.id, count)
         }
 
-
-        public fun fromOwner(
-            player: Player,
-            coords: CoordGrid,
-            obj: String,
-            count: Int,
-        ): Obj {
+        public fun fromOwner(player: Player, coords: CoordGrid, obj: String, count: Int): Obj {
             return fromOwner(player, coords, obj.asRSCM(RSCMType.OBJ), count)
         }
 
         public fun fromOwner(player: Player, coords: CoordGrid, obj: InvObj): Obj {
-            return fromOwner(player, coords, obj.id, obj.count)
+            return Obj(
+                coords = coords,
+                entity = ObjEntity(obj.id, obj.count, ObjScope.Private.id),
+                creationCycle = player.currentMapClock,
+                receiverId = player.observerId(),
+                ownerId = player.observerId(),
+                vars = obj.vars,
+            )
         }
 
         private fun fromOwner(player: Player, coords: CoordGrid, obj: Int, count: Int): Obj {
@@ -208,17 +210,13 @@ public class Obj(
             )
         }
 
-        public fun fromServer(
-            clock: MapClock,
-            coords: CoordGrid,
-            obj: String,
-            count: Int,
-        ): Obj {
+        public fun fromServer(clock: MapClock, coords: CoordGrid, obj: String, count: Int): Obj {
             return fromServer(clock, coords, obj.asRSCM(RSCMType.OBJ), count)
         }
 
         public fun fromServer(clock: MapClock, coords: CoordGrid, obj: InvObj): Obj {
-            return fromServer(clock, coords, obj.id, obj.count)
+            return Obj(coords, ObjEntity(obj.id, obj.count, ObjScope.Temp.id),
+                clock.cycle, NULL_OBSERVER_ID, vars = obj.vars)
         }
 
         private fun fromServer(clock: MapClock, coords: CoordGrid, obj: Int, count: Int): Obj {

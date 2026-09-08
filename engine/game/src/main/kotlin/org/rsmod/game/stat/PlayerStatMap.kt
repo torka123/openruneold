@@ -1,9 +1,7 @@
 package org.rsmod.game.stat
 
-import dev.openrune.rscm.RSCM
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
-import dev.openrune.types.StatType
 import it.unimi.dsi.fastutil.bytes.Byte2ByteOpenHashMap
 import it.unimi.dsi.fastutil.bytes.Byte2IntOpenHashMap
 import org.rsmod.annotations.InternalApi
@@ -19,7 +17,8 @@ public class PlayerStatMap(
         setFineXP(stat, xp * XP_FINE_PRECISION)
     }
 
-    public fun getFineXP(stat: String): Int = xp.getOrDefault(stat.asRSCM(RSCMType.STAT).toByte(), 0)
+    public fun getFineXP(stat: String): Int =
+        xp.getOrDefault(stat.asRSCM(RSCMType.STAT).toByte(), 0)
 
     public fun setFineXP(stat: String, xp: Int) {
         require(xp in 0..MAX_FINE_XP) {
@@ -29,14 +28,16 @@ public class PlayerStatMap(
     }
 
     @InternalApi
-    public fun getBaseLevel(stat: String): Byte = baseLevels.getOrDefault(stat.asRSCM(RSCMType.STAT).toByte(), 1)
+    public fun getBaseLevel(stat: String): Byte =
+        baseLevels.getOrDefault(stat.asRSCM(RSCMType.STAT).toByte(), 1)
 
     public fun setBaseLevel(stat: String, level: Byte) {
         this.baseLevels[stat.asRSCM(RSCMType.STAT).toByte()] = level
     }
 
     @InternalApi
-    public fun getCurrentLevel(stat: String): Byte = currLevels.getOrDefault(stat.asRSCM(RSCMType.STAT).toByte(), 1)
+    public fun getCurrentLevel(stat: String): Byte =
+        currLevels.getOrDefault(stat.asRSCM(RSCMType.STAT).toByte(), 1)
 
     public fun setCurrentLevel(stat: String, level: Byte) {
         this.currLevels[stat.asRSCM(RSCMType.STAT).toByte()] = level

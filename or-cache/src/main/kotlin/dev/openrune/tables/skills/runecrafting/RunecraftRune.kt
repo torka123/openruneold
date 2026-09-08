@@ -9,7 +9,7 @@ enum class Rune(
     val level: Int,
     val xp: Int,
     val dbId: String,
-    val extract: String
+    val extract: String,
 ) {
     AIR(
         id = "obj.airrune",
@@ -17,7 +17,7 @@ enum class Rune(
         level = 1,
         xp = 5,
         dbId = "dbrow.runecrafting_rune_air",
-        extract = "obj.scar_extract_warped"
+        extract = "obj.scar_extract_warped",
     ),
     MIND(
         id = "obj.mindrune",
@@ -25,7 +25,7 @@ enum class Rune(
         level = 2,
         xp = 5,
         dbId = "dbrow.runecrafting_rune_mind",
-        extract = "obj.scar_extract_warped"
+        extract = "obj.scar_extract_warped",
     ),
     WATER(
         id = "obj.waterrune",
@@ -33,7 +33,7 @@ enum class Rune(
         level = 5,
         xp = 6,
         dbId = "dbrow.runecrafting_rune_water",
-        extract = "obj.scar_extract_warped"
+        extract = "obj.scar_extract_warped",
     ),
     EARTH(
         id = "obj.earthrune",
@@ -41,7 +41,7 @@ enum class Rune(
         level = 9,
         xp = 6,
         dbId = "dbrow.runecrafting_rune_earth",
-        extract = "obj.scar_extract_warped"
+        extract = "obj.scar_extract_warped",
     ),
     FIRE(
         id = "obj.firerune",
@@ -49,7 +49,7 @@ enum class Rune(
         level = 14,
         xp = 7,
         dbId = "dbrow.runecrafting_rune_fire",
-        extract = "obj.scar_extract_warped"
+        extract = "obj.scar_extract_warped",
     ),
     BODY(
         id = "obj.bodyrune",
@@ -57,7 +57,7 @@ enum class Rune(
         level = 20,
         xp = 7,
         dbId = "dbrow.runecrafting_rune_body",
-        extract = "obj.scar_extract_warped"
+        extract = "obj.scar_extract_warped",
     ),
     COSMIC(
         id = "obj.cosmicrune",
@@ -65,7 +65,7 @@ enum class Rune(
         level = 27,
         xp = 8,
         dbId = "dbrow.runecrafting_rune_cosmic",
-        extract = "obj.scar_extract_twisted"
+        extract = "obj.scar_extract_twisted",
     ),
     CHAOS(
         id = "obj.chaosrune",
@@ -73,7 +73,7 @@ enum class Rune(
         level = 35,
         xp = 8,
         dbId = "dbrow.runecrafting_rune_chaos",
-        extract = "obj.scar_extract_twisted"
+        extract = "obj.scar_extract_twisted",
     ),
     SUNFIRE(
         id = "obj.sunfirerune",
@@ -81,7 +81,7 @@ enum class Rune(
         level = 33,
         xp = 9,
         dbId = "dbrow.runecrafting_rune_sunfire",
-        extract = "obj.scar_extract_twisted"
+        extract = "obj.scar_extract_twisted",
     ),
     ASTRAL(
         id = "obj.astralrune",
@@ -89,7 +89,7 @@ enum class Rune(
         level = 40,
         xp = 9,
         dbId = "dbrow.runecrafting_rune_astral",
-        extract = "obj.scar_extract_mangled"
+        extract = "obj.scar_extract_mangled",
     ),
     NATURE(
         id = "obj.naturerune",
@@ -97,7 +97,7 @@ enum class Rune(
         level = 44,
         xp = 9,
         dbId = "dbrow.runecrafting_rune_nature",
-        extract = "obj.scar_extract_mangled"
+        extract = "obj.scar_extract_mangled",
     ),
     LAW(
         id = "obj.lawrune",
@@ -105,7 +105,7 @@ enum class Rune(
         level = 54,
         xp = 9,
         dbId = "dbrow.runecrafting_rune_law",
-        extract = "obj.scar_extract_mangled"
+        extract = "obj.scar_extract_mangled",
     ),
     DEATH(
         id = "obj.deathrune",
@@ -113,7 +113,7 @@ enum class Rune(
         level = 65,
         xp = 10,
         dbId = "dbrow.runecrafting_rune_death",
-        extract = "obj.scar_extract_mangled"
+        extract = "obj.scar_extract_mangled",
     ),
     BLOOD(
         id = "obj.bloodrune",
@@ -121,7 +121,7 @@ enum class Rune(
         level = 77,
         xp = 10,
         dbId = "dbrow.runecrafting_rune_blood",
-        extract = "obj.scar_extract_scarred"
+        extract = "obj.scar_extract_scarred",
     ),
     BLOOD_DARK(
         id = "obj.bloodrune",
@@ -129,7 +129,7 @@ enum class Rune(
         level = 77,
         xp = 24,
         dbId = "dbrow.runecrafting_rune_blood_dark",
-        extract = "obj.scar_extract_scarred"
+        extract = "obj.scar_extract_scarred",
     ),
     SOUL(
         id = "obj.soulrune",
@@ -137,7 +137,7 @@ enum class Rune(
         level = 90,
         xp = 30,
         dbId = "dbrow.runecrafting_rune_soul",
-        extract = "obj.scar_extract_scarred"
+        extract = "obj.scar_extract_scarred",
     ),
     AETHER(
         id = "obj.aetherrune",
@@ -145,7 +145,7 @@ enum class Rune(
         level = 90,
         xp = 20,
         dbId = "dbrow.runecrafting_rune_aether",
-        extract = "obj.scar_extract_scarred"
+        extract = "obj.scar_extract_scarred",
     ),
     WRATH(
         id = "obj.wrathrune",
@@ -153,7 +153,7 @@ enum class Rune(
         level = 95,
         xp = 8,
         dbId = "dbrow.runecrafting_rune_wrath",
-        extract = "obj.scar_extract_scarred"
+        extract = "obj.scar_extract_scarred",
     );
 
     companion object {
@@ -165,24 +165,23 @@ object RunecraftRune {
 
     const val COL_EXTRACT = 7
 
-    fun runecraftRune() = productionTable(
-        "dbtable.runecrafting_runes",
-        serverOnly = true,
-        defaultCategory = "Runecraft",
-        extraColumns = {
-            column("extract", COL_EXTRACT, VarType.OBJ)
-        },
-    ) {
-        Rune.entries.forEach { rune ->
-            row(rune.dbId) {
-                production {
-                    input(rune.essence)
-                    statReq("stat.runecrafting", rune.level)
-                    xp(rune.xp)
-                    output(rune.id)
+    fun runecraftRune() =
+        productionTable(
+            "dbtable.runecrafting_runes",
+            serverOnly = true,
+            defaultCategory = "Runecraft",
+            extraColumns = { column("extract", COL_EXTRACT, VarType.OBJ) },
+        ) {
+            Rune.entries.forEach { rune ->
+                row(rune.dbId) {
+                    production {
+                        input(rune.essence)
+                        statReq("stat.runecrafting", rune.level)
+                        xp(rune.xp)
+                        output(rune.id)
+                    }
+                    columnRSCM(COL_EXTRACT, rune.extract)
                 }
-                columnRSCM(COL_EXTRACT, rune.extract)
             }
         }
-    }
 }

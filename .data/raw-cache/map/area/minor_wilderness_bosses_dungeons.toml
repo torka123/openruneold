@@ -1,7 +1,7 @@
 [[area]]
 name = "Minor Wilderness Bosses Dungeons"
 area_id = "area.minor_wilderness_bosses_dungeons"
-levels = [0]
+levels = [0, 1, 2]
 
 [[area.polygons]]
 vertices = [

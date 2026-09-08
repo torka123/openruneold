@@ -8,10 +8,10 @@ import dev.openrune.types.ItemServerType
 import dev.openrune.types.aconverted.interf.IfButtonOp
 import jakarta.inject.Inject
 import org.rsmod.api.area.checker.AreaChecker
-import org.rsmod.api.config.refs.params
 import org.rsmod.api.combat.commons.magic.MagicSpell
 import org.rsmod.api.combat.manager.MagicRuneManager
 import org.rsmod.api.combat.manager.MagicRuneManager.Companion.isFailure
+import org.rsmod.api.config.refs.params
 import org.rsmod.api.invtx.invTransaction
 import org.rsmod.api.invtx.select
 import org.rsmod.api.player.hook.PlayerTeleportValidator
@@ -23,7 +23,9 @@ import org.rsmod.api.player.protect.ProtectedAccess
 import org.rsmod.api.script.onIfOverlayButton
 import org.rsmod.api.script.onPlayerQueueWithArgs
 import org.rsmod.api.spells.MagicSpellRegistry
+import org.rsmod.content.skills.magic.spell.teleports.HomeTeleport.castHome
 import org.rsmod.content.quest.manager.Quest
+import org.rsmod.content.skills.construction.ConstructionHouseService
 import org.rsmod.game.inv.isType
 import org.rsmod.map.CoordGrid
 import org.rsmod.plugin.scripts.PluginScript
@@ -36,11 +38,14 @@ constructor(
     private val runes: MagicRuneManager,
     private val teleportValidator: PlayerTeleportValidator,
     private val areaChecker: AreaChecker,
+    private val houses: ConstructionHouseService,
 ) : PluginScript() {
     override fun ScriptContext.startup() {
         for (teleport in StandardSpellTeleport.entries) {
             val spell = teleport.resolveSpell() ?: continue
-            onIfOverlayButton(spell.component) { castSpellTeleport(spell, teleport, it.op) }
+            onIfOverlayButton(spell.component, ignoreRepeatedClicks = teleport == StandardSpellTeleport.Home) {
+                castSpellTeleport(spell, teleport, it.op)
+            }
         }
         onPlayerQueueWithArgs<PendingSpellTeleport>(TeleportQueue) {
             processQueuedTeleport(it.args)
@@ -65,9 +70,17 @@ constructor(
             return
         }
 
+        val houseTeleport = teleport == StandardSpellTeleport.TeleportToHouse
+        if (houseTeleport && !houses.ownsHouse(player)) {
+            mes("You need to purchase a house before you can use this spell.")
+            return
+        }
         val option = teleport.option(op)
-        val destination = teleport.destination(spell, option)
-        if (destination == null) {
+        val enterHouse = houseTeleport && op != IfButtonOp.Op2 && houses.teleportInside(player)
+        val destination =
+            if (houseTeleport && !enterHouse) houses.selectedHouseOutside(player)
+            else teleport.destination(spell, option)
+        if (destination == null && !enterHouse) {
             mes(option.missingDestinationMessage)
             return
         }
@@ -80,12 +93,21 @@ constructor(
             return
         }
 
+        if (teleport == StandardSpellTeleport.Home) {
+            castHome(requireNotNull(destination), { canTeleport() })
+            return
+        }
+
         actionDelay = mapClock + TeleportActionDelay
         anim(TeleportStartAnim)
         spotanim(TeleportSpotanim, height = TeleportSpotanimHeight)
         soundSynth(TeleportSound)
         clearQueue(TeleportQueue)
-        queue(TeleportQueue, TeleportDelay, PendingSpellTeleport(teleport, destination.packed))
+        queue(
+            TeleportQueue,
+            TeleportDelay,
+            PendingSpellTeleport(teleport, destination?.packed ?: 0, enterHouse),
+        )
     }
 
     private fun ProtectedAccess.processQueuedTeleport(task: PendingSpellTeleport) {
@@ -93,14 +115,17 @@ constructor(
         if (!canTeleport()) {
             return
         }
-        telejump(CoordGrid(task.destination))
+        if (task.enterHouse) {
+            houses.enterFromTeleport(player)
+        } else {
+            telejump(CoordGrid(task.destination))
+        }
         anim(TeleportEndAnim)
         statAdvance("stat.magic", spell.castXp)
     }
 
     private fun ProtectedAccess.canTeleport(): Boolean {
-        val denial =
-            teleportValidator.validate(player, TeleportType.Standard, areaChecker)
+        val denial = teleportValidator.validate(player, TeleportType.Standard, areaChecker)
         if (denial == null) {
             return true
         }
@@ -135,7 +160,8 @@ constructor(
         return !runes.attemptCast(player, castSpell).isFailure()
     }
 
-    private fun List<MagicSpell.ObjRequirement>.withoutBananaReq(): List<MagicSpell.ObjRequirement> {
+    private fun List<MagicSpell.ObjRequirement>.withoutBananaReq():
+        List<MagicSpell.ObjRequirement> {
         return filterNot { RSCM.getReverseMapping(RSCMType.OBJ, it.obj.id).contains("banana") }
     }
 
@@ -160,6 +186,7 @@ constructor(
     private data class PendingSpellTeleport(
         val teleport: StandardSpellTeleport,
         val destination: Int,
+        val enterHouse: Boolean,
     )
 
     private enum class StandardSpellTeleport(
@@ -171,20 +198,13 @@ constructor(
         val lockedMessage: String = "You need to complete the required quest to cast this spell.",
         val missingDestinationMessage: String = "That teleport is not implemented yet.",
     ) {
-        Home(
-            "obj.48_home_teleport",
-            CoordGrid(3222, 3222, 0),
-        ),
+        Home("obj.48_home_teleport", CoordGrid(3087, 3495, 0)),
         Varrock(
             "obj.25_varrock_teleport",
             alternate = TeleportOption(destination = CoordGrid(3164, 3487, 0)),
         ),
-        Lumbridge(
-            "obj.31_lumbridge_teleport",
-        ),
-        Falador(
-            "obj.37_falador_teleport",
-        ),
+        Lumbridge("obj.31_lumbridge_teleport"),
+        Falador("obj.37_falador_teleport"),
         TeleportToHouse(
             "obj.67_house_teleport",
             alternate =
@@ -192,7 +212,8 @@ constructor(
                     missingDestinationMessage =
                         "You need to purchase a house before you can teleport outside it."
                 ),
-            missingDestinationMessage = "You need to purchase a house before you can use this spell.",
+            missingDestinationMessage =
+                "You need to purchase a house before you can use this spell.",
         ),
         Camelot(
             "obj.45_camelot_teleport",
@@ -226,15 +247,13 @@ constructor(
             requiredQuest = "quest_eadgarsruse",
             lockedMessage = "You need to complete Eadgar's Ruse to cast this spell.",
         ),
-        ApeAtoll(
-            "obj.64_ape_atoll_teleport",
-            destinationLevel = 1,
-        ),
+        ApeAtoll("obj.64_ape_atoll_teleport", destinationLevel = 1),
         TeleportBoatToMe(
             "obj.56_teleport_boat_to_me",
             requiredQuest = "quest_pandemonium",
             lockedMessage = "You need to complete Pandemonium to cast this spell.",
-            missingDestinationMessage = "Boat teleports need boat-location support before they can be cast.",
+            missingDestinationMessage =
+                "Boat teleports need boat-location support before they can be cast.",
         ),
         TeleportMeToBoat(
             "obj.67_teleport_me_to_boat",
@@ -245,7 +264,8 @@ constructor(
                 ),
             requiredQuest = "quest_pandemonium",
             lockedMessage = "You need to complete Pandemonium to cast this spell.",
-            missingDestinationMessage = "Boat teleports need boat-location support before they can be cast.",
+            missingDestinationMessage =
+                "Boat teleports need boat-location support before they can be cast.",
         );
 
         fun option(op: IfButtonOp): TeleportOption {
@@ -257,7 +277,8 @@ constructor(
         }
 
         fun destination(spell: MagicSpell, option: TeleportOption): CoordGrid? {
-            val coord = option.destination ?: destination ?: spell.obj.paramOrNull(params.spell_telecoord)
+            val coord =
+                option.destination ?: destination ?: spell.obj.paramOrNull(params.spell_telecoord)
             val level = option.destinationLevel ?: destinationLevel
             return if (coord != null && level != null) {
                 coord.copy(level = level)

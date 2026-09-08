@@ -19,11 +19,11 @@ class SpiralStaircaseScript : PluginScript() {
         onOpContentLoc1("content.spiralstaircase_option") { climOption(it.loc) }
         onOpContentLoc2("content.spiralstaircase_option") {
             arriveDelay()
-            climbUp(it.loc)
+            climbDown(it.loc)
         }
         onOpContentLoc3("content.spiralstaircase_option") {
             arriveDelay()
-            climbDown(it.loc)
+            climbUp(it.loc)
         }
 
         onOpLoc2("loc.spiralstairsbottom_3") { climbLumbridgeTop(it.loc) }

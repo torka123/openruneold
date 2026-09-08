@@ -1,0 +1,255 @@
+{
+  "schema_version": 1,
+  "generated_on": "2026-08-28",
+  "scope": "Giants' Foundry deterministic golden vectors",
+  "source_revisions": {
+    "giants_foundry_wiki": 15307204,
+    "strategies_wiki": 15275840,
+    "reward_shop_wiki": 15318598,
+    "sleeping_giants_wiki": 15241064
+  },
+  "constants": {
+    "crucible_capacity": 28,
+    "maximum_initial_quality": 199,
+    "metal_tiers": {
+      "bronze": 1,
+      "iron": 2,
+      "steel": 3,
+      "mithril": 4,
+      "adamant": 5,
+      "rune": 6
+    },
+    "failed_sword_reward": {
+      "smithing_xp": 30,
+      "coins": 60
+    }
+  },
+  "material_score_vectors": [
+    {
+      "id": "MAT-PURE-BRONZE",
+      "amounts": { "bronze": 28 },
+      "selected_metals": ["bronze"],
+      "expected_score": 10,
+      "expected_sections": 3
+    },
+    {
+      "id": "MAT-PURE-RUNE",
+      "amounts": { "rune": 28 },
+      "selected_metals": ["rune"],
+      "expected_score": 60,
+      "expected_sections": 5
+    },
+    {
+      "id": "MAT-19-STEEL-9-MITHRIL",
+      "amounts": { "steel": 19, "mithril": 9 },
+      "selected_metals": ["steel", "mithril"],
+      "expected_score": 59,
+      "expected_sections": 4
+    },
+    {
+      "id": "MAT-18-MITHRIL-10-ADAMANT",
+      "amounts": { "mithril": 18, "adamant": 10 },
+      "selected_metals": ["mithril", "adamant"],
+      "expected_score": 89,
+      "expected_sections": 5
+    },
+    {
+      "id": "MAT-19-ADAMANT-9-RUNE",
+      "amounts": { "adamant": 19, "rune": 9 },
+      "selected_metals": ["adamant", "rune"],
+      "expected_score": 118,
+      "expected_sections": 6
+    },
+    {
+      "id": "MAT-14-ADAMANT-14-RUNE",
+      "amounts": { "adamant": 14, "rune": 14 },
+      "selected_metals": ["rune", "adamant"],
+      "expected_score": 130,
+      "expected_sections": 7
+    },
+    {
+      "id": "MAT-14-STEEL-14-MITHRIL",
+      "amounts": { "steel": 14, "mithril": 14 },
+      "selected_metals": ["mithril", "steel"],
+      "expected_score": 65,
+      "expected_sections": 5
+    },
+    {
+      "id": "MAT-THIRD-METAL-IGNORED-TIE-HIGHER-WINS",
+      "amounts": { "bronze": 10, "iron": 9, "steel": 9 },
+      "selected_metals": ["bronze", "steel"],
+      "ignored_metals": ["iron"],
+      "expected_score": 16,
+      "expected_sections": 3
+    }
+  ],
+  "difficulty_boundary_vectors": [
+    { "material_score": 10, "expected_sections": 3 },
+    { "material_score": 19, "expected_sections": 3 },
+    { "material_score": 20, "expected_sections": 4 },
+    { "material_score": 59, "expected_sections": 4 },
+    { "material_score": 60, "expected_sections": 5 },
+    { "material_score": 89, "expected_sections": 5 },
+    { "material_score": 90, "expected_sections": 6 },
+    { "material_score": 119, "expected_sections": 6 },
+    { "material_score": 120, "expected_sections": 7 },
+    { "material_score": 130, "expected_sections": 7 }
+  ],
+  "equipment_conversion_vectors": [
+    { "family": "scimitar", "smithing_bar_cost": 2, "expected_equivalents": 1 },
+    { "family": "longsword", "smithing_bar_cost": 2, "expected_equivalents": 1 },
+    { "family": "full_helm", "smithing_bar_cost": 2, "expected_equivalents": 1 },
+    { "family": "square_shield", "smithing_bar_cost": 2, "expected_equivalents": 1 },
+    { "family": "claws", "smithing_bar_cost": 2, "expected_equivalents": 1 },
+    { "family": "warhammer", "smithing_bar_cost": 3, "expected_equivalents": 2 },
+    { "family": "battleaxe", "smithing_bar_cost": 3, "expected_equivalents": 2 },
+    { "family": "chainbody", "smithing_bar_cost": 3, "expected_equivalents": 2 },
+    { "family": "kiteshield", "smithing_bar_cost": 3, "expected_equivalents": 2 },
+    { "family": "two_handed_sword", "smithing_bar_cost": 3, "expected_equivalents": 2 },
+    { "family": "platelegs", "smithing_bar_cost": 3, "expected_equivalents": 2 },
+    { "family": "plateskirt", "smithing_bar_cost": 3, "expected_equivalents": 2 },
+    { "family": "platebody", "smithing_bar_cost": 5, "expected_equivalents": 4 }
+  ],
+  "invalid_material_vectors": [
+    { "kind": "ornamental_smithable_equipment", "expected": "reject_without_mutation" },
+    { "kind": "one_bar_smithing_item", "expected": "reject_without_mutation" },
+    { "metal": "lovakite", "expected": "reject_without_mutation" },
+    { "metal": "blurite", "expected": "reject_without_mutation" },
+    { "metal": "elemental", "expected": "reject_without_mutation" }
+  ],
+  "initial_quality_vectors": [
+    { "material_score": 59, "mould_score": 74, "expected_initial_quality": 133 },
+    { "material_score": 130, "mould_score": 69, "expected_initial_quality": 199 },
+    { "material_score": 130, "mould_score": 80, "expected_initial_quality": 199 }
+  ],
+  "hand_in_reward_vectors": [
+    { "final_quality": 1, "expected_xp": 60, "expected_coins": 120, "expected_reputation": 1 },
+    { "final_quality": 5, "expected_xp": 240, "expected_coins": 480, "expected_reputation": 5 },
+    { "final_quality": 10, "expected_xp": 510, "expected_coins": 1020, "expected_reputation": 10 },
+    { "final_quality": 24, "expected_xp": 1320, "expected_coins": 2640, "expected_reputation": 24 },
+    { "final_quality": 49, "expected_xp": 3180, "expected_coins": 6360, "expected_reputation": 49 },
+    { "final_quality": 59, "expected_xp": 4080, "expected_coins": 8160, "expected_reputation": 59 },
+    { "final_quality": 89, "expected_xp": 7260, "expected_coins": 14520, "expected_reputation": 89 },
+    { "final_quality": 118, "expected_xp": 11040, "expected_coins": 22080, "expected_reputation": 118 },
+    { "final_quality": 130, "expected_xp": 12810, "expected_coins": 25620, "expected_reputation": 130 },
+    { "final_quality": 133, "expected_xp": 13260, "expected_coins": 26520, "expected_reputation": 133 },
+    { "final_quality": 153, "expected_xp": 16500, "expected_coins": 33000, "expected_reputation": 153 },
+    { "final_quality": 168, "expected_xp": 19170, "expected_coins": 38340, "expected_reputation": 168 },
+    { "final_quality": 176, "expected_xp": 20670, "expected_coins": 41340, "expected_reputation": 176 },
+    { "final_quality": 182, "expected_xp": 21810, "expected_coins": 43620, "expected_reputation": 182 },
+    { "final_quality": 188, "expected_xp": 23010, "expected_coins": 46020, "expected_reputation": 188 },
+    { "final_quality": 195, "expected_xp": 24390, "expected_coins": 48780, "expected_reputation": 195 },
+    { "final_quality": 199, "expected_xp": 25230, "expected_coins": 50460, "expected_reputation": 199 }
+  ],
+  "processing_action_vectors": [
+    {
+      "station": "trip_hammer",
+      "interval_ticks": 5,
+      "base_progress_percentage_points": 2.0,
+      "heat_delta_percentage_points": -2.5,
+      "smithing_xp": 4.5
+    },
+    {
+      "station": "grindstone",
+      "interval_ticks": 2,
+      "base_progress_percentage_points": 1.0,
+      "heat_delta_percentage_points": 1.5,
+      "smithing_xp": 3.2
+    },
+    {
+      "station": "polishing_wheel",
+      "interval_ticks": 2,
+      "base_progress_percentage_points": 1.0,
+      "heat_delta_percentage_points": -1.7,
+      "smithing_xp": 3.3
+    }
+  ],
+  "uniform_vectors": [
+    { "equipped_pieces": 0, "per_action_proc_probability": 0.0, "guaranteed": false },
+    { "equipped_pieces": 1, "per_action_proc_probability": 0.2, "guaranteed": false },
+    { "equipped_pieces": 2, "per_action_proc_probability": 0.4, "guaranteed": false },
+    { "equipped_pieces": 3, "per_action_proc_probability": 0.6, "guaranteed": false },
+    { "equipped_pieces": 4, "per_action_proc_probability": 1.0, "guaranteed": true }
+  ],
+  "shop_vectors": [
+    { "reward": "double_ammo_mould", "buy": 2000, "buyback": 1600 },
+    { "reward": "kovacs_grog", "buy": 300, "buyback": null },
+    { "reward": "smithing_catalyst", "buy": 15, "buyback": 12 },
+    { "reward": "ore_pack", "buy": 200, "buyback": 160 },
+    { "reward": "smiths_tunic", "buy": 4000, "buyback": 3200 },
+    { "reward": "smiths_trousers", "buy": 4000, "buyback": 3200 },
+    { "reward": "smiths_boots", "buy": 3500, "buyback": 2800 },
+    { "reward": "smiths_gloves", "buy": 3500, "buyback": 2800 },
+    { "reward": "colossal_blade", "buy": 5000, "buyback": null }
+  ],
+  "shop_total_vectors": {
+    "one_each_non_mould_rewards": 22515,
+    "all_reward_moulds": 5400,
+    "combined": 27915
+  },
+  "state_transition_vectors": [
+    {
+      "id": "POUR-AT-27",
+      "start": "CRUCIBLE_LOADING",
+      "bar_equivalents": 27,
+      "action": "pour",
+      "expected_state": "CRUCIBLE_LOADING",
+      "expected": "reject_without_mutation"
+    },
+    {
+      "id": "POUR-AT-28",
+      "start": "READY_TO_POUR",
+      "bar_equivalents": 28,
+      "action": "pour",
+      "expected_state": "POURED_HOT_PREFORM",
+      "expected_preform_count": 1
+    },
+    {
+      "id": "SECOND-POUR-BLOCKED",
+      "start": "PROCESSING",
+      "bar_equivalents": 28,
+      "action": "pour",
+      "expected_state": "PROCESSING",
+      "expected": "reject_without_mutation"
+    },
+    {
+      "id": "OVERWORK-SKIP",
+      "start": "PROCESSING",
+      "action": "click_active_station_outside_bonus",
+      "expected_quality_delta": 0,
+      "expected_skipped_machine_actions": 1
+    },
+    {
+      "id": "STORAGE-OFFLINE",
+      "start": "PROCESSING",
+      "action": "store_then_advance_offline_time_then_restore",
+      "expected_heat_delta": 0,
+      "expected_progress_delta": 0,
+      "expected_quality_delta": 0,
+      "timer_paused": false
+    }
+  ],
+  "unresolved_observation_vectors": [
+    {
+      "id": "OBS-QUALITY-DAMAGE",
+      "measure": ["quality_before", "quality_after", "damage_event_count", "mistake_count"],
+      "candidate_claims": ["10 quality per damage event", "5 reputation/quality per mistake"],
+      "status": "unresolved"
+    },
+    {
+      "id": "OBS-BONUS-ACTION",
+      "measure": ["prompt_start_tick", "prompt_end_tick", "click_tick", "next_action_tick", "progress_delta", "quality_recovered"],
+      "status": "unresolved"
+    },
+    {
+      "id": "OBS-HEAT-CURVES",
+      "measure": ["station", "elapsed_ticks", "heat_before", "heat_after"],
+      "status": "unresolved"
+    },
+    {
+      "id": "OBS-TEMPERATURE-BANDS",
+      "measure": ["material_score", "tool", "lower_boundary", "upper_boundary", "boundary_inclusivity"],
+      "status": "unresolved"
+    }
+  ]
+}

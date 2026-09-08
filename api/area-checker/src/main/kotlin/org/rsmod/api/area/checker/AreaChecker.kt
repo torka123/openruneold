@@ -1,9 +1,7 @@
 package org.rsmod.api.area.checker
 
-import dev.openrune.map.MapSingletons
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
-import dev.openrune.types.aconverted.AreaType
 import it.unimi.dsi.fastutil.shorts.ShortArrayList
 import it.unimi.dsi.fastutil.shorts.ShortOpenHashSet
 import jakarta.inject.Inject
@@ -11,10 +9,9 @@ import org.rsmod.api.registry.region.RegionRegistry
 import org.rsmod.game.area.AreaIndex
 import org.rsmod.map.CoordGrid
 
-public class AreaChecker @Inject constructor(
-    private val regions: RegionRegistry,
-    private val areaIndex: AreaIndex,
-) {
+public class AreaChecker
+@Inject
+constructor(private val regions: RegionRegistry, private val areaIndex: AreaIndex) {
     private val areaBuffer = ShortArrayList()
     private val visited = ShortOpenHashSet()
 

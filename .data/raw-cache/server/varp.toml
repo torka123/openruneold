@@ -1,3 +1,5 @@
+
+
 [[varp]]
 isServerOnly = true
 id = "varp.music_playlist"
@@ -291,6 +293,18 @@ transmit = "Never"
 [[varp]]
 isServerOnly = true
 id = "varp.slayer_last_count"
+scope = "Perm"
+transmit = "Never"
+
+[[varp]]
+isServerOnly = true
+id = "varp.slayer_assignment_category"
+scope = "Perm"
+transmit = "Never"
+
+[[varp]]
+isServerOnly = true
+id = "varp.slayer_last_category"
 scope = "Perm"
 transmit = "Never"
 
@@ -815,3 +829,93 @@ isServerOnly = true
 id = "varp.kc_superior_monster"
 scope = "Perm"
 transmit = "Never"
+
+[[varp]]
+isServerOnly = true
+id = "varp.wilderness_boss_fee_paid"
+scope = "Perm"
+transmit = "Never"
+
+[[varp]]
+isServerOnly = true
+id = "varp.wilderness_boss_fee_at_risk"
+scope = "Perm"
+transmit = "Never"
+
+[[varp]]
+isServerOnly = true
+id = "varp.revenant_cave_fee_paid"
+scope = "Perm"
+transmit = "Never"
+
+[[varp]]
+isServerOnly = true
+id = "varp.revenant_cave_fee_at_risk"
+scope = "Perm"
+transmit = "Never"
+
+[[varp]]
+isServerOnly = true
+id = "varp.wilderness_agility_course_stage"
+scope = "Temp"
+transmit = "Never"
+
+[[varp]]
+isServerOnly = true
+id = "varp.wilderness_agility_unclaimed_lap"
+scope = "Temp"
+transmit = "Never"
+
+[[varp]]
+isServerOnly = true
+id = "varp.wilderness_agility_paid_active"
+scope = "Perm"
+transmit = "Never"
+
+[[varp]]
+isServerOnly = true
+id = "varp.wilderness_agility_paid_streak"
+scope = "Perm"
+transmit = "Never"
+
+[[varp]]
+isServerOnly = true
+id = "varp.ethereum_absorption_enabled"
+scope = "Perm"
+transmit = "Never"
+
+[[varp]]
+isServerOnly = true
+id = "varp.crafting_state"
+scope = "Perm"
+transmit = "Never"
+
+[[varp]]
+id = 5056
+scope = "Temp"
+transmit = "OnSetAlways"
+
+[[varp]]
+id = 5111
+scope = "Temp"
+transmit = "OnSetAlways"
+
+[[varp]]
+id = 5117
+scope = "Temp"
+transmit = "OnSetAlways"
+
+[[varp]]
+id = 5118
+scope = "Temp"
+transmit = "OnSetAlways"
+
+[[varp]]
+id = 5119
+scope = "Temp"
+transmit = "OnSetAlways"
+
+[[varp]]
+id = 5121
+scope = "Temp"
+transmit = "OnSetAlways"

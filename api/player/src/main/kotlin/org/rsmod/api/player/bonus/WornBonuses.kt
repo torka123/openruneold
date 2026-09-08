@@ -4,9 +4,11 @@ import dev.openrune.util.Wearpos
 import kotlin.math.max
 import org.rsmod.api.config.constants
 import org.rsmod.api.config.refs.params
+import org.rsmod.api.player.front
 import org.rsmod.api.player.hands
 import org.rsmod.api.player.hat
 import org.rsmod.api.player.legs
+import org.rsmod.api.player.ranged.BlowpipeAmmo
 import org.rsmod.api.player.righthand
 import org.rsmod.api.player.torso
 import org.rsmod.api.player.worn.EquipmentChecks
@@ -93,7 +95,7 @@ public class WornBonuses {
 
     public fun prayerBonus(player: Player): Int {
         val bonuses = calculate(player)
-        return bonuses.prayer
+        return PrayerBonusModifierState.apply(player, bonuses.prayer)
     }
 
     public fun calculate(player: Player): Bonuses {
@@ -153,7 +155,15 @@ public class WornBonuses {
             slayerMeleeOnly = type.param(params.bonus_slayer_meleeonly)
         }
 
-        // TODO: Apply toxic blowpipe dart bonuses.
+        if (
+            EquipmentChecks.isVeracSet(player.hat, player.torso, player.legs, player.righthand) &&
+                EquipmentChecks.isAmuletOfTheDamned(player.front)
+        ) {
+            prayer += 7
+        }
+
+        // Blowpipe dart strength is stored in the equipped item's cache-packed varobj fields.
+        rangedStr += BlowpipeAmmo.rangedStrengthBonus(player.righthand)
 
         if (EquipmentChecks.isTumekensShadow(player.righthand)) {
             // TODO: 4.0 while in tombs of amascut. This is purely for the visual bonus, the actual

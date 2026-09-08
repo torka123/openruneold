@@ -1,6 +1,5 @@
 package org.rsmod.api.spells.attack
 
-import dev.openrune.rscm.RSCM
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
 import dev.openrune.types.ItemServerType

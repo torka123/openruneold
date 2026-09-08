@@ -1,0 +1,20 @@
+# The three marked internal dividers between the two former moss-giant cells.
+# Shape 0 is WallStraight. Angles 1 and 3 are North and South respectively.
+
+[[remove]]
+loc = "loc.crumblywall1"
+coords = "0_49_154_29_27"
+shape = 0
+angle = 3
+
+[[remove]]
+loc = "loc.crumblywall2"
+coords = "0_49_154_29_28"
+shape = 0
+angle = 1
+
+[[remove]]
+loc = "loc.crumblywall2"
+coords = "0_49_154_30_28"
+shape = 0
+angle = 1

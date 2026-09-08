@@ -56,4 +56,32 @@ class PlayerDelayTest {
         assertEquals(dest, player.coords)
         assertNull(player.activeCoroutine)
     }
+
+    @Test
+    fun GameTestState.`Shove delays a player for five cycles and grants one immune cycle`() =
+        runBasicGameTest {
+            withPlayer {
+                applyShoveStun(stunCycles = 5, postStunImmunityCycles = 1)
+                assertTrue(isShoveStunned)
+                assertTrue(isDelayed)
+                assertTrue(isShoveStunImmune)
+
+                repeat(4) {
+                    currentMapClock++
+                    processedMapClock++
+                    assertTrue(isShoveStunned)
+                    assertTrue(isDelayed)
+                }
+
+                currentMapClock++
+                processedMapClock++
+                assertFalse(isShoveStunned)
+                assertFalse(isDelayed)
+                assertTrue(isShoveStunImmune)
+
+                currentMapClock++
+                processedMapClock++
+                assertFalse(isShoveStunImmune)
+            }
+        }
 }

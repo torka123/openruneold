@@ -109,6 +109,7 @@ public class InteractionObj(
     hasOpTrigger: Boolean,
     hasApTrigger: Boolean,
     startApRange: Int = PathingEntity.DEFAULT_AP_RANGE,
+    public val targeted: ObjTargetData? = null,
 ) : Interaction(hasOpTrigger, hasApTrigger, startApRange) {
     override fun toString(): String =
         "InteractionObj(" +
@@ -120,6 +121,12 @@ public class InteractionObj(
             "interacted=$interacted" +
             ")"
 }
+
+public data class ObjTargetData(
+    public val component: org.rsmod.game.ui.Component,
+    public val comsub: Int,
+    public val objType: ItemServerType?,
+)
 
 public sealed class InteractionPlayer(
     public val target: Player,

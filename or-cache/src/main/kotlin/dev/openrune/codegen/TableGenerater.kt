@@ -204,10 +204,12 @@ private fun clearGeneratedTableSources(root: File) {
         return
     }
     check(root.isDirectory) { "Table output path is not a directory: ${root.absolutePath}" }
-    root.walkBottomUp()
+    root
+        .walkBottomUp()
         .filter { it.isFile && it.extension.equals("kt", ignoreCase = true) }
         .forEach { it.delete() }
-    root.walkBottomUp()
+    root
+        .walkBottomUp()
         .filter { it.isDirectory && it != root && it.listFiles().isNullOrEmpty() }
         .forEach { it.delete() }
 }
@@ -264,6 +266,7 @@ fun startGeneration(
         val table = el.elementAs<Table>() ?: continue
         val samples = sampleRowsForTable(table.id, rows)
         val meta = mergeColumnMetadata(table, samples)
+        val declared = dbtables[table.id]?.columns
         val maxLen =
             table.columns.associate { c ->
                 c.name to (samples.maxOfOrNull { it.valuesAt(c.id)?.size ?: 0 } ?: 0)
@@ -271,6 +274,11 @@ fun startGeneration(
         val columns =
             table.columns.map { c ->
                 val m = meta.getValue(c.name)
+                val declaredTypes = declared?.get(c.id)?.types
+                if (m.slotTypes.isEmpty() && !declaredTypes.isNullOrEmpty()) {
+                    declaredTypes.forEachIndexed { i, t -> m.slotTypes[i] = t }
+                    m.optional = true
+                }
                 val slotList = m.slotTypes.toSortedMap().values.toList()
                 TableColumn(
                     name = "dbcol.${table.name}:${c.name}",
@@ -543,7 +551,9 @@ private class RowPropertyCodegen(
         if (multi) {
             tupleAsLists += n
             val tupleT =
-                tupleClass.parameterizedBy(*slots.map { kotlinTypeForVarType(it, false) }.toTypedArray())
+                tupleClass.parameterizedBy(
+                    *slots.map { kotlinTypeForVarType(it, false) }.toTypedArray()
+                )
             addProp(
                 prop,
                 listType.parameterizedBy(tupleT),

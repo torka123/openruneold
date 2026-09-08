@@ -9,6 +9,7 @@ import org.rsmod.api.player.ui.IfCloseSub
 import org.rsmod.api.player.ui.IfModalButton
 import org.rsmod.api.player.ui.IfModalButtonT
 import org.rsmod.api.player.ui.IfModalDrag
+import org.rsmod.api.player.ui.IfModalPauseButton
 import org.rsmod.api.player.ui.IfModalSubOpMenu
 import org.rsmod.api.player.ui.IfOpenSub
 import org.rsmod.api.player.ui.IfOverlayButton
@@ -16,6 +17,7 @@ import org.rsmod.api.player.ui.IfOverlayButtonT
 import org.rsmod.api.player.ui.IfOverlayDrag
 import org.rsmod.api.player.ui.IfOverlaySubOpMenu
 import org.rsmod.events.EventBus
+import org.rsmod.game.ui.Component
 import org.rsmod.plugin.scripts.ScriptContext
 
 public fun ScriptContext.onIfOpen(type: String, action: IfOpenSub.() -> Unit): Unit =
@@ -31,12 +33,32 @@ public fun ScriptContext.onIfOverlayButton(
 
 public fun ScriptContext.onIfOverlayButton(
     button: ComponentType,
+    ignoreRepeatedClicks: Boolean = false,
     action: suspend ProtectedAccess.(IfOverlayButton) -> Unit,
-): Unit = onProtectedEvent(button.packed, action)
+) {
+    onProtectedEvent<IfOverlayButton>(button.packed) {
+        if (!ignoreRepeatedClicks) {
+            action(it)
+        } else {
+            val previous = player.ui.ignoredOverlayButton
+            player.ui.ignoredOverlayButton = Component(button.packed)
+            try {
+                action(it)
+            } finally {
+                player.ui.ignoredOverlayButton = previous
+            }
+        }
+    }
+}
 
 public fun ScriptContext.onIfModalButton(
     button: String,
     action: suspend ProtectedAccess.(IfModalButton) -> Unit,
+): Unit = onProtectedEvent(button.asRSCM(RSCMType.COMPONENT), action)
+
+public fun ScriptContext.onIfModalPauseButton(
+    button: String,
+    action: suspend ProtectedAccess.(IfModalPauseButton) -> Unit,
 ): Unit = onProtectedEvent(button.asRSCM(RSCMType.COMPONENT), action)
 
 public fun ScriptContext.onIfOverlaySubOpMenu(

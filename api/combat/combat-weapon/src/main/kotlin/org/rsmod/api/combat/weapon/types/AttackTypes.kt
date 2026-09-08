@@ -19,7 +19,7 @@ public class AttackTypes {
     }
 
     public fun resolve(type: ItemServerType?, combatStance: Int): AttackType? {
-        val weapon = WeaponCategory.getOrUnarmed(type?.weaponCategory?.id)
+        val weapon = WeaponCategory.getOrUnarmed(type?.resolvedWeaponCategory?.id)
         return resolve(weapon = weapon, combatStance = combatStance)
     }
 

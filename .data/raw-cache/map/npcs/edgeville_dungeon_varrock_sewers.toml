@@ -11,52 +11,16 @@ npc = "npc.black_demon5"
 coords = "0_48_155_16_41"
 
 [[spawn]]
-npc = "npc.chaos_druid"
-coords = "0_48_155_32_22"
-
-[[spawn]]
-npc = "npc.chaos_druid"
-coords = "0_48_155_33_16"
-
-[[spawn]]
-npc = "npc.chaos_druid"
-coords = "0_48_155_34_20"
-
-[[spawn]]
-npc = "npc.chaos_druid"
-coords = "0_48_155_35_23"
-
-[[spawn]]
-npc = "npc.chaos_druid"
-coords = "0_48_155_37_11"
-
-[[spawn]]
-npc = "npc.chaos_druid"
-coords = "0_48_155_38_21"
-
-[[spawn]]
-npc = "npc.chaos_druid"
-coords = "0_48_155_39_16"
-
-[[spawn]]
-npc = "npc.chaos_druid"
-coords = "0_48_155_39_19"
-
-[[spawn]]
-npc = "npc.chaos_druid"
-coords = "0_48_155_42_9"
-
-[[spawn]]
-npc = "npc.chaos_druid"
-coords = "0_48_155_43_12"
-
-[[spawn]]
-npc = "npc.chaos_druid"
-coords = "0_48_155_43_5"
+npc = "npc.chronozon"
+coords = "0_48_155_15_17"
 
 [[spawn]]
 npc = "npc.chronozon"
-coords = "0_48_155_15_17"
+coords = "0_48_155_11_13"
+
+[[spawn]]
+npc = "npc.chronozon"
+coords = "0_48_155_18_12"
 
 [[spawn]]
 npc = "npc.deadly_red_spider"
@@ -139,112 +103,36 @@ npc = "npc.earthwarrior"
 coords = "0_48_156_54_8"
 
 [[spawn]]
-npc = "npc.giant"
+npc = "npc.hillgiant_boss"
 coords = "0_48_153_39_49"
 
 [[spawn]]
-npc = "npc.giant"
+npc = "npc.hillgiant_boss"
 coords = "0_48_153_45_58"
 
 [[spawn]]
-npc = "npc.giant2"
-coords = "0_48_153_27_40"
-
-[[spawn]]
-npc = "npc.giant2"
-coords = "0_48_153_45_51"
-
-[[spawn]]
-npc = "npc.giant3"
-coords = "0_48_153_28_44"
-
-[[spawn]]
-npc = "npc.giant3"
-coords = "0_48_153_50_52"
-
-[[spawn]]
-npc = "npc.giant4"
-coords = "0_48_153_35_43"
-
-[[spawn]]
-npc = "npc.giant4"
-coords = "0_48_153_38_53"
-
-[[spawn]]
-npc = "npc.giant5"
-coords = "0_48_153_41_39"
-
-[[spawn]]
-npc = "npc.giant5"
-coords = "0_48_153_45_43"
-
-[[spawn]]
-npc = "npc.giant6"
-coords = "0_48_153_34_35"
-
-[[spawn]]
-npc = "npc.giant6"
-coords = "0_48_153_44_40"
-
-[[spawn]]
-npc = "npc.giantrat"
+npc = "npc.skeletal_wyvern1"
 coords = "0_48_154_19_41"
 
 [[spawn]]
-npc = "npc.giantrat"
-coords = "0_48_154_30_24"
+npc = "npc.skeletal_wyvern1"
+coords = "0_48_154_28_24"
 
 [[spawn]]
-npc = "npc.giantrat"
+npc = "npc.slayer_dustdevil"
 coords = "0_48_154_49_37"
 
 [[spawn]]
-npc = "npc.giantrat1_2"
-coords = "0_48_154_17_39"
+npc = "npc.skeletal_wyvern1"
+coords = "0_48_154_22_32"
 
 [[spawn]]
-npc = "npc.giantrat1_2"
+npc = "npc.slayer_dustdevil"
 coords = "0_48_154_50_33"
 
 [[spawn]]
-npc = "npc.giantrat1_3"
+npc = "npc.slayer_dustdevil"
 coords = "0_48_154_45_33"
-
-[[spawn]]
-npc = "npc.giantskeleton"
-coords = "0_48_155_29_36"
-
-[[spawn]]
-npc = "npc.giantskeleton"
-coords = "0_48_155_32_28"
-
-[[spawn]]
-npc = "npc.giantskeleton"
-coords = "0_48_155_32_35"
-
-[[spawn]]
-npc = "npc.giantskeleton"
-coords = "0_48_155_36_31"
-
-[[spawn]]
-npc = "npc.giantskeleton"
-coords = "0_48_155_36_34"
-
-[[spawn]]
-npc = "npc.giantskeleton"
-coords = "0_48_155_39_34"
-
-[[spawn]]
-npc = "npc.giantskeleton"
-coords = "0_48_155_40_38"
-
-[[spawn]]
-npc = "npc.giantspider1"
-coords = "0_48_154_24_22"
-
-[[spawn]]
-npc = "npc.giantspider1"
-coords = "0_48_154_25_22"
 
 [[spawn]]
 npc = "npc.hobgoblin_armed"
@@ -323,27 +211,27 @@ npc = "npc.skeleton_armed5"
 coords = "0_49_154_5_13"
 
 [[spawn]]
-npc = "npc.skeleton_unagressive"
+npc = "npc.slayer_jelly_1"
 coords = "0_48_154_23_43"
 
 [[spawn]]
-npc = "npc.skeleton_unagressive"
+npc = "npc.slayer_jelly_2"
 coords = "0_48_154_23_53"
 
 [[spawn]]
-npc = "npc.skeleton_unagressive2"
+npc = "npc.slayer_jelly_3"
 coords = "0_48_154_24_37"
 
 [[spawn]]
-npc = "npc.skeleton_unagressive2"
+npc = "npc.slayer_jelly_4"
 coords = "0_48_154_27_56"
 
 [[spawn]]
-npc = "npc.skeleton_unagressive3"
+npc = "npc.slayer_jelly_5"
 coords = "0_48_154_22_33"
 
 [[spawn]]
-npc = "npc.skeleton_unagressive3"
+npc = "npc.slayer_jelly_6"
 coords = "0_48_154_26_50"
 
 [[spawn]]
@@ -369,46 +257,6 @@ coords = "0_48_154_60_58"
 [[spawn]]
 npc = "npc.skeleton_unarmed4"
 coords = "0_49_154_2_18"
-
-[[spawn]]
-npc = "npc.slayer_master_3"
-coords = "0_49_154_11_58"
-
-[[spawn]]
-npc = "npc.thug"
-coords = "0_48_155_51_9"
-
-[[spawn]]
-npc = "npc.thug"
-coords = "0_48_155_55_13"
-
-[[spawn]]
-npc = "npc.thug"
-coords = "0_48_155_55_9"
-
-[[spawn]]
-npc = "npc.thug"
-coords = "0_48_155_58_10"
-
-[[spawn]]
-npc = "npc.thug"
-coords = "0_48_155_59_14"
-
-[[spawn]]
-npc = "npc.thug"
-coords = "0_48_155_60_1"
-
-[[spawn]]
-npc = "npc.thug"
-coords = "0_48_155_60_6"
-
-[[spawn]]
-npc = "npc.thug"
-coords = "0_48_155_61_8"
-
-[[spawn]]
-npc = "npc.thug"
-coords = "0_48_155_62_15"
 
 [[spawn]]
 npc = "npc.zombie2"
@@ -561,44 +409,24 @@ npc = "npc.giantspider2"
 coords = "0_50_154_20_32"
 
 [[spawn]]
-npc = "npc.mossgiant"
-coords = "0_49_154_20_50"
+npc = "npc.gb_mossgiant"
+coords = "0_49_154_20_45"
 
 [[spawn]]
-npc = "npc.mossgiant"
-coords = "0_49_154_22_42"
-
-[[spawn]]
-npc = "npc.mossgiant"
+npc = "npc.harmless_island_cave_horror_alpha"
 coords = "0_49_154_27_21"
 
 [[spawn]]
-npc = "npc.mossgiant2"
-coords = "0_49_154_22_39"
+npc = "npc.harmless_island_cave_horror_guard"
+coords = "0_49_154_31_21"
 
 [[spawn]]
-npc = "npc.mossgiant2"
-coords = "0_49_154_22_48"
+npc = "npc.harmless_island_cave_horror_small_guard"
+coords = "0_49_154_27_25"
 
 [[spawn]]
-npc = "npc.mossgiant2"
-coords = "0_49_154_28_24"
-
-[[spawn]]
-npc = "npc.mossgiant3"
-coords = "0_49_154_19_47"
-
-[[spawn]]
-npc = "npc.mossgiant3"
-coords = "0_49_154_31_24"
-
-[[spawn]]
-npc = "npc.mossgiant4"
-coords = "0_49_154_23_45"
-
-[[spawn]]
-npc = "npc.mossgiant4"
-coords = "0_49_154_30_27"
+npc = "npc.harmless_island_cave_horror_worker"
+coords = "0_49_154_31_25"
 
 [[spawn]]
 npc = "npc.rat"
@@ -829,4 +657,3 @@ npc = "npc.zombie_unarmed_sewer4"
 coords = "0_50_154_43_37"
 
 ## Varrock Sewers End
-

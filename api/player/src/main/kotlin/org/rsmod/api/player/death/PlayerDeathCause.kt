@@ -53,7 +53,9 @@ public fun Hit.resolveDeathCause(npcSource: Npc?, playerSource: Player?): DeathC
         val typeName = RSCM.getReverseMapping(RSCMType.NPC, npcSource.visType.id) ?: "unknown"
         return DeathCause.ByNpc(typeName, npcSource.visType.id)
     }
-    resolveToxinCause()?.let { return it }
+    resolveToxinCause()?.let {
+        return it
+    }
     return DeathCause.Unknown
 }
 

@@ -1,11 +1,10 @@
 package org.rsmod.api.combat.formulas.attributes.collector
 
-import dev.openrune.types.ItemServerType
 import java.util.EnumSet
 import org.rsmod.api.combat.commons.types.MeleeAttackType
+import org.rsmod.api.combat.formulas.SlayerHelmCombatChecks.providesMeleeTaskBoost
 import org.rsmod.api.combat.formulas.attributes.CombatMeleeAttributes
 import org.rsmod.api.config.constants
-import org.rsmod.api.config.refs.BaseParams
 import org.rsmod.api.player.front
 import org.rsmod.api.player.hat
 import org.rsmod.api.player.legs
@@ -44,14 +43,15 @@ public class CombatMeleeAttributeCollector {
         }
 
         val helm = player.hat
-        val helmType = getOrNull(helm)
-        if (helmType != null && helmType.hasBlackMaskAttribute()) {
+        if (helm.providesMeleeTaskBoost()) {
             attributes += CombatMeleeAttributes.BlackMask
         }
 
         val weapon = player.righthand
         if (weapon.isType("obj.arclight")) {
             attributes += CombatMeleeAttributes.Arclight
+        } else if (weapon.isType("obj.emberlight")) {
+            attributes += CombatMeleeAttributes.Emberlight
         } else if (weapon.isType("obj.bone_claws")) {
             attributes += CombatMeleeAttributes.BurningClaws
         }
@@ -109,7 +109,11 @@ public class CombatMeleeAttributeCollector {
                     CombatMeleeAttributes.RevenantWeapon
                 }
 
-                weapon.isType("obj.agrith_silverlight_dyed") -> {
+                weapon.isAnyType(
+                    "obj.silverlight",
+                    "obj.agrith_silverlight_dyed",
+                    "obj.darklight",
+                ) -> {
                     CombatMeleeAttributes.Silverlight
                 }
 
@@ -182,10 +186,4 @@ public class CombatMeleeAttributeCollector {
 
         return attributes
     }
-
-    private fun ItemServerType.hasBlackMaskAttribute(): Boolean =
-        param(BaseParams.blackmask) != 0 ||
-            param(BaseParams.slayer_helm) != 0 ||
-            param(BaseParams.blackmask_imbued) != 0 ||
-            param(BaseParams.slayer_helm_imbued) != 0
 }

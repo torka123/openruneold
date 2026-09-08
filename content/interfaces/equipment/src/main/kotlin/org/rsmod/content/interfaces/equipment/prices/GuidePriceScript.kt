@@ -24,6 +24,7 @@ import org.rsmod.api.utils.format.formatAmount
 import org.rsmod.events.EventBus
 import org.rsmod.game.entity.Player
 import org.rsmod.game.inv.InvObj
+import org.rsmod.game.obj.EnsouledHeadProvenance
 import org.rsmod.game.type.getInvObj
 import org.rsmod.plugin.scripts.PluginScript
 import org.rsmod.plugin.scripts.ScriptContext
@@ -170,7 +171,9 @@ constructor(
             soundSynth("synth.pillory_wrong")
             return
         }
-        val untradableSlots = inv.mapSlots { slot, obj -> obj != null && !ocTradable(obj) }
+        val untradableSlots = inv.mapSlots { _, obj ->
+            obj != null && !ocTradable(EnsouledHeadProvenance.normalizeStored(obj))
+        }
         val transaction = invMoveInv(inv, tempInv, keepSlots = untradableSlots)
 
         if (transaction.noneCompleted()) {
@@ -189,7 +192,7 @@ constructor(
             return
         }
 
-        if (!ocTradable(obj)) {
+        if (!ocTradable(EnsouledHeadProvenance.normalizeStored(obj))) {
             mes("You cannot trade that item.")
             return
         }

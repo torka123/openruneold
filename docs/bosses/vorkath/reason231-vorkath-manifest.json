@@ -1,0 +1,47 @@
+{
+  "generatedAt": "2026-08-16T12:20:00-04:00",
+  "task": "post-quest Vorkath implementation and donor audit",
+  "canonicalProject": "<repo-root>",
+  "targetRevision": 240,
+  "suppliedArchive": {
+    "path": "%USERPROFILE%\\OneDrive\\Desktop\\osrs server.rar",
+    "sha256": "823B1C8C37D08D2395850D9312A8FF4D865BDF16800F9CF240519088EDCC28CE"
+  },
+  "donor": {
+    "labelInPrompt": "Reason 231",
+    "decodedBuild": "229.1",
+    "note": "The supplied package is retained under its user-facing Reason 231 label, but its cache decoder identifies it as build 229.1. It is secondary evidence, not the authoritative target.",
+    "vorkathSource": "C:\\tmp\\reason231-cox-donor-20260816\\osrs server\\server reasonps\\kronos-server\\src\\main\\java\\io\\ruin\\model\\activities\\bosses\\vorkath\\Vorkath.java",
+    "vorkathSourceSha256": "472D573CDA89C0D8CBD82DB82F5D57F443D0FA5A8D911D443D01C2C665B13F12",
+    "cacheRoots": [
+      "C:\\tmp\\reason231-cox-donor-20260816\\osrs server\\data reasonps\\data\\cache",
+      "C:\\tmp\\reason231-cox-donor-20260816\\osrs server\\server reasonps\\data\\cache",
+      "C:\\tmp\\reason231-cox-donor-20260816\\osrs server\\server reasonps\\data\\cache\\toml-dump",
+      "C:\\tmp\\reason231-cox-donor-20260816\\osrs server\\server reasonps\\data\\packed-cache"
+    ],
+    "cacheFileCountBefore": 100,
+    "cacheFileCountAfter": 100,
+    "changedCacheFiles": 0,
+    "cacheManifestSha256": "39EBBFA89D365C07BA1EA3E122340440010DB9BB1C851A12C75E2ADB0E837516"
+  },
+  "activeCaches": {
+    "fileCountBeforeRestarts": 50,
+    "fileCountAfterRestarts": 50,
+    "changedFilesAcrossRestarts": 0,
+    "LIVE": {
+      "path": ".data/cache/LIVE",
+      "mainFileCacheDat2Sha256": "7E1911549A9D4B8127018AE42D7B67102579F0441B4EC29F4D2262E557D8F9B3"
+    },
+    "SERVER": {
+      "path": ".data/cache/SERVER",
+      "mainFileCacheDat2Sha256": "D3C753BCD77487B175AF59F11ED2C19C2015CC3C35DFFA8996C36A3078282513"
+    },
+    "archivesImported": [],
+    "reason": "Revision 240 already contains every Vorkath NPC, location, sequence, spot animation, model and Ungael map used by the implementation."
+  },
+  "authoritativeOrder": [
+    "current OSRS public behavior and rates",
+    "OpenRune revision-240 decoded definitions and engine semantics",
+    "supplied donor source as secondary evidence"
+  ]
+}

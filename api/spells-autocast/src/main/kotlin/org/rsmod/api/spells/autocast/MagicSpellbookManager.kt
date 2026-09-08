@@ -2,6 +2,8 @@ package org.rsmod.api.spells.autocast
 
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import org.rsmod.api.combat.commons.magic.AncientMagicksAccessPolicy
+import org.rsmod.api.combat.commons.magic.HomeTeleportCooldown
 import org.rsmod.api.combat.commons.magic.Spellbook
 import org.rsmod.api.player.righthand
 import org.rsmod.api.player.vars.boolVarBit
@@ -11,9 +13,7 @@ import org.rsmod.game.entity.Player
 import org.rsmod.game.type.getOrNull
 
 @Singleton
-public class MagicSpellbookManager
-@Inject
-constructor(private val autocast: AutocastWeapons) {
+public class MagicSpellbookManager @Inject constructor(private val autocast: AutocastWeapons) {
     private var Player.spellbook by enumVarBit<Spellbook>("varbit.spellbook")
     private var Player.autocastEnabled by boolVarBit("varbit.autocast_set")
     private var Player.autocastSpell by intVarBit("varbit.autocast_spell")
@@ -23,12 +23,16 @@ constructor(private val autocast: AutocastWeapons) {
 
     public fun setSpellbook(player: Player, spellbook: Spellbook): ChangeResult {
         val previous = player.spellbook
+        if (spellbook == Spellbook.Ancients && !AncientMagicksAccessPolicy.canAccess(player)) {
+            return ChangeResult.Unchanged(previous)
+        }
         if (previous == spellbook) {
             return ChangeResult.Unchanged(previous)
         }
 
         player.spellbook = spellbook
         clearAutocast(player)
+        HomeTeleportCooldown.syncClient(player)
         return ChangeResult.Changed(previous, spellbook)
     }
 
@@ -43,10 +47,8 @@ constructor(private val autocast: AutocastWeapons) {
     }
 
     public sealed class ChangeResult {
-        public data class Changed(
-            public val previous: Spellbook,
-            public val current: Spellbook,
-        ) : ChangeResult()
+        public data class Changed(public val previous: Spellbook, public val current: Spellbook) :
+            ChangeResult()
 
         public data class Unchanged(public val current: Spellbook) : ChangeResult()
     }

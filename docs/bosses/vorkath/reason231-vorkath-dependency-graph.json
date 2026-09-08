@@ -1,0 +1,21 @@
+{
+  "root": "VorkathWorld",
+  "nodes": [
+    {"id":"VorkathWorld","kind":"plugin","dependsOn":["VorkathEncounterManager","VorkathDeathStorage","VorkathAccessPolicy","rev240-definitions"]},
+    {"id":"VorkathEncounterManager","kind":"service","dependsOn":["InstanceManager","NpcRepository","LocRepository","CollisionFlagMap","NvPCombat","WorldRepository","VorkathRules"]},
+    {"id":"VorkathCombat","kind":"plugin","dependsOn":["VorkathEncounterManager","NpcDeath","postquest-drop-table"]},
+    {"id":"VorkathLifecycle","kind":"hooks","dependsOn":["VorkathEncounterManager","VorkathDeathStorage","player-post-tick","logout","death"]},
+    {"id":"VorkathDeathStorage","kind":"service","dependsOn":["PlayerDeathStorageHook","inventory-transactions","persistent-attributes"]},
+    {"id":"VorkathRules","kind":"pure-rules","dependsOn":[]},
+    {"id":"postquest-drop-table","kind":"drop-table","dependsOn":["varp.kc_vorkath","two-main-rolls","tertiary-rolls"]},
+    {"id":"shared-combat","kind":"engine","dependsOn":["DragonfireProtection","Slayer-target-params","undead-params","elemental-weakness-params","NpcPoisonEffectService"]},
+    {"id":"rev240-definitions","kind":"cache","dependsOn":["NPC-8059","NPC-8061","NPC-8063","LOC-31990-31992-31994","LOC-32000","region-9023","native-sequences","native-spotanims"]}
+  ],
+  "edges": [
+    {"from":"VorkathWorld","to":"VorkathEncounterManager"},
+    {"from":"VorkathEncounterManager","to":"shared-combat"},
+    {"from":"VorkathEncounterManager","to":"rev240-definitions"},
+    {"from":"VorkathCombat","to":"postquest-drop-table"},
+    {"from":"VorkathLifecycle","to":"VorkathDeathStorage"}
+  ]
+}

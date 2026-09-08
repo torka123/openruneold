@@ -16,7 +16,7 @@ data class StatType(
 ) : Definition {
     fun isType(type: String) = type.asRSCM(RSCMType.STAT) == id
 
-    val internalName : String
+    val internalName: String
         get() = ConstantProvider.getReverseMapping("stat", id)
 }
 

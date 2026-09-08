@@ -2,14 +2,14 @@ package org.rsmod.api.account.character.main
 
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
+import dev.openrune.ServerCacheManager
+import dev.openrune.types.varp.VarpLifetime
 import dev.or2.central.account.AccountData
 import dev.or2.central.account.CharacterData
 import dev.or2.central.account.Rights
 import dev.or2.central.account.TrustedDeviceData
 import dev.or2.central.account.TwoFactorAuthData
 import dev.or2.sql.OpenRuneSql
-import dev.openrune.ServerCacheManager
-import dev.openrune.types.varp.VarpLifetime
 import jakarta.inject.Inject
 import java.sql.Statement
 import java.sql.Timestamp
@@ -23,7 +23,6 @@ import org.rsmod.api.db.DatabaseConnection
 import org.rsmod.api.db.util.getIntOrNull
 import org.rsmod.api.db.util.getLocalDateTime
 import org.rsmod.api.db.util.getStringOrNull
-import org.rsmod.api.db.util.setNullableInt
 import org.rsmod.api.db.util.setNullableString
 import org.rsmod.api.parsers.json.Json
 import org.rsmod.game.entity.Player
@@ -45,7 +44,7 @@ constructor(
 
         val insert =
             connection.prepareStatement(
-                OpenRuneSql.text("game/character/accounts_insert_conflict_do_nothing.sql"),
+                OpenRuneSql.text("game/character/accounts_insert_conflict_do_nothing.sql")
             )
         insert.use {
             it.setString(1, storedName)
@@ -55,7 +54,7 @@ constructor(
 
         val select =
             connection.prepareStatement(
-                OpenRuneSql.text("game/character/accounts_select_id_by_account_name.sql"),
+                OpenRuneSql.text("game/character/accounts_select_id_by_account_name.sql")
             )
         val accountId =
             select.use {
@@ -119,7 +118,7 @@ constructor(
 
         val select =
             connection.prepareStatement(
-                OpenRuneSql.text("game/character/characters_select_metadata_by_login.sql"),
+                OpenRuneSql.text("game/character/characters_select_metadata_by_login.sql")
             )
 
         select.use {
@@ -137,8 +136,10 @@ constructor(
                     val twoFactorAuth =
                         TwoFactorAuthData(
                             twoFactorSecret = resultSet.getStringOrNull("two_factor_secret"),
-                            twoFactorRecoveryCodes = resultSet.getStringOrNull("two_factor_recovery_codes"),
-                            twoFactorConfirmedAt = resultSet.getLocalDateTime("two_factor_confirmed_at"),
+                            twoFactorRecoveryCodes =
+                                resultSet.getStringOrNull("two_factor_recovery_codes"),
+                            twoFactorConfirmedAt =
+                                resultSet.getLocalDateTime("two_factor_confirmed_at"),
                         )
                     val worldId = resultSet.getIntOrNull("world_id")
                     val coordX = resultSet.getInt("x")
@@ -155,7 +156,9 @@ constructor(
                     val onlineSessionHeartbeat =
                         resultSet.getLocalDateTime("online_session_heartbeat")
                     val varps = selectPersistentVarps(connection, characterId)
-                    val attrs = selectPersistentAttrs(connection, characterId)
+                    val attrs =
+                        selectPersistentAttrs(connection, characterId) +
+                            selectPersistentAccountAttrs(connection, accountId)
                     val characterData =
                         CharacterData(
                             characterId = characterId,
@@ -242,7 +245,51 @@ constructor(
         }
 
         replacePersistentVarps(connection, characterId, persistentVarps)
-        replacePersistentAttrs(connection, characterId, persistentAttrs)
+        replacePersistentAttrs(
+            connection,
+            characterId,
+            persistentAttrs.filterKeys { !isAccountScopedAttr(it) },
+        )
+        replacePersistentAccountAttrs(
+            connection,
+            accountId,
+            persistentAttrs.filterKeys(::isAccountScopedAttr),
+        )
+    }
+
+    private fun selectPersistentAccountAttrs(
+        connection: DatabaseConnection,
+        accountId: Int,
+    ): Map<String, Any> =
+        connection.prepareStatement(ACCOUNT_ATTRS_SELECT).use { ps ->
+            ps.setInt(1, accountId)
+            ps.executeQuery().use { rs ->
+                buildMap {
+                    while (rs.next()) {
+                        val key = rs.getString("attr_key")
+                        val json = rs.getString("value_json")
+                        val value = objectMapper.readValue(json, object : TypeReference<Any>() {})
+                        put(key, value)
+                    }
+                }
+            }
+        }
+
+    private fun replacePersistentAccountAttrs(
+        connection: DatabaseConnection,
+        accountId: Int,
+        persistentAttrs: Map<String, Any>,
+    ) {
+        if (persistentAttrs.isEmpty()) return
+        connection.prepareStatement(ACCOUNT_ATTRS_INSERT).use { ps ->
+            persistentAttrs.forEach { (attrKey, value) ->
+                ps.setInt(1, accountId)
+                ps.setString(2, attrKey)
+                ps.setString(3, objectMapper.writeValueAsString(value))
+                ps.addBatch()
+            }
+            ps.executeBatch()
+        }
     }
 
     private fun selectPersistentAttrs(
@@ -257,8 +304,7 @@ constructor(
                     while (rs.next()) {
                         val key = rs.getString("attr_key")
                         val json = rs.getString("value_json")
-                        val value =
-                            objectMapper.readValue(json, object : TypeReference<Any>() {})
+                        val value = objectMapper.readValue(json, object : TypeReference<Any>() {})
                         put(key, value)
                     }
                 }
@@ -288,6 +334,23 @@ constructor(
                 ps.addBatch()
             }
             ps.executeBatch()
+        }
+    }
+
+    /** Upserts one character-scoped persistent attribute without loading an offline player. */
+    public fun upsertPersistentCharacterAttr(
+        connection: DatabaseConnection,
+        characterId: Int,
+        persistenceKey: String,
+        value: Any,
+    ) {
+        require(characterId > 0)
+        require(persistenceKey.isNotBlank() && !isAccountScopedAttr(persistenceKey))
+        connection.prepareStatement(CHARACTER_ATTR_UPSERT).use { ps ->
+            ps.setInt(1, characterId)
+            ps.setString(2, persistenceKey)
+            ps.setString(3, objectMapper.writeValueAsString(value))
+            ps.executeUpdate()
         }
     }
 
@@ -409,7 +472,7 @@ constructor(
                             TrustedDeviceData(
                                 deviceId = rs.getInt("device_id"),
                                 verifiedAt = rs.getLocalDateTime("verified_at") ?: continue,
-                            ),
+                            )
                         )
                     }
                 }
@@ -430,10 +493,14 @@ constructor(
         accountId: Int,
         trustedDevices: List<TrustedDeviceData>,
     ) {
-        connection.prepareStatement(OpenRuneSql.text("game/character/trusted_devices_delete_by_account.sql")).use { ps ->
-            ps.setInt(1, accountId)
-            ps.executeUpdate()
-        }
+        connection
+            .prepareStatement(
+                OpenRuneSql.text("game/character/trusted_devices_delete_by_account.sql")
+            )
+            .use { ps ->
+                ps.setInt(1, accountId)
+                ps.executeUpdate()
+            }
         if (trustedDevices.isEmpty()) {
             return
         }
@@ -447,5 +514,30 @@ constructor(
             }
             ps.executeBatch()
         }
+    }
+
+    private fun isAccountScopedAttr(key: String): Boolean = key.startsWith(ACCOUNT_ATTR_PREFIX)
+
+    private companion object {
+        const val ACCOUNT_ATTR_PREFIX: String = "account."
+        const val ACCOUNT_ATTRS_SELECT: String =
+            "SELECT attr_key, value_json FROM account_attrs WHERE account_id = ?"
+        const val ACCOUNT_ATTRS_INSERT: String =
+            """
+            INSERT INTO account_attrs (account_id, attr_key, value_json)
+            VALUES (?, ?, ?)
+            ON CONFLICT (account_id, attr_key) DO UPDATE
+            SET value_json = EXCLUDED.value_json,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE COALESCE((account_attrs.value_json::jsonb ->> 'updatedAtEpochMillis')::BIGINT, 0)
+                <= COALESCE((EXCLUDED.value_json::jsonb ->> 'updatedAtEpochMillis')::BIGINT, 0)
+            """
+        const val CHARACTER_ATTR_UPSERT: String =
+            """
+            INSERT INTO character_attrs (character_id, attr_key, value_json)
+            VALUES (?, ?, ?)
+            ON CONFLICT (character_id, attr_key) DO UPDATE
+            SET value_json = EXCLUDED.value_json
+            """
     }
 }

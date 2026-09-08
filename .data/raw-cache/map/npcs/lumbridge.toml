@@ -35,12 +35,8 @@ npc = "npc.aide_tutor_woodsman"
 coords = "0_50_50_28_45"
 
 [[spawn]]
-npc = "npc.ap_guide_active"
-coords = "0_50_50_32_34"
-
-[[spawn]]
 npc = "npc.ap_guide_parent"
-coords = "0_50_50_32_35"
+coords = "0_50_50_32_34"
 
 [[spawn]]
 npc = "npc.borderguard1"
@@ -1531,4 +1527,3 @@ npc = "npc.hundred_aris2"
 coords = "0_50_50_11_25"
 
 ## Zeke End
-

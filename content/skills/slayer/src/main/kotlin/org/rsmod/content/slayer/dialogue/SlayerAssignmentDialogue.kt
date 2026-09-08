@@ -2,11 +2,10 @@ package org.rsmod.content.slayer.dialogue
 
 import org.rsmod.api.player.dialogue.Dialogue
 import org.rsmod.api.player.protect.ProtectedAccess
-import org.rsmod.content.slayer.core.AssignmentRoll
-import org.rsmod.content.slayer.core.SlayerCapePerk
+import org.rsmod.content.slayer.SlayerTaskChoiceInterface
+import org.rsmod.content.slayer.core.SlayerAssignmentChoices
 import org.rsmod.content.slayer.core.SlayerTaskManager
 import org.rsmod.content.slayer.dialogue.GenericDialogue.slayerTip
-import org.rsmod.content.slayer.dialogue.SlayerBossDialogue.offerBossTaskAssignment
 
 object SlayerAssignmentDialogue {
 
@@ -26,6 +25,7 @@ object SlayerAssignmentDialogue {
         masterNpcId: String,
         onAssigned: suspend Dialogue.(taskName: String, count: Int) -> Unit,
     ) {
+        if (reopenPendingChoices(masterNpcId)) return
         val capeOffer = SlayerTaskManager.rollCapePerkOffer(access, masterNpcId)
         if (capeOffer != null) {
             offerCapePerk(masterNpcId, capeOffer.taskName, onAssigned)
@@ -77,12 +77,8 @@ object SlayerAssignmentDialogue {
                             onAssigned(task.nameUppercase, access.slayerCount())
                         }
                     }
-                    SlayerTaskManager.AssignPreviousResult.BlockedPrevious -> {
-                        val task = SlayerTaskManager.getCurrentSlayerTask(access)
-                        if (task != null) {
-                            onAssigned(task.nameUppercase, access.slayerCount())
-                        }
-                    }
+                    SlayerTaskManager.AssignPreviousResult.BlockedPrevious ->
+                        assignRandomTask(masterNpcId, onAssigned)
                     SlayerTaskManager.AssignPreviousResult.Failed -> assignRandomTask(masterNpcId, onAssigned)
                 }
             }
@@ -93,67 +89,45 @@ object SlayerAssignmentDialogue {
         }
     }
 
+    private suspend fun Dialogue.reopenPendingChoices(masterNpcId: String): Boolean {
+        if (!SlayerAssignmentChoices.hasPendingChoice(access)) return false
+        val requestedMaster = SlayerTaskManager.findMasterByNpc(masterNpcId)
+        val pendingMaster = SlayerAssignmentChoices.pendingMaster(access.player)
+        if (
+            requestedMaster != null &&
+                pendingMaster?.masterId == requestedMaster.masterId &&
+                SlayerAssignmentChoices.hasValidStoredOffers(access, pendingMaster)
+        ) {
+            chatNpc(neutral, "Your assignment choices are still waiting. Take your pick.")
+            SlayerTaskChoiceInterface.open(access)
+            return true
+        }
+
+        val masterName = SlayerAssignmentChoices.pendingMasterName(access.player) ?: "another Slayer master"
+        chatNpc(
+            neutral,
+            "You already have assignment choices waiting from $masterName. Pick one of those before asking me for another roll.",
+        )
+        return true
+    }
+
+    @Suppress("UNUSED_PARAMETER")
     private suspend fun Dialogue.assignRandomTask(
         masterNpcId: String,
         onAssigned: suspend Dialogue.(taskName: String, count: Int) -> Unit,
     ) {
-        if (SlayerTaskManager.hasPendingMortimerChoice(access)) {
-            chatNpc(
-                neutral,
-                "Hmm... It appears as though Mortimer has provided you with a task choice, you must go to them in order to pick.",
-            )
-            return
-        }
         val master =
             SlayerTaskManager.findMasterByNpc(masterNpcId) ?: run {
                 chatNpc(neutral, "I can't assign you a task right now.")
                 return
             }
-        val bypassCombat = SlayerCapePerk.hasSlayerCape(access)
-
-        when (val roll = SlayerTaskManager.rollAssignment(access, master, bypassCombatCheck = bypassCombat)) {
-            null -> {
-                chatNpc(neutral, SlayerTaskManager.assignmentUnavailableMessage(access, master))
-                return
-            }
-            is AssignmentRoll.Boss -> {
-                if (offerBossTaskAssignment(masterNpcId, roll.masterTask, onAssigned)) {
-                    return
-                }
-                when (
-                    val fallback =
-                        SlayerTaskManager.rollAssignment(
-                            protected = access,
-                            master = master,
-                            skipBossTasks = true,
-                            bypassCombatCheck = bypassCombat,
-                        )
-                ) {
-                    is AssignmentRoll.Regular -> {
-                        SlayerTaskManager.applyRegularAssignment(
-                            access,
-                            master,
-                            fallback.masterTask,
-                            fallback.amount,
-                        )
-                        onAssigned(fallback.masterTask.task.nameUppercase, fallback.amount)
-                    }
-                    else -> {
-                        chatNpc(neutral, SlayerTaskManager.assignmentUnavailableMessage(access, master))
-                        return
-                    }
-                }
-            }
-            is AssignmentRoll.Regular -> {
-                SlayerTaskManager.applyRegularAssignment(
-                    access,
-                    master,
-                    roll.masterTask,
-                    roll.amount,
-                )
-                onAssigned(roll.masterTask.task.nameUppercase, roll.amount)
-            }
+        val offers = SlayerAssignmentChoices.rollOffers(access, master)
+        if (offers == null || !SlayerAssignmentChoices.storeOffers(access, master, offers)) {
+            chatNpc(neutral, SlayerTaskManager.assignmentUnavailableMessage(access, master))
+            return
         }
+        chatNpc(neutral, "Choose one of these assignments.")
+        SlayerTaskChoiceInterface.open(access)
     }
 
     private suspend fun Dialogue.defaultAssignedDialogue(taskName: String, count: Int) {

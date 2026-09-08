@@ -12,18 +12,14 @@ import org.rsmod.api.server.config.CentralPostgresYaml
 import org.rsmod.api.server.config.ServerConfig
 
 public object EmbeddedSameInstancePostgres {
-    @Volatile
-    private var embedded: EmbeddedPostgres? = null
+    @Volatile private var embedded: EmbeddedPostgres? = null
 
-    @Volatile
-    private var reused: EmbeddedPostgresSupport.Session? = null
+    @Volatile private var reused: EmbeddedPostgresSupport.Session? = null
 
-    @Volatile
-    private var activeDataDir: Path? = null
+    @Volatile private var activeDataDir: Path? = null
 
     /** Survives mid-stop clearing of [activeDataDir] so a hung close can still be force-killed. */
-    @Volatile
-    private var lastKnownDataDir: Path? = null
+    @Volatile private var lastKnownOwnedDataDir: Path? = null
 
     /**
      * Starts embedded PostgreSQL when same-instance Central is enabled and no JDBC URL is set.
@@ -45,14 +41,15 @@ public object EmbeddedSameInstancePostgres {
             val dataDir = embeddedPgdataDirectory(pg)
             Files.createDirectories(dataDir)
             activeDataDir = dataDir
-            lastKnownDataDir = dataDir
             when (val plan = EmbeddedPostgresSupport.planStart(dataDir)) {
                 is EmbeddedPostgresSupport.StartPlan.Reuse -> {
+                    lastKnownOwnedDataDir = null
                     reused = plan.session
                 }
                 EmbeddedPostgresSupport.StartPlan.StartNew -> {
                     val instance = startNewEmbedded(dataDir)
                     embedded = instance
+                    lastKnownOwnedDataDir = dataDir
                 }
             }
         }
@@ -71,8 +68,8 @@ public object EmbeddedSameInstancePostgres {
 
     /**
      * Stops the owned embedded instance (if any) and ensures the postmaster for [activeDataDir] is
-     * down. Caps wait at [timeoutMs]; on timeout, force-kills the postmaster so IntelliJ Stop cannot
-     * hang indefinitely on `EmbeddedPostgres.close()`.
+     * down. Caps wait at [timeoutMs]; on timeout, force-kills the postmaster so IntelliJ Stop
+     * cannot hang indefinitely on `EmbeddedPostgres.close()`.
      */
     public fun stop(timeoutMs: Long = DEFAULT_STOP_TIMEOUT_MS) {
         val owned: EmbeddedPostgres?
@@ -87,11 +84,15 @@ public object EmbeddedSameInstancePostgres {
         if (owned == null && dataDir == null) {
             return
         }
+        if (owned == null) {
+            // A reused postmaster belongs to another process. Never stop a database we do not own.
+            return
+        }
         val done = CountDownLatch(1)
         Thread(
                 {
                     try {
-                        runCatching { owned?.close() }
+                        runCatching { owned.close() }
                         if (dataDir != null) {
                             EmbeddedPostgresSupport.ensureStopped(dataDir)
                         }
@@ -117,7 +118,7 @@ public object EmbeddedSameInstancePostgres {
                 embedded = null
                 reused = null
                 activeDataDir = null
-                lastKnownDataDir
+                lastKnownOwnedDataDir
             }
         if (dataDir != null) {
             runCatching { EmbeddedPostgresSupport.forceStop(dataDir) }

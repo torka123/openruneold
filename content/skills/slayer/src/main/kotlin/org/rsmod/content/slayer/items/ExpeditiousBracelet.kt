@@ -23,10 +23,7 @@ object ExpeditiousBracelet {
         if (!isWearing(player)) {
             return 0
         }
-        val charges = player.expeditiousBraceletCharges
-        if (charges <= 0) {
-            return 0
-        }
+        val charges = ensureCharges(player)
         if (!random.randomBoolean(PROC_ROLL_EXCLUSIVE)) {
             return 0
         }
@@ -52,19 +49,19 @@ object ExpeditiousBracelet {
     }
 
     fun checkCharges(player: Player) {
-        val charges = player.expeditiousBraceletCharges
-        if (charges <= 0) {
-            player.mes("Your expeditious bracelet has run out of charges.")
-            if (isWearing(player)) {
-                crumbleWornBracelet(player)
-            }
-            return
-        }
+        val charges = ensureCharges(player)
         player.mes("Your expeditious bracelet has $charges charges left.")
     }
 
     fun prepareBreak(player: Player) {
         player.expeditiousBraceletCharges = MAX_CHARGES
+    }
+
+    private fun ensureCharges(player: Player): Int {
+        val charges = player.expeditiousBraceletCharges
+        if (charges > 0) return charges
+        player.expeditiousBraceletCharges = MAX_CHARGES
+        return MAX_CHARGES
     }
 
     private fun crumbleWornBracelet(player: Player) {

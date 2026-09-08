@@ -16,7 +16,8 @@ public object IfScriptArgsCodec {
     public fun parameterTypes(kClass: KClass<*>): CharArray = codec(kClass).parameterTypes
 
     @Suppress("UNCHECKED_CAST")
-    public fun <T : Any> decode(kClass: KClass<T>, args: List<Any>): T = codec(kClass).decode(args) as T
+    public fun <T : Any> decode(kClass: KClass<T>, args: List<Any>): T =
+        codec(kClass).decode(args) as T
 
     public fun registerParameterTypes(componentPacked: Int, kClass: KClass<*>) {
         IfScriptParameterRegistry.register(componentPacked, *parameterTypes(kClass))
@@ -29,13 +30,17 @@ public object IfScriptArgsCodec {
     private fun buildCodec(kClass: KClass<*>): Codec<*> {
         val constructor =
             kClass.primaryConstructor
-                ?: error("IfScriptArgs type ${kClass.simpleName} must declare a primary constructor.")
+                ?: error(
+                    "IfScriptArgs type ${kClass.simpleName} must declare a primary constructor."
+                )
         val parameterTypes = constructor.parameters.map(::parameterWireType).toCharArray()
         return Codec(parameterTypes) { args -> decodeInstance(constructor, args) }
     }
 
     private fun parameterWireType(parameter: KParameter): Char {
-        parameter.findAnnotation<IfScriptParam>()?.type?.let { return it }
+        parameter.findAnnotation<IfScriptParam>()?.type?.let {
+            return it
+        }
         return wireType(parameter.type, parameter.name ?: "parameter")
     }
 

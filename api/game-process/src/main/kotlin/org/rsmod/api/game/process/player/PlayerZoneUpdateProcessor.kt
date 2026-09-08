@@ -15,6 +15,7 @@ import org.rsmod.api.registry.zone.ZoneUpdateTransformer
 import org.rsmod.api.utils.map.BuildAreaUtils
 import org.rsmod.api.utils.zone.SharedZoneEnclosedBuffers
 import org.rsmod.game.entity.Player
+import org.rsmod.game.entity.WorldEntityList
 import org.rsmod.game.loc.LocInfo
 import org.rsmod.game.obj.Obj
 import org.rsmod.map.CoordGrid
@@ -27,6 +28,7 @@ constructor(
     private val locReg: LocRegistry,
     private val objReg: ObjRegistry,
     private val enclosedBuffers: SharedZoneEnclosedBuffers,
+    private val worldEntities: WorldEntityList,
 ) {
     public fun computeEnclosedBuffers() {
         enclosedBuffers.computeSharedBuffers()
@@ -45,13 +47,15 @@ constructor(
     }
 
     private fun Player.processZoneUpdates() {
-        val currZone = ZoneKey.from(coords)
+        // While aboard, instance-land coordinates describe the deck. Root-world visibility must
+        // instead follow the projected position of the world entity carrying that deck.
+        val currZone = ZoneKey.from(worldEntities.findAt(coords)?.coords ?: coords)
         val visibleZones = visibleZoneKeys
-        val prevZone = lastProcessedZone
+        val prevZone = lastProcessedViewZone
         val buildArea = buildArea
 
         if (currZone != prevZone) {
-            // Compute neighbouring zones based on the player's current zone.
+            // Compute neighbouring zones based on the player's current root-world view zone.
             val currZones =
                 currZone.computeVisibleNeighbouringZones().filterWithinBuildArea(buildArea)
 
@@ -76,7 +80,9 @@ constructor(
             processVisibleZoneUpdates(buildArea, visibleZones)
         }
 
-        lastProcessedZone = currZone
+        lastProcessedViewZone = currZone
+        // Preserve real instance-zone occupancy for player registry updates and local gameplay.
+        lastProcessedZone = ZoneKey.from(coords)
     }
 
     private fun Player.processNewVisibleZones(buildArea: CoordGrid, zones: IntList) {
@@ -187,8 +193,7 @@ constructor(
         val enclosed = ArrayList<ZoneProt>()
         for (update in this) {
             val prot =
-                (update as? ZoneUpdateTransformer.PartialFollowsZoneProt)
-                    ?.toEnclosed(observerId)
+                (update as? ZoneUpdateTransformer.PartialFollowsZoneProt)?.toEnclosed(observerId)
             if (prot != null) {
                 enclosed += prot
             }
@@ -197,10 +202,12 @@ constructor(
     }
 
     private fun ZoneUpdateTransformer.PartialFollowsZoneProt.toEnclosed(
-        observerId: Long?,
+        observerId: Long?
     ): ZoneProt? =
         when (this) {
             is ZoneUpdateTransformer.ObjPrivateZoneProt ->
+                if (isVisibleTo(observerId)) backing else null
+            is ZoneUpdateTransformer.LocPrivateZoneProt ->
                 if (isVisibleTo(observerId)) backing else null
             is ZoneUpdateTransformer.ObjReveal ->
                 if (observerId == obj.receiverId) null else backing

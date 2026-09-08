@@ -46,10 +46,11 @@ constructor(
             targetDefence = target.defenceLvl,
             targetCurrHp = target.hitpoints,
             targetMaxHp = target.baseHitpointsLvl,
-            targetMagic = target.magicLvl,
+            targetMagic = target.magicDefenceLvl,
             targetWeaknessPercent = elementalWeakness,
             spellbook = spellbook,
             usedSunfireRune = usedSunfireRune,
+            slayerTask = target.isSlayerTask(player),
         )
     }
 
@@ -64,11 +65,11 @@ constructor(
         targetWeaknessPercent: Int,
         spellbook: Spellbook?,
         usedSunfireRune: Boolean,
+        slayerTask: Boolean = target.isSlayerTask(source),
     ): Int {
         val spellAttributes =
             magicAttributes.spellCollect(source, spell, spellbook, usedSunfireRune, random)
 
-        val slayerTask = target.isSlayerTask(source)
         val npcAttributes = npcAttributes.collect(target, targetCurrHp, targetMaxHp, slayerTask)
 
         val attackRoll =
@@ -122,9 +123,10 @@ constructor(
             targetDefence = target.defenceLvl,
             targetCurrHp = target.hitpoints,
             targetMaxHp = target.baseHitpointsLvl,
-            targetMagic = target.magicLvl,
+            targetMagic = target.magicDefenceLvl,
             attackStyle = attackStyle,
             specialMultiplier = specialMultiplier,
+            slayerTask = target.isSlayerTask(player),
         )
 
     public fun computeStaffHitChance(
@@ -136,10 +138,10 @@ constructor(
         targetMagic: Int,
         attackStyle: MagicAttackStyle?,
         specialMultiplier: Double,
+        slayerTask: Boolean = target.isSlayerTask(source),
     ): Int {
         val staffAttributes = magicAttributes.staffCollect(source, random)
 
-        val slayerTask = target.isSlayerTask(source)
         val npcAttributes = npcAttributes.collect(target, targetCurrHp, targetMaxHp, slayerTask)
 
         val baseAttackRoll =

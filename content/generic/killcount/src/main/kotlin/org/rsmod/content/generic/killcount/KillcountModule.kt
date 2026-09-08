@@ -14,11 +14,12 @@ public class KillcountModule : PluginModule() {
     }
 }
 
-/**
- * Increments the player's killcount varp for the killed npc.
- */
+/** Increments the player's killcount varp for the killed npc. */
 public class KillcountNpcKillHook @Inject constructor() : NpcDeathKillHook {
     override fun onKill(context: NpcDeathKillContext) {
+        if (context.npc.type.internalName in CHEST_AWARDED_KILLCOUNT_NPCS) {
+            return
+        }
         val varp = context.npc.paramOrNull(BaseParams.killcount_varp) ?: return
         val notify = context.npc.paramOrNull(BaseParams.killcount_notify) ?: true
         val count = context.hero.vars[varp] + 1
@@ -26,5 +27,10 @@ public class KillcountNpcKillHook @Inject constructor() : NpcDeathKillHook {
         if (notify) {
             context.hero.mes("Your ${context.npc.name} kill count is: <col=ff0000>$count</col>")
         }
+    }
+
+    private companion object {
+        private val CHEST_AWARDED_KILLCOUNT_NPCS =
+            setOf("npc.hillgiant_boss", "npc.gb_mossgiant", "npc.vorkath")
     }
 }

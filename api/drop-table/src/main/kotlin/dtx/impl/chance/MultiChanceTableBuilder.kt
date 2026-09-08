@@ -9,24 +9,19 @@ import dtx.table.AbstractTableBuilder
 import dtx.table.DefaultTableHooksBuilder
 import dtx.table.TableHooks
 
-public open class MultiChanceTableBuilder<T, R>: AbstractTableBuilder<
+public open class MultiChanceTableBuilder<T, R> :
+    AbstractTableBuilder<
         T,
         R,
         ChanceRollable<T, R>,
         MultiChanceTable<T, R>,
         TableHooks<T, R>,
         DefaultTableHooksBuilder<T, R>,
-        MultiChanceTableBuilder<T, R>
->(createHookBuilder = DefaultTableHooksBuilder.new()) {
+        MultiChanceTableBuilder<T, R>,
+    >(createHookBuilder = DefaultTableHooksBuilder.new()) {
 
     init {
-        construct {
-            MultiChanceTableImpl(
-                tableIdentifier,
-                entries,
-                hooks.build(),
-            )
-        }
+        construct { MultiChanceTableImpl(tableIdentifier, entries, hooks.build()) }
     }
 
     override val entries: MutableList<ChanceRollable<T, R>> = mutableListOf()
@@ -42,7 +37,9 @@ public open class MultiChanceTableBuilder<T, R>: AbstractTableBuilder<
         return chance(Single(entry))
     }
 
-    public infix fun Percent.chance(entryBlock: ResultSelector<T, R>): MultiChanceTableBuilder<T, R> {
+    public infix fun Percent.chance(
+        entryBlock: ResultSelector<T, R>
+    ): MultiChanceTableBuilder<T, R> {
         return chance(SingleByFun(entryBlock))
     }
 
@@ -61,7 +58,7 @@ public open class MultiChanceTableBuilder<T, R>: AbstractTableBuilder<
 
 public inline fun <T, R> multiChanceTable(
     tableName: String = "Unnamed Multi Chance Table",
-    block: MultiChanceTableBuilder<T, R>.() -> Unit
+    block: MultiChanceTableBuilder<T, R>.() -> Unit,
 ): MultiChanceTable<T, R> {
 
     val builder = MultiChanceTableBuilder<T, R>()

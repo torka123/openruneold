@@ -8,7 +8,4 @@ public data class InlineSeparateRoll<T, R>(
     val rollable: Rollable<T, R>,
 )
 
-public data class SeparateRollAccess(
-    public val numerator: Int,
-    public val denominator: Int,
-)
+public data class SeparateRollAccess(public val numerator: Int, public val denominator: Int)

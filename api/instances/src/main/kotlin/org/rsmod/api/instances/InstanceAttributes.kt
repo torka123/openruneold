@@ -2,17 +2,25 @@ package org.rsmod.api.instances
 
 import org.rsmod.api.attr.AttributeKey
 import org.rsmod.api.player.vars.VarPlayerIntMapSetter
-import org.rsmod.api.player.vars.intVarBit
 import org.rsmod.game.entity.Player
 
 public object InstanceAttributes {
     public val CURRENT_INSTANCE_ID: AttributeKey<Long> = AttributeKey(temp = true)
 
-    /** Packed [CoordGrid] the player should be placed at on their next login. Set on logout. */
-    public val LOGIN_EXIT_COORD: AttributeKey<Int> = AttributeKey(persistenceKey = "instance_exit_coord")
+    /**
+     * Packed [CoordGrid] the player should be placed at on their next login. This is persisted
+     * while the player occupies an instance so a disconnect, process crash, or restart can never
+     * save an allocated instance tile as the character's permanent location.
+     */
+    public val LOGIN_EXIT_COORD: AttributeKey<Int> =
+        AttributeKey(persistenceKey = "instance_exit_coord")
 
+    /**
+     * Best encounter durations keyed by stable instance content key. This is account-backed so boss
+     * personal bests survive logout and process restart.
+     */
     internal val KILL_BEST_TICKS: AttributeKey<MutableMap<String, Int>> =
-        AttributeKey(temp = true)
+        AttributeKey(persistenceKey = "instance_kill_best_ticks_v1")
 }
 
 public fun Player.currentInstanceId(): InstanceId? =

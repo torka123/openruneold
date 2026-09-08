@@ -12,19 +12,22 @@ public object DropTableTomlTextFixer {
         var brimstoneKeyRoll = false
         var brimstoneKonarBonus = false
         val cleaned =
-            content.lineSequence().filter { line ->
-                when {
-                    BRIMSTONE_KEY_ROLL.matches(line) -> {
-                        brimstoneKeyRoll = true
-                        false
+            content
+                .lineSequence()
+                .filter { line ->
+                    when {
+                        BRIMSTONE_KEY_ROLL.matches(line) -> {
+                            brimstoneKeyRoll = true
+                            false
+                        }
+                        BRIMSTONE_KONAR.matches(line) -> {
+                            brimstoneKonarBonus = true
+                            false
+                        }
+                        else -> true
                     }
-                    BRIMSTONE_KONAR.matches(line) -> {
-                        brimstoneKonarBonus = true
-                        false
-                    }
-                    else -> true
                 }
-            }.toMutableList()
+                .toMutableList()
 
         if (!brimstoneKeyRoll && !brimstoneKonarBonus) {
             return content

@@ -15,6 +15,7 @@ import org.rsmod.api.combat.formulas.attributes.collector.CombatNpcAttributeColl
 import org.rsmod.api.combat.formulas.isSlayerTask
 import org.rsmod.api.config.refs.BaseParams
 import org.rsmod.api.player.bonus.WornBonuses
+import org.rsmod.api.random.GameRandom
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
 
@@ -32,6 +33,7 @@ constructor(
         attackStyle: MeleeAttackStyle?,
         blockType: MeleeAttackType?,
         specialMultiplier: Double,
+        defenceMultiplier: Double = 1.0,
     ): Int =
         computeHitChance(
             source = player,
@@ -43,6 +45,8 @@ constructor(
             attackStyle = attackStyle,
             blockType = blockType,
             specialMultiplier = specialMultiplier,
+            defenceMultiplier = defenceMultiplier,
+            slayerTask = target.isSlayerTask(player),
         )
 
     public fun computeHitChance(
@@ -55,10 +59,11 @@ constructor(
         attackStyle: MeleeAttackStyle?,
         blockType: MeleeAttackType?,
         specialMultiplier: Double,
+        defenceMultiplier: Double = 1.0,
+        slayerTask: Boolean = target.isSlayerTask(source),
     ): Int {
         val meleeAttributes = meleeAttributes.collect(source, attackType)
 
-        val slayerTask = target.isSlayerTask(source)
         val npcAttributes = npcAttributes.collect(target, targetCurrHp, targetMaxHp, slayerTask)
 
         val baseAttackRoll =
@@ -67,13 +72,15 @@ constructor(
 
         val amascutInvocationLvl = source.vars["varbit.toa_client_raid_level"]
         val defenceRoll =
-            computeDefenceRoll(
-                target = target,
-                targetDefence = targetDefence,
-                amascutInvocationLvl = amascutInvocationLvl,
-                blockType = blockType,
-                npcAttributes = npcAttributes,
-            )
+            (
+                computeDefenceRoll(
+                    target = target,
+                    targetDefence = targetDefence,
+                    amascutInvocationLvl = amascutInvocationLvl,
+                    blockType = blockType,
+                    npcAttributes = npcAttributes,
+                ) * defenceMultiplier
+            ).toInt()
 
         val hitChance = AccuracyOperations.calculateHitChance(attackRoll, defenceRoll)
         return MeleeAccuracyOperations.modifyHitChance(
@@ -83,6 +90,46 @@ constructor(
             meleeAttributes = meleeAttributes,
             npcAttributes = npcAttributes,
         )
+    }
+
+    /**
+     * Rolls a fixed fraction of the attacker's final attack roll against one random defensive
+     * roll. This differs from normal accuracy, where both sides roll randomly.
+     */
+    public fun rollFixedAttackRoll(
+        player: Player,
+        target: Npc,
+        attackType: MeleeAttackType?,
+        attackStyle: MeleeAttackStyle?,
+        blockType: MeleeAttackType?,
+        attackMultiplier: Double,
+        random: GameRandom,
+        defenceMultiplier: Double = 1.0,
+    ): Boolean {
+        val meleeAttributes = meleeAttributes.collect(player, attackType)
+        val slayerTask = target.isSlayerTask(player)
+        val npcAttributes =
+            npcAttributes.collect(
+                type = target.visType,
+                currHp = target.hitpoints,
+                maxHp = target.baseHitpointsLvl,
+                slayerTask = slayerTask,
+            )
+        val attackRoll =
+            (computeAttackRoll(player, attackType, attackStyle, meleeAttributes, npcAttributes) *
+                attackMultiplier).toInt()
+        val amascutInvocationLvl = player.vars["varbit.toa_client_raid_level"]
+        val defenceRoll =
+            (
+                computeDefenceRoll(
+                    target = target.visType,
+                    targetDefence = target.defenceLvl,
+                    amascutInvocationLvl = amascutInvocationLvl,
+                    blockType = blockType,
+                    npcAttributes = npcAttributes,
+                ) * defenceMultiplier
+            ).toInt()
+        return attackRoll > random.of(defenceRoll.coerceAtLeast(0) + 1)
     }
 
     public fun computeAttackRoll(

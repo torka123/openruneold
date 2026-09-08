@@ -29,30 +29,32 @@ import dev.openrune.tables.PickableObjects
 import dev.openrune.tables.SettingConfigs
 import dev.openrune.tables.ShopCurrencyTable
 import dev.openrune.tables.StatComponents
+import dev.openrune.tables.consumables.food.FoodTable
+import dev.openrune.tables.consumables.potion.PotionEffectTable
+import dev.openrune.tables.consumables.potion.PotionTable
 import dev.openrune.tables.skills.Cooking
+import dev.openrune.tables.skills.Crafting
 import dev.openrune.tables.skills.Firemaking
 import dev.openrune.tables.skills.Herblore
 import dev.openrune.tables.skills.Mining
-import dev.openrune.tables.skills.Slayer
 import dev.openrune.tables.skills.Runecrafting
 import dev.openrune.tables.skills.ShootingStars
+import dev.openrune.tables.skills.Slayer
 import dev.openrune.tables.skills.Smithing
 import dev.openrune.tables.skills.prayer.EctofuntusBonemeal
 import dev.openrune.tables.skills.prayer.PrayerBlessedBone
 import dev.openrune.tables.skills.prayer.PrayerTable
 import dev.openrune.tools.MinifyServerCache
 import dev.openrune.tools.PackServerConfig
-import dev.openrune.tables.consumables.food.FoodTable
-import dev.openrune.tables.consumables.potion.PotionEffectTable
-import dev.openrune.tables.consumables.potion.PotionTable
 import java.io.File
+import java.nio.file.Path
 import kotlin.system.exitProcess
 
 fun getCacheLocation() = File("../.data/", "cache/LIVE").path
 
 fun getServerCacheLocation() = File("../.data/", "cache/SERVER").path
 
-val revision : Triple<Int, Int, String> = readRevision()
+val revision: Triple<Int, Int, String> = readRevision()
 
 private val logger = InlineLogger()
 
@@ -69,45 +71,51 @@ fun main(args: Array<String>) {
     downloadRev(TaskType.valueOf(args.first().uppercase()))
 }
 
-fun tablesToPack() = listOf(
-    GameframeTable.gameframe(),
-    Music.musicClassic(),
-    Music.musicModern(),
-    Firemaking.logs(),
-    Firemaking.firelighters(),
-    Firemaking.sources(),
-    PrayerTable.skillTable(),
-    PrayerBlessedBone.table(),
-    EctofuntusBonemeal.table(),
-    StatComponents.statsComponents(),
-    PickableObjects.pickableObjects(),
-    Mining.rocks(),
-    Cooking.foods(),
-    Cooking.ales(),
-    Herblore.unfinishedPotions(),
-    Herblore.finishedPotions(),
-    Herblore.cleaningHerbs(),
-    Herblore.barbarianMixes(),
-    Herblore.swampTar(),
-    Herblore.crushing(),
-    Smithing.bars(),
-    Smithing.cannonBalls(),
-    Smithing.dragonForge(),
-    Smithing.crystalSinging(),
-    Slayer.masters(),
-    Runecrafting.altars(),
-    Runecrafting.runes(),
-    Runecrafting.tiara(),
-    Runecrafting.combo(),
-    FoodTable.table(),
-    PotionEffectTable.table(),
-    PotionTable.table(),
-    SettingConfigs.settings(),
-    DidYouKnow.didYouknow(),
-    InstanceSettingsTable.instanceSettings(),
-    ShootingStars.locations(),
-    ShopCurrencyTable.shopCurrencies(),
-)
+fun tablesToPack() =
+    listOf(
+        GameframeTable.gameframe(),
+        Music.musicClassic(),
+        Music.musicModern(),
+        Firemaking.logs(),
+        Firemaking.firelighters(),
+        Firemaking.sources(),
+        PrayerTable.skillTable(),
+        PrayerBlessedBone.table(),
+        EctofuntusBonemeal.table(),
+        StatComponents.statsComponents(),
+        PickableObjects.pickableObjects(),
+        Mining.rocks(),
+        Cooking.foods(),
+        Cooking.ales(),
+        Herblore.unfinishedPotions(),
+        Herblore.finishedPotions(),
+        Herblore.cleaningHerbs(),
+        Herblore.barbarianMixes(),
+        Herblore.swampTar(),
+        Herblore.crushing(),
+        Crafting.facilities(),
+        Crafting.hand(),
+        Crafting.tanning(),
+        Crafting.silver(),
+        Crafting.gold(),
+        Smithing.bars(),
+        Smithing.cannonBalls(),
+        Smithing.dragonForge(),
+        Smithing.crystalSinging(),
+        Slayer.masters(),
+        Runecrafting.altars(),
+        Runecrafting.runes(),
+        Runecrafting.tiara(),
+        Runecrafting.combo(),
+        FoodTable.table(),
+        PotionEffectTable.table(),
+        PotionTable.table(),
+        SettingConfigs.settings(),
+        DidYouKnow.didYouknow(),
+        InstanceSettingsTable.instanceSettings(),
+        ShootingStars.locations(),
+        ShopCurrencyTable.shopCurrencies(),
+    )
 
 fun downloadRev(type: TaskType) {
 
@@ -147,10 +155,11 @@ fun buildCache(taskType: TaskType) {
 
     val tasks: List<CacheTask> =
         listOf(
-            PackModels(File("../.data/raw-cache/models")),
-            PackConfig(File("../.data/raw-cache/server")),
-            PackDBTables(tablesToPack())
-        ).toMutableList()
+                PackModels(File("../.data/raw-cache/models")),
+                PackConfig(File("../.data/raw-cache/server")),
+                PackDBTables(tablesToPack()),
+            )
+            .toMutableList()
 
     val builder =
         Builder(
@@ -169,10 +178,7 @@ fun buildCache(taskType: TaskType) {
 
         builder
             .extraTasks(
-                PackServerConfig(
-                    revision.first,
-                    File("../.data/raw-cache/server")
-                ),
+                PackServerConfig(revision.first, File("../.data/raw-cache/server")),
                 MapPackers(),
                 *serverTasks.toTypedArray(),
             )
@@ -185,7 +191,8 @@ fun buildCache(taskType: TaskType) {
         val cache = Cache.load(File(getServerCacheLocation()).toPath())
         GamevalDumper.dumpCols(cache, revision.first)
 
-        val type = GameValHandler.readGameVal(GameValGroupTypes.TABLETYPES, cache = cache, revision.first)
+        val type =
+            GameValHandler.readGameVal(GameValGroupTypes.TABLETYPES, cache = cache, revision.first)
 
         val rows: MutableMap<Int, DBRowType> = mutableMapOf()
         OsrsCacheProvider.DBRowDecoder().load(cache, rows)
@@ -199,6 +206,28 @@ fun buildCache(taskType: TaskType) {
         startGeneration(type, rows, enums, dbtables)
         startEnumGeneration(enums)
     }
+
+    patchTobEntranceOption(
+        live = Path.of(getCacheLocation()).toAbsolutePath().normalize(),
+        server = Path.of(getServerCacheLocation()).toAbsolutePath().normalize(),
+    )
+    patchWildernessHudInterface(
+        live = Path.of(getCacheLocation()).toAbsolutePath().normalize(),
+        server = Path.of(getServerCacheLocation()).toAbsolutePath().normalize(),
+    )
+    patchDailyAdventureInterface(
+        live = Path.of(getCacheLocation()).toAbsolutePath().normalize(),
+        server = Path.of(getServerCacheLocation()).toAbsolutePath().normalize(),
+    )
+    patchNativeDailyAdventureInterface(
+        live = Path.of(getCacheLocation()).toAbsolutePath().normalize(),
+        server = Path.of(getServerCacheLocation()).toAbsolutePath().normalize(),
+    )
+    patchMysteryBoxAssets(live = Path.of(getCacheLocation()).toAbsolutePath().normalize())
+    installArceuusSpellAccess(
+        live = Path.of(getCacheLocation()).toAbsolutePath().normalize(),
+        server = Path.of(getServerCacheLocation()).toAbsolutePath().normalize(),
+    )
 }
 
 fun readRevision(): Triple<Int, Int, String> {

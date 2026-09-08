@@ -1,0 +1,8957 @@
+{
+  "schemaVersion": 1,
+  "nodes": [
+    {
+      "key": "LOC:6483",
+      "type": "LOC",
+      "id": 6483,
+      "name": "Obelisk"
+    },
+    {
+      "key": "MODEL:6266",
+      "type": "MODEL",
+      "id": 6266
+    },
+    {
+      "key": "MODEL:256",
+      "type": "MODEL",
+      "id": 256
+    },
+    {
+      "key": "LOC:6484",
+      "type": "LOC",
+      "id": 6484,
+      "name": "Obelisk"
+    },
+    {
+      "key": "MODEL:6267",
+      "type": "MODEL",
+      "id": 6267
+    },
+    {
+      "key": "LOC:6486",
+      "type": "LOC",
+      "id": 6486,
+      "name": "Obelisk"
+    },
+    {
+      "key": "LOC:6487",
+      "type": "LOC",
+      "id": 6487,
+      "name": "Obelisk"
+    },
+    {
+      "key": "LOC:6489",
+      "type": "LOC",
+      "id": 6489,
+      "name": "Obelisk"
+    },
+    {
+      "key": "LOC:6490",
+      "type": "LOC",
+      "id": 6490,
+      "name": "Obelisk"
+    },
+    {
+      "key": "LOC:6492",
+      "type": "LOC",
+      "id": 6492,
+      "name": "Obelisk"
+    },
+    {
+      "key": "LOC:6493",
+      "type": "LOC",
+      "id": 6493,
+      "name": "Obelisk"
+    },
+    {
+      "key": "LOC:6801",
+      "type": "LOC",
+      "id": 6801,
+      "name": "Whetstone"
+    },
+    {
+      "key": "MODEL:10388",
+      "type": "MODEL",
+      "id": 10388
+    },
+    {
+      "key": "MODEL:128",
+      "type": "MODEL",
+      "id": 128
+    },
+    {
+      "key": "LOC:8961",
+      "type": "LOC",
+      "id": 8961,
+      "name": "Trebuchet"
+    },
+    {
+      "key": "MODEL:31095",
+      "type": "MODEL",
+      "id": 31095
+    },
+    {
+      "key": "LOC:10641",
+      "type": "LOC",
+      "id": 10641,
+      "name": "Doric's Whetstone"
+    },
+    {
+      "key": "MODEL:10389",
+      "type": "MODEL",
+      "id": 10389
+    },
+    {
+      "key": "LOC:14825",
+      "type": "LOC",
+      "id": 14825,
+      "name": "Obelisk"
+    },
+    {
+      "key": "MODEL:14776",
+      "type": "MODEL",
+      "id": 14776
+    },
+    {
+      "key": "MODEL:14777",
+      "type": "MODEL",
+      "id": 14777
+    },
+    {
+      "key": "LOC:14826",
+      "type": "LOC",
+      "id": 14826,
+      "name": "Obelisk"
+    },
+    {
+      "key": "LOC:14827",
+      "type": "LOC",
+      "id": 14827,
+      "name": "Obelisk"
+    },
+    {
+      "key": "LOC:14828",
+      "type": "LOC",
+      "id": 14828,
+      "name": "Obelisk"
+    },
+    {
+      "key": "LOC:14829",
+      "type": "LOC",
+      "id": 14829,
+      "name": "Obelisk"
+    },
+    {
+      "key": "LOC:14830",
+      "type": "LOC",
+      "id": 14830,
+      "name": "Obelisk"
+    },
+    {
+      "key": "LOC:14831",
+      "type": "LOC",
+      "id": 14831,
+      "name": "Obelisk"
+    },
+    {
+      "key": "LOC:16470",
+      "type": "LOC",
+      "id": 16470,
+      "name": "Whetstone"
+    },
+    {
+      "key": "MODEL:29104",
+      "type": "MODEL",
+      "id": 29104
+    },
+    {
+      "key": "LOC:20955",
+      "type": "LOC",
+      "id": 20955,
+      "name": "Obelisk"
+    },
+    {
+      "key": "MODEL:16389",
+      "type": "MODEL",
+      "id": 16389
+    },
+    {
+      "key": "LOC:29994",
+      "type": "LOC",
+      "id": 29994,
+      "name": "null"
+    },
+    {
+      "key": "MODEL:84",
+      "type": "MODEL",
+      "id": 84
+    },
+    {
+      "key": "VARBIT:14356",
+      "type": "VARBIT",
+      "id": 14356
+    },
+    {
+      "key": "LOC:41696",
+      "type": "LOC",
+      "id": 41696
+    },
+    {
+      "key": "LOC:44786",
+      "type": "LOC",
+      "id": 44786
+    },
+    {
+      "key": "LOC:44790",
+      "type": "LOC",
+      "id": 44790
+    },
+    {
+      "key": "LOC:31554",
+      "type": "LOC",
+      "id": 31554,
+      "name": "Obelisk"
+    },
+    {
+      "key": "MODEL:34164",
+      "type": "MODEL",
+      "id": 34164
+    },
+    {
+      "key": "LOC:32506",
+      "type": "LOC",
+      "id": 32506,
+      "name": "Obelisk"
+    },
+    {
+      "key": "MODEL:16367",
+      "type": "MODEL",
+      "id": 16367
+    },
+    {
+      "key": "LOC:32656",
+      "type": "LOC",
+      "id": 32656,
+      "name": "Chest"
+    },
+    {
+      "key": "MODEL:5273",
+      "type": "MODEL",
+      "id": 5273
+    },
+    {
+      "key": "LOC:42085",
+      "type": "LOC",
+      "id": 42085,
+      "name": "Trebuchet"
+    },
+    {
+      "key": "LOC:44296",
+      "type": "LOC",
+      "id": 44296,
+      "name": "Obelisk"
+    },
+    {
+      "key": "MODEL:44214",
+      "type": "MODEL",
+      "id": 44214
+    },
+    {
+      "key": "LOC:44545",
+      "type": "LOC",
+      "id": 44545,
+      "name": "null"
+    },
+    {
+      "key": "VARBIT:14357",
+      "type": "VARBIT",
+      "id": 14357
+    },
+    {
+      "key": "LOC:44791",
+      "type": "LOC",
+      "id": 44791
+    },
+    {
+      "key": "LOC:44547",
+      "type": "LOC",
+      "id": 44547,
+      "name": "null"
+    },
+    {
+      "key": "VARBIT:14358",
+      "type": "VARBIT",
+      "id": 14358
+    },
+    {
+      "key": "LOC:44792",
+      "type": "LOC",
+      "id": 44792
+    },
+    {
+      "key": "LOC:44912",
+      "type": "LOC",
+      "id": 44912,
+      "name": "Whetstone"
+    },
+    {
+      "key": "LOC:45128",
+      "type": "LOC",
+      "id": 45128,
+      "name": "Exit"
+    },
+    {
+      "key": "MODEL:45346",
+      "type": "MODEL",
+      "id": 45346
+    },
+    {
+      "key": "LOC:45129",
+      "type": "LOC",
+      "id": 45129,
+      "name": "Exit"
+    },
+    {
+      "key": "MODEL:45377",
+      "type": "MODEL",
+      "id": 45377
+    },
+    {
+      "key": "LOC:45138",
+      "type": "LOC",
+      "id": 45138,
+      "name": "Teleport crystal"
+    },
+    {
+      "key": "MODEL:46430",
+      "type": "MODEL",
+      "id": 46430
+    },
+    {
+      "key": "LOC:45144",
+      "type": "LOC",
+      "id": 45144,
+      "name": "Exit"
+    },
+    {
+      "key": "MODEL:45379",
+      "type": "MODEL",
+      "id": 45379
+    },
+    {
+      "key": "LOC:45505",
+      "type": "LOC",
+      "id": 45505,
+      "name": "Teleport crystal"
+    },
+    {
+      "key": "MODEL:46208",
+      "type": "MODEL",
+      "id": 46208
+    },
+    {
+      "key": "LOC:45506",
+      "type": "LOC",
+      "id": 45506,
+      "name": "Teleport crystal"
+    },
+    {
+      "key": "LOC:45509",
+      "type": "LOC",
+      "id": 45509,
+      "name": "Rock steps"
+    },
+    {
+      "key": "MODEL:46270",
+      "type": "MODEL",
+      "id": 46270
+    },
+    {
+      "key": "LOC:45543",
+      "type": "LOC",
+      "id": 45543,
+      "name": "Exit"
+    },
+    {
+      "key": "MODEL:45382",
+      "type": "MODEL",
+      "id": 45382
+    },
+    {
+      "key": "LOC:45579",
+      "type": "LOC",
+      "id": 45579,
+      "name": "Teleport crystal"
+    },
+    {
+      "key": "LOC:45754",
+      "type": "LOC",
+      "id": 45754,
+      "name": "Teleport crystal"
+    },
+    {
+      "key": "LOC:45756",
+      "type": "LOC",
+      "id": 45756,
+      "name": "Ba-Ba's Throne"
+    },
+    {
+      "key": "MODEL:45755",
+      "type": "MODEL",
+      "id": 45755
+    },
+    {
+      "key": "MODEL:140",
+      "type": "MODEL",
+      "id": 140
+    },
+    {
+      "key": "LOC:45844",
+      "type": "LOC",
+      "id": 45844,
+      "name": "Exit"
+    },
+    {
+      "key": "MODEL:45378",
+      "type": "MODEL",
+      "id": 45378
+    },
+    {
+      "key": "LOC:45866",
+      "type": "LOC",
+      "id": 45866,
+      "name": "Teleport crystal"
+    },
+    {
+      "key": "LOC:46055",
+      "type": "LOC",
+      "id": 46055,
+      "name": "Exit"
+    },
+    {
+      "key": "MODEL:45383",
+      "type": "MODEL",
+      "id": 45383
+    },
+    {
+      "key": "LOC:46068",
+      "type": "LOC",
+      "id": 46068,
+      "name": "Grouping Obelisk"
+    },
+    {
+      "key": "MODEL:46201",
+      "type": "MODEL",
+      "id": 46201
+    },
+    {
+      "key": "LOC:46078",
+      "type": "LOC",
+      "id": 46078,
+      "name": "Chest"
+    },
+    {
+      "key": "LOC:46089",
+      "type": "LOC",
+      "id": 46089,
+      "name": "Entry"
+    },
+    {
+      "key": "MODEL:45358",
+      "type": "MODEL",
+      "id": 45358
+    },
+    {
+      "key": "MODEL:115",
+      "type": "MODEL",
+      "id": 115
+    },
+    {
+      "key": "LOC:46155",
+      "type": "LOC",
+      "id": 46155,
+      "name": "Path of Scabaras"
+    },
+    {
+      "key": "MODEL:45363",
+      "type": "MODEL",
+      "id": 45363
+    },
+    {
+      "key": "MODEL:45367",
+      "type": "MODEL",
+      "id": 45367
+    },
+    {
+      "key": "LOC:46156",
+      "type": "LOC",
+      "id": 46156,
+      "name": "Path of Scabaras"
+    },
+    {
+      "key": "LOC:46157",
+      "type": "LOC",
+      "id": 46157,
+      "name": "Path of Scabaras"
+    },
+    {
+      "key": "MODEL:45364",
+      "type": "MODEL",
+      "id": 45364
+    },
+    {
+      "key": "LOC:46158",
+      "type": "LOC",
+      "id": 46158,
+      "name": "Path of Apmeken"
+    },
+    {
+      "key": "MODEL:45368",
+      "type": "MODEL",
+      "id": 45368
+    },
+    {
+      "key": "MODEL:45361",
+      "type": "MODEL",
+      "id": 45361
+    },
+    {
+      "key": "LOC:46159",
+      "type": "LOC",
+      "id": 46159,
+      "name": "Path of Apmeken"
+    },
+    {
+      "key": "LOC:46160",
+      "type": "LOC",
+      "id": 46160,
+      "name": "Path of Apmeken"
+    },
+    {
+      "key": "MODEL:45366",
+      "type": "MODEL",
+      "id": 45366
+    },
+    {
+      "key": "LOC:46161",
+      "type": "LOC",
+      "id": 46161,
+      "name": "Path of Crondis"
+    },
+    {
+      "key": "MODEL:45365",
+      "type": "MODEL",
+      "id": 45365
+    },
+    {
+      "key": "LOC:46162",
+      "type": "LOC",
+      "id": 46162,
+      "name": "Path of Crondis"
+    },
+    {
+      "key": "LOC:46163",
+      "type": "LOC",
+      "id": 46163,
+      "name": "Path of Crondis"
+    },
+    {
+      "key": "LOC:46164",
+      "type": "LOC",
+      "id": 46164,
+      "name": "Path of Het"
+    },
+    {
+      "key": "MODEL:45372",
+      "type": "MODEL",
+      "id": 45372
+    },
+    {
+      "key": "LOC:46165",
+      "type": "LOC",
+      "id": 46165,
+      "name": "Path of Het"
+    },
+    {
+      "key": "LOC:46166",
+      "type": "LOC",
+      "id": 46166,
+      "name": "Path of Het"
+    },
+    {
+      "key": "LOC:46167",
+      "type": "LOC",
+      "id": 46167,
+      "name": "Entry"
+    },
+    {
+      "key": "MODEL:45369",
+      "type": "MODEL",
+      "id": 45369
+    },
+    {
+      "key": "LOC:46168",
+      "type": "LOC",
+      "id": 46168,
+      "name": "Entry"
+    },
+    {
+      "key": "MODEL:45370",
+      "type": "MODEL",
+      "id": 45370
+    },
+    {
+      "key": "LOC:46215",
+      "type": "LOC",
+      "id": 46215,
+      "name": "null"
+    },
+    {
+      "key": "VARBIT:14359",
+      "type": "VARBIT",
+      "id": 14359
+    },
+    {
+      "key": "LOC:46216",
+      "type": "LOC",
+      "id": 46216,
+      "name": "null"
+    },
+    {
+      "key": "VARBIT:14360",
+      "type": "VARBIT",
+      "id": 14360
+    },
+    {
+      "key": "LOC:46217",
+      "type": "LOC",
+      "id": 46217,
+      "name": "null"
+    },
+    {
+      "key": "VARBIT:14370",
+      "type": "VARBIT",
+      "id": 14370
+    },
+    {
+      "key": "LOC:46218",
+      "type": "LOC",
+      "id": 46218,
+      "name": "null"
+    },
+    {
+      "key": "VARBIT:14371",
+      "type": "VARBIT",
+      "id": 14371
+    },
+    {
+      "key": "LOC:46219",
+      "type": "LOC",
+      "id": 46219,
+      "name": "null"
+    },
+    {
+      "key": "VARBIT:14372",
+      "type": "VARBIT",
+      "id": 14372
+    },
+    {
+      "key": "LOC:46220",
+      "type": "LOC",
+      "id": 46220,
+      "name": "null"
+    },
+    {
+      "key": "VARBIT:14373",
+      "type": "VARBIT",
+      "id": 14373
+    },
+    {
+      "key": "LOC:44825",
+      "type": "LOC",
+      "id": 44825
+    },
+    {
+      "key": "LOC:44826",
+      "type": "LOC",
+      "id": 44826
+    },
+    {
+      "key": "LOC:46223",
+      "type": "LOC",
+      "id": 46223,
+      "name": "null"
+    },
+    {
+      "key": "VARBIT:14446",
+      "type": "VARBIT",
+      "id": 14446
+    },
+    {
+      "key": "LOC:46075",
+      "type": "LOC",
+      "id": 46075
+    },
+    {
+      "key": "LOC:46231",
+      "type": "LOC",
+      "id": 46231
+    },
+    {
+      "key": "LOC:47282",
+      "type": "LOC",
+      "id": 47282,
+      "name": "Tombs of Amascut Display"
+    },
+    {
+      "key": "MODEL:47583",
+      "type": "MODEL",
+      "id": 47583
+    },
+    {
+      "key": "MODEL:47526",
+      "type": "MODEL",
+      "id": 47526
+    },
+    {
+      "key": "MODEL:47536",
+      "type": "MODEL",
+      "id": 47536
+    },
+    {
+      "key": "LOC:47337",
+      "type": "LOC",
+      "id": 47337,
+      "name": "Tombs of Amascut"
+    },
+    {
+      "key": "MODEL:46285",
+      "type": "MODEL",
+      "id": 46285
+    },
+    {
+      "key": "LOC:50333",
+      "type": "LOC",
+      "id": 50333,
+      "name": "Amascut statue"
+    },
+    {
+      "key": "MODEL:50268",
+      "type": "MODEL",
+      "id": 50268
+    },
+    {
+      "key": "LOC:50334",
+      "type": "LOC",
+      "id": 50334,
+      "name": "Apmeken statue"
+    },
+    {
+      "key": "MODEL:50262",
+      "type": "MODEL",
+      "id": 50262
+    },
+    {
+      "key": "LOC:50335",
+      "type": "LOC",
+      "id": 50335,
+      "name": "Crondis statue"
+    },
+    {
+      "key": "MODEL:50260",
+      "type": "MODEL",
+      "id": 50260
+    },
+    {
+      "key": "LOC:50336",
+      "type": "LOC",
+      "id": 50336,
+      "name": "Het statue"
+    },
+    {
+      "key": "MODEL:50266",
+      "type": "MODEL",
+      "id": 50266
+    },
+    {
+      "key": "LOC:50338",
+      "type": "LOC",
+      "id": 50338,
+      "name": "Scabaras statue"
+    },
+    {
+      "key": "MODEL:50269",
+      "type": "MODEL",
+      "id": 50269
+    },
+    {
+      "key": "LOC:55299",
+      "type": "LOC",
+      "id": 55299,
+      "name": "Obelisk"
+    },
+    {
+      "key": "MODEL:54933",
+      "type": "MODEL",
+      "id": 54933
+    },
+    {
+      "key": "LOC:55300",
+      "type": "LOC",
+      "id": 55300,
+      "name": "Obelisk"
+    },
+    {
+      "key": "MODEL:54935",
+      "type": "MODEL",
+      "id": 54935
+    },
+    {
+      "key": "LOC:56937",
+      "type": "LOC",
+      "id": 56937,
+      "name": "Broken whetstone"
+    },
+    {
+      "key": "MODEL:56350",
+      "type": "MODEL",
+      "id": 56350
+    },
+    {
+      "key": "LOC:56938",
+      "type": "LOC",
+      "id": 56938,
+      "name": "Broken whetstone"
+    },
+    {
+      "key": "LOC:56939",
+      "type": "LOC",
+      "id": 56939,
+      "name": "Whetstone"
+    },
+    {
+      "key": "LOC:56940",
+      "type": "LOC",
+      "id": 56940,
+      "name": "Whetstone"
+    },
+    {
+      "key": "NPC:1990",
+      "type": "NPC",
+      "id": 1990,
+      "name": "Vanligga Gastfrihet"
+    },
+    {
+      "key": "MODEL:383",
+      "type": "MODEL",
+      "id": 383
+    },
+    {
+      "key": "MODEL:487",
+      "type": "MODEL",
+      "id": 487
+    },
+    {
+      "key": "MODEL:18554",
+      "type": "MODEL",
+      "id": 18554
+    },
+    {
+      "key": "MODEL:14397",
+      "type": "MODEL",
+      "id": 14397
+    },
+    {
+      "key": "MODEL:353",
+      "type": "MODEL",
+      "id": 353
+    },
+    {
+      "key": "MODEL:479",
+      "type": "MODEL",
+      "id": 479
+    },
+    {
+      "key": "MODEL:361",
+      "type": "MODEL",
+      "id": 361
+    },
+    {
+      "key": "MODEL:417",
+      "type": "MODEL",
+      "id": 417
+    },
+    {
+      "key": "MODEL:437",
+      "type": "MODEL",
+      "id": 437
+    },
+    {
+      "key": "MODEL:107",
+      "type": "MODEL",
+      "id": 107
+    },
+    {
+      "key": "MODEL:136",
+      "type": "MODEL",
+      "id": 136
+    },
+    {
+      "key": "SEQUENCE:808",
+      "type": "SEQUENCE",
+      "id": 808
+    },
+    {
+      "key": "SEQUENCE:819",
+      "type": "SEQUENCE",
+      "id": 819
+    },
+    {
+      "key": "SEQUENCE:820",
+      "type": "SEQUENCE",
+      "id": 820
+    },
+    {
+      "key": "SEQUENCE:821",
+      "type": "SEQUENCE",
+      "id": 821
+    },
+    {
+      "key": "SEQUENCE:822",
+      "type": "SEQUENCE",
+      "id": 822
+    },
+    {
+      "key": "NPC:3837",
+      "type": "NPC",
+      "id": 3837,
+      "name": "Baba Yaga"
+    },
+    {
+      "key": "MODEL:12140",
+      "type": "MODEL",
+      "id": 12140
+    },
+    {
+      "key": "MODEL:10078",
+      "type": "MODEL",
+      "id": 10078
+    },
+    {
+      "key": "MODEL:16506",
+      "type": "MODEL",
+      "id": 16506
+    },
+    {
+      "key": "MODEL:16494",
+      "type": "MODEL",
+      "id": 16494
+    },
+    {
+      "key": "MODEL:534",
+      "type": "MODEL",
+      "id": 534
+    },
+    {
+      "key": "MODEL:16503",
+      "type": "MODEL",
+      "id": 16503
+    },
+    {
+      "key": "MODEL:270",
+      "type": "MODEL",
+      "id": 270
+    },
+    {
+      "key": "MODEL:9358",
+      "type": "MODEL",
+      "id": 9358
+    },
+    {
+      "key": "MODEL:16466",
+      "type": "MODEL",
+      "id": 16466
+    },
+    {
+      "key": "SEQUENCE:4424",
+      "type": "SEQUENCE",
+      "id": 4424
+    },
+    {
+      "key": "SEQUENCE:4426",
+      "type": "SEQUENCE",
+      "id": 4426
+    },
+    {
+      "key": "SEQUENCE:4427",
+      "type": "SEQUENCE",
+      "id": 4427
+    },
+    {
+      "key": "SEQUENCE:4428",
+      "type": "SEQUENCE",
+      "id": 4428
+    },
+    {
+      "key": "SEQUENCE:4429",
+      "type": "SEQUENCE",
+      "id": 4429
+    },
+    {
+      "key": "NPC:4619",
+      "type": "NPC",
+      "id": 4619,
+      "name": "Hetty"
+    },
+    {
+      "key": "MODEL:405",
+      "type": "MODEL",
+      "id": 405
+    },
+    {
+      "key": "MODEL:462",
+      "type": "MODEL",
+      "id": 462
+    },
+    {
+      "key": "MODEL:3848",
+      "type": "MODEL",
+      "id": 3848
+    },
+    {
+      "key": "MODEL:14421",
+      "type": "MODEL",
+      "id": 14421
+    },
+    {
+      "key": "MODEL:377",
+      "type": "MODEL",
+      "id": 377
+    },
+    {
+      "key": "MODEL:122",
+      "type": "MODEL",
+      "id": 122
+    },
+    {
+      "key": "MODEL:102",
+      "type": "MODEL",
+      "id": 102
+    },
+    {
+      "key": "NPC:6866",
+      "type": "NPC",
+      "id": 6866,
+      "name": "General Babacus"
+    },
+    {
+      "key": "MODEL:215",
+      "type": "MODEL",
+      "id": 215
+    },
+    {
+      "key": "MODEL:29774",
+      "type": "MODEL",
+      "id": 29774
+    },
+    {
+      "key": "MODEL:29713",
+      "type": "MODEL",
+      "id": 29713
+    },
+    {
+      "key": "MODEL:29698",
+      "type": "MODEL",
+      "id": 29698
+    },
+    {
+      "key": "MODEL:29708",
+      "type": "MODEL",
+      "id": 29708
+    },
+    {
+      "key": "MODEL:29783",
+      "type": "MODEL",
+      "id": 29783
+    },
+    {
+      "key": "MODEL:250",
+      "type": "MODEL",
+      "id": 250
+    },
+    {
+      "key": "MODEL:53",
+      "type": "MODEL",
+      "id": 53
+    },
+    {
+      "key": "MODEL:82",
+      "type": "MODEL",
+      "id": 82
+    },
+    {
+      "key": "NPC:10680",
+      "type": "NPC",
+      "id": 10680,
+      "name": "Zebak"
+    },
+    {
+      "key": "MODEL:46399",
+      "type": "MODEL",
+      "id": 46399
+    },
+    {
+      "key": "SEQUENCE:9618",
+      "type": "SEQUENCE",
+      "id": 9618
+    },
+    {
+      "key": "NPC:11480",
+      "type": "NPC",
+      "id": 11480,
+      "name": "High Priest of Scabaras"
+    },
+    {
+      "key": "MODEL:44177",
+      "type": "MODEL",
+      "id": 44177
+    },
+    {
+      "key": "MODEL:44756",
+      "type": "MODEL",
+      "id": 44756
+    },
+    {
+      "key": "NPC:11481",
+      "type": "NPC",
+      "id": 11481,
+      "name": "High Priest of Scabaras"
+    },
+    {
+      "key": "NPC:11482",
+      "type": "NPC",
+      "id": 11482,
+      "name": "Champion of Scabaras"
+    },
+    {
+      "key": "MODEL:44176",
+      "type": "MODEL",
+      "id": 44176
+    },
+    {
+      "key": "MODEL:44757",
+      "type": "MODEL",
+      "id": 44757
+    },
+    {
+      "key": "NPC:11483",
+      "type": "NPC",
+      "id": 11483,
+      "name": "Champion of Scabaras"
+    },
+    {
+      "key": "NPC:11591",
+      "type": "NPC",
+      "id": 11591,
+      "name": "Amascut"
+    },
+    {
+      "key": "MODEL:390",
+      "type": "MODEL",
+      "id": 390
+    },
+    {
+      "key": "MODEL:449",
+      "type": "MODEL",
+      "id": 449
+    },
+    {
+      "key": "MODEL:18914",
+      "type": "MODEL",
+      "id": 18914
+    },
+    {
+      "key": "MODEL:3711",
+      "type": "MODEL",
+      "id": 3711
+    },
+    {
+      "key": "MODEL:113",
+      "type": "MODEL",
+      "id": 113
+    },
+    {
+      "key": "MODEL:6461",
+      "type": "MODEL",
+      "id": 6461
+    },
+    {
+      "key": "SEQUENCE:1146",
+      "type": "SEQUENCE",
+      "id": 1146
+    },
+    {
+      "key": "NPC:11653",
+      "type": "NPC",
+      "id": 11653,
+      "name": "Elidinis' Guardian"
+    },
+    {
+      "key": "MODEL:46332",
+      "type": "MODEL",
+      "id": 46332
+    },
+    {
+      "key": "MODEL:46457",
+      "type": "MODEL",
+      "id": 46457
+    },
+    {
+      "key": "SEQUENCE:9656",
+      "type": "SEQUENCE",
+      "id": 9656
+    },
+    {
+      "key": "SEQUENCE:9652",
+      "type": "SEQUENCE",
+      "id": 9652
+    },
+    {
+      "key": "NPC:11654",
+      "type": "NPC",
+      "id": 11654,
+      "name": "Apmeken"
+    },
+    {
+      "key": "MODEL:46402",
+      "type": "MODEL",
+      "id": 46402
+    },
+    {
+      "key": "MODEL:46459",
+      "type": "MODEL",
+      "id": 46459
+    },
+    {
+      "key": "SEQUENCE:9537",
+      "type": "SEQUENCE",
+      "id": 9537
+    },
+    {
+      "key": "SEQUENCE:9536",
+      "type": "SEQUENCE",
+      "id": 9536
+    },
+    {
+      "key": "NPC:11655",
+      "type": "NPC",
+      "id": 11655,
+      "name": "Apmeken"
+    },
+    {
+      "key": "SEQUENCE:9535",
+      "type": "SEQUENCE",
+      "id": 9535
+    },
+    {
+      "key": "NPC:11656",
+      "type": "NPC",
+      "id": 11656,
+      "name": "Apmeken"
+    },
+    {
+      "key": "NPC:11657",
+      "type": "NPC",
+      "id": 11657,
+      "name": "Crondis"
+    },
+    {
+      "key": "MODEL:46403",
+      "type": "MODEL",
+      "id": 46403
+    },
+    {
+      "key": "MODEL:46458",
+      "type": "MODEL",
+      "id": 46458
+    },
+    {
+      "key": "SEQUENCE:9534",
+      "type": "SEQUENCE",
+      "id": 9534
+    },
+    {
+      "key": "SEQUENCE:9533",
+      "type": "SEQUENCE",
+      "id": 9533
+    },
+    {
+      "key": "NPC:11659",
+      "type": "NPC",
+      "id": 11659,
+      "name": "Crondis"
+    },
+    {
+      "key": "SEQUENCE:9532",
+      "type": "SEQUENCE",
+      "id": 9532
+    },
+    {
+      "key": "NPC:11660",
+      "type": "NPC",
+      "id": 11660,
+      "name": "Crondis"
+    },
+    {
+      "key": "NPC:11661",
+      "type": "NPC",
+      "id": 11661,
+      "name": "Scabaras"
+    },
+    {
+      "key": "MODEL:44749",
+      "type": "MODEL",
+      "id": 44749
+    },
+    {
+      "key": "MODEL:46455",
+      "type": "MODEL",
+      "id": 46455
+    },
+    {
+      "key": "SEQUENCE:9531",
+      "type": "SEQUENCE",
+      "id": 9531
+    },
+    {
+      "key": "SEQUENCE:9530",
+      "type": "SEQUENCE",
+      "id": 9530
+    },
+    {
+      "key": "NPC:11662",
+      "type": "NPC",
+      "id": 11662,
+      "name": "Scabaras"
+    },
+    {
+      "key": "SEQUENCE:9529",
+      "type": "SEQUENCE",
+      "id": 9529
+    },
+    {
+      "key": "NPC:11663",
+      "type": "NPC",
+      "id": 11663,
+      "name": "Scabaras"
+    },
+    {
+      "key": "NPC:11686",
+      "type": "NPC",
+      "id": 11686,
+      "name": "Het"
+    },
+    {
+      "key": "MODEL:46401",
+      "type": "MODEL",
+      "id": 46401
+    },
+    {
+      "key": "MODEL:46450",
+      "type": "MODEL",
+      "id": 46450
+    },
+    {
+      "key": "SEQUENCE:9540",
+      "type": "SEQUENCE",
+      "id": 9540
+    },
+    {
+      "key": "SEQUENCE:9539",
+      "type": "SEQUENCE",
+      "id": 9539
+    },
+    {
+      "key": "NPC:11687",
+      "type": "NPC",
+      "id": 11687,
+      "name": "Het"
+    },
+    {
+      "key": "SEQUENCE:9538",
+      "type": "SEQUENCE",
+      "id": 9538
+    },
+    {
+      "key": "NPC:11688",
+      "type": "NPC",
+      "id": 11688,
+      "name": "Het"
+    },
+    {
+      "key": "NPC:11689",
+      "type": "NPC",
+      "id": 11689,
+      "name": "Osmumten"
+    },
+    {
+      "key": "MODEL:46340",
+      "type": "MODEL",
+      "id": 46340
+    },
+    {
+      "key": "MODEL:46453",
+      "type": "MODEL",
+      "id": 46453
+    },
+    {
+      "key": "SEQUENCE:5530",
+      "type": "SEQUENCE",
+      "id": 5530
+    },
+    {
+      "key": "SEQUENCE:5531",
+      "type": "SEQUENCE",
+      "id": 5531
+    },
+    {
+      "key": "NPC:11690",
+      "type": "NPC",
+      "id": 11690,
+      "name": "Osmumten"
+    },
+    {
+      "key": "NPC:11692",
+      "type": "NPC",
+      "id": 11692,
+      "name": "Osmumten"
+    },
+    {
+      "key": "NPC:11693",
+      "type": "NPC",
+      "id": 11693,
+      "name": "Osmumten"
+    },
+    {
+      "key": "NPC:11694",
+      "type": "NPC",
+      "id": 11694,
+      "name": "Helpful Spirit"
+    },
+    {
+      "key": "MODEL:10213",
+      "type": "MODEL",
+      "id": 10213
+    },
+    {
+      "key": "MODEL:10121",
+      "type": "MODEL",
+      "id": 10121
+    },
+    {
+      "key": "SEQUENCE:2906",
+      "type": "SEQUENCE",
+      "id": 2906
+    },
+    {
+      "key": "SEQUENCE:2907",
+      "type": "SEQUENCE",
+      "id": 2907
+    },
+    {
+      "key": "NPC:11696",
+      "type": "NPC",
+      "id": 11696,
+      "name": "Amascut"
+    },
+    {
+      "key": "MODEL:45259",
+      "type": "MODEL",
+      "id": 45259
+    },
+    {
+      "key": "MODEL:46460",
+      "type": "MODEL",
+      "id": 46460
+    },
+    {
+      "key": "NPC:11706",
+      "type": "NPC",
+      "id": 11706,
+      "name": "<col=00ffff>Het's Seal (protected)</col>"
+    },
+    {
+      "key": "MODEL:46296",
+      "type": "MODEL",
+      "id": 46296
+    },
+    {
+      "key": "NPC:11707",
+      "type": "NPC",
+      "id": 11707,
+      "name": "<col=00ffff>Het's Seal (weakened)</col>"
+    },
+    {
+      "key": "MODEL:46295",
+      "type": "MODEL",
+      "id": 46295
+    },
+    {
+      "key": "NPC:11719",
+      "type": "NPC",
+      "id": 11719,
+      "name": "Kephri"
+    },
+    {
+      "key": "MODEL:46417",
+      "type": "MODEL",
+      "id": 46417
+    },
+    {
+      "key": "SEQUENCE:9572",
+      "type": "SEQUENCE",
+      "id": 9572
+    },
+    {
+      "key": "NPC:11720",
+      "type": "NPC",
+      "id": 11720,
+      "name": "Kephri"
+    },
+    {
+      "key": "SEQUENCE:9580",
+      "type": "SEQUENCE",
+      "id": 9580
+    },
+    {
+      "key": "NPC:11721",
+      "type": "NPC",
+      "id": 11721,
+      "name": "Kephri"
+    },
+    {
+      "key": "NPC:11722",
+      "type": "NPC",
+      "id": 11722,
+      "name": "Kephri"
+    },
+    {
+      "key": "SEQUENCE:9583",
+      "type": "SEQUENCE",
+      "id": 9583
+    },
+    {
+      "key": "NPC:11724",
+      "type": "NPC",
+      "id": 11724,
+      "name": "Soldier Scarab"
+    },
+    {
+      "key": "MODEL:46424",
+      "type": "MODEL",
+      "id": 46424
+    },
+    {
+      "key": "SEQUENCE:9586",
+      "type": "SEQUENCE",
+      "id": 9586
+    },
+    {
+      "key": "SEQUENCE:9584",
+      "type": "SEQUENCE",
+      "id": 9584
+    },
+    {
+      "key": "SEQUENCE:9585",
+      "type": "SEQUENCE",
+      "id": 9585
+    },
+    {
+      "key": "NPC:11725",
+      "type": "NPC",
+      "id": 11725,
+      "name": "Spitting Scarab"
+    },
+    {
+      "key": "MODEL:46428",
+      "type": "MODEL",
+      "id": 46428
+    },
+    {
+      "key": "NPC:11726",
+      "type": "NPC",
+      "id": 11726,
+      "name": "Arcane Scarab"
+    },
+    {
+      "key": "MODEL:46423",
+      "type": "MODEL",
+      "id": 46423
+    },
+    {
+      "key": "SEQUENCE:9594",
+      "type": "SEQUENCE",
+      "id": 9594
+    },
+    {
+      "key": "SEQUENCE:9592",
+      "type": "SEQUENCE",
+      "id": 9592
+    },
+    {
+      "key": "NPC:11728",
+      "type": "NPC",
+      "id": 11728,
+      "name": "<col=00ffff>Egg</col>"
+    },
+    {
+      "key": "MODEL:46419",
+      "type": "MODEL",
+      "id": 46419
+    },
+    {
+      "key": "NPC:11730",
+      "type": "NPC",
+      "id": 11730,
+      "name": "Zebak"
+    },
+    {
+      "key": "NPC:11731",
+      "type": "NPC",
+      "id": 11731,
+      "name": "Zebak's Tail"
+    },
+    {
+      "key": "MODEL:46400",
+      "type": "MODEL",
+      "id": 46400
+    },
+    {
+      "key": "SEQUENCE:9619",
+      "type": "SEQUENCE",
+      "id": 9619
+    },
+    {
+      "key": "NPC:11732",
+      "type": "NPC",
+      "id": 11732,
+      "name": "Zebak"
+    },
+    {
+      "key": "NPC:11733",
+      "type": "NPC",
+      "id": 11733,
+      "name": "Zebak"
+    },
+    {
+      "key": "SEQUENCE:9636",
+      "type": "SEQUENCE",
+      "id": 9636
+    },
+    {
+      "key": "NPC:11734",
+      "type": "NPC",
+      "id": 11734,
+      "name": "Zebak's Tail"
+    },
+    {
+      "key": "SEQUENCE:9637",
+      "type": "SEQUENCE",
+      "id": 9637
+    },
+    {
+      "key": "NPC:11746",
+      "type": "NPC",
+      "id": 11746,
+      "name": "Elidinis' Warden"
+    },
+    {
+      "key": "SEQUENCE:9665",
+      "type": "SEQUENCE",
+      "id": 9665
+    },
+    {
+      "key": "SEQUENCE:9649",
+      "type": "SEQUENCE",
+      "id": 9649
+    },
+    {
+      "key": "NPC:11747",
+      "type": "NPC",
+      "id": 11747,
+      "name": "Tumeken's Warden"
+    },
+    {
+      "key": "MODEL:46337",
+      "type": "MODEL",
+      "id": 46337
+    },
+    {
+      "key": "NPC:11748",
+      "type": "NPC",
+      "id": 11748,
+      "name": "Elidinis' Warden"
+    },
+    {
+      "key": "NPC:11749",
+      "type": "NPC",
+      "id": 11749,
+      "name": "Tumeken's Warden"
+    },
+    {
+      "key": "NPC:11753",
+      "type": "NPC",
+      "id": 11753,
+      "name": "Elidinis' Warden"
+    },
+    {
+      "key": "SEQUENCE:9653",
+      "type": "SEQUENCE",
+      "id": 9653
+    },
+    {
+      "key": "SPOTANIM:440",
+      "type": "SPOTANIM",
+      "id": 440
+    },
+    {
+      "key": "NPC:11754",
+      "type": "NPC",
+      "id": 11754,
+      "name": "Elidinis' Warden"
+    },
+    {
+      "key": "NPC:11755",
+      "type": "NPC",
+      "id": 11755,
+      "name": "Elidinis' Warden"
+    },
+    {
+      "key": "MODEL:46336",
+      "type": "MODEL",
+      "id": 46336
+    },
+    {
+      "key": "SEQUENCE:9671",
+      "type": "SEQUENCE",
+      "id": 9671
+    },
+    {
+      "key": "NPC:11756",
+      "type": "NPC",
+      "id": 11756,
+      "name": "Tumeken's Warden"
+    },
+    {
+      "key": "NPC:11757",
+      "type": "NPC",
+      "id": 11757,
+      "name": "Tumeken's Warden"
+    },
+    {
+      "key": "NPC:11758",
+      "type": "NPC",
+      "id": 11758,
+      "name": "Tumeken's Warden"
+    },
+    {
+      "key": "MODEL:46334",
+      "type": "MODEL",
+      "id": 46334
+    },
+    {
+      "key": "NPC:11759",
+      "type": "NPC",
+      "id": 11759,
+      "name": "Elidinis' Warden"
+    },
+    {
+      "key": "MODEL:46335",
+      "type": "MODEL",
+      "id": 46335
+    },
+    {
+      "key": "SEQUENCE:9654",
+      "type": "SEQUENCE",
+      "id": 9654
+    },
+    {
+      "key": "NPC:11760",
+      "type": "NPC",
+      "id": 11760,
+      "name": "Tumeken's Warden"
+    },
+    {
+      "key": "MODEL:46333",
+      "type": "MODEL",
+      "id": 46333
+    },
+    {
+      "key": "NPC:11761",
+      "type": "NPC",
+      "id": 11761,
+      "name": "Elidinis' Warden"
+    },
+    {
+      "key": "MODEL:46331",
+      "type": "MODEL",
+      "id": 46331
+    },
+    {
+      "key": "SEQUENCE:9657",
+      "type": "SEQUENCE",
+      "id": 9657
+    },
+    {
+      "key": "NPC:11762",
+      "type": "NPC",
+      "id": 11762,
+      "name": "Tumeken's Warden"
+    },
+    {
+      "key": "NPC:11763",
+      "type": "NPC",
+      "id": 11763,
+      "name": "Elidinis' Warden"
+    },
+    {
+      "key": "SEQUENCE:9683",
+      "type": "SEQUENCE",
+      "id": 9683,
+      "name": "sequence_9683"
+    },
+    {
+      "key": "NPC:11764",
+      "type": "NPC",
+      "id": 11764,
+      "name": "Tumeken's Warden"
+    },
+    {
+      "key": "NPC:11771",
+      "type": "NPC",
+      "id": 11771,
+      "name": "<col=00ffff>Core</col>"
+    },
+    {
+      "key": "MODEL:45293",
+      "type": "MODEL",
+      "id": 45293
+    },
+    {
+      "key": "SEQUENCE:9704",
+      "type": "SEQUENCE",
+      "id": 9704
+    },
+    {
+      "key": "NPC:11772",
+      "type": "NPC",
+      "id": 11772,
+      "name": "<col=00ffff>Energy Siphon</col>"
+    },
+    {
+      "key": "MODEL:45242",
+      "type": "MODEL",
+      "id": 45242
+    },
+    {
+      "key": "SEQUENCE:9736",
+      "type": "SEQUENCE",
+      "id": 9736
+    },
+    {
+      "key": "NPC:11774",
+      "type": "NPC",
+      "id": 11774,
+      "name": "Zebak's Phantom"
+    },
+    {
+      "key": "MODEL:46398",
+      "type": "MODEL",
+      "id": 46398
+    },
+    {
+      "key": "NPC:11775",
+      "type": "NPC",
+      "id": 11775,
+      "name": "Ba-Ba's Phantom"
+    },
+    {
+      "key": "MODEL:46343",
+      "type": "MODEL",
+      "id": 46343
+    },
+    {
+      "key": "MODEL:46350",
+      "type": "MODEL",
+      "id": 46350
+    },
+    {
+      "key": "SEQUENCE:9741",
+      "type": "SEQUENCE",
+      "id": 9741
+    },
+    {
+      "key": "SEQUENCE:9737",
+      "type": "SEQUENCE",
+      "id": 9737
+    },
+    {
+      "key": "SEQUENCE:9738",
+      "type": "SEQUENCE",
+      "id": 9738
+    },
+    {
+      "key": "NPC:11776",
+      "type": "NPC",
+      "id": 11776,
+      "name": "Kephri's Phantom"
+    },
+    {
+      "key": "MODEL:46416",
+      "type": "MODEL",
+      "id": 46416
+    },
+    {
+      "key": "NPC:11777",
+      "type": "NPC",
+      "id": 11777,
+      "name": "Akkha's Phantom"
+    },
+    {
+      "key": "MODEL:46368",
+      "type": "MODEL",
+      "id": 46368
+    },
+    {
+      "key": "MODEL:46363",
+      "type": "MODEL",
+      "id": 46363
+    },
+    {
+      "key": "SEQUENCE:9760",
+      "type": "SEQUENCE",
+      "id": 9760
+    },
+    {
+      "key": "SEQUENCE:9764",
+      "type": "SEQUENCE",
+      "id": 9764
+    },
+    {
+      "key": "SEQUENCE:9768",
+      "type": "SEQUENCE",
+      "id": 9768
+    },
+    {
+      "key": "NPC:11778",
+      "type": "NPC",
+      "id": 11778,
+      "name": "Ba-Ba"
+    },
+    {
+      "key": "MODEL:46352",
+      "type": "MODEL",
+      "id": 46352
+    },
+    {
+      "key": "NPC:11779",
+      "type": "NPC",
+      "id": 11779,
+      "name": "Ba-Ba"
+    },
+    {
+      "key": "NPC:11780",
+      "type": "NPC",
+      "id": 11780,
+      "name": "Ba-Ba"
+    },
+    {
+      "key": "SEQUENCE:9750",
+      "type": "SEQUENCE",
+      "id": 9750
+    },
+    {
+      "key": "NPC:11784",
+      "type": "NPC",
+      "id": 11784,
+      "name": "<col=00ffff>Rubble</col>"
+    },
+    {
+      "key": "MODEL:46264",
+      "type": "MODEL",
+      "id": 46264
+    },
+    {
+      "key": "NPC:11789",
+      "type": "NPC",
+      "id": 11789,
+      "name": "Akkha"
+    },
+    {
+      "key": "MODEL:46360",
+      "type": "MODEL",
+      "id": 46360
+    },
+    {
+      "key": "MODEL:46356",
+      "type": "MODEL",
+      "id": 46356
+    },
+    {
+      "key": "MODEL:46357",
+      "type": "MODEL",
+      "id": 46357
+    },
+    {
+      "key": "NPC:11790",
+      "type": "NPC",
+      "id": 11790,
+      "name": "Akkha"
+    },
+    {
+      "key": "NPC:11791",
+      "type": "NPC",
+      "id": 11791,
+      "name": "Akkha"
+    },
+    {
+      "key": "NPC:11792",
+      "type": "NPC",
+      "id": 11792,
+      "name": "Akkha"
+    },
+    {
+      "key": "NPC:11793",
+      "type": "NPC",
+      "id": 11793,
+      "name": "Akkha"
+    },
+    {
+      "key": "NPC:11794",
+      "type": "NPC",
+      "id": 11794,
+      "name": "Akkha"
+    },
+    {
+      "key": "NPC:11795",
+      "type": "NPC",
+      "id": 11795,
+      "name": "Akkha"
+    },
+    {
+      "key": "NPC:11796",
+      "type": "NPC",
+      "id": 11796,
+      "name": "Akkha"
+    },
+    {
+      "key": "NPC:11797",
+      "type": "NPC",
+      "id": 11797,
+      "name": "Akkha's Shadow"
+    },
+    {
+      "key": "MODEL:46367",
+      "type": "MODEL",
+      "id": 46367
+    },
+    {
+      "key": "MODEL:46370",
+      "type": "MODEL",
+      "id": 46370
+    },
+    {
+      "key": "MODEL:46369",
+      "type": "MODEL",
+      "id": 46369
+    },
+    {
+      "key": "NPC:11798",
+      "type": "NPC",
+      "id": 11798,
+      "name": "Akkha's Shadow"
+    },
+    {
+      "key": "NPC:11799",
+      "type": "NPC",
+      "id": 11799,
+      "name": "Akkha's Shadow"
+    },
+    {
+      "key": "NPC:11800",
+      "type": "NPC",
+      "id": 11800,
+      "name": "<col=00ffff>Orb of Lightning</col>"
+    },
+    {
+      "key": "MODEL:45308",
+      "type": "MODEL",
+      "id": 45308
+    },
+    {
+      "key": "SEQUENCE:9794",
+      "type": "SEQUENCE",
+      "id": 9794
+    },
+    {
+      "key": "NPC:11809",
+      "type": "NPC",
+      "id": 11809,
+      "name": "Apmeken"
+    },
+    {
+      "key": "NPC:11810",
+      "type": "NPC",
+      "id": 11810,
+      "name": "Crondis"
+    },
+    {
+      "key": "NPC:11811",
+      "type": "NPC",
+      "id": 11811,
+      "name": "Het"
+    },
+    {
+      "key": "NPC:11813",
+      "type": "NPC",
+      "id": 11813,
+      "name": "Elidinis' Guardian"
+    },
+    {
+      "key": "NPC:11842",
+      "type": "NPC",
+      "id": 11842,
+      "name": "Kephriti"
+    },
+    {
+      "key": "MODEL:46517",
+      "type": "MODEL",
+      "id": 46517
+    },
+    {
+      "key": "SEQUENCE:9419",
+      "type": "SEQUENCE",
+      "id": 9419
+    },
+    {
+      "key": "NPC:11848",
+      "type": "NPC",
+      "id": 11848,
+      "name": "Kephriti"
+    },
+    {
+      "key": "NPC:12125",
+      "type": "NPC",
+      "id": 12125,
+      "name": "Kephri"
+    },
+    {
+      "key": "NPC:12126",
+      "type": "NPC",
+      "id": 12126,
+      "name": "Akkha"
+    },
+    {
+      "key": "NPC:12127",
+      "type": "NPC",
+      "id": 12127,
+      "name": "Ba-Ba"
+    },
+    {
+      "key": "NPC:12128",
+      "type": "NPC",
+      "id": 12128,
+      "name": "Zebak"
+    },
+    {
+      "key": "NPC:12129",
+      "type": "NPC",
+      "id": 12129,
+      "name": "Zebak's Tail"
+    },
+    {
+      "key": "NPC:12130",
+      "type": "NPC",
+      "id": 12130,
+      "name": "Tumeken's Warden"
+    },
+    {
+      "key": "NPC:12131",
+      "type": "NPC",
+      "id": 12131,
+      "name": "Elidinis' Warden"
+    },
+    {
+      "key": "NPC:13320",
+      "type": "NPC",
+      "id": 13320,
+      "name": "Warden"
+    },
+    {
+      "key": "MODEL:50940",
+      "type": "MODEL",
+      "id": 50940
+    },
+    {
+      "key": "MODEL:52757",
+      "type": "MODEL",
+      "id": 52757
+    },
+    {
+      "key": "OBJ:975",
+      "type": "OBJ",
+      "id": 975,
+      "name": "Machete"
+    },
+    {
+      "key": "MODEL:2841",
+      "type": "MODEL",
+      "id": 2841
+    },
+    {
+      "key": "MODEL:566",
+      "type": "MODEL",
+      "id": 566
+    },
+    {
+      "key": "MODEL:42620",
+      "type": "MODEL",
+      "id": 42620
+    },
+    {
+      "key": "OBJ:6313",
+      "type": "OBJ",
+      "id": 6313,
+      "name": "Opal machete"
+    },
+    {
+      "key": "OBJ:6315",
+      "type": "OBJ",
+      "id": 6315,
+      "name": "Jade machete"
+    },
+    {
+      "key": "OBJ:6317",
+      "type": "OBJ",
+      "id": 6317,
+      "name": "Red topaz machete"
+    },
+    {
+      "key": "OBJ:8390",
+      "type": "OBJ",
+      "id": 8390,
+      "name": "Whetstone"
+    },
+    {
+      "key": "OBJ:21788",
+      "type": "OBJ",
+      "id": 21788,
+      "name": "Obelisk"
+    },
+    {
+      "key": "OBJ:25975",
+      "type": "OBJ",
+      "id": 25975,
+      "name": "Lightbearer"
+    },
+    {
+      "key": "MODEL:46473",
+      "type": "MODEL",
+      "id": 46473
+    },
+    {
+      "key": "OBJ:25985",
+      "type": "OBJ",
+      "id": 25985,
+      "name": "Elidinis' ward"
+    },
+    {
+      "key": "MODEL:46477",
+      "type": "MODEL",
+      "id": 46477
+    },
+    {
+      "key": "MODEL:45272",
+      "type": "MODEL",
+      "id": 45272
+    },
+    {
+      "key": "MODEL:45284",
+      "type": "MODEL",
+      "id": 45284
+    },
+    {
+      "key": "OBJ:26219",
+      "type": "OBJ",
+      "id": 26219,
+      "name": "Osmumten's fang"
+    },
+    {
+      "key": "MODEL:46468",
+      "type": "MODEL",
+      "id": 46468
+    },
+    {
+      "key": "MODEL:45278",
+      "type": "MODEL",
+      "id": 45278
+    },
+    {
+      "key": "MODEL:45285",
+      "type": "MODEL",
+      "id": 45285
+    },
+    {
+      "key": "OBJ:27226",
+      "type": "OBJ",
+      "id": 27226,
+      "name": "Masori mask"
+    },
+    {
+      "key": "MODEL:46485",
+      "type": "MODEL",
+      "id": 46485
+    },
+    {
+      "key": "MODEL:45248",
+      "type": "MODEL",
+      "id": 45248
+    },
+    {
+      "key": "MODEL:46454",
+      "type": "MODEL",
+      "id": 46454
+    },
+    {
+      "key": "MODEL:45262",
+      "type": "MODEL",
+      "id": 45262
+    },
+    {
+      "key": "OBJ:27229",
+      "type": "OBJ",
+      "id": 27229,
+      "name": "Masori body"
+    },
+    {
+      "key": "MODEL:46476",
+      "type": "MODEL",
+      "id": 46476
+    },
+    {
+      "key": "MODEL:45257",
+      "type": "MODEL",
+      "id": 45257
+    },
+    {
+      "key": "MODEL:45270",
+      "type": "MODEL",
+      "id": 45270
+    },
+    {
+      "key": "OBJ:27232",
+      "type": "OBJ",
+      "id": 27232,
+      "name": "Masori chaps"
+    },
+    {
+      "key": "MODEL:46482",
+      "type": "MODEL",
+      "id": 46482
+    },
+    {
+      "key": "MODEL:45256",
+      "type": "MODEL",
+      "id": 45256
+    },
+    {
+      "key": "MODEL:45269",
+      "type": "MODEL",
+      "id": 45269
+    },
+    {
+      "key": "OBJ:27246",
+      "type": "OBJ",
+      "id": 27246,
+      "name": "Osmumten's fang (or)"
+    },
+    {
+      "key": "MODEL:46474",
+      "type": "MODEL",
+      "id": 46474
+    },
+    {
+      "key": "MODEL:45279",
+      "type": "MODEL",
+      "id": 45279
+    },
+    {
+      "key": "MODEL:45273",
+      "type": "MODEL",
+      "id": 45273
+    },
+    {
+      "key": "OBJ:27248",
+      "type": "OBJ",
+      "id": 27248,
+      "name": "Cursed phalanx"
+    },
+    {
+      "key": "MODEL:46483",
+      "type": "MODEL",
+      "id": 46483
+    },
+    {
+      "key": "OBJ:27251",
+      "type": "OBJ",
+      "id": 27251,
+      "name": "Elidinis' ward (f)"
+    },
+    {
+      "key": "MODEL:46472",
+      "type": "MODEL",
+      "id": 46472
+    },
+    {
+      "key": "MODEL:45274",
+      "type": "MODEL",
+      "id": 45274
+    },
+    {
+      "key": "MODEL:45276",
+      "type": "MODEL",
+      "id": 45276
+    },
+    {
+      "key": "OBJ:27253",
+      "type": "OBJ",
+      "id": 27253,
+      "name": "Elidinis' ward (or)"
+    },
+    {
+      "key": "MODEL:46486",
+      "type": "MODEL",
+      "id": 46486
+    },
+    {
+      "key": "MODEL:45280",
+      "type": "MODEL",
+      "id": 45280
+    },
+    {
+      "key": "MODEL:45283",
+      "type": "MODEL",
+      "id": 45283
+    },
+    {
+      "key": "OBJ:27275",
+      "type": "OBJ",
+      "id": 27275,
+      "name": "Tumeken's shadow"
+    },
+    {
+      "key": "MODEL:46465",
+      "type": "MODEL",
+      "id": 46465
+    },
+    {
+      "key": "MODEL:45281",
+      "type": "MODEL",
+      "id": 45281
+    },
+    {
+      "key": "MODEL:45282",
+      "type": "MODEL",
+      "id": 45282
+    },
+    {
+      "key": "OBJ:27277",
+      "type": "OBJ",
+      "id": 27277,
+      "name": "Tumeken's shadow (uncharged)"
+    },
+    {
+      "key": "MODEL:46464",
+      "type": "MODEL",
+      "id": 46464
+    },
+    {
+      "key": "OBJ:27279",
+      "type": "OBJ",
+      "id": 27279,
+      "name": "Thread of elidinis"
+    },
+    {
+      "key": "MODEL:46478",
+      "type": "MODEL",
+      "id": 46478
+    },
+    {
+      "key": "OBJ:27283",
+      "type": "OBJ",
+      "id": 27283,
+      "name": "Breach of the scarab"
+    },
+    {
+      "key": "MODEL:46487",
+      "type": "MODEL",
+      "id": 46487
+    },
+    {
+      "key": "OBJ:27285",
+      "type": "OBJ",
+      "id": 27285,
+      "name": "Eye of the corruptor"
+    },
+    {
+      "key": "OBJ:27289",
+      "type": "OBJ",
+      "id": 27289,
+      "name": "Jewel of the sun"
+    },
+    {
+      "key": "OBJ:27302",
+      "type": "OBJ",
+      "id": 27302,
+      "name": "Het's capture"
+    },
+    {
+      "key": "MODEL:2794",
+      "type": "MODEL",
+      "id": 2794
+    },
+    {
+      "key": "OBJ:27304",
+      "type": "OBJ",
+      "id": 27304,
+      "name": "Apmeken's capture"
+    },
+    {
+      "key": "OBJ:27306",
+      "type": "OBJ",
+      "id": 27306,
+      "name": "Scabaras' capture"
+    },
+    {
+      "key": "OBJ:27308",
+      "type": "OBJ",
+      "id": 27308,
+      "name": "Crondis' capture"
+    },
+    {
+      "key": "OBJ:27310",
+      "type": "OBJ",
+      "id": 27310,
+      "name": "The wardens"
+    },
+    {
+      "key": "OBJ:27315",
+      "type": "OBJ",
+      "id": 27315,
+      "name": "Nectar (4)"
+    },
+    {
+      "key": "MODEL:46491",
+      "type": "MODEL",
+      "id": 46491
+    },
+    {
+      "key": "OBJ:27317",
+      "type": "OBJ",
+      "id": 27317,
+      "name": "Nectar (3)"
+    },
+    {
+      "key": "MODEL:46495",
+      "type": "MODEL",
+      "id": 46495
+    },
+    {
+      "key": "OBJ:27323",
+      "type": "OBJ",
+      "id": 27323,
+      "name": "Silk dressing (2)"
+    },
+    {
+      "key": "MODEL:46488",
+      "type": "MODEL",
+      "id": 46488
+    },
+    {
+      "key": "OBJ:27327",
+      "type": "OBJ",
+      "id": 27327,
+      "name": "Tears of elidinis (4)"
+    },
+    {
+      "key": "OBJ:27329",
+      "type": "OBJ",
+      "id": 27329,
+      "name": "Tears of elidinis (3)"
+    },
+    {
+      "key": "OBJ:27335",
+      "type": "OBJ",
+      "id": 27335,
+      "name": "Blessed crystal scarab (2)"
+    },
+    {
+      "key": "MODEL:46493",
+      "type": "MODEL",
+      "id": 46493
+    },
+    {
+      "key": "OBJ:27339",
+      "type": "OBJ",
+      "id": 27339,
+      "name": "Liquid adrenaline (2)"
+    },
+    {
+      "key": "OBJ:27341",
+      "type": "OBJ",
+      "id": 27341,
+      "name": "Liquid adrenaline (1)"
+    },
+    {
+      "key": "MODEL:46494",
+      "type": "MODEL",
+      "id": 46494
+    },
+    {
+      "key": "OBJ:27343",
+      "type": "OBJ",
+      "id": 27343,
+      "name": "Smelling salts (2)"
+    },
+    {
+      "key": "MODEL:46492",
+      "type": "MODEL",
+      "id": 46492
+    },
+    {
+      "key": "OBJ:27345",
+      "type": "OBJ",
+      "id": 27345,
+      "name": "Smelling salts (1)"
+    },
+    {
+      "key": "MODEL:46496",
+      "type": "MODEL",
+      "id": 46496
+    },
+    {
+      "key": "OBJ:27347",
+      "type": "OBJ",
+      "id": 27347,
+      "name": "Ambrosia (2)"
+    },
+    {
+      "key": "OBJ:27349",
+      "type": "OBJ",
+      "id": 27349,
+      "name": "Ambrosia (1)"
+    },
+    {
+      "key": "OBJ:27351",
+      "type": "OBJ",
+      "id": 27351,
+      "name": "Honey locust"
+    },
+    {
+      "key": "MODEL:46490",
+      "type": "MODEL",
+      "id": 46490
+    },
+    {
+      "key": "OBJ:27354",
+      "type": "OBJ",
+      "id": 27354,
+      "name": "Elidinis' guardian"
+    },
+    {
+      "key": "OBJ:27377",
+      "type": "OBJ",
+      "id": 27377,
+      "name": "Remnant of akkha"
+    },
+    {
+      "key": "MODEL:7671",
+      "type": "MODEL",
+      "id": 7671
+    },
+    {
+      "key": "OBJ:27378",
+      "type": "OBJ",
+      "id": 27378,
+      "name": "Remnant of ba-ba"
+    },
+    {
+      "key": "MODEL:10349",
+      "type": "MODEL",
+      "id": 10349
+    },
+    {
+      "key": "OBJ:27379",
+      "type": "OBJ",
+      "id": 27379,
+      "name": "Remnant of kephri"
+    },
+    {
+      "key": "MODEL:16382",
+      "type": "MODEL",
+      "id": 16382
+    },
+    {
+      "key": "OBJ:27380",
+      "type": "OBJ",
+      "id": 27380,
+      "name": "Remnant of zebak"
+    },
+    {
+      "key": "MODEL:32753",
+      "type": "MODEL",
+      "id": 32753
+    },
+    {
+      "key": "OBJ:27384",
+      "type": "OBJ",
+      "id": 27384,
+      "name": "Kephriti"
+    },
+    {
+      "key": "OBJ:27870",
+      "type": "OBJ",
+      "id": 27870,
+      "name": "Lightbearer"
+    },
+    {
+      "key": "OBJ:28507",
+      "type": "OBJ",
+      "id": 28507,
+      "name": "Sigil of the lightbearer"
+    },
+    {
+      "key": "MODEL:42893",
+      "type": "MODEL",
+      "id": 42893
+    },
+    {
+      "key": "OBJ:28508",
+      "type": "OBJ",
+      "id": 28508,
+      "name": "Sigil of the lightbearer"
+    },
+    {
+      "key": "MODEL:42905",
+      "type": "MODEL",
+      "id": 42905
+    },
+    {
+      "key": "OBJ:28547",
+      "type": "OBJ",
+      "id": 28547,
+      "name": "Corrupted tumeken's shadow"
+    },
+    {
+      "key": "MODEL:49498",
+      "type": "MODEL",
+      "id": 49498
+    },
+    {
+      "key": "MODEL:49479",
+      "type": "MODEL",
+      "id": 49479
+    },
+    {
+      "key": "MODEL:49480",
+      "type": "MODEL",
+      "id": 49480
+    },
+    {
+      "key": "OBJ:28549",
+      "type": "OBJ",
+      "id": 28549,
+      "name": "Corrupted tumeken's shadow (uncharged)"
+    },
+    {
+      "key": "OBJ:30891",
+      "type": "OBJ",
+      "id": 30891,
+      "name": "Keris partisan of amascut"
+    },
+    {
+      "key": "MODEL:46480",
+      "type": "MODEL",
+      "id": 46480
+    },
+    {
+      "key": "MODEL:45275",
+      "type": "MODEL",
+      "id": 45275
+    },
+    {
+      "key": "MODEL:45277",
+      "type": "MODEL",
+      "id": 45277
+    },
+    {
+      "key": "OBJ:30893",
+      "type": "OBJ",
+      "id": 30893,
+      "name": "Jewel of amascut"
+    },
+    {
+      "key": "REGION:14160",
+      "type": "REGION",
+      "id": 14160,
+      "name": "region_14160"
+    },
+    {
+      "key": "REGION:14672",
+      "type": "REGION",
+      "id": 14672,
+      "name": "region_14672"
+    },
+    {
+      "key": "SEQUENCE:424",
+      "type": "SEQUENCE",
+      "id": 424,
+      "name": "sequence_424"
+    },
+    {
+      "key": "FRAME:11000",
+      "type": "FRAME",
+      "id": 11000
+    },
+    {
+      "key": "FRAME:0",
+      "type": "FRAME",
+      "id": 0
+    },
+    {
+      "key": "SEQUENCE:739",
+      "type": "SEQUENCE",
+      "id": 739,
+      "name": "sequence_739"
+    },
+    {
+      "key": "FRAME:11835",
+      "type": "FRAME",
+      "id": 11835
+    },
+    {
+      "key": "SEQUENCE:829",
+      "type": "SEQUENCE",
+      "id": 829,
+      "name": "sequence_829"
+    },
+    {
+      "key": "FRAME:11006",
+      "type": "FRAME",
+      "id": 11006
+    },
+    {
+      "key": "SEQUENCE:9576",
+      "type": "SEQUENCE",
+      "id": 9576,
+      "name": "sequence_9576"
+    },
+    {
+      "key": "SKELETAL_ANIMATION:458",
+      "type": "SKELETAL_ANIMATION",
+      "id": 458
+    },
+    {
+      "key": "SEQUENCE:9577",
+      "type": "SEQUENCE",
+      "id": 9577,
+      "name": "sequence_9577"
+    },
+    {
+      "key": "SKELETAL_ANIMATION:465",
+      "type": "SKELETAL_ANIMATION",
+      "id": 465
+    },
+    {
+      "key": "SEQUENCE:9578",
+      "type": "SEQUENCE",
+      "id": 9578,
+      "name": "sequence_9578"
+    },
+    {
+      "key": "SKELETAL_ANIMATION:470",
+      "type": "SKELETAL_ANIMATION",
+      "id": 470
+    },
+    {
+      "key": "SEQUENCE:9579",
+      "type": "SEQUENCE",
+      "id": 9579,
+      "name": "sequence_9579"
+    },
+    {
+      "key": "SKELETAL_ANIMATION:464",
+      "type": "SKELETAL_ANIMATION",
+      "id": 464
+    },
+    {
+      "key": "SEQUENCE:9581",
+      "type": "SEQUENCE",
+      "id": 9581,
+      "name": "sequence_9581"
+    },
+    {
+      "key": "SKELETAL_ANIMATION:468",
+      "type": "SKELETAL_ANIMATION",
+      "id": 468
+    },
+    {
+      "key": "SEQUENCE:9587",
+      "type": "SEQUENCE",
+      "id": 9587,
+      "name": "sequence_9587"
+    },
+    {
+      "key": "SKELETAL_ANIMATION:57",
+      "type": "SKELETAL_ANIMATION",
+      "id": 57
+    },
+    {
+      "key": "SEQUENCE:9588",
+      "type": "SEQUENCE",
+      "id": 9588,
+      "name": "sequence_9588"
+    },
+    {
+      "key": "SEQUENCE:9596",
+      "type": "SEQUENCE",
+      "id": 9596,
+      "name": "sequence_9596"
+    },
+    {
+      "key": "SKELETAL_ANIMATION:66",
+      "type": "SKELETAL_ANIMATION",
+      "id": 66
+    },
+    {
+      "key": "SEQUENCE:9597",
+      "type": "SEQUENCE",
+      "id": 9597,
+      "name": "sequence_9597"
+    },
+    {
+      "key": "SKELETAL_ANIMATION:68",
+      "type": "SKELETAL_ANIMATION",
+      "id": 68
+    },
+    {
+      "key": "SEQUENCE:9605",
+      "type": "SEQUENCE",
+      "id": 9605,
+      "name": "sequence_9605"
+    },
+    {
+      "key": "SKELETAL_ANIMATION:351",
+      "type": "SKELETAL_ANIMATION",
+      "id": 351
+    },
+    {
+      "key": "SEQUENCE:9624",
+      "type": "SEQUENCE",
+      "id": 9624,
+      "name": "sequence_9624"
+    },
+    {
+      "key": "SKELETAL_ANIMATION:441",
+      "type": "SKELETAL_ANIMATION",
+      "id": 441
+    },
+    {
+      "key": "SEQUENCE:9628",
+      "type": "SEQUENCE",
+      "id": 9628,
+      "name": "sequence_9628"
+    },
+    {
+      "key": "SKELETAL_ANIMATION:440",
+      "type": "SKELETAL_ANIMATION",
+      "id": 440
+    },
+    {
+      "key": "SEQUENCE:9632",
+      "type": "SEQUENCE",
+      "id": 9632,
+      "name": "sequence_9632"
+    },
+    {
+      "key": "SKELETAL_ANIMATION:438",
+      "type": "SKELETAL_ANIMATION",
+      "id": 438
+    },
+    {
+      "key": "SEQUENCE:9660",
+      "type": "SEQUENCE",
+      "id": 9660,
+      "name": "sequence_9660"
+    },
+    {
+      "key": "SKELETAL_ANIMATION:4",
+      "type": "SKELETAL_ANIMATION",
+      "id": 4
+    },
+    {
+      "key": "SEQUENCE:9662",
+      "type": "SEQUENCE",
+      "id": 9662,
+      "name": "sequence_9662"
+    },
+    {
+      "key": "SKELETAL_ANIMATION:31",
+      "type": "SKELETAL_ANIMATION",
+      "id": 31
+    },
+    {
+      "key": "SEQUENCE:9670",
+      "type": "SEQUENCE",
+      "id": 9670,
+      "name": "sequence_9670"
+    },
+    {
+      "key": "SKELETAL_ANIMATION:33",
+      "type": "SKELETAL_ANIMATION",
+      "id": 33
+    },
+    {
+      "key": "SEQUENCE:9672",
+      "type": "SEQUENCE",
+      "id": 9672,
+      "name": "sequence_9672"
+    },
+    {
+      "key": "SKELETAL_ANIMATION:1",
+      "type": "SKELETAL_ANIMATION",
+      "id": 1
+    },
+    {
+      "key": "SEQUENCE:9682",
+      "type": "SEQUENCE",
+      "id": 9682,
+      "name": "sequence_9682"
+    },
+    {
+      "key": "SKELETAL_ANIMATION:27",
+      "type": "SKELETAL_ANIMATION",
+      "id": 27
+    },
+    {
+      "key": "SKELETAL_ANIMATION:8",
+      "type": "SKELETAL_ANIMATION",
+      "id": 8
+    },
+    {
+      "key": "SEQUENCE:9684",
+      "type": "SEQUENCE",
+      "id": 9684,
+      "name": "sequence_9684"
+    },
+    {
+      "key": "SKELETAL_ANIMATION:24",
+      "type": "SKELETAL_ANIMATION",
+      "id": 24
+    },
+    {
+      "key": "SEQUENCE:9685",
+      "type": "SEQUENCE",
+      "id": 9685,
+      "name": "sequence_9685"
+    },
+    {
+      "key": "SKELETAL_ANIMATION:3",
+      "type": "SKELETAL_ANIMATION",
+      "id": 3
+    },
+    {
+      "key": "SEQUENCE:9743",
+      "type": "SEQUENCE",
+      "id": 9743,
+      "name": "sequence_9743"
+    },
+    {
+      "key": "SKELETAL_ANIMATION:109",
+      "type": "SKELETAL_ANIMATION",
+      "id": 109
+    },
+    {
+      "key": "SEQUENCE:9744",
+      "type": "SEQUENCE",
+      "id": 9744,
+      "name": "sequence_9744"
+    },
+    {
+      "key": "SKELETAL_ANIMATION:103",
+      "type": "SKELETAL_ANIMATION",
+      "id": 103
+    },
+    {
+      "key": "SEQUENCE:9749",
+      "type": "SEQUENCE",
+      "id": 9749,
+      "name": "sequence_9749"
+    },
+    {
+      "key": "SKELETAL_ANIMATION:118",
+      "type": "SKELETAL_ANIMATION",
+      "id": 118
+    },
+    {
+      "key": "SEQUENCE:9770",
+      "type": "SEQUENCE",
+      "id": 9770,
+      "name": "sequence_9770"
+    },
+    {
+      "key": "SKELETAL_ANIMATION:278",
+      "type": "SKELETAL_ANIMATION",
+      "id": 278
+    },
+    {
+      "key": "SEQUENCE:9774",
+      "type": "SEQUENCE",
+      "id": 9774,
+      "name": "sequence_9774"
+    },
+    {
+      "key": "SKELETAL_ANIMATION:276",
+      "type": "SKELETAL_ANIMATION",
+      "id": 276
+    },
+    {
+      "key": "SEQUENCE:9776",
+      "type": "SEQUENCE",
+      "id": 9776,
+      "name": "sequence_9776"
+    },
+    {
+      "key": "SKELETAL_ANIMATION:280",
+      "type": "SKELETAL_ANIMATION",
+      "id": 280
+    },
+    {
+      "key": "SEQUENCE:9799",
+      "type": "SEQUENCE",
+      "id": 9799,
+      "name": "sequence_9799"
+    },
+    {
+      "key": "FRAME:10577",
+      "type": "FRAME",
+      "id": 10577
+    },
+    {
+      "key": "FRAME:10578",
+      "type": "FRAME",
+      "id": 10578
+    },
+    {
+      "key": "FRAME:10567",
+      "type": "FRAME",
+      "id": 10567
+    },
+    {
+      "key": "FRAME:10961",
+      "type": "FRAME",
+      "id": 10961
+    },
+    {
+      "key": "SEQUENCE:11799",
+      "type": "SEQUENCE",
+      "id": 11799,
+      "name": "sequence_11799"
+    },
+    {
+      "key": "FRAME:5926",
+      "type": "FRAME",
+      "id": 5926
+    },
+    {
+      "key": "SPOTANIM:157",
+      "type": "SPOTANIM",
+      "id": 157,
+      "name": "spotanim_157"
+    },
+    {
+      "key": "MODEL:3116",
+      "type": "MODEL",
+      "id": 3116
+    },
+    {
+      "key": "SPOTANIM:475",
+      "type": "SPOTANIM",
+      "id": 475,
+      "name": "spotanim_475"
+    },
+    {
+      "key": "MODEL:9950",
+      "type": "MODEL",
+      "id": 9950
+    },
+    {
+      "key": "SPOTANIM:1304",
+      "type": "SPOTANIM",
+      "id": 1304,
+      "name": "spotanim_1304"
+    },
+    {
+      "key": "MODEL:21501",
+      "type": "MODEL",
+      "id": 21501
+    },
+    {
+      "key": "SPOTANIM:1383",
+      "type": "SPOTANIM",
+      "id": 1383,
+      "name": "spotanim_1383"
+    },
+    {
+      "key": "MODEL:26293",
+      "type": "MODEL",
+      "id": 26293
+    },
+    {
+      "key": "SPOTANIM:1447",
+      "type": "SPOTANIM",
+      "id": 1447,
+      "name": "spotanim_1447"
+    },
+    {
+      "key": "MODEL:34252",
+      "type": "MODEL",
+      "id": 34252
+    },
+    {
+      "key": "SPOTANIM:1555",
+      "type": "SPOTANIM",
+      "id": 1555,
+      "name": "spotanim_1555"
+    },
+    {
+      "key": "MODEL:35394",
+      "type": "MODEL",
+      "id": 35394
+    },
+    {
+      "key": "SPOTANIM:2111",
+      "type": "SPOTANIM",
+      "id": 2111,
+      "name": "spotanim_2111"
+    },
+    {
+      "key": "SPOTANIM:2145",
+      "type": "SPOTANIM",
+      "id": 2145,
+      "name": "spotanim_2145"
+    },
+    {
+      "key": "MODEL:45287",
+      "type": "MODEL",
+      "id": 45287
+    },
+    {
+      "key": "SPOTANIM:2146",
+      "type": "SPOTANIM",
+      "id": 2146,
+      "name": "spotanim_2146"
+    },
+    {
+      "key": "MODEL:46405",
+      "type": "MODEL",
+      "id": 46405
+    },
+    {
+      "key": "SPOTANIM:2147",
+      "type": "SPOTANIM",
+      "id": 2147,
+      "name": "spotanim_2147"
+    },
+    {
+      "key": "MODEL:46425",
+      "type": "MODEL",
+      "id": 46425
+    },
+    {
+      "key": "SPOTANIM:2152",
+      "type": "SPOTANIM",
+      "id": 2152,
+      "name": "spotanim_2152"
+    },
+    {
+      "key": "SPOTANIM:2156",
+      "type": "SPOTANIM",
+      "id": 2156,
+      "name": "spotanim_2156"
+    },
+    {
+      "key": "MODEL:46421",
+      "type": "MODEL",
+      "id": 46421
+    },
+    {
+      "key": "SPOTANIM:2160",
+      "type": "SPOTANIM",
+      "id": 2160,
+      "name": "spotanim_2160"
+    },
+    {
+      "key": "SPOTANIM:2164",
+      "type": "SPOTANIM",
+      "id": 2164,
+      "name": "spotanim_2164"
+    },
+    {
+      "key": "MODEL:46420",
+      "type": "MODEL",
+      "id": 46420
+    },
+    {
+      "key": "SPOTANIM:2165",
+      "type": "SPOTANIM",
+      "id": 2165,
+      "name": "spotanim_2165"
+    },
+    {
+      "key": "SPOTANIM:2168",
+      "type": "SPOTANIM",
+      "id": 2168,
+      "name": "spotanim_2168"
+    },
+    {
+      "key": "SPOTANIM:2176",
+      "type": "SPOTANIM",
+      "id": 2176,
+      "name": "spotanim_2176"
+    },
+    {
+      "key": "MODEL:46381",
+      "type": "MODEL",
+      "id": 46381
+    },
+    {
+      "key": "SPOTANIM:2178",
+      "type": "SPOTANIM",
+      "id": 2178,
+      "name": "spotanim_2178"
+    },
+    {
+      "key": "MODEL:46383",
+      "type": "MODEL",
+      "id": 46383
+    },
+    {
+      "key": "SPOTANIM:2179",
+      "type": "SPOTANIM",
+      "id": 2179,
+      "name": "spotanim_2179"
+    },
+    {
+      "key": "SPOTANIM:2181",
+      "type": "SPOTANIM",
+      "id": 2181,
+      "name": "spotanim_2181"
+    },
+    {
+      "key": "MODEL:33007",
+      "type": "MODEL",
+      "id": 33007
+    },
+    {
+      "key": "SPOTANIM:2187",
+      "type": "SPOTANIM",
+      "id": 2187,
+      "name": "spotanim_2187"
+    },
+    {
+      "key": "MODEL:46387",
+      "type": "MODEL",
+      "id": 46387
+    },
+    {
+      "key": "SPOTANIM:2193",
+      "type": "SPOTANIM",
+      "id": 2193,
+      "name": "spotanim_2193"
+    },
+    {
+      "key": "MODEL:3081",
+      "type": "MODEL",
+      "id": 3081
+    },
+    {
+      "key": "SPOTANIM:2194",
+      "type": "SPOTANIM",
+      "id": 2194,
+      "name": "spotanim_2194"
+    },
+    {
+      "key": "SPOTANIM:2198",
+      "type": "SPOTANIM",
+      "id": 2198,
+      "name": "spotanim_2198"
+    },
+    {
+      "key": "MODEL:40177",
+      "type": "MODEL",
+      "id": 40177
+    },
+    {
+      "key": "SPOTANIM:2199",
+      "type": "SPOTANIM",
+      "id": 2199,
+      "name": "spotanim_2199"
+    },
+    {
+      "key": "SPOTANIM:2204",
+      "type": "SPOTANIM",
+      "id": 2204,
+      "name": "spotanim_2204"
+    },
+    {
+      "key": "MODEL:45302",
+      "type": "MODEL",
+      "id": 45302
+    },
+    {
+      "key": "SPOTANIM:2206",
+      "type": "SPOTANIM",
+      "id": 2206,
+      "name": "spotanim_2206"
+    },
+    {
+      "key": "MODEL:45301",
+      "type": "MODEL",
+      "id": 45301
+    },
+    {
+      "key": "SPOTANIM:2208",
+      "type": "SPOTANIM",
+      "id": 2208,
+      "name": "spotanim_2208"
+    },
+    {
+      "key": "SPOTANIM:2210",
+      "type": "SPOTANIM",
+      "id": 2210,
+      "name": "spotanim_2210"
+    },
+    {
+      "key": "MODEL:45300",
+      "type": "MODEL",
+      "id": 45300
+    },
+    {
+      "key": "SPOTANIM:2220",
+      "type": "SPOTANIM",
+      "id": 2220,
+      "name": "spotanim_2220"
+    },
+    {
+      "key": "MODEL:45299",
+      "type": "MODEL",
+      "id": 45299
+    },
+    {
+      "key": "SPOTANIM:2224",
+      "type": "SPOTANIM",
+      "id": 2224,
+      "name": "spotanim_2224"
+    },
+    {
+      "key": "MODEL:45241",
+      "type": "MODEL",
+      "id": 45241
+    },
+    {
+      "key": "SPOTANIM:2225",
+      "type": "SPOTANIM",
+      "id": 2225,
+      "name": "spotanim_2225"
+    },
+    {
+      "key": "SPOTANIM:2226",
+      "type": "SPOTANIM",
+      "id": 2226,
+      "name": "spotanim_2226"
+    },
+    {
+      "key": "MODEL:45243",
+      "type": "MODEL",
+      "id": 45243
+    },
+    {
+      "key": "SPOTANIM:2227",
+      "type": "SPOTANIM",
+      "id": 2227,
+      "name": "spotanim_2227"
+    },
+    {
+      "key": "MODEL:6402",
+      "type": "MODEL",
+      "id": 6402
+    },
+    {
+      "key": "SPOTANIM:2228",
+      "type": "SPOTANIM",
+      "id": 2228,
+      "name": "spotanim_2228"
+    },
+    {
+      "key": "MODEL:45510",
+      "type": "MODEL",
+      "id": 45510
+    },
+    {
+      "key": "SPOTANIM:2234",
+      "type": "SPOTANIM",
+      "id": 2234,
+      "name": "spotanim_2234"
+    },
+    {
+      "key": "MODEL:45310",
+      "type": "MODEL",
+      "id": 45310
+    },
+    {
+      "key": "SPOTANIM:2235",
+      "type": "SPOTANIM",
+      "id": 2235,
+      "name": "spotanim_2235"
+    },
+    {
+      "key": "MODEL:45298",
+      "type": "MODEL",
+      "id": 45298
+    },
+    {
+      "key": "SPOTANIM:2236",
+      "type": "SPOTANIM",
+      "id": 2236,
+      "name": "spotanim_2236"
+    },
+    {
+      "key": "SPOTANIM:2241",
+      "type": "SPOTANIM",
+      "id": 2241,
+      "name": "spotanim_2241"
+    },
+    {
+      "key": "MODEL:45294",
+      "type": "MODEL",
+      "id": 45294
+    },
+    {
+      "key": "SPOTANIM:2250",
+      "type": "SPOTANIM",
+      "id": 2250,
+      "name": "spotanim_2250"
+    },
+    {
+      "key": "MODEL:38987",
+      "type": "MODEL",
+      "id": 38987
+    },
+    {
+      "key": "SPOTANIM:2257",
+      "type": "SPOTANIM",
+      "id": 2257,
+      "name": "spotanim_2257"
+    },
+    {
+      "key": "MODEL:6389",
+      "type": "MODEL",
+      "id": 6389
+    },
+    {
+      "key": "SPOTANIM:2266",
+      "type": "SPOTANIM",
+      "id": 2266,
+      "name": "spotanim_2266"
+    },
+    {
+      "key": "MODEL:35034",
+      "type": "MODEL",
+      "id": 35034
+    }
+  ],
+  "edges": [
+    {
+      "from": "LOC:6483",
+      "to": "MODEL:6266",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:6483",
+      "to": "MODEL:256",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:6483",
+      "to": "MODEL:256",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:6483",
+      "to": "MODEL:256",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:6484",
+      "to": "MODEL:6267",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:6484",
+      "to": "MODEL:256",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:6484",
+      "to": "MODEL:256",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:6484",
+      "to": "MODEL:256",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:6486",
+      "to": "MODEL:6266",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:6486",
+      "to": "MODEL:256",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:6486",
+      "to": "MODEL:256",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:6486",
+      "to": "MODEL:256",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:6487",
+      "to": "MODEL:6267",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:6487",
+      "to": "MODEL:256",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:6487",
+      "to": "MODEL:256",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:6487",
+      "to": "MODEL:256",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:6489",
+      "to": "MODEL:6266",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:6489",
+      "to": "MODEL:256",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:6489",
+      "to": "MODEL:256",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:6489",
+      "to": "MODEL:256",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:6490",
+      "to": "MODEL:6267",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:6490",
+      "to": "MODEL:256",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:6490",
+      "to": "MODEL:256",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:6490",
+      "to": "MODEL:256",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:6492",
+      "to": "MODEL:6266",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:6492",
+      "to": "MODEL:256",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:6492",
+      "to": "MODEL:256",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:6492",
+      "to": "MODEL:256",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:6493",
+      "to": "MODEL:6267",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:6493",
+      "to": "MODEL:256",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:6493",
+      "to": "MODEL:256",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:6493",
+      "to": "MODEL:256",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:6801",
+      "to": "MODEL:10388",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:6801",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:6801",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:6801",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:8961",
+      "to": "MODEL:31095",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:8961",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:8961",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:8961",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:10641",
+      "to": "MODEL:10388",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:10641",
+      "to": "MODEL:10389",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:10641",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:10641",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:10641",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:14825",
+      "to": "MODEL:14776",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:14825",
+      "to": "MODEL:14777",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:14825",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:14825",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:14825",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:14826",
+      "to": "MODEL:14776",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:14826",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:14826",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:14826",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:14827",
+      "to": "MODEL:14776",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:14827",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:14827",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:14827",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:14828",
+      "to": "MODEL:14776",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:14828",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:14828",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:14828",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:14829",
+      "to": "MODEL:14776",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:14829",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:14829",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:14829",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:14830",
+      "to": "MODEL:14776",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:14830",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:14830",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:14830",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:14831",
+      "to": "MODEL:14776",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:14831",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:14831",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:14831",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:16470",
+      "to": "MODEL:29104",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:16470",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:16470",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:16470",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:20955",
+      "to": "MODEL:16389",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:20955",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:20955",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:20955",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:29994",
+      "to": "MODEL:84",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:29994",
+      "to": "MODEL:84",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:29994",
+      "to": "MODEL:84",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:29994",
+      "to": "VARBIT:14356",
+      "field": "multiVarBit"
+    },
+    {
+      "from": "LOC:29994",
+      "to": "LOC:41696",
+      "field": "transforms"
+    },
+    {
+      "from": "LOC:29994",
+      "to": "LOC:44786",
+      "field": "transforms"
+    },
+    {
+      "from": "LOC:29994",
+      "to": "LOC:44790",
+      "field": "transforms"
+    },
+    {
+      "from": "LOC:31554",
+      "to": "MODEL:34164",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:31554",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:31554",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:31554",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:32506",
+      "to": "MODEL:16367",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:32506",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:32506",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:32506",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:32656",
+      "to": "MODEL:5273",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:32656",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:32656",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:32656",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:42085",
+      "to": "MODEL:31095",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:42085",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:42085",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:42085",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:44296",
+      "to": "MODEL:44214",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:44296",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:44296",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:44296",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:44545",
+      "to": "MODEL:84",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:44545",
+      "to": "MODEL:84",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:44545",
+      "to": "MODEL:84",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:44545",
+      "to": "VARBIT:14357",
+      "field": "multiVarBit"
+    },
+    {
+      "from": "LOC:44545",
+      "to": "LOC:41696",
+      "field": "transforms"
+    },
+    {
+      "from": "LOC:44545",
+      "to": "LOC:44786",
+      "field": "transforms"
+    },
+    {
+      "from": "LOC:44545",
+      "to": "LOC:44791",
+      "field": "transforms"
+    },
+    {
+      "from": "LOC:44547",
+      "to": "MODEL:84",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:44547",
+      "to": "MODEL:84",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:44547",
+      "to": "MODEL:84",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:44547",
+      "to": "VARBIT:14358",
+      "field": "multiVarBit"
+    },
+    {
+      "from": "LOC:44547",
+      "to": "LOC:41696",
+      "field": "transforms"
+    },
+    {
+      "from": "LOC:44547",
+      "to": "LOC:44786",
+      "field": "transforms"
+    },
+    {
+      "from": "LOC:44547",
+      "to": "LOC:44792",
+      "field": "transforms"
+    },
+    {
+      "from": "LOC:44912",
+      "to": "MODEL:10388",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:44912",
+      "to": "MODEL:10389",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:44912",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:44912",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:44912",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:45128",
+      "to": "MODEL:45346",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:45128",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:45128",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:45128",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:45129",
+      "to": "MODEL:45377",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:45129",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:45129",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:45129",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:45138",
+      "to": "MODEL:46430",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:45138",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:45138",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:45138",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:45144",
+      "to": "MODEL:45379",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:45144",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:45144",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:45144",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:45505",
+      "to": "MODEL:46208",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:45505",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:45505",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:45505",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:45506",
+      "to": "MODEL:46208",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:45506",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:45506",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:45506",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:45509",
+      "to": "MODEL:46270",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:45509",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:45509",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:45509",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:45543",
+      "to": "MODEL:45382",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:45543",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:45543",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:45543",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:45579",
+      "to": "MODEL:46208",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:45579",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:45579",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:45579",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:45754",
+      "to": "MODEL:46208",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:45754",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:45754",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:45754",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:45756",
+      "to": "MODEL:45755",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:45756",
+      "to": "MODEL:140",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:45756",
+      "to": "MODEL:140",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:45756",
+      "to": "MODEL:140",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:45844",
+      "to": "MODEL:45378",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:45844",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:45844",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:45844",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:45866",
+      "to": "MODEL:46208",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:45866",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:45866",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:45866",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:46055",
+      "to": "MODEL:45383",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:46055",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:46055",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:46055",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:46068",
+      "to": "MODEL:46201",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:46068",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:46068",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:46068",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:46078",
+      "to": "MODEL:5273",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:46078",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:46078",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:46078",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:46089",
+      "to": "MODEL:45358",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:46089",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:46089",
+      "to": "MODEL:115",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:46089",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:46155",
+      "to": "MODEL:45363",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:46155",
+      "to": "MODEL:45367",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:46155",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:46155",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:46155",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:46156",
+      "to": "MODEL:45363",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:46156",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:46156",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:46156",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:46157",
+      "to": "MODEL:45364",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:46157",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:46157",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:46157",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:46158",
+      "to": "MODEL:45368",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:46158",
+      "to": "MODEL:45361",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:46158",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:46158",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:46158",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:46159",
+      "to": "MODEL:45368",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:46159",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:46159",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:46159",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:46160",
+      "to": "MODEL:45366",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:46160",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:46160",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:46160",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:46161",
+      "to": "MODEL:45363",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:46161",
+      "to": "MODEL:45365",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:46161",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:46161",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:46161",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:46162",
+      "to": "MODEL:45363",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:46162",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:46162",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:46162",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:46163",
+      "to": "MODEL:45364",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:46163",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:46163",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:46163",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:46164",
+      "to": "MODEL:45368",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:46164",
+      "to": "MODEL:45372",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:46164",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:46164",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:46164",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:46165",
+      "to": "MODEL:45368",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:46165",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:46165",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:46165",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:46166",
+      "to": "MODEL:45366",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:46166",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:46166",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:46166",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:46167",
+      "to": "MODEL:45369",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:46167",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:46167",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:46167",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:46168",
+      "to": "MODEL:45370",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:46168",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:46168",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:46168",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:46215",
+      "to": "MODEL:84",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:46215",
+      "to": "MODEL:84",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:46215",
+      "to": "MODEL:84",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:46215",
+      "to": "VARBIT:14359",
+      "field": "multiVarBit"
+    },
+    {
+      "from": "LOC:46215",
+      "to": "LOC:41696",
+      "field": "transforms"
+    },
+    {
+      "from": "LOC:46215",
+      "to": "LOC:44786",
+      "field": "transforms"
+    },
+    {
+      "from": "LOC:46215",
+      "to": "LOC:44790",
+      "field": "transforms"
+    },
+    {
+      "from": "LOC:46216",
+      "to": "MODEL:84",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:46216",
+      "to": "MODEL:84",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:46216",
+      "to": "MODEL:84",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:46216",
+      "to": "VARBIT:14360",
+      "field": "multiVarBit"
+    },
+    {
+      "from": "LOC:46216",
+      "to": "LOC:41696",
+      "field": "transforms"
+    },
+    {
+      "from": "LOC:46216",
+      "to": "LOC:44786",
+      "field": "transforms"
+    },
+    {
+      "from": "LOC:46216",
+      "to": "LOC:44791",
+      "field": "transforms"
+    },
+    {
+      "from": "LOC:46217",
+      "to": "MODEL:84",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:46217",
+      "to": "MODEL:84",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:46217",
+      "to": "MODEL:84",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:46217",
+      "to": "VARBIT:14370",
+      "field": "multiVarBit"
+    },
+    {
+      "from": "LOC:46217",
+      "to": "LOC:41696",
+      "field": "transforms"
+    },
+    {
+      "from": "LOC:46217",
+      "to": "LOC:44786",
+      "field": "transforms"
+    },
+    {
+      "from": "LOC:46217",
+      "to": "LOC:44792",
+      "field": "transforms"
+    },
+    {
+      "from": "LOC:46218",
+      "to": "MODEL:84",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:46218",
+      "to": "MODEL:84",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:46218",
+      "to": "MODEL:84",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:46218",
+      "to": "VARBIT:14371",
+      "field": "multiVarBit"
+    },
+    {
+      "from": "LOC:46218",
+      "to": "LOC:41696",
+      "field": "transforms"
+    },
+    {
+      "from": "LOC:46218",
+      "to": "LOC:44786",
+      "field": "transforms"
+    },
+    {
+      "from": "LOC:46218",
+      "to": "LOC:44790",
+      "field": "transforms"
+    },
+    {
+      "from": "LOC:46219",
+      "to": "MODEL:84",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:46219",
+      "to": "MODEL:84",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:46219",
+      "to": "MODEL:84",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:46219",
+      "to": "VARBIT:14372",
+      "field": "multiVarBit"
+    },
+    {
+      "from": "LOC:46219",
+      "to": "LOC:41696",
+      "field": "transforms"
+    },
+    {
+      "from": "LOC:46219",
+      "to": "LOC:44786",
+      "field": "transforms"
+    },
+    {
+      "from": "LOC:46219",
+      "to": "LOC:44790",
+      "field": "transforms"
+    },
+    {
+      "from": "LOC:46220",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:46220",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:46220",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:46220",
+      "to": "VARBIT:14373",
+      "field": "multiVarBit"
+    },
+    {
+      "from": "LOC:46220",
+      "to": "LOC:44825",
+      "field": "transforms"
+    },
+    {
+      "from": "LOC:46220",
+      "to": "LOC:44826",
+      "field": "transforms"
+    },
+    {
+      "from": "LOC:46223",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:46223",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:46223",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:46223",
+      "to": "VARBIT:14446",
+      "field": "multiVarBit"
+    },
+    {
+      "from": "LOC:46223",
+      "to": "LOC:46075",
+      "field": "transforms"
+    },
+    {
+      "from": "LOC:46223",
+      "to": "LOC:46231",
+      "field": "transforms"
+    },
+    {
+      "from": "LOC:47282",
+      "to": "MODEL:47583",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:47282",
+      "to": "MODEL:47526",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:47282",
+      "to": "MODEL:47536",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:47282",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:47282",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:47282",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:47337",
+      "to": "MODEL:46285",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:47337",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:47337",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:47337",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:50333",
+      "to": "MODEL:50268",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:50333",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:50333",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:50333",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:50334",
+      "to": "MODEL:50262",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:50334",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:50334",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:50334",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:50335",
+      "to": "MODEL:50260",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:50335",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:50335",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:50335",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:50336",
+      "to": "MODEL:50266",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:50336",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:50336",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:50336",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:50338",
+      "to": "MODEL:50269",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:50338",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:50338",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:50338",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:55299",
+      "to": "MODEL:54933",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:55299",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:55299",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:55299",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:55300",
+      "to": "MODEL:54935",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:55300",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:55300",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:55300",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:56937",
+      "to": "MODEL:56350",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:56937",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:56937",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:56937",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:56938",
+      "to": "MODEL:56350",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:56938",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:56938",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:56938",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:56939",
+      "to": "MODEL:10388",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:56939",
+      "to": "MODEL:10389",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:56939",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:56939",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:56939",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "LOC:56940",
+      "to": "MODEL:10388",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:56940",
+      "to": "MODEL:10389",
+      "field": "objectModels"
+    },
+    {
+      "from": "LOC:56940",
+      "to": "MODEL:128",
+      "field": "modelSizeX"
+    },
+    {
+      "from": "LOC:56940",
+      "to": "MODEL:128",
+      "field": "modelSizeZ"
+    },
+    {
+      "from": "LOC:56940",
+      "to": "MODEL:128",
+      "field": "modelSizeY"
+    },
+    {
+      "from": "NPC:1990",
+      "to": "MODEL:383",
+      "field": "models"
+    },
+    {
+      "from": "NPC:1990",
+      "to": "MODEL:487",
+      "field": "models"
+    },
+    {
+      "from": "NPC:1990",
+      "to": "MODEL:18554",
+      "field": "models"
+    },
+    {
+      "from": "NPC:1990",
+      "to": "MODEL:14397",
+      "field": "models"
+    },
+    {
+      "from": "NPC:1990",
+      "to": "MODEL:353",
+      "field": "models"
+    },
+    {
+      "from": "NPC:1990",
+      "to": "MODEL:479",
+      "field": "models"
+    },
+    {
+      "from": "NPC:1990",
+      "to": "MODEL:361",
+      "field": "models"
+    },
+    {
+      "from": "NPC:1990",
+      "to": "MODEL:417",
+      "field": "models"
+    },
+    {
+      "from": "NPC:1990",
+      "to": "MODEL:437",
+      "field": "models"
+    },
+    {
+      "from": "NPC:1990",
+      "to": "MODEL:107",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:1990",
+      "to": "MODEL:136",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:1990",
+      "to": "SEQUENCE:808",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:1990",
+      "to": "SEQUENCE:819",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:1990",
+      "to": "SEQUENCE:820",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:1990",
+      "to": "SEQUENCE:821",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:1990",
+      "to": "SEQUENCE:822",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:3837",
+      "to": "MODEL:12140",
+      "field": "models"
+    },
+    {
+      "from": "NPC:3837",
+      "to": "MODEL:10078",
+      "field": "models"
+    },
+    {
+      "from": "NPC:3837",
+      "to": "MODEL:16506",
+      "field": "models"
+    },
+    {
+      "from": "NPC:3837",
+      "to": "MODEL:16494",
+      "field": "models"
+    },
+    {
+      "from": "NPC:3837",
+      "to": "MODEL:353",
+      "field": "models"
+    },
+    {
+      "from": "NPC:3837",
+      "to": "MODEL:534",
+      "field": "models"
+    },
+    {
+      "from": "NPC:3837",
+      "to": "MODEL:16503",
+      "field": "models"
+    },
+    {
+      "from": "NPC:3837",
+      "to": "MODEL:270",
+      "field": "models"
+    },
+    {
+      "from": "NPC:3837",
+      "to": "MODEL:437",
+      "field": "models"
+    },
+    {
+      "from": "NPC:3837",
+      "to": "MODEL:9358",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:3837",
+      "to": "MODEL:16466",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:3837",
+      "to": "SEQUENCE:4424",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:3837",
+      "to": "SEQUENCE:4426",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:3837",
+      "to": "SEQUENCE:4427",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:3837",
+      "to": "SEQUENCE:4428",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:3837",
+      "to": "SEQUENCE:4429",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:4619",
+      "to": "MODEL:405",
+      "field": "models"
+    },
+    {
+      "from": "NPC:4619",
+      "to": "MODEL:462",
+      "field": "models"
+    },
+    {
+      "from": "NPC:4619",
+      "to": "MODEL:3848",
+      "field": "models"
+    },
+    {
+      "from": "NPC:4619",
+      "to": "MODEL:353",
+      "field": "models"
+    },
+    {
+      "from": "NPC:4619",
+      "to": "MODEL:14421",
+      "field": "models"
+    },
+    {
+      "from": "NPC:4619",
+      "to": "MODEL:361",
+      "field": "models"
+    },
+    {
+      "from": "NPC:4619",
+      "to": "MODEL:377",
+      "field": "models"
+    },
+    {
+      "from": "NPC:4619",
+      "to": "MODEL:122",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:4619",
+      "to": "MODEL:102",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:4619",
+      "to": "SEQUENCE:808",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:4619",
+      "to": "SEQUENCE:819",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:4619",
+      "to": "SEQUENCE:820",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:4619",
+      "to": "SEQUENCE:821",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:4619",
+      "to": "SEQUENCE:822",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:6866",
+      "to": "MODEL:215",
+      "field": "models"
+    },
+    {
+      "from": "NPC:6866",
+      "to": "MODEL:29774",
+      "field": "models"
+    },
+    {
+      "from": "NPC:6866",
+      "to": "MODEL:29713",
+      "field": "models"
+    },
+    {
+      "from": "NPC:6866",
+      "to": "MODEL:29698",
+      "field": "models"
+    },
+    {
+      "from": "NPC:6866",
+      "to": "MODEL:29708",
+      "field": "models"
+    },
+    {
+      "from": "NPC:6866",
+      "to": "MODEL:29783",
+      "field": "models"
+    },
+    {
+      "from": "NPC:6866",
+      "to": "MODEL:250",
+      "field": "models"
+    },
+    {
+      "from": "NPC:6866",
+      "to": "MODEL:53",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:6866",
+      "to": "MODEL:82",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:6866",
+      "to": "SEQUENCE:808",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:6866",
+      "to": "SEQUENCE:819",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:6866",
+      "to": "SEQUENCE:820",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:6866",
+      "to": "SEQUENCE:821",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:6866",
+      "to": "SEQUENCE:822",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:10680",
+      "to": "MODEL:46399",
+      "field": "models"
+    },
+    {
+      "from": "NPC:10680",
+      "to": "SEQUENCE:9618",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11480",
+      "to": "MODEL:44177",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11480",
+      "to": "MODEL:44756",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11480",
+      "to": "SEQUENCE:808",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11480",
+      "to": "SEQUENCE:819",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11480",
+      "to": "SEQUENCE:820",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:11480",
+      "to": "SEQUENCE:821",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:11480",
+      "to": "SEQUENCE:822",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:11481",
+      "to": "MODEL:44177",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11481",
+      "to": "MODEL:44756",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11481",
+      "to": "SEQUENCE:808",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11481",
+      "to": "SEQUENCE:819",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11481",
+      "to": "SEQUENCE:820",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:11481",
+      "to": "SEQUENCE:821",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:11481",
+      "to": "SEQUENCE:822",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:11482",
+      "to": "MODEL:44176",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11482",
+      "to": "MODEL:44757",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11482",
+      "to": "SEQUENCE:808",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11482",
+      "to": "SEQUENCE:819",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11482",
+      "to": "SEQUENCE:820",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:11482",
+      "to": "SEQUENCE:821",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:11482",
+      "to": "SEQUENCE:822",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:11483",
+      "to": "MODEL:44176",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11483",
+      "to": "MODEL:44757",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11483",
+      "to": "SEQUENCE:808",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11483",
+      "to": "SEQUENCE:819",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11483",
+      "to": "SEQUENCE:820",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:11483",
+      "to": "SEQUENCE:821",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:11483",
+      "to": "SEQUENCE:822",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:11591",
+      "to": "MODEL:390",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11591",
+      "to": "MODEL:449",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11591",
+      "to": "MODEL:18914",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11591",
+      "to": "MODEL:479",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11591",
+      "to": "MODEL:3848",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11591",
+      "to": "MODEL:353",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11591",
+      "to": "MODEL:3711",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11591",
+      "to": "MODEL:14421",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11591",
+      "to": "MODEL:361",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11591",
+      "to": "MODEL:437",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11591",
+      "to": "MODEL:113",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11591",
+      "to": "MODEL:6461",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11591",
+      "to": "SEQUENCE:808",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11591",
+      "to": "SEQUENCE:1146",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11653",
+      "to": "MODEL:46332",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11653",
+      "to": "MODEL:46457",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11653",
+      "to": "SEQUENCE:9656",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11653",
+      "to": "SEQUENCE:9652",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11654",
+      "to": "MODEL:46402",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11654",
+      "to": "MODEL:46459",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11654",
+      "to": "SEQUENCE:9537",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11654",
+      "to": "SEQUENCE:9536",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11655",
+      "to": "MODEL:46402",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11655",
+      "to": "MODEL:46459",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11655",
+      "to": "SEQUENCE:9535",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11655",
+      "to": "SEQUENCE:9536",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11656",
+      "to": "MODEL:46402",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11656",
+      "to": "MODEL:46459",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11656",
+      "to": "SEQUENCE:9535",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11656",
+      "to": "SEQUENCE:9536",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11657",
+      "to": "MODEL:46403",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11657",
+      "to": "MODEL:46458",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11657",
+      "to": "SEQUENCE:9534",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11657",
+      "to": "SEQUENCE:9533",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11659",
+      "to": "MODEL:46403",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11659",
+      "to": "MODEL:46458",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11659",
+      "to": "SEQUENCE:9532",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11659",
+      "to": "SEQUENCE:9533",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11660",
+      "to": "MODEL:46403",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11660",
+      "to": "MODEL:46458",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11660",
+      "to": "SEQUENCE:9532",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11660",
+      "to": "SEQUENCE:9533",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11661",
+      "to": "MODEL:44749",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11661",
+      "to": "MODEL:46455",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11661",
+      "to": "SEQUENCE:9531",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11661",
+      "to": "SEQUENCE:9530",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11662",
+      "to": "MODEL:44749",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11662",
+      "to": "MODEL:46455",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11662",
+      "to": "SEQUENCE:9529",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11662",
+      "to": "SEQUENCE:9530",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11663",
+      "to": "MODEL:44749",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11663",
+      "to": "MODEL:46455",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11663",
+      "to": "SEQUENCE:9529",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11663",
+      "to": "SEQUENCE:9530",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11686",
+      "to": "MODEL:46401",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11686",
+      "to": "MODEL:46450",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11686",
+      "to": "SEQUENCE:9540",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11686",
+      "to": "SEQUENCE:9539",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11687",
+      "to": "MODEL:46401",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11687",
+      "to": "MODEL:46450",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11687",
+      "to": "SEQUENCE:9538",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11687",
+      "to": "SEQUENCE:9539",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11688",
+      "to": "MODEL:46401",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11688",
+      "to": "MODEL:46450",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11688",
+      "to": "SEQUENCE:9538",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11688",
+      "to": "SEQUENCE:9539",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11689",
+      "to": "MODEL:46340",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11689",
+      "to": "MODEL:46453",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11689",
+      "to": "SEQUENCE:5530",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11689",
+      "to": "SEQUENCE:5531",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11690",
+      "to": "MODEL:46340",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11690",
+      "to": "MODEL:46453",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11690",
+      "to": "SEQUENCE:5530",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11690",
+      "to": "SEQUENCE:5531",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11692",
+      "to": "MODEL:46340",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11692",
+      "to": "MODEL:46453",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11692",
+      "to": "SEQUENCE:5530",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11692",
+      "to": "SEQUENCE:5531",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11693",
+      "to": "MODEL:46340",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11693",
+      "to": "MODEL:46453",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11693",
+      "to": "SEQUENCE:5530",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11693",
+      "to": "SEQUENCE:5531",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11694",
+      "to": "MODEL:10213",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11694",
+      "to": "MODEL:10121",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11694",
+      "to": "SEQUENCE:2906",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11694",
+      "to": "SEQUENCE:2907",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11696",
+      "to": "MODEL:45259",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11696",
+      "to": "MODEL:46460",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11696",
+      "to": "SEQUENCE:808",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11696",
+      "to": "SEQUENCE:819",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11696",
+      "to": "SEQUENCE:820",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:11696",
+      "to": "SEQUENCE:821",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:11696",
+      "to": "SEQUENCE:822",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:11706",
+      "to": "MODEL:46296",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11707",
+      "to": "MODEL:46295",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11719",
+      "to": "MODEL:46417",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11719",
+      "to": "SEQUENCE:9572",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11719",
+      "to": "SEQUENCE:9572",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11720",
+      "to": "MODEL:46417",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11720",
+      "to": "SEQUENCE:9580",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11720",
+      "to": "SEQUENCE:9580",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11721",
+      "to": "MODEL:46417",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11721",
+      "to": "SEQUENCE:9572",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11721",
+      "to": "SEQUENCE:9572",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11722",
+      "to": "MODEL:46417",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11722",
+      "to": "SEQUENCE:9583",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11722",
+      "to": "SEQUENCE:9583",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11724",
+      "to": "MODEL:46424",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11724",
+      "to": "SEQUENCE:9586",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11724",
+      "to": "SEQUENCE:9584",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11724",
+      "to": "SEQUENCE:9585",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:11724",
+      "to": "SEQUENCE:9584",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:11724",
+      "to": "SEQUENCE:9584",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:11725",
+      "to": "MODEL:46428",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11725",
+      "to": "SEQUENCE:9586",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11725",
+      "to": "SEQUENCE:9584",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11725",
+      "to": "SEQUENCE:9585",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:11725",
+      "to": "SEQUENCE:9584",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:11725",
+      "to": "SEQUENCE:9584",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:11726",
+      "to": "MODEL:46423",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11726",
+      "to": "SEQUENCE:9594",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11726",
+      "to": "SEQUENCE:9592",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11728",
+      "to": "MODEL:46419",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11730",
+      "to": "MODEL:46399",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11730",
+      "to": "SEQUENCE:9618",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11731",
+      "to": "MODEL:46400",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11731",
+      "to": "SEQUENCE:9619",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11732",
+      "to": "MODEL:46399",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11732",
+      "to": "SEQUENCE:9618",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11733",
+      "to": "MODEL:46399",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11733",
+      "to": "SEQUENCE:9636",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11734",
+      "to": "MODEL:46400",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11734",
+      "to": "SEQUENCE:9637",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11746",
+      "to": "MODEL:46332",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11746",
+      "to": "SEQUENCE:9665",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11746",
+      "to": "SEQUENCE:9649",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11747",
+      "to": "MODEL:46337",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11747",
+      "to": "SEQUENCE:9665",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11747",
+      "to": "SEQUENCE:9649",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11748",
+      "to": "MODEL:46332",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11748",
+      "to": "SEQUENCE:9665",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11748",
+      "to": "SEQUENCE:9649",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11749",
+      "to": "MODEL:46337",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11749",
+      "to": "SEQUENCE:9665",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11749",
+      "to": "SEQUENCE:9649",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11753",
+      "to": "MODEL:46332",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11753",
+      "to": "SEQUENCE:9653",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11753",
+      "to": "SEQUENCE:9649",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11753",
+      "to": "SPOTANIM:440",
+      "field": "headIconGraphics"
+    },
+    {
+      "from": "NPC:11754",
+      "to": "MODEL:46332",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11754",
+      "to": "SEQUENCE:9653",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11754",
+      "to": "SEQUENCE:9649",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11754",
+      "to": "SPOTANIM:440",
+      "field": "headIconGraphics"
+    },
+    {
+      "from": "NPC:11755",
+      "to": "MODEL:46336",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11755",
+      "to": "SEQUENCE:9671",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11755",
+      "to": "SEQUENCE:9671",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11756",
+      "to": "MODEL:46337",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11756",
+      "to": "SEQUENCE:9653",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11756",
+      "to": "SEQUENCE:9649",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11756",
+      "to": "SPOTANIM:440",
+      "field": "headIconGraphics"
+    },
+    {
+      "from": "NPC:11757",
+      "to": "MODEL:46337",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11757",
+      "to": "SEQUENCE:9653",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11757",
+      "to": "SEQUENCE:9649",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11757",
+      "to": "SPOTANIM:440",
+      "field": "headIconGraphics"
+    },
+    {
+      "from": "NPC:11758",
+      "to": "MODEL:46334",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11758",
+      "to": "SEQUENCE:9671",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11758",
+      "to": "SEQUENCE:9671",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11759",
+      "to": "MODEL:46335",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11759",
+      "to": "SEQUENCE:9654",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11759",
+      "to": "SEQUENCE:9649",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11760",
+      "to": "MODEL:46333",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11760",
+      "to": "SEQUENCE:9654",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11760",
+      "to": "SEQUENCE:9649",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11761",
+      "to": "MODEL:46335",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11761",
+      "to": "MODEL:46331",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11761",
+      "to": "SEQUENCE:9657",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11761",
+      "to": "SEQUENCE:9657",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11762",
+      "to": "MODEL:46333",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11762",
+      "to": "MODEL:46331",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11762",
+      "to": "SEQUENCE:9657",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11762",
+      "to": "SEQUENCE:9657",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11763",
+      "to": "MODEL:46335",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11763",
+      "to": "MODEL:46331",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11763",
+      "to": "SEQUENCE:9683",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11763",
+      "to": "SEQUENCE:9683",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11763",
+      "to": "SPOTANIM:440",
+      "field": "headIconGraphics"
+    },
+    {
+      "from": "NPC:11764",
+      "to": "MODEL:46333",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11764",
+      "to": "MODEL:46331",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11764",
+      "to": "SEQUENCE:9683",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11764",
+      "to": "SEQUENCE:9683",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11764",
+      "to": "SPOTANIM:440",
+      "field": "headIconGraphics"
+    },
+    {
+      "from": "NPC:11771",
+      "to": "MODEL:45293",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11771",
+      "to": "SEQUENCE:9704",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11772",
+      "to": "MODEL:45242",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11772",
+      "to": "SEQUENCE:9736",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11774",
+      "to": "MODEL:46398",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11774",
+      "to": "SEQUENCE:9618",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11775",
+      "to": "MODEL:46343",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11775",
+      "to": "MODEL:46350",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11775",
+      "to": "SEQUENCE:9741",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11775",
+      "to": "SEQUENCE:9737",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11775",
+      "to": "SEQUENCE:9738",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:11775",
+      "to": "SEQUENCE:9737",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:11775",
+      "to": "SEQUENCE:9737",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:11776",
+      "to": "MODEL:46416",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11776",
+      "to": "SEQUENCE:9572",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11776",
+      "to": "SEQUENCE:9572",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11777",
+      "to": "MODEL:46368",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11777",
+      "to": "MODEL:46363",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11777",
+      "to": "SEQUENCE:9760",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11777",
+      "to": "SEQUENCE:9764",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11777",
+      "to": "SEQUENCE:9768",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:11777",
+      "to": "SEQUENCE:9764",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:11777",
+      "to": "SEQUENCE:9764",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:11778",
+      "to": "MODEL:46352",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11778",
+      "to": "MODEL:46350",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11778",
+      "to": "SEQUENCE:9741",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11778",
+      "to": "SEQUENCE:9737",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11778",
+      "to": "SEQUENCE:9738",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:11778",
+      "to": "SEQUENCE:9737",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:11778",
+      "to": "SEQUENCE:9737",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:11779",
+      "to": "MODEL:46352",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11779",
+      "to": "MODEL:46350",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11779",
+      "to": "SEQUENCE:9741",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11779",
+      "to": "SEQUENCE:9737",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11779",
+      "to": "SEQUENCE:9738",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:11779",
+      "to": "SEQUENCE:9737",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:11779",
+      "to": "SEQUENCE:9737",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:11780",
+      "to": "MODEL:46352",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11780",
+      "to": "MODEL:46350",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11780",
+      "to": "SEQUENCE:9750",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11780",
+      "to": "SEQUENCE:9737",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11780",
+      "to": "SEQUENCE:9738",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:11780",
+      "to": "SEQUENCE:9737",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:11780",
+      "to": "SEQUENCE:9737",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:11784",
+      "to": "MODEL:46264",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11789",
+      "to": "MODEL:46360",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11789",
+      "to": "MODEL:46356",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11789",
+      "to": "MODEL:46357",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11789",
+      "to": "SEQUENCE:9760",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11789",
+      "to": "SEQUENCE:9764",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11789",
+      "to": "SEQUENCE:9768",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:11789",
+      "to": "SEQUENCE:9764",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:11789",
+      "to": "SEQUENCE:9764",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:11789",
+      "to": "SPOTANIM:440",
+      "field": "headIconGraphics"
+    },
+    {
+      "from": "NPC:11790",
+      "to": "MODEL:46360",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11790",
+      "to": "MODEL:46356",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11790",
+      "to": "MODEL:46357",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11790",
+      "to": "SEQUENCE:9760",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11790",
+      "to": "SEQUENCE:9764",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11790",
+      "to": "SEQUENCE:9768",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:11790",
+      "to": "SEQUENCE:9764",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:11790",
+      "to": "SEQUENCE:9764",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:11790",
+      "to": "SPOTANIM:440",
+      "field": "headIconGraphics"
+    },
+    {
+      "from": "NPC:11791",
+      "to": "MODEL:46360",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11791",
+      "to": "MODEL:46356",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11791",
+      "to": "MODEL:46357",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11791",
+      "to": "SEQUENCE:9760",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11791",
+      "to": "SEQUENCE:9764",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11791",
+      "to": "SEQUENCE:9768",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:11791",
+      "to": "SEQUENCE:9764",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:11791",
+      "to": "SEQUENCE:9764",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:11791",
+      "to": "SPOTANIM:440",
+      "field": "headIconGraphics"
+    },
+    {
+      "from": "NPC:11792",
+      "to": "MODEL:46360",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11792",
+      "to": "MODEL:46356",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11792",
+      "to": "MODEL:46357",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11792",
+      "to": "SEQUENCE:9760",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11792",
+      "to": "SEQUENCE:9764",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11792",
+      "to": "SEQUENCE:9768",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:11792",
+      "to": "SEQUENCE:9764",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:11792",
+      "to": "SEQUENCE:9764",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:11792",
+      "to": "SPOTANIM:440",
+      "field": "headIconGraphics"
+    },
+    {
+      "from": "NPC:11793",
+      "to": "MODEL:46360",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11793",
+      "to": "MODEL:46356",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11793",
+      "to": "MODEL:46357",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11793",
+      "to": "SEQUENCE:9760",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11793",
+      "to": "SEQUENCE:9764",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11793",
+      "to": "SEQUENCE:9768",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:11793",
+      "to": "SEQUENCE:9764",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:11793",
+      "to": "SEQUENCE:9764",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:11793",
+      "to": "SPOTANIM:440",
+      "field": "headIconGraphics"
+    },
+    {
+      "from": "NPC:11794",
+      "to": "MODEL:46360",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11794",
+      "to": "MODEL:46356",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11794",
+      "to": "MODEL:46357",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11794",
+      "to": "SEQUENCE:9760",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11794",
+      "to": "SEQUENCE:9764",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11794",
+      "to": "SEQUENCE:9768",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:11794",
+      "to": "SEQUENCE:9764",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:11794",
+      "to": "SEQUENCE:9764",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:11794",
+      "to": "SPOTANIM:440",
+      "field": "headIconGraphics"
+    },
+    {
+      "from": "NPC:11795",
+      "to": "MODEL:46360",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11795",
+      "to": "MODEL:46356",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11795",
+      "to": "MODEL:46357",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11795",
+      "to": "SEQUENCE:9760",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11795",
+      "to": "SEQUENCE:9764",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11795",
+      "to": "SEQUENCE:9768",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:11795",
+      "to": "SEQUENCE:9764",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:11795",
+      "to": "SEQUENCE:9764",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:11795",
+      "to": "SPOTANIM:440",
+      "field": "headIconGraphics"
+    },
+    {
+      "from": "NPC:11796",
+      "to": "MODEL:46360",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11796",
+      "to": "MODEL:46356",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11796",
+      "to": "MODEL:46357",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11796",
+      "to": "SEQUENCE:9760",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11796",
+      "to": "SEQUENCE:9764",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11796",
+      "to": "SEQUENCE:9768",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:11796",
+      "to": "SEQUENCE:9764",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:11796",
+      "to": "SEQUENCE:9764",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:11796",
+      "to": "SPOTANIM:440",
+      "field": "headIconGraphics"
+    },
+    {
+      "from": "NPC:11797",
+      "to": "MODEL:46367",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11797",
+      "to": "MODEL:46370",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11797",
+      "to": "MODEL:46369",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11797",
+      "to": "SEQUENCE:9760",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11797",
+      "to": "SEQUENCE:9764",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11797",
+      "to": "SEQUENCE:9768",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:11797",
+      "to": "SEQUENCE:9764",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:11797",
+      "to": "SEQUENCE:9764",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:11798",
+      "to": "MODEL:46367",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11798",
+      "to": "MODEL:46370",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11798",
+      "to": "MODEL:46369",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11798",
+      "to": "SEQUENCE:9760",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11798",
+      "to": "SEQUENCE:9764",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11798",
+      "to": "SEQUENCE:9768",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:11798",
+      "to": "SEQUENCE:9764",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:11798",
+      "to": "SEQUENCE:9764",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:11799",
+      "to": "MODEL:46367",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11799",
+      "to": "MODEL:46370",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11799",
+      "to": "MODEL:46369",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11799",
+      "to": "SEQUENCE:9760",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11799",
+      "to": "SEQUENCE:9764",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11799",
+      "to": "SEQUENCE:9768",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:11799",
+      "to": "SEQUENCE:9764",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:11799",
+      "to": "SEQUENCE:9764",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:11800",
+      "to": "MODEL:45308",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11800",
+      "to": "SEQUENCE:9794",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11800",
+      "to": "SEQUENCE:9794",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11809",
+      "to": "MODEL:46402",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11809",
+      "to": "MODEL:46459",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11809",
+      "to": "SEQUENCE:9535",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11809",
+      "to": "SEQUENCE:9536",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11810",
+      "to": "MODEL:46403",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11810",
+      "to": "MODEL:46458",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11810",
+      "to": "SEQUENCE:9532",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11810",
+      "to": "SEQUENCE:9533",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11811",
+      "to": "MODEL:46401",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11811",
+      "to": "MODEL:46450",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11811",
+      "to": "SEQUENCE:9538",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11811",
+      "to": "SEQUENCE:9539",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11813",
+      "to": "MODEL:46332",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11813",
+      "to": "MODEL:46457",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11813",
+      "to": "SEQUENCE:9656",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11813",
+      "to": "SEQUENCE:9652",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11842",
+      "to": "MODEL:46417",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11842",
+      "to": "MODEL:46517",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11842",
+      "to": "SEQUENCE:9572",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11842",
+      "to": "SEQUENCE:9419",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:11848",
+      "to": "MODEL:46417",
+      "field": "models"
+    },
+    {
+      "from": "NPC:11848",
+      "to": "MODEL:46517",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:11848",
+      "to": "SEQUENCE:9572",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:11848",
+      "to": "SEQUENCE:9419",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:12125",
+      "to": "MODEL:46417",
+      "field": "models"
+    },
+    {
+      "from": "NPC:12125",
+      "to": "SEQUENCE:9572",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:12125",
+      "to": "SEQUENCE:9572",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:12126",
+      "to": "MODEL:46360",
+      "field": "models"
+    },
+    {
+      "from": "NPC:12126",
+      "to": "MODEL:46356",
+      "field": "models"
+    },
+    {
+      "from": "NPC:12126",
+      "to": "MODEL:46357",
+      "field": "models"
+    },
+    {
+      "from": "NPC:12126",
+      "to": "SEQUENCE:9760",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:12126",
+      "to": "SEQUENCE:9764",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:12126",
+      "to": "SEQUENCE:9768",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:12126",
+      "to": "SEQUENCE:9764",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:12126",
+      "to": "SEQUENCE:9764",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:12127",
+      "to": "MODEL:46352",
+      "field": "models"
+    },
+    {
+      "from": "NPC:12127",
+      "to": "MODEL:46350",
+      "field": "models"
+    },
+    {
+      "from": "NPC:12127",
+      "to": "SEQUENCE:9741",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:12127",
+      "to": "SEQUENCE:9737",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:12127",
+      "to": "SEQUENCE:9738",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:12127",
+      "to": "SEQUENCE:9737",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:12127",
+      "to": "SEQUENCE:9737",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "NPC:12128",
+      "to": "MODEL:46399",
+      "field": "models"
+    },
+    {
+      "from": "NPC:12128",
+      "to": "SEQUENCE:9618",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:12129",
+      "to": "MODEL:46400",
+      "field": "models"
+    },
+    {
+      "from": "NPC:12129",
+      "to": "SEQUENCE:9619",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:12130",
+      "to": "MODEL:46337",
+      "field": "models"
+    },
+    {
+      "from": "NPC:12130",
+      "to": "SEQUENCE:9665",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:12130",
+      "to": "SEQUENCE:9649",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:12131",
+      "to": "MODEL:46332",
+      "field": "models"
+    },
+    {
+      "from": "NPC:12131",
+      "to": "SEQUENCE:9653",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:12131",
+      "to": "SEQUENCE:9649",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:13320",
+      "to": "MODEL:50940",
+      "field": "models"
+    },
+    {
+      "from": "NPC:13320",
+      "to": "MODEL:52757",
+      "field": "chatheadModels"
+    },
+    {
+      "from": "NPC:13320",
+      "to": "SEQUENCE:808",
+      "field": "standAnim"
+    },
+    {
+      "from": "NPC:13320",
+      "to": "SEQUENCE:819",
+      "field": "walkAnim"
+    },
+    {
+      "from": "NPC:13320",
+      "to": "SEQUENCE:820",
+      "field": "rotateBackAnim"
+    },
+    {
+      "from": "NPC:13320",
+      "to": "SEQUENCE:821",
+      "field": "walkLeftAnim"
+    },
+    {
+      "from": "NPC:13320",
+      "to": "SEQUENCE:822",
+      "field": "walkRightAnim"
+    },
+    {
+      "from": "OBJ:975",
+      "to": "MODEL:2841",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:975",
+      "to": "MODEL:566",
+      "field": "maleModel0"
+    },
+    {
+      "from": "OBJ:975",
+      "to": "MODEL:42620",
+      "field": "femaleModel0"
+    },
+    {
+      "from": "OBJ:6313",
+      "to": "MODEL:2841",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:6313",
+      "to": "MODEL:566",
+      "field": "maleModel0"
+    },
+    {
+      "from": "OBJ:6313",
+      "to": "MODEL:42620",
+      "field": "femaleModel0"
+    },
+    {
+      "from": "OBJ:6315",
+      "to": "MODEL:2841",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:6315",
+      "to": "MODEL:566",
+      "field": "maleModel0"
+    },
+    {
+      "from": "OBJ:6315",
+      "to": "MODEL:42620",
+      "field": "femaleModel0"
+    },
+    {
+      "from": "OBJ:6317",
+      "to": "MODEL:2841",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:6317",
+      "to": "MODEL:566",
+      "field": "maleModel0"
+    },
+    {
+      "from": "OBJ:6317",
+      "to": "MODEL:42620",
+      "field": "femaleModel0"
+    },
+    {
+      "from": "OBJ:8390",
+      "to": "MODEL:10388",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:21788",
+      "to": "MODEL:34164",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:25975",
+      "to": "MODEL:46473",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:25985",
+      "to": "MODEL:46477",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:25985",
+      "to": "MODEL:45272",
+      "field": "maleModel0"
+    },
+    {
+      "from": "OBJ:25985",
+      "to": "MODEL:45284",
+      "field": "femaleModel0"
+    },
+    {
+      "from": "OBJ:26219",
+      "to": "MODEL:46468",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:26219",
+      "to": "MODEL:45278",
+      "field": "maleModel0"
+    },
+    {
+      "from": "OBJ:26219",
+      "to": "MODEL:45285",
+      "field": "femaleModel0"
+    },
+    {
+      "from": "OBJ:27226",
+      "to": "MODEL:46485",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27226",
+      "to": "MODEL:45248",
+      "field": "maleModel0"
+    },
+    {
+      "from": "OBJ:27226",
+      "to": "MODEL:46454",
+      "field": "maleHeadModel0"
+    },
+    {
+      "from": "OBJ:27226",
+      "to": "MODEL:45262",
+      "field": "femaleModel0"
+    },
+    {
+      "from": "OBJ:27226",
+      "to": "MODEL:46454",
+      "field": "femaleHeadModel0"
+    },
+    {
+      "from": "OBJ:27229",
+      "to": "MODEL:46476",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27229",
+      "to": "MODEL:45257",
+      "field": "maleModel0"
+    },
+    {
+      "from": "OBJ:27229",
+      "to": "MODEL:45270",
+      "field": "femaleModel0"
+    },
+    {
+      "from": "OBJ:27232",
+      "to": "MODEL:46482",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27232",
+      "to": "MODEL:45256",
+      "field": "maleModel0"
+    },
+    {
+      "from": "OBJ:27232",
+      "to": "MODEL:45269",
+      "field": "femaleModel0"
+    },
+    {
+      "from": "OBJ:27246",
+      "to": "MODEL:46474",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27246",
+      "to": "MODEL:45279",
+      "field": "maleModel0"
+    },
+    {
+      "from": "OBJ:27246",
+      "to": "MODEL:45273",
+      "field": "femaleModel0"
+    },
+    {
+      "from": "OBJ:27248",
+      "to": "MODEL:46483",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27251",
+      "to": "MODEL:46472",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27251",
+      "to": "MODEL:45274",
+      "field": "maleModel0"
+    },
+    {
+      "from": "OBJ:27251",
+      "to": "MODEL:45276",
+      "field": "femaleModel0"
+    },
+    {
+      "from": "OBJ:27253",
+      "to": "MODEL:46486",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27253",
+      "to": "MODEL:45280",
+      "field": "maleModel0"
+    },
+    {
+      "from": "OBJ:27253",
+      "to": "MODEL:45283",
+      "field": "femaleModel0"
+    },
+    {
+      "from": "OBJ:27275",
+      "to": "MODEL:46465",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27275",
+      "to": "MODEL:45281",
+      "field": "maleModel0"
+    },
+    {
+      "from": "OBJ:27275",
+      "to": "MODEL:45282",
+      "field": "femaleModel0"
+    },
+    {
+      "from": "OBJ:27277",
+      "to": "MODEL:46464",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27277",
+      "to": "MODEL:45281",
+      "field": "maleModel0"
+    },
+    {
+      "from": "OBJ:27277",
+      "to": "MODEL:45282",
+      "field": "femaleModel0"
+    },
+    {
+      "from": "OBJ:27279",
+      "to": "MODEL:46478",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27283",
+      "to": "MODEL:46487",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27285",
+      "to": "MODEL:46487",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27289",
+      "to": "MODEL:46487",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27302",
+      "to": "MODEL:2794",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27304",
+      "to": "MODEL:2794",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27306",
+      "to": "MODEL:2794",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27308",
+      "to": "MODEL:2794",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27310",
+      "to": "MODEL:2794",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27315",
+      "to": "MODEL:46491",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27317",
+      "to": "MODEL:46495",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27323",
+      "to": "MODEL:46488",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27327",
+      "to": "MODEL:46491",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27329",
+      "to": "MODEL:46495",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27335",
+      "to": "MODEL:46493",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27339",
+      "to": "MODEL:46491",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27341",
+      "to": "MODEL:46494",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27343",
+      "to": "MODEL:46492",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27345",
+      "to": "MODEL:46496",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27347",
+      "to": "MODEL:46491",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27349",
+      "to": "MODEL:46494",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27351",
+      "to": "MODEL:46490",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27354",
+      "to": "MODEL:46457",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27377",
+      "to": "MODEL:7671",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27378",
+      "to": "MODEL:10349",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27379",
+      "to": "MODEL:16382",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27380",
+      "to": "MODEL:32753",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27384",
+      "to": "MODEL:46517",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:27870",
+      "to": "MODEL:46473",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:28507",
+      "to": "MODEL:42893",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:28508",
+      "to": "MODEL:42905",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:28547",
+      "to": "MODEL:49498",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:28547",
+      "to": "MODEL:49479",
+      "field": "maleModel0"
+    },
+    {
+      "from": "OBJ:28547",
+      "to": "MODEL:49480",
+      "field": "femaleModel0"
+    },
+    {
+      "from": "OBJ:28549",
+      "to": "MODEL:49498",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:28549",
+      "to": "MODEL:49479",
+      "field": "maleModel0"
+    },
+    {
+      "from": "OBJ:28549",
+      "to": "MODEL:49480",
+      "field": "femaleModel0"
+    },
+    {
+      "from": "OBJ:30891",
+      "to": "MODEL:46480",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "OBJ:30891",
+      "to": "MODEL:45275",
+      "field": "maleModel0"
+    },
+    {
+      "from": "OBJ:30891",
+      "to": "MODEL:45277",
+      "field": "femaleModel0"
+    },
+    {
+      "from": "OBJ:30893",
+      "to": "MODEL:46487",
+      "field": "inventoryModel"
+    },
+    {
+      "from": "SEQUENCE:424",
+      "to": "FRAME:11000",
+      "field": "frameIDs:1"
+    },
+    {
+      "from": "SEQUENCE:424",
+      "to": "FRAME:11000",
+      "field": "frameIDs:2"
+    },
+    {
+      "from": "SEQUENCE:424",
+      "to": "FRAME:11000",
+      "field": "frameIDs:3"
+    },
+    {
+      "from": "SEQUENCE:424",
+      "to": "FRAME:11000",
+      "field": "frameIDs:4"
+    },
+    {
+      "from": "SEQUENCE:424",
+      "to": "FRAME:11000",
+      "field": "frameIDs:5"
+    },
+    {
+      "from": "SEQUENCE:424",
+      "to": "FRAME:0",
+      "field": "frameDelays:8"
+    },
+    {
+      "from": "SEQUENCE:424",
+      "to": "FRAME:0",
+      "field": "frameDelays:6"
+    },
+    {
+      "from": "SEQUENCE:424",
+      "to": "FRAME:0",
+      "field": "frameDelays:5"
+    },
+    {
+      "from": "SEQUENCE:424",
+      "to": "FRAME:0",
+      "field": "frameDelays:4"
+    },
+    {
+      "from": "SEQUENCE:424",
+      "to": "FRAME:0",
+      "field": "frameDelays:25"
+    },
+    {
+      "from": "SEQUENCE:739",
+      "to": "FRAME:11835",
+      "field": "frameIDs:8"
+    },
+    {
+      "from": "SEQUENCE:739",
+      "to": "FRAME:0",
+      "field": "frameDelays:3"
+    },
+    {
+      "from": "SEQUENCE:739",
+      "to": "FRAME:0",
+      "field": "frameStep:1"
+    },
+    {
+      "from": "SEQUENCE:829",
+      "to": "FRAME:11006",
+      "field": "frameIDs:1"
+    },
+    {
+      "from": "SEQUENCE:829",
+      "to": "FRAME:11006",
+      "field": "frameIDs:2"
+    },
+    {
+      "from": "SEQUENCE:829",
+      "to": "FRAME:11006",
+      "field": "frameIDs:3"
+    },
+    {
+      "from": "SEQUENCE:829",
+      "to": "FRAME:11006",
+      "field": "frameIDs:4"
+    },
+    {
+      "from": "SEQUENCE:829",
+      "to": "FRAME:11006",
+      "field": "frameIDs:5"
+    },
+    {
+      "from": "SEQUENCE:829",
+      "to": "FRAME:11006",
+      "field": "frameIDs:6"
+    },
+    {
+      "from": "SEQUENCE:829",
+      "to": "FRAME:11006",
+      "field": "frameIDs:7"
+    },
+    {
+      "from": "SEQUENCE:829",
+      "to": "FRAME:11006",
+      "field": "frameIDs:8"
+    },
+    {
+      "from": "SEQUENCE:829",
+      "to": "FRAME:0",
+      "field": "frameDelays:4"
+    },
+    {
+      "from": "SEQUENCE:829",
+      "to": "FRAME:0",
+      "field": "frameDelays:3"
+    },
+    {
+      "from": "SEQUENCE:829",
+      "to": "FRAME:0",
+      "field": "frameDelays:10"
+    },
+    {
+      "from": "SEQUENCE:829",
+      "to": "FRAME:0",
+      "field": "frameDelays:20"
+    },
+    {
+      "from": "SEQUENCE:9576",
+      "to": "SKELETAL_ANIMATION:458",
+      "field": "skeletalId"
+    },
+    {
+      "from": "SEQUENCE:9577",
+      "to": "SKELETAL_ANIMATION:465",
+      "field": "skeletalId"
+    },
+    {
+      "from": "SEQUENCE:9578",
+      "to": "SKELETAL_ANIMATION:470",
+      "field": "skeletalId"
+    },
+    {
+      "from": "SEQUENCE:9579",
+      "to": "SKELETAL_ANIMATION:464",
+      "field": "skeletalId"
+    },
+    {
+      "from": "SEQUENCE:9581",
+      "to": "SKELETAL_ANIMATION:468",
+      "field": "skeletalId"
+    },
+    {
+      "from": "SEQUENCE:9587",
+      "to": "SKELETAL_ANIMATION:57",
+      "field": "skeletalId"
+    },
+    {
+      "from": "SEQUENCE:9588",
+      "to": "SKELETAL_ANIMATION:57",
+      "field": "skeletalId"
+    },
+    {
+      "from": "SEQUENCE:9596",
+      "to": "SKELETAL_ANIMATION:66",
+      "field": "skeletalId"
+    },
+    {
+      "from": "SEQUENCE:9597",
+      "to": "SKELETAL_ANIMATION:68",
+      "field": "skeletalId"
+    },
+    {
+      "from": "SEQUENCE:9605",
+      "to": "SKELETAL_ANIMATION:351",
+      "field": "skeletalId"
+    },
+    {
+      "from": "SEQUENCE:9624",
+      "to": "SKELETAL_ANIMATION:441",
+      "field": "skeletalId"
+    },
+    {
+      "from": "SEQUENCE:9628",
+      "to": "SKELETAL_ANIMATION:440",
+      "field": "skeletalId"
+    },
+    {
+      "from": "SEQUENCE:9632",
+      "to": "SKELETAL_ANIMATION:438",
+      "field": "skeletalId"
+    },
+    {
+      "from": "SEQUENCE:9660",
+      "to": "SKELETAL_ANIMATION:4",
+      "field": "skeletalId"
+    },
+    {
+      "from": "SEQUENCE:9662",
+      "to": "SKELETAL_ANIMATION:31",
+      "field": "skeletalId"
+    },
+    {
+      "from": "SEQUENCE:9670",
+      "to": "SKELETAL_ANIMATION:33",
+      "field": "skeletalId"
+    },
+    {
+      "from": "SEQUENCE:9672",
+      "to": "SKELETAL_ANIMATION:1",
+      "field": "skeletalId"
+    },
+    {
+      "from": "SEQUENCE:9682",
+      "to": "SKELETAL_ANIMATION:27",
+      "field": "skeletalId"
+    },
+    {
+      "from": "SEQUENCE:9683",
+      "to": "FRAME:0",
+      "field": "frameStep:120"
+    },
+    {
+      "from": "SEQUENCE:9683",
+      "to": "SKELETAL_ANIMATION:8",
+      "field": "skeletalId"
+    },
+    {
+      "from": "SEQUENCE:9684",
+      "to": "SKELETAL_ANIMATION:24",
+      "field": "skeletalId"
+    },
+    {
+      "from": "SEQUENCE:9685",
+      "to": "FRAME:0",
+      "field": "frameStep:120"
+    },
+    {
+      "from": "SEQUENCE:9685",
+      "to": "SKELETAL_ANIMATION:3",
+      "field": "skeletalId"
+    },
+    {
+      "from": "SEQUENCE:9743",
+      "to": "SKELETAL_ANIMATION:109",
+      "field": "skeletalId"
+    },
+    {
+      "from": "SEQUENCE:9744",
+      "to": "SKELETAL_ANIMATION:103",
+      "field": "skeletalId"
+    },
+    {
+      "from": "SEQUENCE:9749",
+      "to": "SKELETAL_ANIMATION:118",
+      "field": "skeletalId"
+    },
+    {
+      "from": "SEQUENCE:9770",
+      "to": "SKELETAL_ANIMATION:278",
+      "field": "skeletalId"
+    },
+    {
+      "from": "SEQUENCE:9774",
+      "to": "SKELETAL_ANIMATION:276",
+      "field": "skeletalId"
+    },
+    {
+      "from": "SEQUENCE:9776",
+      "to": "SKELETAL_ANIMATION:280",
+      "field": "skeletalId"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:10577",
+      "field": "frameIDs:1"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:10577",
+      "field": "frameIDs:2"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:10577",
+      "field": "frameIDs:3"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:10577",
+      "field": "frameIDs:4"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:10577",
+      "field": "frameIDs:5"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:10578",
+      "field": "frameIDs:1"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:10578",
+      "field": "frameIDs:2"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:10578",
+      "field": "frameIDs:3"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:10578",
+      "field": "frameIDs:4"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:10567",
+      "field": "frameIDs:1"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:10567",
+      "field": "frameIDs:2"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:10567",
+      "field": "frameIDs:3"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:10567",
+      "field": "frameIDs:4"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:10567",
+      "field": "frameIDs:5"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:10567",
+      "field": "frameIDs:6"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:10567",
+      "field": "frameIDs:7"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:10567",
+      "field": "frameIDs:8"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:10567",
+      "field": "frameIDs:9"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:10567",
+      "field": "frameIDs:10"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:10961",
+      "field": "frameIDs:1"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:10961",
+      "field": "frameIDs:2"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:10961",
+      "field": "frameIDs:3"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:10961",
+      "field": "frameIDs:4"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:10961",
+      "field": "frameIDs:5"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:0",
+      "field": "frameDelays:4"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:0",
+      "field": "frameDelays:2"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:0",
+      "field": "frameDelays:1"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:0",
+      "field": "frameDelays:5"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:0",
+      "field": "frameDelays:6"
+    },
+    {
+      "from": "SEQUENCE:9799",
+      "to": "FRAME:0",
+      "field": "frameDelays:10"
+    },
+    {
+      "from": "SEQUENCE:11799",
+      "to": "FRAME:5926",
+      "field": "frameIDs:1"
+    },
+    {
+      "from": "SEQUENCE:11799",
+      "to": "FRAME:5926",
+      "field": "frameIDs:6"
+    },
+    {
+      "from": "SEQUENCE:11799",
+      "to": "FRAME:5926",
+      "field": "frameIDs:5"
+    },
+    {
+      "from": "SEQUENCE:11799",
+      "to": "FRAME:5926",
+      "field": "frameIDs:2"
+    },
+    {
+      "from": "SEQUENCE:11799",
+      "to": "FRAME:5926",
+      "field": "frameIDs:13"
+    },
+    {
+      "from": "SEQUENCE:11799",
+      "to": "FRAME:5926",
+      "field": "frameIDs:9"
+    },
+    {
+      "from": "SEQUENCE:11799",
+      "to": "FRAME:5926",
+      "field": "frameIDs:14"
+    },
+    {
+      "from": "SEQUENCE:11799",
+      "to": "FRAME:5926",
+      "field": "frameIDs:7"
+    },
+    {
+      "from": "SEQUENCE:11799",
+      "to": "FRAME:5926",
+      "field": "frameIDs:10"
+    },
+    {
+      "from": "SEQUENCE:11799",
+      "to": "FRAME:5926",
+      "field": "frameIDs:3"
+    },
+    {
+      "from": "SEQUENCE:11799",
+      "to": "FRAME:5926",
+      "field": "frameIDs:11"
+    },
+    {
+      "from": "SEQUENCE:11799",
+      "to": "FRAME:5926",
+      "field": "frameIDs:8"
+    },
+    {
+      "from": "SEQUENCE:11799",
+      "to": "FRAME:5926",
+      "field": "frameIDs:12"
+    },
+    {
+      "from": "SEQUENCE:11799",
+      "to": "FRAME:5926",
+      "field": "frameIDs:4"
+    },
+    {
+      "from": "SEQUENCE:11799",
+      "to": "FRAME:5926",
+      "field": "frameIDs:15"
+    },
+    {
+      "from": "SEQUENCE:11799",
+      "to": "FRAME:0",
+      "field": "frameDelays:4"
+    },
+    {
+      "from": "SPOTANIM:157",
+      "to": "MODEL:3116",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:475",
+      "to": "MODEL:9950",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:1304",
+      "to": "MODEL:21501",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:1383",
+      "to": "MODEL:26293",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:1447",
+      "to": "MODEL:34252",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:1555",
+      "to": "MODEL:35394",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2111",
+      "to": "MODEL:34252",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2145",
+      "to": "MODEL:45287",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2146",
+      "to": "MODEL:46405",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2147",
+      "to": "MODEL:46425",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2152",
+      "to": "MODEL:35394",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2156",
+      "to": "MODEL:46421",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2160",
+      "to": "MODEL:46421",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2164",
+      "to": "MODEL:46420",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2165",
+      "to": "MODEL:46419",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2168",
+      "to": "MODEL:46421",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2176",
+      "to": "MODEL:46381",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2178",
+      "to": "MODEL:46383",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2179",
+      "to": "MODEL:46383",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2181",
+      "to": "MODEL:33007",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2187",
+      "to": "MODEL:46387",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2193",
+      "to": "MODEL:3081",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2194",
+      "to": "MODEL:35394",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2198",
+      "to": "MODEL:40177",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2199",
+      "to": "MODEL:40177",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2204",
+      "to": "MODEL:45302",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2206",
+      "to": "MODEL:45301",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2208",
+      "to": "MODEL:33007",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2210",
+      "to": "MODEL:45300",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2220",
+      "to": "MODEL:45299",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2224",
+      "to": "MODEL:45241",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2225",
+      "to": "MODEL:45241",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2226",
+      "to": "MODEL:45243",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2227",
+      "to": "MODEL:6402",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2228",
+      "to": "MODEL:45510",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2234",
+      "to": "MODEL:45310",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2235",
+      "to": "MODEL:45298",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2236",
+      "to": "MODEL:34252",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2241",
+      "to": "MODEL:45294",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2250",
+      "to": "MODEL:38987",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2257",
+      "to": "MODEL:6389",
+      "field": "modelId"
+    },
+    {
+      "from": "SPOTANIM:2266",
+      "to": "MODEL:35034",
+      "field": "modelId"
+    }
+  ]
+}

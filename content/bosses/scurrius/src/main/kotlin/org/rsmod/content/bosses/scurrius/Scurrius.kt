@@ -101,7 +101,7 @@ constructor(
     }
 
     override fun ScriptContext.startup() {
-        BossCombat.register(this, spec, deps)
+        BossCombat.register(this, spec, deps, ownerSlug = "scurrius")
         onOpLoc1("loc.rat_boss_food_pile") { eatFromFoodPile() }
         onOpLoc1("loc.rat_boss_food_pile2") { eatFromFoodPile() }
         val giantRatType =

@@ -41,30 +41,27 @@ public fun InvObj?.isAnyType(type1: ItemServerType, type2: ItemServerType): Bool
     return this != null && (type1.id == id || type2.id == id)
 }
 
-public fun InvObj?.isAnyType(
-    type1: String,
-    type2: String,
-    type3: String,
-): Boolean {
+public fun InvObj?.isAnyType(type1: String, type2: String, type3: String): Boolean {
     contract { returns(true) implies (this@isAnyType != null) }
-    return this != null && (type1.asRSCM(RSCMType.OBJ) == id || type2.asRSCM(RSCMType.OBJ) == id || type3.asRSCM(RSCMType.OBJ) == id)
+    return this != null &&
+        (type1.asRSCM(RSCMType.OBJ) == id ||
+            type2.asRSCM(RSCMType.OBJ) == id ||
+            type3.asRSCM(RSCMType.OBJ) == id)
 }
 
-public fun InvObj?.isAnyType(
-    type1: String,
-    type2: String,
-    type3: String,
-    type4: String,
-): Boolean {
+public fun InvObj?.isAnyType(type1: String, type2: String, type3: String, type4: String): Boolean {
     contract { returns(true) implies (this@isAnyType != null) }
-    return this != null && (type1.asRSCM(RSCMType.OBJ) == id || type2.asRSCM(RSCMType.OBJ) == id || type3.asRSCM(RSCMType.OBJ) == id || type4.asRSCM(RSCMType.OBJ) == id)
+    return this != null &&
+        (type1.asRSCM(RSCMType.OBJ) == id ||
+            type2.asRSCM(RSCMType.OBJ) == id ||
+            type3.asRSCM(RSCMType.OBJ) == id ||
+            type4.asRSCM(RSCMType.OBJ) == id)
 }
 
-public fun InvObj?.isAnyType(
-    type1: String,
-    type2: String,
-    vararg types: String,
-): Boolean {
+public fun InvObj?.isAnyType(type1: String, type2: String, vararg types: String): Boolean {
     contract { returns(true) implies (this@isAnyType != null) }
-    return this != null && (type1.asRSCM(RSCMType.OBJ) == id || type2.asRSCM(RSCMType.OBJ) == id || types.any { it.asRSCM(RSCMType.OBJ) == id })
+    return this != null &&
+        (type1.asRSCM(RSCMType.OBJ) == id ||
+            type2.asRSCM(RSCMType.OBJ) == id ||
+            types.any { it.asRSCM(RSCMType.OBJ) == id })
 }

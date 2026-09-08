@@ -17,10 +17,18 @@ dependencies {
     implementation(projects.api.npc)
     implementation(projects.api.player)
     implementation(projects.api.script)
+    implementation(projects.api.scriptAdvanced)
 
     implementation(projects.api.utils.utilsVars)
     implementation(projects.engine.events)
     implementation(projects.engine.game)
     implementation(projects.engine.map)
     implementation(projects.engine.plugin)
+
+    testImplementation(kotlin("test"))
+    testImplementation(libs.fastutil)
+}
+
+tasks.test {
+    workingDir = rootDir
 }

@@ -100,9 +100,7 @@ internal object SlayerRewardUnlocks {
             return
         }
 
-        access.mes("You've disabled '${unlockRow.name}'.")
-        clearUnlockBit(access, unlockRow.bit)
-        SlayerRewardsPoints.syncPoints(access)
+        access.mes("'${unlockRow.name}' is a permanent unlock and cannot be disabled.")
     }
 
     private fun toggleReward(
@@ -126,14 +124,6 @@ internal object SlayerRewardUnlocks {
         toggleVarbitsByBit[unlockRow.bit]?.let { return it }
         val dbrow = ServerCacheManager.getDbrow(unlockRow.rowId) ?: return null
         return toggleVarbitsByUnlockRow[dbrow]
-    }
-
-    private fun clearUnlockBit(access: ProtectedAccess, bit: Int) {
-        val varp =
-            if (bit < 32) "varp.slayer_rewards_unlocks"
-            else "varp.slayer_rewards_unlocks1"
-        val mask = 1 shl (bit % 32)
-        VarPlayerIntMapSetter.set(access.player, varp, access.vars[varp] and mask.inv())
     }
 
     private const val EXTEND_TAB = 1

@@ -1,11 +1,7 @@
 package org.rsmod.tools.wiki.dumping.wiki
 
 /** Inner roll when accessing the herb drop table (1, 2, or 3 independent herb rolls). */
-data class HerbRollVariant(
-    val herbCount: Int,
-    val numerator: Int,
-    val denominator: Int,
-) {
+data class HerbRollVariant(val herbCount: Int, val numerator: Int, val denominator: Int) {
     init {
         require(herbCount in 1..3) { "herbCount must be 1..3" }
         require(denominator > 0) { "denominator must be positive" }

@@ -3,7 +3,6 @@ package org.rsmod.api.player.music
 import dev.openrune.rscm.RSCM
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
-import dev.openrune.types.aconverted.AreaType
 import jakarta.inject.Inject
 import org.rsmod.api.music.Music
 import org.rsmod.api.music.MusicRepository
@@ -62,6 +61,40 @@ internal constructor(private val random: GameRandom, private val repo: MusicRepo
             playNext(player)
         }
     }
+
+    /** Plays a cache MIDI while retaining enough state to restore the player's previous track. */
+    public fun playTemporaryMidi(
+        player: Player,
+        midiId: Int,
+        unlock: Boolean = true,
+    ): MusicRestorePoint? {
+        val music = repo.getAll().firstOrNull { it.midi.id == midiId } ?: return null
+        val restorePoint = MusicRestorePoint(player.currMusicId, player.lastMusicId)
+        if (unlock && music.canUnlock) {
+            unlock(player, music)
+        }
+        play(player, music)
+        return restorePoint
+    }
+
+    /** Restores a track replaced by [playTemporaryMidi], including the prior last-track state. */
+    public fun restoreTemporaryMusic(player: Player, restorePoint: MusicRestorePoint) {
+        val previous = repo.forId(restorePoint.currentMusicId)
+        if (previous == null) {
+            player.currMusicId = 0
+            player.musicClocks = 0
+            player.musicDuration = 0
+            player.midiSong("midi.stop_music", fadeOutSpeed = MUSIC_END_FADE)
+            setEmptyMusicText(player)
+        } else {
+            player.currMusicId = 0
+            play(player, previous)
+        }
+        player.lastMusicId = restorePoint.lastMusicId
+    }
+
+    public data class MusicRestorePoint
+    internal constructor(val currentMusicId: Int, val lastMusicId: Int)
 
     public fun play(player: Player, musicRow: MusicRow) {
         val music = getOrThrow(musicRow)
@@ -168,7 +201,7 @@ internal constructor(private val random: GameRandom, private val repo: MusicRepo
         if (player.currMusicArea == 0) {
             return
         }
-        val area = RSCM.getReverseMapping(RSCMType.AREA,player.currMusicArea - 1)
+        val area = RSCM.getReverseMapping(RSCMType.AREA, player.currMusicArea - 1)
         when (player.areaMode) {
             MusicAreaMode.Modern -> {
                 val modernMusic = repo.getModernArea(area)

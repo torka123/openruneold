@@ -8,10 +8,10 @@ import dtx.core.SingleByFun
 import dtx.core.SingleRollableBuilder
 
 public abstract class AbstractMetaRollableBuilder<
-        Target,
-        RollType,
-        EntryType: MetaRollable<Target, RollType>,
-        BuilderType: AbstractMetaRollableBuilder<Target, RollType, EntryType, BuilderType>
+    Target,
+    RollType,
+    EntryType : MetaRollable<Target, RollType>,
+    BuilderType : AbstractMetaRollableBuilder<Target, RollType, EntryType, BuilderType>,
 > {
 
     public var identifier: String = ""
@@ -64,15 +64,15 @@ public abstract class AbstractMetaRollableBuilder<
         return rollable(Single(item))
     }
 
-    public fun rollableBy(block: SingleByFun<Target, RollType>.(Target, ArgMap) -> RollResult<RollType>): BuilderType {
+    public fun rollableBy(
+        block: SingleByFun<Target, RollType>.(Target, ArgMap) -> RollResult<RollType>
+    ): BuilderType {
         return rollable(SingleByFun(block))
     }
 
     public fun rollable(block: SingleRollableBuilder<Target, RollType>.() -> Unit): BuilderType {
 
-        val built = SingleRollableBuilder<Target, RollType>()
-            .apply(block)
-            .build()
+        val built = SingleRollableBuilder<Target, RollType>().apply(block).build()
         rollable(built)
 
         return this as BuilderType
@@ -84,7 +84,6 @@ public abstract class AbstractMetaRollableBuilder<
 
         return this as BuilderType
     }
-
 
     public fun addFilter(block: MetaEntryFilterBuilder<Target, RollType>.() -> Unit): BuilderType {
         return addFilter(MetaEntryFilterBuilder<Target, RollType>().apply(block).build())

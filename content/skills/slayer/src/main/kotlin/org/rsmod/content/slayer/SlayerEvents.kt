@@ -5,6 +5,7 @@ import dev.openrune.rscm.RSCMType
 import org.rsmod.api.player.protect.ProtectedAccess
 import org.rsmod.api.player.vars.VarPlayerIntMapSetter
 import org.rsmod.api.script.onOpNpc1
+import org.rsmod.api.script.onPlayerLogin
 import org.rsmod.api.script.onOpNpc3
 import org.rsmod.api.script.onOpNpc4
 import org.rsmod.api.script.onOpNpc5
@@ -29,6 +30,7 @@ class SlayerEvents : PluginScript() {
 
 
     override fun ScriptContext.startup() {
+        onPlayerLogin { SlayerTaskManager.migrateSavedTask(player) }
         val npcIds = SlayerTaskManager.slayerMasterNpcs.map { it.id }.toSet()
         for (npcId in npcIds) {
             val npcName = RSCM.getReverseMapping(RSCMType.NPC, npcId)

@@ -12,6 +12,7 @@ import org.rsmod.api.script.onOpHeld1
 import org.rsmod.api.script.onOpHeld2
 import org.rsmod.api.script.onOpHeld3
 import org.rsmod.api.script.onOpHeld4
+import org.rsmod.api.specials.restriction.ConsumableRestrictionState
 import org.rsmod.api.table.FoodRow
 import org.rsmod.content.other.consumables.ConsumableDelayState
 import org.rsmod.content.other.consumables.ConsumableType
@@ -180,6 +181,11 @@ constructor(
         type: ItemServerType,
         inventory: Inventory,
     ) {
+        if (ConsumableRestrictionState.isFoodBlocked(player)) {
+            mes("You cannot eat food while On a Diet is active.")
+            return
+        }
+
         val consumableType =
             food.consumableType()
 

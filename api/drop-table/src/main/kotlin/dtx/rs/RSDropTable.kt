@@ -15,6 +15,9 @@ public class RSDropTable<T, R>(
     private val preRoll: RSTable<T, R> = RSPreRollTable.Empty(),
     separateRolls: RSTable<T, R> = RSPreRollTable.Empty(),
     private val mainTable: RSTable<T, R> = RSWeightedTable.Empty(),
+    private val mainRolls: Int = 1,
+    private val exclusivePreRollWhen: (T, RollResult<R>) -> Boolean = { _, _ -> false },
+    private val mainRollsFor: (T, RollResult<R>) -> Int = { _, _ -> mainRolls.coerceAtLeast(1) },
     private val tertiaries: RSTable<T, R> = RSPreRollTable.Empty(),
     private val hooks: TableHooks<T, R> = TableHooks.Default(),
 ) : RSTable<T, R>, TableHooks<T, R> by hooks {
@@ -27,9 +30,16 @@ public class RSDropTable<T, R>(
     override fun selectResult(target: T, otherArgs: ArgMap): RollResult<R> {
         val results = mutableListOf<RollResult<R>>()
         results.add(guaranteed.roll(target, otherArgs))
-        results.add(preRoll.roll(target, otherArgs))
-        results.add(separateRolls.roll(target, otherArgs))
-        results.add(mainTable.roll(target, otherArgs))
+        val preResult = preRoll.roll(target, otherArgs)
+        results.add(preResult)
+        if (exclusivePreRollWhen(target, preResult)) {
+            return listOf(preResult).flattenToList()
+        }
+        val separateResult = separateRolls.roll(target, otherArgs)
+        results.add(separateResult)
+        repeat(mainRollsFor(target, separateResult).coerceAtLeast(0)) {
+            results.add(mainTable.roll(target, otherArgs))
+        }
         results.add(tertiaries.roll(target, otherArgs))
 
         return results.flattenToList()

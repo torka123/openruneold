@@ -6,9 +6,8 @@ import dtx.rs.RSGuaranteedTableBuilder
 import org.rsmod.game.entity.Player
 
 @DropTableDsl
-public class DropGuaranteedTableScope internal constructor(
-    private val builder: RSGuaranteedTableBuilder<Player, DropRollItem>,
-) {
+public class DropGuaranteedTableScope
+internal constructor(private val builder: RSGuaranteedTableBuilder<Player, DropRollItem>) {
     private val pendingItems = mutableListOf<PendingGuaranteedItem>()
 
     internal fun registerPendingItem(item: PendingGuaranteedItem) {
@@ -38,7 +37,8 @@ public class DropGuaranteedTableScope internal constructor(
 }
 
 @DropTableDsl
-public class PendingGuaranteedItem internal constructor(
+public class PendingGuaranteedItem
+internal constructor(
     private val builder: RSGuaranteedTableBuilder<Player, DropRollItem>,
     obj: String,
     count: IntRange,
@@ -60,7 +60,7 @@ public class PendingGuaranteedItem internal constructor(
 }
 
 public fun rsPlayerGuaranteedTable(
-    block: DropGuaranteedTableScope.() -> Unit,
+    block: DropGuaranteedTableScope.() -> Unit
 ): RSGuaranteedTable<Player, DropRollItem> {
     val builder = RSGuaranteedTableBuilder<Player, DropRollItem>()
     DropGuaranteedTableScope(builder).apply {

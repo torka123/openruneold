@@ -324,3 +324,7 @@ skill_action_delay=65382
 skill_wall_anim=65383
 killcount_varp=65551
 killcount_notify=65552
+slayer_task_id=65507
+slayer_task_tip=65527
+slayer_superior=65521
+available_in_wilderness=65522

@@ -6,5 +6,6 @@ plugins {
 dependencies {
     implementation(projects.api.pluginCommons)
     implementation(projects.api.attr)
+    implementation(projects.api.net)
     implementation(projects.api.serverConfig)
 }

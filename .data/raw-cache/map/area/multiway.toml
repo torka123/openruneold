@@ -4455,10 +4455,10 @@ levels = [0, 1, 2, 3]
 
 [[area.polygons]]
 vertices = [
-    [3152, 9856],
+    [3176, 9856],
     [3315, 9856],
     [3315, 9919],
-    [3152, 9919],
+    [3176, 9919],
 ]
 
 [[area]]
@@ -5226,7 +5226,7 @@ vertices = [
 
 [[area]]
 name = "Wilderness: Slayer Cave"
-area_id = "area.multiway"
+area_id = "area.npc_multiway"
 levels = [0, 1, 2, 3]
 
 [[area.polygons]]
@@ -5259,4 +5259,17 @@ vertices = [
     [3455, 10112],
     [3455, 10175],
     [3392, 10175],
+]
+
+[[area]]
+name = "Wilderness Nex Frozen Waste Plateau"
+area_id = "area.npc_multiway"
+levels = [0]
+
+[[area.polygons]]
+vertices = [
+    [2944, 3904],
+    [3007, 3904],
+    [3007, 3967],
+    [2944, 3967],
 ]

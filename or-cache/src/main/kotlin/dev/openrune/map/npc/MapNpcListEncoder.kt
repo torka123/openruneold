@@ -18,7 +18,7 @@ public object MapNpcListEncoder {
         for ((key, definition) in spawns) {
             val group = (key.x shl 8) or (key.z and 0xFF)
             val newBuf = buffer.clear().apply { encode(definition, this) }
-            cache.write(archive, group,5, newBuf.toReadableByteArray())
+            cache.write(archive, group, 5, newBuf.toReadableByteArray())
         }
         buffer.release()
     }

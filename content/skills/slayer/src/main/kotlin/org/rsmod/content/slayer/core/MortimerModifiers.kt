@@ -13,6 +13,7 @@ object MortimerModifiers {
     const val MODIFIER_SUPERIOR = 4
     const val MODIFIER_XP = 5
     const val MODIFIER_THIRD_CHOICE = 6
+    const val CHOICE_COUNT = 3
 
     data class ModifierRange(val id: Int, val min: Int, val max: Int)
 
@@ -47,8 +48,10 @@ object MortimerModifiers {
         }
     }
 
-    fun choiceCount(tasksCompleted: Int): Int =
-        if (MODIFIER_THIRD_CHOICE in unlockedModifierIds(tasksCompleted)) 3 else 2
+    @Suppress("UNUSED_PARAMETER")
+    fun choiceCount(tasksCompleted: Int): Int = CHOICE_COUNT
+
+    fun hasCompleteChoiceSet(offerCount: Int): Boolean = offerCount >= CHOICE_COUNT
 
     fun rollModifier(
         masterTask: SlayerMasterTaskRow,
@@ -68,6 +71,20 @@ object MortimerModifiers {
         if (modifier == null || modifier.id != MODIFIER_QUANTITY) return baseAmount
         val adjusted = (baseAmount * (100 + modifier.value)) / 100
         return adjusted.coerceAtLeast(1)
+    }
+
+    fun isValidStoredModifier(
+        masterTask: SlayerMasterTaskRow,
+        tasksCompleted: Int,
+        modifier: RolledModifier?,
+    ): Boolean {
+        if (modifier == null) return true
+        if (modifier.id == MODIFIER_THIRD_CHOICE) return false
+        if (modifier.id !in unlockedModifierIds(tasksCompleted)) return false
+        val range = parseRanges(masterTask).firstOrNull { it.id == modifier.id } ?: return false
+        val low = minOf(range.min, range.max)
+        val high = maxOf(range.min, range.max)
+        return modifier.value in low..high && (modifier.value - low) % 5 == 0
     }
 
     fun overallBenefitMessage(modifier: RolledModifier?): String? {

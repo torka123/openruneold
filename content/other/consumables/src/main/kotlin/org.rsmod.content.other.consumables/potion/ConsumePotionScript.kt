@@ -9,6 +9,7 @@ import org.rsmod.api.script.onOpHeld1
 import org.rsmod.api.script.onOpHeld2
 import org.rsmod.api.script.onOpHeld3
 import org.rsmod.api.script.onOpHeld4
+import org.rsmod.api.specials.restriction.ConsumableRestrictionState
 import org.rsmod.api.table.PotionRow
 import org.rsmod.content.other.consumables.ConsumableActivityAccess
 import org.rsmod.content.other.consumables.ConsumableDelayState
@@ -168,12 +169,33 @@ constructor(
             return
         }
 
+        val consumed = inventory[slot] ?: return
+        if (consumed.id != type.id) {
+            return
+        }
+
         val doseIndex =
             potion.items.indexOfFirst { item ->
                 item.id == type.id
             }
 
         if (doseIndex == -1) {
+            return
+        }
+
+        if (
+            ConsumableRestrictionState.isFoodBlocked(player) &&
+                potion.effect.handler == HANDLER_GUTHIX_REST
+        ) {
+            mes("You cannot drink Guthix rest while On a Diet is active.")
+            return
+        }
+
+        if (
+            ConsumableRestrictionState.areHealingPotionsBlocked(player) &&
+                potion.isHealingPotion()
+        ) {
+            mes("You cannot restore health with potions while Dehydration is active.")
             return
         }
 
@@ -192,6 +214,7 @@ constructor(
                 player = player,
                 minigameOnly = potion.minigameOnly,
                 raidOnly = potion.raidOnly,
+                ownershipVars = consumed.vars,
             )
         ) {
             mes(
@@ -217,6 +240,7 @@ constructor(
                 slot = slot,
                 count = 1,
                 replacement = replacement,
+                vars = consumed.vars,
             )
 
         if (transaction.failure) {
@@ -256,6 +280,10 @@ constructor(
             ),
         )
     }
+
+    private fun PotionRow.isHealingPotion(): Boolean =
+        heal > 0 ||
+            effect.handler in HEALING_POTION_HANDLERS
 
     private fun remainingDoseMessage(
         potion: PotionRow,
@@ -338,6 +366,16 @@ constructor(
     )
 
     private companion object {
+        const val HANDLER_GUTHIX_REST: String = "guthix_rest"
+
+        val HEALING_POTION_HANDLERS: Set<String> =
+            setOf(
+                "saradomin_brew",
+                HANDLER_GUTHIX_REST,
+                "toa_nectar",
+                "toa_ambrosia",
+            )
+
         const val DRINK_SOUND: Int =
             2401
 

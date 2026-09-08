@@ -9,12 +9,7 @@ data class ParsedWikiItemSpawn(
     val coords: List<WikiSpawnCoord>,
 )
 
-data class WikiSpawnCoord(
-    val x: Int,
-    val z: Int,
-    val level: Int,
-    val count: Int = 1,
-)
+data class WikiSpawnCoord(val x: Int, val z: Int, val level: Int, val count: Int = 1)
 
 object WikiItemSpawnParser {
     private val spawnsHeader = Regex("""==\s*Spawns\s*==""", RegexOption.IGNORE_CASE)
@@ -34,9 +29,7 @@ object WikiItemSpawnParser {
     }
 
     fun parseSpawnsSection(section: String): List<ParsedWikiItemSpawn> =
-        WikiTemplateParser
-            .extractTemplates(section, "ItemSpawnLine")
-            .mapNotNull(::parseSpawnLine)
+        WikiTemplateParser.extractTemplates(section, "ItemSpawnLine").mapNotNull(::parseSpawnLine)
 
     fun parseAllSpawns(wikitext: String): List<ParsedWikiItemSpawn> {
         val section = extractSpawnsSection(wikitext) ?: wikitext
@@ -46,8 +39,7 @@ object WikiItemSpawnParser {
     private fun parseSpawnLine(content: String): ParsedWikiItemSpawn? {
         val params = WikiTemplateParser.parseParams(content)
         val itemName =
-            params["name"]?.let(::sanitizeWikiMarkup)?.takeIf { it.isNotBlank() }
-                ?: return null
+            params["name"]?.let(::sanitizeWikiMarkup)?.takeIf { it.isNotBlank() } ?: return null
         val coords = parseCoords(content, params)
         if (coords.isEmpty()) {
             return null
@@ -62,17 +54,16 @@ object WikiItemSpawnParser {
 
     private fun parseCoords(content: String, params: Map<String, String>): List<WikiSpawnCoord> {
         val defaultLevel = params["plane"]?.toIntOrNull()?.takeIf(::isValidLevel) ?: 0
-        val fromParams =
-            buildList {
-                for ((key, value) in params) {
-                    if (key.startsWith("_")) {
-                        addAll(parseCoordText(value, defaultLevel))
-                    }
-                    if (key == "coords" || key == "coord") {
-                        addAll(parseCoordText(value, defaultLevel))
-                    }
+        val fromParams = buildList {
+            for ((key, value) in params) {
+                if (key.startsWith("_")) {
+                    addAll(parseCoordText(value, defaultLevel))
+                }
+                if (key == "coords" || key == "coord") {
+                    addAll(parseCoordText(value, defaultLevel))
                 }
             }
+        }
         if (fromParams.isNotEmpty()) {
             return fromParams.distinct()
         }
@@ -97,16 +88,9 @@ object WikiItemSpawnParser {
                     ?.groupValues
                     ?.get(1)
                     ?.toIntOrNull()
-                    ?.takeIf(::isValidLevel)
-                    ?: defaultLevel
+                    ?.takeIf(::isValidLevel) ?: defaultLevel
             val count =
-                qtyTag
-                    .find(chunk.value)
-                    ?.groupValues
-                    ?.get(1)
-                    ?.toIntOrNull()
-                    ?.takeIf { it > 0 }
-                    ?: 1
+                qtyTag.find(chunk.value)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it > 0 } ?: 1
             coords += WikiSpawnCoord(x, z, level, count)
         }
         return coords

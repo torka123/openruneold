@@ -62,6 +62,7 @@ constructor(
                 attackStyle = attackStyle,
                 specialMultiplier = specialMultiplier,
                 boltSpecDamage = boltSpecDamage,
+                slayerTask = target.isSlayerTask(player),
             )
         player.maxHit = maxHit
         return maxHit
@@ -77,10 +78,10 @@ constructor(
         attackStyle: RangedAttackStyle?,
         specialMultiplier: Double,
         boltSpecDamage: Int,
+        slayerTask: Boolean = target.isSlayerTask(source),
     ): Int {
         val rangeAttributes = rangedAttributes.collect(source, attackType, attackStyle)
 
-        val slayerTask = target.isSlayerTask(source)
         val npcAttributes = npcAttributes.collect(target, targetCurrHp, targetMaxHp, slayerTask)
 
         val modifiedDamage =
@@ -96,8 +97,15 @@ constructor(
         rangeAttributes: EnumSet<CombatRangedAttributes>,
         npcAttributes: EnumSet<CombatNpcAttributes>,
     ): Int {
-        val effectiveRanged = RangedMaxHitOperations.calculateEffectiveRanged(source, attackStyle)
-        val rangedBonus = bonuses.rangedStrengthBonus(source)
+        val usingEclipseAtlatl = RangedMaxHitOperations.isEclipseAtlatl(source)
+        val effectiveRanged =
+            if (usingEclipseAtlatl) {
+                RangedMaxHitOperations.calculateEffectiveEclipseAtlatl(source, attackStyle)
+            } else {
+                RangedMaxHitOperations.calculateEffectiveRanged(source, attackStyle)
+            }
+        val rangedBonus =
+            if (usingEclipseAtlatl) bonuses.strengthBonus(source) else bonuses.rangedStrengthBonus(source)
         val baseDamage = PlayerRangedMaxHit.calculateBaseDamage(effectiveRanged, rangedBonus)
         return RangedMaxHitOperations.modifyBaseDamage(
             baseDamage = baseDamage,

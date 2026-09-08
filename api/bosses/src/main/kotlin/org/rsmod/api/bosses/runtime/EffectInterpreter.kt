@@ -1,21 +1,29 @@
 package org.rsmod.api.bosses.runtime
 
 import dev.openrune.ServerCacheManager
+import dev.openrune.rscm.RSCM
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
-import dev.openrune.types.NpcMode
 import dev.openrune.types.ProjAnimType
 import dev.openrune.types.aconverted.SpotanimType
 import org.rsmod.api.bosses.spec.*
 import org.rsmod.api.bosses.spec.HitType as BossHitType
 import org.rsmod.api.combat.commons.CombatEffects
 import org.rsmod.api.combat.commons.DragonfireProtection
+import org.rsmod.api.combat.commons.types.MeleeAttackType
+import org.rsmod.api.config.refs.params
 import org.rsmod.api.npc.access.StandardNpcAccess
+import org.rsmod.api.player.hit.modifier.NpcBypassProtectionPrayerPlayerHitModifier
+import org.rsmod.api.player.hit.modifier.NpcPartialProtectionPrayerPlayerHitModifier
+import org.rsmod.api.player.hit.modifier.PlayerHitModifier
+import org.rsmod.api.player.hit.modifier.StandardPlayerHitModifier
 import org.rsmod.api.player.hit.queueHit
 import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.stat.hitpoints
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
+import org.rsmod.game.entity.player.PlayerUid
+import org.rsmod.game.hit.HitImpactHandler
 import org.rsmod.game.hit.HitType
 import org.rsmod.game.map.collision.isWalkBlocked
 import org.rsmod.game.proj.ProjAnim
@@ -32,6 +40,12 @@ class EffectInterpreter(
     suspend fun run(access: StandardNpcAccess, effect: Effect) {
         when (effect) {
             is Effect.Anim -> access.anim(effect.seq)
+            is Effect.NpcAttackAnim -> {
+                val animation = npc.visType.paramOrNull(params.attack_anim)
+                if (animation != null) {
+                    access.anim(RSCM.getReverseMapping(RSCMType.SEQ, animation.id))
+                }
+            }
             is Effect.Say -> access.say(effect.text)
             is Effect.Sound -> {
                 deps.worldRepo.soundArea(npc.coords, effect.synth, radius = effect.radius)
@@ -44,7 +58,7 @@ class EffectInterpreter(
             }
             is Effect.Broadcast -> {
                 val radius = effect.radius
-                for (player in deps.playerList) {
+                for (player in eligiblePlayers()) {
                     if (player.coords.chebyshevDistance(npc.coords) <= radius) {
                         player.mes(effect.text)
                     }
@@ -86,7 +100,8 @@ class EffectInterpreter(
                 for (e in effect.effects) run(access, e)
             }
             is Effect.Choose -> {
-                val abilityName = encounter.selectAbility(effect.selector, deps.mapClock.cycle) ?: return
+                val abilityName =
+                    encounter.selectAbility(effect.selector, deps.mapClock.cycle) ?: return
                 val branch = effect.branches[abilityName] ?: return
                 run(access, branch)
             }
@@ -111,42 +126,55 @@ class EffectInterpreter(
     }
 
     private fun applyHit(hit: Effect.Hit) {
-        val targets = when (val t = hit.target) {
-            is TargetExpr.Single -> listOfNotNull(resolveSingle(t))
-            is TargetExpr.Multi -> resolveMulti(t)
-            else -> listOf(target)
-        }
+        val targets =
+            when (val t = hit.target) {
+                is TargetExpr.Single -> listOfNotNull(resolveSingle(t))
+                is TargetExpr.Multi -> resolveMulti(t)
+                else -> listOf(target)
+            }
         val delay = hit.delay.coerceAtLeast(1)
+        val expectedImpactTick = deps.mapClock.cycle + delay
+        encounter.recordScheduledImpact(hit.type, expectedImpactTick)
         for (t in targets) {
             var damage = evaluateDamage(hit.damage)
             dragonfireType(hit.type)?.let { dfType ->
                 val cap = DragonfireProtection.resolveMaxHit(t, dfType, damageMax(hit.damage))
                 damage = if (cap <= 0) 0 else deps.random.of(cap + 1)
             }
-            hit.spotanim?.let { t.spotanim(it, height = hit.spotanimHeight) }
-            t.queueHit(npc, delay, hit.type.toEngine(), damage)
+            val accurate = rollAccuracy(t, hit)
+            if (!accurate) damage = 0
+            t.queueHit(
+                npc,
+                delay,
+                hit.type.toEngine(),
+                damage,
+                modifier = hitModifier(hit),
+                impactHandler = impactHandler(t, hit, accurate, expectedImpactTick),
+            )
         }
     }
 
     private fun fireProjectile(access: StandardNpcAccess, proj: Effect.Projectile) {
-        val t = resolveSingle(proj.target as? TargetExpr.Single ?: TargetExpr.CurrentTarget) ?: return
+        val t =
+            resolveSingle(proj.target as? TargetExpr.Single ?: TargetExpr.CurrentTarget) ?: return
         val spotId = proj.spotanim.asRSCM(RSCMType.SPOTANIM)
 
-        val type = if (proj.travel != null) {
-            ServerCacheManager.getProjectile(proj.travel.asRSCM(RSCMType.PROJANIM))
-                ?: error("Projectile not found: ${proj.travel}")
-        } else {
-            val cfg = proj.config ?: ProjectileConfig()
-            ProjAnimType(
-                startHeight = cfg.startHeight,
-                endHeight = cfg.endHeight,
-                delay = cfg.startDelay,
-                angle = cfg.angle,
-                lengthAdjustment = cfg.travelTime,
-                progress = cfg.progress,
-                stepMultiplier = cfg.stepMultiplier,
-            )
-        }
+        val type =
+            if (proj.travel != null) {
+                ServerCacheManager.getProjectile(proj.travel.asRSCM(RSCMType.PROJANIM))
+                    ?: error("Projectile not found: ${proj.travel}")
+            } else {
+                val cfg = proj.config ?: ProjectileConfig()
+                ProjAnimType(
+                    startHeight = cfg.startHeight,
+                    endHeight = cfg.endHeight,
+                    delay = cfg.startDelay,
+                    angle = cfg.angle,
+                    lengthAdjustment = cfg.travelTime,
+                    progress = cfg.progress,
+                    stepMultiplier = cfg.stepMultiplier,
+                )
+            }
 
         val projAnim = ProjAnim.fromNpcToPlayer(npc, t, spotId, type)
         deps.worldRepo.projAnim(projAnim)
@@ -157,16 +185,66 @@ class EffectInterpreter(
                 val cap = DragonfireProtection.resolveMaxHit(t, dfType, damageMax(hit.damage))
                 damage = if (cap <= 0) 0 else deps.random.of(cap + 1)
             }
-            t.queueHit(npc, projAnim.serverCycles, hit.type.toEngine(), damage)
+            val accurate = rollAccuracy(t, hit)
+            if (!accurate) damage = 0
+            val landedHit =
+                if (proj.impact != null && hit.spotanim == null) hit.copy(spotanim = proj.impact)
+                else hit
+            val expectedImpactTick = deps.mapClock.cycle + projAnim.serverCycles + hit.delay
+            encounter.recordScheduledImpact(hit.type, expectedImpactTick)
+            t.queueHit(
+                npc,
+                projAnim.serverCycles + hit.delay,
+                hit.type.toEngine(),
+                damage,
+                modifier = hitModifier(hit),
+                impactHandler = impactHandler(t, landedHit, accurate, expectedImpactTick),
+            )
         }
     }
+
+    private fun impactHandler(
+        player: Player,
+        hit: Effect.Hit,
+        accurate: Boolean,
+        expectedImpactTick: Int,
+    ): HitImpactHandler {
+        return HitImpactHandler {
+            if (!deps.encounterRegistry.isCurrent(npc, encounter)) return@HitImpactHandler
+            if (!player.isSlotAssigned || player.hitpoints <= 0) return@HitImpactHandler
+            if (
+                player.coords.level != npc.coords.level ||
+                    player.coords.chebyshevDistance(npc.coords) > MAX_PENDING_ATTACK_DISTANCE
+            )
+                return@HitImpactHandler
+            encounter.recordActualImpact(expectedImpactTick, deps.mapClock.cycle)
+            hit.spotanim?.let { player.spotanim(it, height = hit.spotanimHeight) }
+            if (!accurate) return@HitImpactHandler
+            for (effect in hit.impactEffects) {
+                val (chance, outOf) = impactOdds(player, effect)
+                if (deps.random.of(outOf) >= chance) continue
+                when (effect) {
+                    is ImpactEffect.Poison -> CombatEffects.poison(player, effect.damage)
+                    is ImpactEffect.Freeze -> CombatEffects.freeze(player, effect.ticks)
+                    is ImpactEffect.StatDrain ->
+                        CombatEffects.statDrain(player, effect.stats, effect.amount)
+                }
+            }
+        }
+    }
+
+    private fun impactOdds(player: Player, effect: ImpactEffect): Pair<Int, Int> =
+        when (effect.protection) {
+            ImpactProtection.None -> effect.chance to effect.outOf
+            ImpactProtection.KingBlackDragon ->
+                if (DragonfireProtection.hasKbdSecondaryEffectProtection(player)) 1 to 8
+                else effect.chance to effect.outOf
+        }
 
     private fun applyTileAoE(aoe: Effect.TileAoE) {
         val center = resolveTile(aoe.center)
         val radius = aoe.radius
-        val targets = deps.playerList.filter {
-            it.coords.chebyshevDistance(center) <= radius
-        }
+        val targets = eligiblePlayers().filter { it.coords.chebyshevDistance(center) <= radius }
         for (t in targets) {
             val damage = evaluateDamage(aoe.damage)
             t.queueHit(npc, 0, aoe.type.toEngine(), damage)
@@ -178,7 +256,7 @@ class EffectInterpreter(
         val telegraphSpot = SpotanimType(effect.telegraph.asRSCM(RSCMType.SPOTANIM))
 
         val playersInRange =
-            deps.playerList.filter { it.coords.chebyshevDistance(center) <= effect.targetRadius }
+            eligiblePlayers().filter { it.coords.chebyshevDistance(center) <= effect.targetRadius }
         val total = effect.count.first + deps.random.of(effect.count.last - effect.count.first + 1)
         val scatterCount = (total - playersInRange.size).coerceAtLeast(0)
         val scatterDiameter = effect.scatterRadius * 2 + 1
@@ -195,12 +273,15 @@ class EffectInterpreter(
         tiles.forEach { deps.worldRepo.spotanimMap(telegraphSpot, it) }
 
         deps.worldQueues.add(effect.windup) {
+            if (!deps.encounterRegistry.isCurrent(npc, encounter)) return@add
             effect.impact?.let { impact ->
                 val impactSpot = SpotanimType(impact.asRSCM(RSCMType.SPOTANIM))
                 tileSet.forEach { deps.worldRepo.spotanimMap(impactSpot, it) }
             }
             val landing =
-                deps.playerList.filter { it.coords.chebyshevDistance(center) <= effect.targetRadius }
+                eligiblePlayers().filter {
+                    it.coords.chebyshevDistance(center) <= effect.targetRadius
+                }
             for (player in landing) {
                 if (player.hitpoints > 0 && player.coords in tileSet) {
                     player.queueHit(npc, 1, effect.type.toEngine(), evaluateDamage(effect.damage))
@@ -239,7 +320,11 @@ class EffectInterpreter(
                 }
             val spawned = Npc(npcType, spawnCoord)
             spawned.mode = mode
+            spawned.spawnOwner = npc.spawnOwner
+            spawned.suppressRewards = npc.suppressRewards
+            spawned.suppressDrops = npc.suppressDrops
             deps.npcRepo.add(spawned, 100)
+            encounter.own(spawned)
         }
     }
 
@@ -295,16 +380,53 @@ class EffectInterpreter(
         }
     }
 
+    private fun rollAccuracy(player: Player, hit: Effect.Hit): Boolean {
+        if (hit.accuracy == AccuracyMode.Always) return true
+        return when (hit.type) {
+            BossHitType.Melee ->
+                deps.accuracy.rollMeleeAccuracy(
+                    npc = npc,
+                    target = player,
+                    attackType = hit.meleeType ?: MeleeAttackType.Crush,
+                    random = deps.random,
+                )
+            BossHitType.Ranged -> deps.accuracy.rollRangedAccuracy(npc, player, deps.random)
+            BossHitType.Magic -> deps.accuracy.rollMagicAccuracy(npc, player, deps.random)
+            BossHitType.Dragonfire,
+            BossHitType.DragonfireMetal,
+            BossHitType.WyvernIce,
+            BossHitType.KbdDragonfire,
+            BossHitType.KbdSpecialDragonfire,
+            BossHitType.Typeless -> true
+        }
+    }
+
+    private fun hitModifier(hit: Effect.Hit): PlayerHitModifier =
+        when (val prayer = hit.protectionPrayer) {
+            ProtectionPrayer.Standard -> StandardPlayerHitModifier
+            ProtectionPrayer.Bypass -> NpcBypassProtectionPrayerPlayerHitModifier
+            is ProtectionPrayer.Reduce ->
+                NpcPartialProtectionPrayerPlayerHitModifier(prayer.percent)
+        }
+
     private fun resolveMulti(expr: TargetExpr): List<Player> {
         return when (expr) {
             is TargetExpr.AllInRadius -> {
                 val center = resolveTile(expr.of)
-                deps.playerList.filter { it.coords.chebyshevDistance(center) <= expr.radius }
+                eligiblePlayers().filter { it.coords.chebyshevDistance(center) <= expr.radius }
             }
             is TargetExpr.TopN -> listOf(target)
             is TargetExpr.Single -> listOfNotNull(resolveSingle(expr))
             else -> listOf(target)
         }
+    }
+
+    private fun eligiblePlayers(): List<Player> {
+        val owner = npc.spawnOwner
+        if (owner != PlayerUid.NULL) {
+            return owner.resolve(deps.playerList)?.let(::listOf) ?: emptyList()
+        }
+        return deps.playerList.toList()
     }
 
     private fun damageMax(expr: DamageExpr): Int =
@@ -319,6 +441,8 @@ class EffectInterpreter(
             BossHitType.Dragonfire -> DragonfireProtection.DragonfireType.Chromatic
             BossHitType.DragonfireMetal -> DragonfireProtection.DragonfireType.Metal
             BossHitType.WyvernIce -> DragonfireProtection.DragonfireType.WyvernIce
+            BossHitType.KbdDragonfire -> DragonfireProtection.DragonfireType.KbdStandard
+            BossHitType.KbdSpecialDragonfire -> DragonfireProtection.DragonfireType.KbdSpecial
             else -> null
         }
 
@@ -337,13 +461,18 @@ class EffectInterpreter(
         }
     }
 
-    private fun BossHitType.toEngine(): HitType = when (this) {
-        BossHitType.Melee -> HitType.Melee
-        BossHitType.Ranged -> HitType.Ranged
-        BossHitType.Magic -> HitType.Magic
-        BossHitType.Dragonfire -> HitType.Magic
-        BossHitType.DragonfireMetal -> HitType.Magic
-        BossHitType.WyvernIce -> HitType.Magic
-        BossHitType.Typeless -> HitType.Typeless
-    }
+    private fun BossHitType.toEngine(): HitType =
+        when (this) {
+            BossHitType.Melee -> HitType.Melee
+            BossHitType.Ranged -> HitType.Ranged
+            BossHitType.Magic -> HitType.Magic
+            BossHitType.Dragonfire -> HitType.Magic
+            BossHitType.DragonfireMetal -> HitType.Magic
+            BossHitType.WyvernIce -> HitType.Magic
+            BossHitType.KbdDragonfire -> HitType.Magic
+            BossHitType.KbdSpecialDragonfire -> HitType.Magic
+            BossHitType.Typeless -> HitType.Typeless
+        }
 }
+
+private const val MAX_PENDING_ATTACK_DISTANCE = 32

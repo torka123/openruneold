@@ -2,65 +2,74 @@ package org.rsmod.content.drops.tables.monsters
 
 import dtx.rs.RSDropTable
 import dtx.rs.npcs
-import dtx.rs.areas
-import org.rsmod.api.droptable.rsPlayerGuaranteedTable
+import org.rsmod.api.droptable.DropRollItem
+import org.rsmod.api.droptable.RegisterDropTable
+import org.rsmod.api.droptable.nothing
+import org.rsmod.api.droptable.rsPlayerPrerollTable
 import org.rsmod.api.droptable.rsPlayerTertiaryTable
 import org.rsmod.api.droptable.rsPlayerWeightedTable
-import org.rsmod.api.droptable.rsPlayerPrerollTable
-import org.rsmod.api.droptable.dropRollable
-import org.rsmod.content.drops.tables.shared.SharedDropTables
-import org.rsmod.api.droptable.DropRollItem
 import org.rsmod.content.drops.clueScrollTransformObj
-import org.rsmod.api.droptable.nothing
-import org.rsmod.api.droptable.RegisterDropTable
+import org.rsmod.content.drops.tables.shared.SharedDropTables
 import org.rsmod.game.entity.Player
 
 @field:RegisterDropTable
 @JvmField
-public val armouredKrakenDropTable: RSDropTable<Player, DropRollItem> = RSDropTable(
-    tableIdentifier = "Armoured kraken Drops",
-    npcs = npcs("npc.sailing_armoured_kraken"),
-    preRoll = rsPlayerPrerollTable {
-        1 outOf 1280 weight "obj.sailing_boat_large_keel_part_dragon" count 1
-        1 outOf 1280 weight "obj.sailing_boat_keel_part_dragon" count 1
-        1 outOf 90 weight "obj.dragon_sheet" count 1..2
-        1 outOf 500 weight "obj.bottled_storm" count 1
-        1 outOf 2000 weight "obj.sailing_paint_inky" count 1
-    },
-    mainTable = rsPlayerWeightedTable(total = 119) {
-        name("Armoured kraken Drops")
-        10 weight "obj.deathrune" count 40..65
-        10 weight "obj.waterrune" count 400..650
-        8 weight "obj.bloodrune" count 25..35
-        4 weight "obj.rune_cannonball" count 24..36
-        6 weight "obj.battlestaff" count 1
-        6 weight "obj.water_battlestaff" count 1
-        6 weight "obj.earth_battlestaff" count 1
-        5 weight "obj.mystic_water_staff" count 1
-        5 weight "obj.mystic_earth_staff" count 1
-        2 weight "obj.adamant_platebody" count 1
-        1 weight "obj.mystic_robe_bottom" count 1
-        12 weight "obj.raw_seaturtle" count 1
-        10 weight "obj.coins" count 16000..18500
-        8 weight "obj.plank_teak" count 2..4
-        4 weight "obj.boat_repair_kit_camphor" count 1
-        2 weight "obj.sailing_pirate_shipwreck_salvage" count 1
+public val armouredKrakenDropTable: RSDropTable<Player, DropRollItem> =
+    RSDropTable(
+        tableIdentifier = "Armoured kraken Drops",
+        npcs = npcs("npc.sailing_armoured_kraken"),
+        preRoll =
+            rsPlayerPrerollTable {
+                1 outOf 1280 weight "obj.sailing_boat_large_keel_part_dragon" count 1
+                1 outOf 1280 weight "obj.sailing_boat_keel_part_dragon" count 1
+                1 outOf 90 weight "obj.dragon_sheet" count 1..2
+                1 outOf 500 weight "obj.bottled_storm" count 1
+                1 outOf 2000 weight "obj.sailing_paint_inky" count 1
+            },
+        mainTable =
+            rsPlayerWeightedTable(total = 119) {
+                name("Armoured kraken Drops")
+                10 weight "obj.deathrune" count 40..65
+                10 weight "obj.waterrune" count 400..650
+                8 weight "obj.bloodrune" count 25..35
+                4 weight "obj.rune_cannonball" count 24..36
+                6 weight "obj.battlestaff" count 1
+                6 weight "obj.water_battlestaff" count 1
+                6 weight "obj.earth_battlestaff" count 1
+                5 weight "obj.mystic_water_staff" count 1
+                5 weight "obj.mystic_earth_staff" count 1
+                2 weight "obj.adamant_platebody" count 1
+                1 weight "obj.mystic_robe_bottom" count 1
+                12 weight "obj.raw_seaturtle" count 1
+                10 weight "obj.coins" count 16000..18500
+                8 weight "obj.plank_teak" count 2..4
+                4 weight "obj.boat_repair_kit_camphor" count 1
+                2 weight "obj.sailing_pirate_shipwreck_salvage" count 1
 
-        8 weight SharedDropTables.herb
-        1 weight SharedDropTables.gem
-        11 weight nothing()
-    },
-    tertiaries = rsPlayerTertiaryTable {
-        1 outOf 2 weight "obj.sailing_armoured_kraken_tentacle" count 1 condition { player ->
-            // Drops Need Manual: Only dropped while on an applicable bounty task.
-             true
-        }
-        1 outOf 10 weight "obj.sailing_armoured_kraken_ink_sac" count 1
-        1 outOf 152 weight "obj.trail_elite_emote_exp1" count 1 transformObj { player ->
-             player.clueScrollTransformObj("obj.trail_elite_emote_exp1")
-        }
-    },
-)
+                8 weight SharedDropTables.herb
+                1 weight SharedDropTables.gem
+                11 weight nothing()
+            },
+        tertiaries =
+            rsPlayerTertiaryTable {
+                1 outOf
+                    2 weight
+                    "obj.sailing_armoured_kraken_tentacle" count
+                    1 condition
+                    { player ->
+                        // Drops Need Manual: Only dropped while on an applicable bounty task.
+                        true
+                    }
+                1 outOf 10 weight "obj.sailing_armoured_kraken_ink_sac" count 1
+                1 outOf
+                    152 weight
+                    "obj.trail_elite_emote_exp1" count
+                    1 transformObj
+                    { player ->
+                        player.clueScrollTransformObj("obj.trail_elite_emote_exp1")
+                    }
+            },
+    )
 
 // Unknown wiki drop rates (text rarity — need data collection):
 //   - Toadflax seed [main/1/{{#expr:1/({{#var:rareseed}}*216 + {{#var:uncseed}}*27) round 1}}]

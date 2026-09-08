@@ -85,8 +85,15 @@ constructor(
         attackStyle: RangedAttackStyle?,
         rangeAttributes: EnumSet<CombatRangedAttributes>,
     ): Int {
-        val effectiveRanged = RangedMaxHitOperations.calculateEffectiveRanged(source, attackStyle)
-        val rangedBonus = bonuses.rangedStrengthBonus(source)
+        val usingEclipseAtlatl = RangedMaxHitOperations.isEclipseAtlatl(source)
+        val effectiveRanged =
+            if (usingEclipseAtlatl) {
+                RangedMaxHitOperations.calculateEffectiveEclipseAtlatl(source, attackStyle)
+            } else {
+                RangedMaxHitOperations.calculateEffectiveRanged(source, attackStyle)
+            }
+        val rangedBonus =
+            if (usingEclipseAtlatl) bonuses.strengthBonus(source) else bonuses.rangedStrengthBonus(source)
         val baseDamage = PlayerRangedMaxHit.calculateBaseDamage(effectiveRanged, rangedBonus)
         return RangedMaxHitOperations.modifyBaseDamage(baseDamage, rangeAttributes)
     }

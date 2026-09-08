@@ -1,0 +1,31 @@
+[[area]]
+name = "Wilderness Agility Course surface"
+area_id = "area.wilderness_agility_course"
+levels = [0]
+
+[[area.polygons]]
+vertices = [[2988, 3932], [3008, 3932], [3008, 3964], [2988, 3964]]
+
+[[area]]
+name = "Wilderness Agility Course dungeon"
+area_id = "area.wilderness_agility_course"
+levels = [0]
+
+[[area.polygons]]
+vertices = [[2990, 10339], [3008, 10339], [3008, 10364], [2990, 10364]]
+
+[[area]]
+name = "Wilderness Agility Course surface singles-plus"
+area_id = "area.singles_plus"
+levels = [0]
+
+[[area.polygons]]
+vertices = [[2988, 3932], [3008, 3932], [3008, 3964], [2988, 3964]]
+
+[[area]]
+name = "Wilderness Agility Course dungeon singles-plus"
+area_id = "area.singles_plus"
+levels = [0]
+
+[[area.polygons]]
+vertices = [[2990, 10339], [3008, 10339], [3008, 10364], [2990, 10364]]

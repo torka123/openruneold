@@ -3,9 +3,7 @@ package org.rsmod.api.repo.world
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
 import dev.openrune.types.ProjAnimType
-import dev.openrune.types.SequenceServerType
 import dev.openrune.types.aconverted.SpotanimType
-import dev.openrune.types.aconverted.SynthType
 import jakarta.inject.Inject
 import org.rsmod.api.registry.zone.ZoneUpdateMap
 import org.rsmod.game.entity.Npc
@@ -21,8 +19,26 @@ public class WorldRepository @Inject constructor(private val zoneUpdates: ZoneUp
         zoneUpdates.locAnim(loc, seq.asRSCM(RSCMType.SEQ))
     }
 
+    public fun locAnim(loc: LocInfo, seq: Int) {
+        zoneUpdates.locAnim(loc, seq)
+    }
+
     public fun locAnim(loc: BoundLocInfo, seq: String) {
         locAnim(LocInfo(loc.layer, loc.coords, loc.entity), seq)
+    }
+
+    public fun locAnim(loc: BoundLocInfo, seq: Int) {
+        locAnim(LocInfo(loc.layer, loc.coords, loc.entity), seq)
+    }
+
+    public fun locAddPrivate(player: Player, loc: LocInfo) {
+        val observer = requireNotNull(player.observerUUID) { "Player observer UUID is not set." }
+        zoneUpdates.locAddPrivate(loc, observer)
+    }
+
+    public fun locDelPrivate(player: Player, loc: LocInfo) {
+        val observer = requireNotNull(player.observerUUID) { "Player observer UUID is not set." }
+        zoneUpdates.locDelPrivate(loc, observer)
     }
 
     public fun soundArea(
@@ -34,6 +50,18 @@ public class WorldRepository @Inject constructor(private val zoneUpdates: ZoneUp
         size: Int = 0,
     ) {
         zoneUpdates.soundArea(source, synth.asRSCM(RSCMType.SYNTH), delay, loops, radius, size)
+    }
+
+    /** Sends a cache-verified raw synth id when no generated RSCM name exists for the sound. */
+    public fun soundArea(
+        source: CoordGrid,
+        synth: Int,
+        delay: Int = 0,
+        loops: Int = 1,
+        radius: Int = 5,
+        size: Int = 0,
+    ) {
+        zoneUpdates.soundArea(source, synth, delay, loops, radius, size)
     }
 
     public fun soundArea(
@@ -53,6 +81,17 @@ public class WorldRepository @Inject constructor(private val zoneUpdates: ZoneUp
         delay: Int = 0,
     ) {
         zoneUpdates.mapAnim(spotanim.id, coord, height, delay)
+    }
+
+    public fun spotanimMapPrivate(
+        player: Player,
+        spotanim: SpotanimType,
+        coord: CoordGrid,
+        height: Int = 0,
+        delay: Int = 0,
+    ) {
+        val observer = requireNotNull(player.observerUUID) { "Player observer UUID is not set." }
+        zoneUpdates.mapAnimPrivate(spotanim.id, coord, height, delay, observer)
     }
 
     public fun projAnim(projAnim: ProjAnim) {
@@ -125,12 +164,7 @@ public class WorldRepository @Inject constructor(private val zoneUpdates: ZoneUp
         return projAnim
     }
 
-    public fun projAnim(
-        source: Npc,
-        target: Npc,
-        spotanim: SpotanimType,
-        type: String,
-    ): ProjAnim {
+    public fun projAnim(source: Npc, target: Npc, spotanim: SpotanimType, type: String): ProjAnim {
         val projAnim = ProjAnim.fromBoundsToNpc(source.bounds(), target, spotanim.id, type)
         projAnim(projAnim)
         return projAnim

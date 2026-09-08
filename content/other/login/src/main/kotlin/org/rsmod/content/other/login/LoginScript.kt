@@ -16,6 +16,8 @@ import org.rsmod.api.inv.weight.InvWeight
 import org.rsmod.api.net.central.OpenRuneCentralWorldLink
 import org.rsmod.api.net.central.writeCentralSocialSnapshot
 import org.rsmod.api.net.central.writeCentralSocialSnapshotEmpty
+import org.rsmod.api.net.social.ClanChatService
+import org.rsmod.api.net.social.FriendChatService
 import org.rsmod.api.player.output.Camera
 import org.rsmod.api.player.output.ChatType
 import org.rsmod.api.player.output.MiscOutput
@@ -47,6 +49,8 @@ constructor(
     private val invisibleLevels: InvisibleLevels,
     private val config: ServerConfig,
     private val openRuneCentral: OpenRuneCentralWorldLink,
+    private val friendChat: FriendChatService,
+    private val clanChat: ClanChatService,
 ) : PluginScript() {
     private val statSyncEntries by lazy { statSyncEntries() }
 
@@ -77,19 +81,23 @@ constructor(
     }
 
     private fun Player.sendSocial() {
-        if (!openRuneCentral.isEnabled) {
-            return
-        }
-
         if (characterId <= 0) {
             mes("Social list did not load: missing character.")
             writeCentralSocialSnapshotEmpty()
             return
         }
 
+        val ranksByName = friendChat.prepareLogin(this)
+        clanChat.prepareLogin(this)
+
+        if (!openRuneCentral.isEnabled) {
+            writeCentralSocialSnapshotEmpty()
+            return
+        }
+
         when (val result = openRuneCentral.socialSnapshot(characterId)) {
             is OpenRuneCentralWorldLink.CentralSocialSnapshotResult.Ok -> {
-                writeCentralSocialSnapshot(result.snapshot)
+                writeCentralSocialSnapshot(result.snapshot, ranksByName, config)
             }
 
             is OpenRuneCentralWorldLink.CentralSocialSnapshotResult.Failed -> {
@@ -107,9 +115,7 @@ constructor(
 
     private fun Player.sendWelcomeMessage() {
         val message = realm.config.loginMessage
-        message?.let {
-            mes(it.replace("RS Mod", config.name), ChatType.Welcome)
-        }
+        message?.let { mes(it.replace("RS Mod", config.name), ChatType.Welcome) }
 
         val broadcast = realm.config.loginBroadcast
         broadcast?.let { mes(it, ChatType.Broadcast) }

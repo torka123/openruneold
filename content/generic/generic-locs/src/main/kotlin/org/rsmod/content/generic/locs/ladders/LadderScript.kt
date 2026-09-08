@@ -30,11 +30,11 @@ class LadderScript : PluginScript() {
         }
         onOpContentLoc2("content.ladder_option") {
             arriveDelay()
-            climbUp(it.type, it.type.paramOrNull(params.translate_level) ?: 1)
+            climbDown(it.type, it.type.paramOrNull(params.translate_level) ?: -1)
         }
         onOpContentLoc3("content.ladder_option") {
             arriveDelay()
-            climbDown(it.type, it.type.paramOrNull(params.translate_level) ?: -1)
+            climbUp(it.type, it.type.paramOrNull(params.translate_level) ?: 1)
         }
     }
 

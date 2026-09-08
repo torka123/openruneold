@@ -6,6 +6,7 @@ import org.rsmod.api.player.protect.ProtectedAccess
 import org.rsmod.api.script.onProtectedEvent
 import org.rsmod.events.EventBus
 import org.rsmod.game.queue.EngineQueueType
+import org.rsmod.game.queue.StatXpMilestone
 import org.rsmod.map.square.MapSquareKey
 import org.rsmod.map.zone.ZoneKey
 import org.rsmod.plugin.scripts.ScriptContext
@@ -49,6 +50,10 @@ public fun ScriptContext.onAdvanceStat(
     stat: StatType,
     action: suspend ProtectedAccess.(EngineQueueEvents.Labelled) -> Unit,
 ): Unit = onEngineQueue(EngineQueueType.AdvanceStat, stat.id, action)
+
+public fun ScriptContext.onStatXpMilestone(
+    action: suspend ProtectedAccess.(EngineQueueEvents.Default<StatXpMilestone>) -> Unit
+): Unit = onEngineQueue(EngineQueueType.StatXpMilestone, action)
 
 public fun ScriptContext.onMapzone(
     square: MapSquareKey,

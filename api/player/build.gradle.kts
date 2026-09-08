@@ -1,6 +1,10 @@
 plugins {
     id("base-conventions")
+}
 
+// Cache-backed player tests share ServerCacheManager and GameValProvider.
+tasks.withType<Test>().configureEach {
+    systemProperty("junit.jupiter.execution.parallel.enabled", false)
 }
 
 kotlin {
@@ -9,6 +13,7 @@ kotlin {
 
 dependencies {
     implementation(libs.bundles.logging)
+    implementation(libs.openrune.central.common)
     implementation(libs.fastutil)
     implementation(libs.guice)
     implementation(libs.kotlin.reflect)
@@ -27,7 +32,6 @@ dependencies {
     implementation(projects.api.generated)
     implementation(projects.api.stats.levelmod)
 
-
     implementation(projects.api.utils.utilsFormat)
     implementation(projects.api.utils.utilsMap)
     implementation(projects.api.utils.utilsSkills)
@@ -41,4 +45,10 @@ dependencies {
     implementation(projects.engine.plugin)
     implementation(projects.engine.routefinder)
     implementation(projects.engine.utilsBits)
+
+    testImplementation(kotlin("test"))
+}
+
+tasks.test {
+    workingDir = rootDir
 }

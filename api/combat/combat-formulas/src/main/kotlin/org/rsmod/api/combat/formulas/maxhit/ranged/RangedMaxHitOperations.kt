@@ -9,10 +9,12 @@ import org.rsmod.api.combat.formulas.attributes.CombatNpcAttributes
 import org.rsmod.api.combat.formulas.attributes.CombatRangedAttributes
 import org.rsmod.api.combat.formulas.scale
 import org.rsmod.api.combat.maxhit.player.PlayerRangedMaxHit
+import org.rsmod.api.player.righthand
 import org.rsmod.api.player.stat.stat
 import org.rsmod.api.player.worn.EquipmentChecks
 import org.rsmod.game.entity.Player
 import org.rsmod.game.inv.Inventory
+import org.rsmod.game.inv.isAnyType
 import org.rsmod.game.vars.VarPlayerIntMap
 
 private typealias RangeAttr = CombatRangedAttributes
@@ -159,6 +161,25 @@ public object RangedMaxHitOperations {
 
         return modified
     }
+
+    /**
+     * The atlatl uses the standard ranged effective-level modifiers (ranged prayer, ranged style,
+     * and Ranger Void), but substitutes the player's visible Strength level for visible Ranged.
+     */
+    public fun calculateEffectiveEclipseAtlatl(
+        player: Player,
+        attackStyle: RangedAttackStyle?,
+    ): Int =
+        calculateEffectiveRanged(
+            visLevel = player.stat("stat.strength"),
+            vars = player.vars,
+            worn = player.worn,
+            attackStyle = attackStyle,
+        )
+
+    /** True only for the two cache variants of the Eclipse atlatl. */
+    public fun isEclipseAtlatl(player: Player): Boolean =
+        player.righthand.isAnyType("obj.eclipse_atlatl", "obj.br_eclipse_atlatl")
 
     public fun calculateEffectiveRanged(player: Player, attackStyle: RangedAttackStyle?): Int =
         calculateEffectiveRanged(

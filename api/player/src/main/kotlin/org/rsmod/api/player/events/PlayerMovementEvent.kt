@@ -13,9 +13,6 @@ public class PlayerMovementEvent {
         override val id: Long = triggerType.id.toLong(),
     ) : KeyedEvent
 
-    public data class CoordsMovedEvent(
-        val player: Player,
-        val lastKnownCoords : CoordGrid
-    ) : UnboundEvent
-
+    public data class CoordsMovedEvent(val player: Player, val lastKnownCoords: CoordGrid) :
+        UnboundEvent
 }

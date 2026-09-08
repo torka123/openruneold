@@ -1,8 +1,6 @@
 package org.rsmod.tools.wiki.dumping
 
-/**
- * Manual overrides for shops whose wiki layout does not map 1:1 from slug alone.
- */
+/** Manual overrides for shops whose wiki layout does not map 1:1 from slug alone. */
 object ShopSpecialHandlers {
     private val whiteKnightRankByInv =
         mapOf(
@@ -14,11 +12,7 @@ object ShopSpecialHandlers {
             "whiteknight_armoury6" to "Master",
         )
 
-    private val ardougneBakerSideByInv =
-        mapOf(
-            "bakery" to "east",
-            "bakery2" to "west",
-        )
+    private val ardougneBakerSideByInv = mapOf("bakery" to "east", "bakery2" to "west")
 
     private val wikiArticleByInv =
         mapOf(
@@ -49,10 +43,7 @@ object ShopSpecialHandlers {
         )
 
     private val shopDisplayNameByInv =
-        mapOf(
-            "darkruneshop_crap" to "Battle Runes",
-            "darkruneshop_uber" to "Battle Runes",
-        )
+        mapOf("darkruneshop_crap" to "Battle Runes", "darkruneshop_uber" to "Battle Runes")
 
     fun resolveRow(row: ShopNameMapper.ShopCsvEntry): ShopNameMapper.ShopCsvEntry {
         wikiArticleByInv[row.inv]?.let { wikiArticle ->

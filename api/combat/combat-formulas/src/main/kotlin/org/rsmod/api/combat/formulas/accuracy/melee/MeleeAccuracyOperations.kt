@@ -48,12 +48,21 @@ public object MeleeAccuracyOperations {
             modified = scale(modified, multiplier = 3, divisor = 2)
         }
 
-        if (MeleeAttr.Arclight in meleeAttributes && NpcAttr.Demon in npcAttributes) {
+        if ((MeleeAttr.Arclight in meleeAttributes || MeleeAttr.Emberlight in meleeAttributes) && NpcAttr.Demon in npcAttributes) {
             modified =
                 if (NpcAttr.DemonbaneResistance in npcAttributes) {
                     scale(modified, multiplier = 149, divisor = 100)
                 } else {
                     scale(modified, multiplier = 170, divisor = 100)
+                }
+        }
+
+        if (MeleeAttr.Silverlight in meleeAttributes && NpcAttr.Demon in npcAttributes) {
+            modified =
+                if (NpcAttr.DemonbaneResistance in npcAttributes) {
+                    scale(modified, multiplier = 71, divisor = 50)
+                } else {
+                    scale(modified, multiplier = 80, divisor = 50)
                 }
         }
 

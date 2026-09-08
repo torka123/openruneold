@@ -1,10 +1,13 @@
 package org.rsmod.api.spells.runes.unlimited
 
 import dev.openrune.types.ItemServerType
+import org.rsmod.api.combat.commons.magic.TomeOfFireState
 import org.rsmod.api.enums.RuneEnums.rune_staves
 import org.rsmod.api.enums.UnlimitedRunesEnums.unlimited_runes_hiprio
 import org.rsmod.api.enums.UnlimitedRunesEnums.unlimited_runes_loprio
 import org.rsmod.game.inv.InvObj
+import org.rsmod.game.inv.isAnyType
+import org.rsmod.game.inv.isType
 
 public class UnlimitedRuneRepository {
     // Magic rune validation has a subtle distinction involving certain "unlimited source" objs
@@ -20,6 +23,14 @@ public class UnlimitedRuneRepository {
         righthand: InvObj?,
         lefthand: InvObj?,
     ): Boolean {
+        // The Twinflame staff is a one-handed steam-rune source in the weapon slot.
+        if (
+            righthand.isType("obj.twinflame_staff") &&
+                rune.isAnyType("obj.firerune", "obj.waterrune")
+        ) {
+            return true
+        }
+
         val sources = highPriority[rune.id] ?: return false
         return righthand?.id in sources || lefthand?.id in sources
     }
@@ -29,6 +40,15 @@ public class UnlimitedRuneRepository {
         righthand: InvObj?,
         lefthand: InvObj?,
     ): Boolean {
+        // Normal and Battle Royale tomes provide fire runes only while their charge state is
+        // active. Keep this explicit because the cache enum cannot inspect per-item vars.
+        if (
+            rune.isType("obj.firerune") &&
+                lefthand?.id in setOf(TomeOfFireState.CHARGED_ID, TomeOfFireState.BATTLE_ROYALE_ID)
+        ) {
+            return TomeOfFireState.isActive(lefthand)
+        }
+
         val sources = lowPriority[rune.id] ?: return false
         return righthand?.id in sources || lefthand?.id in sources
     }

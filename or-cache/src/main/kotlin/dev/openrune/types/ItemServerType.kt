@@ -1,7 +1,7 @@
 package dev.openrune.types
 
+import dev.openrune.CrimsonKisten
 import dev.openrune.ParamMap
-import dev.openrune.ServerCacheManager
 import dev.openrune.TypedParamType
 import dev.openrune.definition.Definition
 import dev.openrune.definition.EntityOpsDefinition
@@ -39,7 +39,7 @@ data class ItemServerType(
     var wearpos2: Int = -1,
     var wearpos3: Int = -1,
     var examine: String = "",
-    @param:TomlField(["params"],serializer = ParamSerializer::class)
+    @param:TomlField(["params"], serializer = ParamSerializer::class)
     var paramsRaw: MutableMap<Int, Any>? = null,
     var objvar: List<Int> = emptyList(),
     var playerCost: Int = 0,
@@ -58,6 +58,20 @@ data class ItemServerType(
 
     val internalName
         get() = RSCM.getReverseMapping(RSCMType.OBJ, id)
+
+    public val resolvedWeaponCategory: WeaponCategory
+        get() =
+            when (id) {
+                CrimsonKisten.ITEM -> WeaponCategory.Spiked
+                30634 -> WeaponCategory.Staff
+                29796 -> WeaponCategory.Polearm
+                30388 -> WeaponCategory.SlashSword
+                30955 -> WeaponCategory.SlashSword
+                33178 -> WeaponCategory.Polearm
+                33041 -> WeaponCategory.SlashSword
+                33249 -> WeaponCategory.StabSword
+                else -> weaponCategory
+            }
 
     var paramMap: ParamMap? = null
 
@@ -126,29 +140,23 @@ data class ItemServerType(
         return (type1.id == id || type2.id == id)
     }
 
-    public fun isAnyType(
-        type1: String,
-        type2: String,
-        type3: String,
-    ): Boolean {
-        return (type1.asRSCM(RSCMType.OBJ) == id || type2.asRSCM(RSCMType.OBJ) == id || type3.asRSCM(RSCMType.OBJ) == id)
+    public fun isAnyType(type1: String, type2: String, type3: String): Boolean {
+        return (type1.asRSCM(RSCMType.OBJ) == id ||
+            type2.asRSCM(RSCMType.OBJ) == id ||
+            type3.asRSCM(RSCMType.OBJ) == id)
     }
 
-    public fun isAnyType(
-        type1: String,
-        type2: String,
-        type3: String,
-        type4: String,
-    ): Boolean {
-        return (type1.asRSCM(RSCMType.OBJ) == id || type2.asRSCM(RSCMType.OBJ) == id || type3.asRSCM(RSCMType.OBJ) == id || type4.asRSCM(RSCMType.OBJ) == id)
+    public fun isAnyType(type1: String, type2: String, type3: String, type4: String): Boolean {
+        return (type1.asRSCM(RSCMType.OBJ) == id ||
+            type2.asRSCM(RSCMType.OBJ) == id ||
+            type3.asRSCM(RSCMType.OBJ) == id ||
+            type4.asRSCM(RSCMType.OBJ) == id)
     }
 
-    public fun isAnyType(
-        type1: String,
-        type2: String,
-        vararg types: String,
-    ): Boolean {
-        return type1.asRSCM(RSCMType.OBJ) == id || type2.asRSCM(RSCMType.OBJ) == id || types.any { it.asRSCM(RSCMType.OBJ) == id }
+    public fun isAnyType(type1: String, type2: String, vararg types: String): Boolean {
+        return type1.asRSCM(RSCMType.OBJ) == id ||
+            type2.asRSCM(RSCMType.OBJ) == id ||
+            types.any { it.asRSCM(RSCMType.OBJ) == id }
     }
 
     public fun isContentType(content: String): Boolean {
@@ -170,5 +178,4 @@ data class ItemServerType(
     public fun isType(other: String): Boolean {
         return this.id == other.asRSCM(RSCMType.OBJ)
     }
-
 }

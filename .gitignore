@@ -57,3 +57,21 @@ logs/
 *.log
 /.cursor
 /.data/raw-cache/cs2
+
+# Local Codex/runtime artifacts
+/.codex-runtime/
+*.exit
+
+# Editor and conflict leftovers
+*.orig
+*.rej
+*.bak
+*.tmp
+
+# Accidental Unix null-device path on Windows
+/dev/null
+
+# Superseded root-level wilderness audit exports.
+# The canonical reports live under docs/wilderness/.
+/11486/
+/chest/

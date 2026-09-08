@@ -6,6 +6,7 @@ import dev.openrune.types.aconverted.SpotanimType
 import dev.openrune.types.aconverted.SynthType
 import jakarta.inject.Inject
 import org.rsmod.api.combat.commons.CombatAttack
+import org.rsmod.api.combat.commons.magic.Spellbook
 import org.rsmod.api.combat.commons.styles.MeleeAttackStyle
 import org.rsmod.api.combat.commons.styles.RangedAttackStyle
 import org.rsmod.api.combat.commons.types.MeleeAttackType
@@ -16,6 +17,7 @@ import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.PathingEntity
 import org.rsmod.game.entity.Player
 import org.rsmod.game.hit.Hit
+import org.rsmod.game.hit.HitImpactHandler
 import org.rsmod.game.proj.ProjAnim
 
 public class WeaponAttackManager @Inject constructor(private val manager: PlayerAttackManager) {
@@ -292,6 +294,7 @@ public class WeaponAttackManager @Inject constructor(private val manager: Player
         damage: Int,
         clientDelay: Int,
         hitDelay: Int = 1 + (clientDelay / 30),
+        impactHandler: HitImpactHandler? = null,
     ): Hit =
         manager.queueRangedHit(
             source = source.player,
@@ -300,6 +303,7 @@ public class WeaponAttackManager @Inject constructor(private val manager: Player
             damage = damage,
             clientDelay = clientDelay,
             hitDelay = hitDelay,
+            impactHandler = impactHandler,
         )
 
     /** @see [PlayerAttackManager.queueRangedDamage] */
@@ -316,6 +320,26 @@ public class WeaponAttackManager @Inject constructor(private val manager: Player
             ammo = ammo,
             damage = damage,
             hitDelay = hitDelay,
+        )
+
+    /** @see [PlayerAttackManager.rollSpellMaxHit] */
+    public fun rollSpellMaxHit(
+        source: ProtectedAccess,
+        target: PathingEntity,
+        spell: ItemServerType,
+        spellbook: Spellbook?,
+        baseMaxHit: Int,
+        attackRate: Int,
+        sunfireRune: Boolean = false,
+    ): Int =
+        manager.rollSpellMaxHit(
+            source = source.player,
+            target = target,
+            spell = spell,
+            spellbook = spellbook,
+            baseMaxHit = baseMaxHit,
+            attackRate = attackRate,
+            sunfireRune = sunfireRune,
         )
 
     /**
@@ -450,6 +474,17 @@ public class WeaponAttackManager @Inject constructor(private val manager: Player
         spotanim: String,
         projanim: String,
     ): ProjAnim = manager.spawnProjectile(source.player, target, spotanim, projanim)
+
+    public fun spawnProjectile(
+        source: ProtectedAccess,
+        target: PathingEntity,
+        spotanim: SpotanimType,
+        projanim: String,
+    ): ProjAnim =
+        when (target) {
+            is Npc -> manager.spawnProjectile(source.player, target, spotanim, projanim)
+            is Player -> manager.spawnProjectile(source.player, target, spotanim, projanim)
+        }
 
     /** @see [PlayerAttackManager.soundArea] */
     public fun soundArea(

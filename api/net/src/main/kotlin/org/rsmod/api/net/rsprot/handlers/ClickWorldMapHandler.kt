@@ -9,19 +9,14 @@ import org.rsmod.events.EventBus
 import org.rsmod.game.entity.Player
 import org.rsmod.map.CoordGrid
 
-class ClickWorldMapHandler @Inject
-constructor(
-    private val eventBus: EventBus,
-    private val protectedAccess: ProtectedAccessLauncher
-) : MessageHandler<ClickWorldMap> {
+class ClickWorldMapHandler
+@Inject
+constructor(private val eventBus: EventBus, private val protectedAccess: ProtectedAccessLauncher) :
+    MessageHandler<ClickWorldMap> {
     @OptIn(InternalApi::class)
     override fun handle(player: Player, message: ClickWorldMap) {
-        val worldMapClick = WorldMapClick(
-            player = player,
-            coord = CoordGrid(message.x, message.z, player.level)
-        )
-        protectedAccess.launch(player) {
-            eventBus.publish(this, worldMapClick)
-        }
+        val worldMapClick =
+            WorldMapClick(player = player, coord = CoordGrid(message.x, message.z, player.level))
+        protectedAccess.launch(player) { eventBus.publish(this, worldMapClick) }
     }
 }

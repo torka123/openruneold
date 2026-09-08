@@ -1,3 +1,79 @@
+# Verzik phase-two Nylocas use no separate block sequence in revision 240. Their own idle
+# sequence is the correct defend fallback; killed phase-two Nylocas use the style-specific
+# detonation death sequence.
+
+[[npc]]
+id = "npc.tob_nylocas_big_incoming_melee"
+inherit = "npc.tob_nylocas_big_incoming_melee"
+[npc.params]
+"param.attack_anim" = "seq.top_spider_melee_attack"
+"param.defend_anim" = "seq.top_spider_melee_idle"
+"param.death_anim" = "seq.top_spider_melee_death_detonate"
+
+[[npc]]
+id = "npc.tob_nylocas_big_incoming_melee_story"
+inherit = "npc.tob_nylocas_big_incoming_melee_story"
+[npc.params]
+"param.attack_anim" = "seq.top_spider_melee_attack"
+"param.defend_anim" = "seq.top_spider_melee_idle"
+"param.death_anim" = "seq.top_spider_melee_death_detonate"
+
+[[npc]]
+id = "npc.tob_nylocas_big_incoming_melee_hard"
+inherit = "npc.tob_nylocas_big_incoming_melee_hard"
+[npc.params]
+"param.attack_anim" = "seq.top_spider_melee_attack"
+"param.defend_anim" = "seq.top_spider_melee_idle"
+"param.death_anim" = "seq.top_spider_melee_death_detonate"
+
+[[npc]]
+id = "npc.tob_nylocas_big_incoming_ranged"
+inherit = "npc.tob_nylocas_big_incoming_ranged"
+[npc.params]
+"param.attack_anim" = "seq.top_spider_ranged_attack"
+"param.defend_anim" = "seq.top_spider_ranged_idle"
+"param.death_anim" = "seq.top_spider_ranged_death_detonate"
+
+[[npc]]
+id = "npc.tob_nylocas_big_incoming_ranged_story"
+inherit = "npc.tob_nylocas_big_incoming_ranged_story"
+[npc.params]
+"param.attack_anim" = "seq.top_spider_ranged_attack"
+"param.defend_anim" = "seq.top_spider_ranged_idle"
+"param.death_anim" = "seq.top_spider_ranged_death_detonate"
+
+[[npc]]
+id = "npc.tob_nylocas_big_incoming_ranged_hard"
+inherit = "npc.tob_nylocas_big_incoming_ranged_hard"
+[npc.params]
+"param.attack_anim" = "seq.top_spider_ranged_attack"
+"param.defend_anim" = "seq.top_spider_ranged_idle"
+"param.death_anim" = "seq.top_spider_ranged_death_detonate"
+
+[[npc]]
+id = "npc.tob_nylocas_big_incoming_magic"
+inherit = "npc.tob_nylocas_big_incoming_magic"
+[npc.params]
+"param.attack_anim" = "seq.top_spider_magic_attack"
+"param.defend_anim" = "seq.top_spider_magic_idle"
+"param.death_anim" = "seq.top_spider_magic_death_detonate"
+
+[[npc]]
+id = "npc.tob_nylocas_big_incoming_magic_story"
+inherit = "npc.tob_nylocas_big_incoming_magic_story"
+[npc.params]
+"param.attack_anim" = "seq.top_spider_magic_attack"
+"param.defend_anim" = "seq.top_spider_magic_idle"
+"param.death_anim" = "seq.top_spider_magic_death_detonate"
+
+[[npc]]
+id = "npc.tob_nylocas_big_incoming_magic_hard"
+inherit = "npc.tob_nylocas_big_incoming_magic_hard"
+[npc.params]
+"param.attack_anim" = "seq.top_spider_magic_attack"
+"param.defend_anim" = "seq.top_spider_magic_idle"
+"param.death_anim" = "seq.top_spider_magic_death_detonate"
+
 [[npc]]
 id = "npc.0_50_50_freshfish"
 inherit = "npc.0_50_50_freshfish"
@@ -110,7 +186,6 @@ destination = { x = 3202, z = 3205, level = 0 }
 
 [[npc.waypoints]]
 destination = { x = 3202, z = 3232, level = 0 }
-
 
 [[npc]]
 id = "npc.cook"
@@ -1749,18 +1824,96 @@ id = "npc.cerberus_attacking"
 inherit = "npc.cerberus_attacking"
 [npc.params]
 "param.killcount_varp"="varp.total_cerberus_kills"
+# OSRS Cerberus: shared combat, elemental, toxin and experience consumers.
+"param.attack_stab"=50
+"param.attack_slash"=0
+"param.attack_crush"=50
+"param.attack_melee"=50
+"param.attack_magic"=0
+"param.attack_ranged"=50
+"param.defence_stab"=50
+"param.defence_slash"=100
+"param.defence_crush"=25
+"param.defence_magic"=65
+"param.defence_ranged"=100
+"param.defence_light"=100
+"param.defence_standard"=100
+"param.defence_heavy"=100
+"param.npc_attack_type"="category.attacktype_stab"
+"param.attackrate"=6
+"param.demon"=1
+"param.poison_immunity"=1
+"param.venom_immunity"=2
+"param.burn_immunity"=1
+"param.cannon_immunity"=0
+"param.elemental_weakness_type"=1 # Standard elemental enum: water.
+"param.elemental_weakness_percent"=40
+"param.slayer_experience"=690
+"param.npc_com_xp_multiplier"=1150
 
 [[npc]]
 id = "npc.cerberus_resetting"
 inherit = "npc.cerberus_resetting"
 [npc.params]
 "param.killcount_varp"="varp.total_cerberus_kills"
+# OSRS Cerberus: shared combat, elemental, toxin and experience consumers.
+"param.attack_stab"=50
+"param.attack_slash"=0
+"param.attack_crush"=50
+"param.attack_melee"=50
+"param.attack_magic"=0
+"param.attack_ranged"=50
+"param.defence_stab"=50
+"param.defence_slash"=100
+"param.defence_crush"=25
+"param.defence_magic"=65
+"param.defence_ranged"=100
+"param.defence_light"=100
+"param.defence_standard"=100
+"param.defence_heavy"=100
+"param.npc_attack_type"="category.attacktype_stab"
+"param.attackrate"=6
+"param.demon"=1
+"param.poison_immunity"=1
+"param.venom_immunity"=2
+"param.burn_immunity"=1
+"param.cannon_immunity"=0
+"param.elemental_weakness_type"=1 # Standard elemental enum: water.
+"param.elemental_weakness_percent"=40
+"param.slayer_experience"=690
+"param.npc_com_xp_multiplier"=1150
 
 [[npc]]
 id = "npc.cerberus_sitting"
 inherit = "npc.cerberus_sitting"
 [npc.params]
 "param.killcount_varp"="varp.total_cerberus_kills"
+# OSRS Cerberus: shared combat, elemental, toxin and experience consumers.
+"param.attack_stab"=50
+"param.attack_slash"=0
+"param.attack_crush"=50
+"param.attack_melee"=50
+"param.attack_magic"=0
+"param.attack_ranged"=50
+"param.defence_stab"=50
+"param.defence_slash"=100
+"param.defence_crush"=25
+"param.defence_magic"=65
+"param.defence_ranged"=100
+"param.defence_light"=100
+"param.defence_standard"=100
+"param.defence_heavy"=100
+"param.npc_attack_type"="category.attacktype_stab"
+"param.attackrate"=6
+"param.demon"=1
+"param.poison_immunity"=1
+"param.venom_immunity"=2
+"param.burn_immunity"=1
+"param.cannon_immunity"=0
+"param.elemental_weakness_type"=1 # Standard elemental enum: water.
+"param.elemental_weakness_percent"=40
+"param.slayer_experience"=690
+"param.npc_com_xp_multiplier"=1150
 
 [[npc]]
 id = "npc.crypt_of_tonali_grimy_lizard"
@@ -2424,6 +2577,11 @@ inherit = "npc.kourend_bloodveld"
 [[npc]]
 id = "npc.kourend_dark_beast"
 inherit = "npc.kourend_dark_beast"
+huntMode = 6
+huntRange = 8
+attackRange = 1
+wanderRange = 5
+respawnRate = 20
 [npc.params]
 "param.killcount_varp"="varp.kc_dark_beast"
 "param.killcount_notify"=false
@@ -2893,6 +3051,11 @@ inherit = "npc.slayer_dustdevil"
 [[npc]]
 id = "npc.slayer_gargoyle_1"
 inherit = "npc.slayer_gargoyle_1"
+huntMode = 6
+huntRange = 8
+attackRange = 1
+wanderRange = 5
+respawnRate = 20
 [npc.params]
 "param.killcount_varp"="varp.kc_gargoyle"
 "param.killcount_notify"=false
@@ -3552,6 +3715,39 @@ inherit = "npc.varlamore_cockatrice_moon01"
 "param.killcount_varp"="varp.kc_cockatrice"
 "param.killcount_notify"=false
 
+# Perilous Moons keep the revision-240 combat NPCs and make their OSRS weaknesses and
+# strong magic/ranged resistance explicit. The raw cache already supplies these values
+# except defence_ranged, which is absent and otherwise resolves to zero in combat formulas.
+[[npc]]
+id = "npc.pmoon_boss_blood_moon"
+inherit = "npc.pmoon_boss_blood_moon"
+[npc.params]
+"param.defence_stab" = 100
+"param.defence_slash" = 0
+"param.defence_crush" = 100
+"param.defence_magic" = 500
+"param.defence_ranged" = 500
+
+[[npc]]
+id = "npc.pmoon_boss_blue_moon"
+inherit = "npc.pmoon_boss_blue_moon"
+[npc.params]
+"param.defence_stab" = 100
+"param.defence_slash" = 100
+"param.defence_crush" = 0
+"param.defence_magic" = 500
+"param.defence_ranged" = 500
+
+[[npc]]
+id = "npc.pmoon_boss_eclipse_moon"
+inherit = "npc.pmoon_boss_eclipse_moon"
+[npc.params]
+"param.defence_stab" = 0
+"param.defence_slash" = 100
+"param.defence_crush" = 100
+"param.defence_magic" = 500
+"param.defence_ranged" = 500
+
 [[npc]]
 id = "npc.varlamore_wyrm_dark01"
 inherit = "npc.varlamore_wyrm_dark01"
@@ -3719,3 +3915,577 @@ inherit = "npc.wyvern_taloned"
 [npc.params]
 "param.killcount_varp"="varp.kc_taloned_wyvern"
 "param.killcount_notify"=false
+
+[[npc]]
+id = "npc.mole_giant"
+inherit = "npc.mole_giant"
+wanderRange = 0
+respawnRate = 16
+[npc.params]
+"param.attack_anim" = "seq.mole_attack"
+"param.defend_anim" = "seq.mole_defend"
+"param.death_anim" = "seq.mole_death"
+"param.npc_attack_type" = "category.attacktype_crush"
+
+[[npc]]
+id = "npc.chaos_fanatic"
+inherit = "npc.chaos_fanatic"
+wanderRange = 4
+respawnRate = 15
+attackRange = 10
+huntRange = 10
+[npc.params]
+"param.attack_anim" = "seq.human_casting"
+"param.defend_anim" = "seq.human_unarmed_def"
+"param.death_anim" = "seq.human_dead"
+"param.npc_attack_type" = "category.attacktype_magic"
+
+[[npc]]
+id = "npc.crazy_archaeologist"
+inherit = "npc.crazy_archaeologist"
+wanderRange = 4
+respawnRate = 15
+attackRange = 10
+huntRange = 10
+[npc.params]
+"param.attack_anim" = "seq.book_chuck"
+"param.defend_anim" = "seq.human_unarmed_def"
+"param.death_anim" = "seq.human_dead"
+"param.npc_attack_type" = "category.attacktype_standard"
+
+[[npc]]
+id = "npc.scorpia"
+inherit = "npc.scorpia"
+wanderRange = 8
+respawnRate = 14
+attackRange = 1
+huntRange = 10
+[npc.params]
+"param.attack_anim" = "seq.scorpion_update_attack_tail"
+"param.defend_anim" = "seq.scorpion_update_defend"
+"param.death_anim" = "seq.scorpion_update_death"
+"param.npc_attack_type" = "category.attacktype_stab"
+
+[[npc]]
+id = "npc.scorpia_guardian"
+inherit = "npc.scorpia_guardian"
+wanderRange = 0
+attackRange = 0
+[npc.params]
+"param.attack_anim" = "seq.small_scorpion_update_attack"
+"param.defend_anim" = "seq.small_scorpion_update_defend"
+"param.death_anim" = "seq.small_scorpion_update_death"
+
+# The reworked spiders attack throughout their arenas. Their combat script switches between the
+# cache's melee, ranged, and magic animations. Movement is controlled by the encounter rotation.
+
+[[npc]]
+id = "npc.venenatis"
+inherit = "npc.venenatis"
+huntMode = 6
+wanderRange = 0
+respawnRate = 20
+attackRange = 10
+huntRange = 30
+[npc.params]
+"param.poison_immunity" = 1
+"param.venom_immunity" = 2
+"param.cannon_immunity" = 1
+"param.attack_anim" = "seq.npc_venenatis_melee_01"
+"param.defend_anim" = "seq.npc_venenatis_idle_01"
+"param.death_anim" = "seq.npc_venenatis_death_01"
+"param.npc_attack_type" = "category.attacktype_stab"
+
+[[npc]]
+id = "npc.venenatis_singles"
+inherit = "npc.venenatis_singles"
+huntMode = 6
+wanderRange = 0
+respawnRate = 20
+attackRange = 10
+huntRange = 16
+[npc.params]
+"param.poison_immunity" = 1
+"param.venom_immunity" = 2
+"param.cannon_immunity" = 1
+"param.attack_anim" = "seq.npc_venenatis_melee_01"
+"param.defend_anim" = "seq.npc_venenatis_idle_01"
+"param.death_anim" = "seq.npc_venenatis_death_01"
+"param.npc_attack_type" = "category.attacktype_stab"
+
+[[npc]]
+id = "npc.venenatis_spiderling"
+inherit = "npc.venenatis_spiderling"
+wanderRange = 0
+attackRange = 1
+huntRange = 12
+[npc.params]
+"param.attack_anim" = "seq.small_spider_update_attack"
+"param.defend_anim" = "seq.small_spider_update_defend"
+"param.death_anim" = "seq.small_spider_update_death"
+"param.npc_attack_type" = "category.attacktype_stab"
+
+[[npc]]
+id = "npc.spindel_spiderling"
+inherit = "npc.spindel_spiderling"
+wanderRange = 0
+attackRange = 1
+huntRange = 12
+[npc.params]
+"param.attack_anim" = "seq.small_spider_update_attack"
+"param.defend_anim" = "seq.small_spider_update_defend"
+"param.death_anim" = "seq.small_spider_update_death"
+"param.npc_attack_type" = "category.attacktype_stab"
+
+# Repeatable post-quest Phantom Muspah forms (cache IDs 12077-12080 and 12082).
+# The OSRS cache supplies their base stats and combat bonuses. These server-only parameters make
+# shared combat systems use the boss's live immunities, 33% freeze resistance, and Air weakness.
+
+[[npc]]
+id = "npc.muspah"
+inherit = "npc.muspah"
+wanderRange = 0
+respawnRate = 50
+attackRange = 10
+huntRange = 12
+[npc.params]
+"param.poison_immunity" = 1
+"param.venom_immunity" = 2
+"param.cannon_immunity" = 1
+"param.freeze_resistance" = 33
+"param.elemental_weakness_type" = 0
+"param.elemental_weakness_percent" = 65
+"param.death_anim" = "seq.npc_muspah_death_01"
+
+[[npc]]
+id = "npc.muspah_melee"
+inherit = "npc.muspah_melee"
+wanderRange = 0
+respawnRate = 50
+attackRange = 1
+huntRange = 12
+[npc.params]
+"param.poison_immunity" = 1
+"param.venom_immunity" = 2
+"param.cannon_immunity" = 1
+"param.freeze_resistance" = 33
+"param.elemental_weakness_type" = 0
+"param.elemental_weakness_percent" = 65
+"param.death_anim" = "seq.npc_muspah_death_02"
+
+[[npc]]
+id = "npc.muspah_soulsplit"
+inherit = "npc.muspah_soulsplit"
+wanderRange = 0
+respawnRate = 50
+attackRange = 10
+huntRange = 12
+[npc.params]
+"param.poison_immunity" = 1
+"param.venom_immunity" = 2
+"param.cannon_immunity" = 1
+"param.freeze_resistance" = 33
+"param.elemental_weakness_type" = 0
+"param.elemental_weakness_percent" = 65
+"param.death_anim" = "seq.npc_muspah_death_01"
+
+[[npc]]
+id = "npc.muspah_final"
+inherit = "npc.muspah_final"
+wanderRange = 0
+respawnRate = 50
+attackRange = 10
+huntRange = 12
+[npc.params]
+"param.poison_immunity" = 1
+"param.venom_immunity" = 2
+"param.cannon_immunity" = 1
+"param.freeze_resistance" = 33
+"param.elemental_weakness_type" = 0
+"param.elemental_weakness_percent" = 65
+"param.death_anim" = "seq.npc_muspah_death_01"
+
+[[npc]]
+id = "npc.muspah_teleport"
+inherit = "npc.muspah_teleport"
+wanderRange = 0
+respawnRate = 50
+attackRange = 10
+huntRange = 12
+[npc.params]
+"param.poison_immunity" = 1
+"param.venom_immunity" = 2
+"param.cannon_immunity" = 1
+"param.freeze_resistance" = 33
+"param.elemental_weakness_type" = 0
+"param.elemental_weakness_percent" = 65
+"param.death_anim" = "seq.npc_muspah_death_01"
+
+# Wilderness fishing spots and Skully are map fixtures, not wandering actors.
+
+[[npc]]
+id = "npc.0_47_57_saltfish"
+inherit = "npc.0_47_57_saltfish"
+moveRestrict = "NoMove"
+wanderRange = 0
+defaultMode = "None"
+
+[[npc]]
+id = "npc.0_47_59_lavafish"
+inherit = "npc.0_47_59_lavafish"
+moveRestrict = "NoMove"
+wanderRange = 0
+defaultMode = "None"
+
+[[npc]]
+id = "npc.49_61_crabs"
+inherit = "npc.49_61_crabs"
+moveRestrict = "NoMove"
+wanderRange = 0
+defaultMode = "None"
+
+[[npc]]
+id = "npc.52_59_crabs"
+inherit = "npc.52_59_crabs"
+moveRestrict = "NoMove"
+wanderRange = 0
+defaultMode = "None"
+
+[[npc]]
+id = "npc.wildy_hub_refugee1"
+inherit = "npc.wildy_hub_refugee1"
+moveRestrict = "NoMove"
+wanderRange = 0
+defaultMode = "None"
+
+# Modern Revenant Caves combatants. Their creature-specific animations remain cache-owned;
+# these server values provide the shared five-tick combat reach, room-sized roaming, and
+# twenty-tick respawn used by the explicit Revenant combat script.
+
+[[npc]]
+id = "npc.wild_cave_imp"
+inherit = "npc.wild_cave_imp"
+huntMode = 6
+huntRange = 8
+attackRange = 8
+wanderRange = 5
+respawnRate = 20
+
+[[npc]]
+id = "npc.wild_cave_goblin"
+inherit = "npc.wild_cave_goblin"
+huntMode = 6
+huntRange = 8
+attackRange = 8
+wanderRange = 5
+respawnRate = 20
+
+[[npc]]
+id = "npc.wild_cave_pyrefiend"
+inherit = "npc.wild_cave_pyrefiend"
+huntMode = 6
+huntRange = 8
+attackRange = 8
+wanderRange = 5
+respawnRate = 20
+
+[[npc]]
+id = "npc.wild_cave_hobgoblin"
+inherit = "npc.wild_cave_hobgoblin"
+huntMode = 6
+huntRange = 8
+attackRange = 8
+wanderRange = 5
+respawnRate = 20
+
+[[npc]]
+id = "npc.wild_cave_cyclops"
+inherit = "npc.wild_cave_cyclops"
+huntMode = 6
+huntRange = 8
+attackRange = 8
+wanderRange = 5
+respawnRate = 20
+
+[[npc]]
+id = "npc.wild_cave_hellhound"
+inherit = "npc.wild_cave_hellhound"
+huntMode = 6
+huntRange = 8
+attackRange = 8
+wanderRange = 5
+respawnRate = 20
+
+[[npc]]
+id = "npc.wild_cave_demon"
+inherit = "npc.wild_cave_demon"
+huntMode = 6
+huntRange = 8
+attackRange = 8
+wanderRange = 5
+respawnRate = 20
+
+[[npc]]
+id = "npc.wild_cave_ork"
+inherit = "npc.wild_cave_ork"
+huntMode = 6
+huntRange = 8
+attackRange = 8
+wanderRange = 5
+respawnRate = 20
+
+[[npc]]
+id = "npc.wild_cave_darkbeast"
+inherit = "npc.wild_cave_darkbeast"
+huntMode = 6
+huntRange = 8
+attackRange = 8
+wanderRange = 5
+respawnRate = 20
+
+[[npc]]
+id = "npc.wild_cave_knight"
+inherit = "npc.wild_cave_knight"
+huntMode = 6
+huntRange = 8
+attackRange = 8
+wanderRange = 5
+respawnRate = 20
+
+[[npc]]
+id = "npc.wild_cave_dragon"
+inherit = "npc.wild_cave_dragon"
+huntMode = 6
+huntRange = 8
+attackRange = 8
+wanderRange = 5
+respawnRate = 20
+
+# Revenant Maledictus is world-event controlled, so it never cache-respawns. The override
+# supplies the main-game 1,250 life points and keeps its aggression inside its chosen room.
+
+[[npc]]
+id = "npc.wild_cave_superior"
+inherit = "npc.wild_cave_superior"
+hitpoints = 1250
+huntMode = 6
+huntRange = 16
+attackRange = 16
+wanderRange = 8
+respawnRate = 0
+
+[npc.params]
+"param.poison_immunity" = 1
+"param.venom_immunity" = 2
+# Current post-rework Wilderness bears respawn after 11 game ticks. The cache decoder's
+# shared Slayer policy halves these source values, so 22 becomes the intended runtime 11.
+
+[[npc]]
+id = "npc.callisto"
+inherit = "npc.callisto"
+huntMode = 6
+huntRange = 12
+maxRange = 48
+attackRange = 1
+wanderRange = 8
+respawnRate = 22
+
+[[npc]]
+id = "npc.callisto_singles"
+inherit = "npc.callisto_singles"
+huntMode = 6
+huntRange = 12
+maxRange = 48
+attackRange = 1
+wanderRange = 8
+respawnRate = 22
+
+# Vet'ion respawns after 15 game ticks and Calvar'ion after 14. The cache decoder's
+# project-wide respawn policy halves these source values at runtime.
+
+[[npc]]
+id = "npc.vetion"
+inherit = "npc.vetion"
+huntMode = 6
+huntRange = 12
+attackRange = 1
+wanderRange = 8
+respawnRate = 30
+[npc.params]
+"param.poison_immunity" = 1
+"param.venom_immunity" = 2
+
+[[npc]]
+id = "npc.vetion_single"
+inherit = "npc.vetion_single"
+respawnRate = 28
+[npc.params]
+"param.poison_immunity" = 1
+"param.venom_immunity" = 2
+
+# Both hound generations use their revision-240 native attack, defend, and death
+# sequences. Combat max hit and attack rate remain encounter-owned.
+
+[[npc]]
+id = "npc.vetion_hellhound_jnr"
+inherit = "npc.vetion_hellhound_jnr"
+[npc.params]
+"param.attack_anim" = "seq.wbr_vention_hellhound_attack"
+"param.defend_anim" = "seq.wbr_vention_hellhound_defend"
+"param.death_anim" = "seq.wbr_vention_hellhound_death"
+
+[[npc]]
+id = "npc.vetion_hellhound_snr"
+inherit = "npc.vetion_hellhound_snr"
+[npc.params]
+"param.attack_anim" = "seq.wbr_vention_hellhound_attack"
+"param.defend_anim" = "seq.wbr_vention_hellhound_defend"
+"param.death_anim" = "seq.wbr_vention_hellhound_death"
+
+[[npc]]
+id = "npc.vetion_hellhound_jnr_singles"
+inherit = "npc.vetion_hellhound_jnr_singles"
+[npc.params]
+"param.attack_anim" = "seq.wbr_vention_hellhound_attack"
+"param.defend_anim" = "seq.wbr_vention_hellhound_defend"
+"param.death_anim" = "seq.wbr_vention_hellhound_death"
+
+[[npc]]
+id = "npc.vetion_hellhound_snr_singles"
+inherit = "npc.vetion_hellhound_snr_singles"
+[npc.params]
+"param.attack_anim" = "seq.wbr_vention_hellhound_attack"
+"param.defend_anim" = "seq.wbr_vention_hellhound_defend"
+"param.death_anim" = "seq.wbr_vention_hellhound_death"
+
+# Wilderness Slayer Cave replacements use normal one-tile melee reach and line-of-sight
+# aggression. Slayer NPC respawn policy halves the source value below to ten game ticks.
+
+[[npc]]
+id = "npc.wilderness_ankou"
+inherit = "npc.wilderness_ankou"
+huntMode = 6
+huntRange = 8
+attackRange = 1
+wanderRange = 5
+respawnRate = 20
+
+[[npc]]
+id = "npc.kourend_black_dragon"
+inherit = "npc.kourend_black_dragon"
+huntMode = 6
+huntRange = 8
+attackRange = 1
+wanderRange = 5
+respawnRate = 20
+
+[[npc]]
+id = "npc.ellis_tanner"
+inherit = "npc.ellis_tanner"
+moveRestrict = "Indoors"
+wanderRange = 5
+
+[[npc]]
+id = "npc.master_crafter"
+inherit = "npc.master_crafter"
+moveRestrict = "NoMove"
+wanderRange = 0
+
+[[npc]]
+id = "npc.master_crafter_2"
+inherit = "npc.master_crafter_2"
+moveRestrict = "NoMove"
+wanderRange = 0
+
+[[npc]]
+id = "npc.master_crafter_3"
+inherit = "npc.master_crafter_3"
+moveRestrict = "NoMove"
+wanderRange = 0
+
+[[npc]]
+id = "npc.voice_of_yama"
+inherit = "npc.voice_of_yama"
+moveRestrict = "NoMove"
+wanderRange = 0
+
+# Yama is a demon in the live encounter. Keep this in shared NPC metadata so every
+# demonbane weapon and spell uses the normal combat-formula pipeline exactly once.
+[[npc]]
+id = "npc.yama"
+inherit = "npc.yama"
+[npc.params]
+"param.demon" = 1
+
+# Doom and its demonic larvae are demons in the live encounter. Their normal, shielded, and
+# burrowed forms share this metadata so the common combat formulas apply demonbane bonuses.
+[[npc]]
+id = "npc.dom_boss"
+inherit = "npc.dom_boss"
+[npc.params]
+"param.demon" = 1
+
+[[npc]]
+id = "npc.dom_boss_shielded"
+inherit = "npc.dom_boss_shielded"
+[npc.params]
+"param.demon" = 1
+
+[[npc]]
+id = "npc.dom_boss_burrowed"
+inherit = "npc.dom_boss_burrowed"
+[npc.params]
+"param.demon" = 1
+
+[[npc]]
+id = "npc.dom_demonic_energy"
+inherit = "npc.dom_demonic_energy"
+[npc.params]
+"param.demon" = 1
+
+[[npc]]
+id = "npc.dom_demonic_energy_range"
+inherit = "npc.dom_demonic_energy_range"
+[npc.params]
+"param.demon" = 1
+
+[[npc]]
+id = "npc.dom_demonic_energy_mage"
+inherit = "npc.dom_demonic_energy_mage"
+[npc.params]
+"param.demon" = 1
+
+[[npc]]
+id = "npc.dom_demonic_energy_melee"
+inherit = "npc.dom_demonic_energy_melee"
+[npc.params]
+"param.demon" = 1
+
+# Royal Titans live elemental weaknesses (OSRS Wiki, revision-240 active IDs).
+[[npc]]
+id = "npc.rt_fire_queen"
+inherit = "npc.rt_fire_queen"
+[npc.params]
+"param.elemental_weakness_type" = 1
+"param.elemental_weakness_percent" = 50
+
+[[npc]]
+id = "npc.rt_ice_king"
+inherit = "npc.rt_ice_king"
+[npc.params]
+"param.elemental_weakness_type" = 3
+"param.elemental_weakness_percent" = 50
+
+[[npc]]
+id = "npc.rt_summon_elemental_fire"
+inherit = "npc.rt_summon_elemental_fire"
+[npc.params]
+"param.elemental_weakness_type" = 1
+"param.elemental_weakness_percent" = 100
+
+[[npc]]
+id = "npc.rt_summon_elemental_ice"
+inherit = "npc.rt_summon_elemental_ice"
+[npc.params]
+"param.elemental_weakness_type" = 3
+"param.elemental_weakness_percent" = 100

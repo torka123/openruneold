@@ -47,6 +47,5 @@ object ParamMapper {
         const val GOLEM = 1178 // 1 = If is Golem
         const val KALPHITE = 1353 // 1 = If is Kalphite
         const val DEATH_DROP = 46 // What to drop on death Bones/Ashes etc.
-
     }
 }

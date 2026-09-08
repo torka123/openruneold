@@ -1,9 +1,8 @@
 package org.rsmod.api.attr
 
 /**
- * A system responsible for storing and exposing [AttributeKey]s and their
- * associated values. The type of the key is inferred by the [AttributeKey]
- * used when putting or getting the value.
+ * A system responsible for storing and exposing [AttributeKey]s and their associated values. The
+ * type of the key is inferred by the [AttributeKey] used when putting or getting the value.
  *
  * @author Tom <rspsmods@gmail.com>
  */
@@ -11,17 +10,17 @@ public class AttributeMap {
     private var attributes: MutableMap<AttributeKey<*>, Any> = HashMap(0)
 
     /**
-     * Optional hook for persistence systems (e.g. autosave). Invoked after mutating puts/sets/removes
-     * for keys with a [AttributeKey.persistenceKey] that are not [AttributeKey.temp]. Not called
-     * during [putAllFromPersistence].
+     * Optional hook for persistence systems (e.g. autosave). Invoked after mutating
+     * puts/sets/removes for keys with a [AttributeKey.persistenceKey] that are not
+     * [AttributeKey.temp]. Not called during [putAllFromPersistence].
      */
     public companion object {
-        @Volatile
-        public var persistenceMutationSink: ((AttributeKey<*>) -> Unit)? = null
+        @Volatile public var persistenceMutationSink: ((AttributeKey<*>) -> Unit)? = null
 
         private val suppressPersistenceHintsDepth: ThreadLocal<Int> = ThreadLocal.withInitial { 0 }
 
-        private fun isPersistenceHintsSuppressed(): Boolean = suppressPersistenceHintsDepth.get() > 0
+        private fun isPersistenceHintsSuppressed(): Boolean =
+            suppressPersistenceHintsDepth.get() > 0
 
         private inline fun <T> suppressPersistenceHints(block: () -> T): T {
             val d = suppressPersistenceHintsDepth.get() + 1
@@ -48,25 +47,17 @@ public class AttributeMap {
     public operator fun <T> get(key: AttributeKey<T>): T? = (attributes[key] as? T)
 
     @Suppress("UNCHECKED_CAST")
-    public fun <T> getOrDefault(
-        key: AttributeKey<T>,
-        default: T,
-    ): T = (attributes[key] as? T) ?: default
+    public fun <T> getOrDefault(key: AttributeKey<T>, default: T): T =
+        (attributes[key] as? T) ?: default
 
     @Suppress("UNCHECKED_CAST")
-    public fun <T> put(
-        key: AttributeKey<T>,
-        value: T,
-    ): AttributeMap {
+    public fun <T> put(key: AttributeKey<T>, value: T): AttributeMap {
         attributes[key] = value as Any
         notifyPersistenceMutation(key)
         return this
     }
 
-    public operator fun <T> set(
-        key: AttributeKey<T>,
-        value: T,
-    ) {
+    public operator fun <T> set(key: AttributeKey<T>, value: T) {
         put(key, value)
     }
 
@@ -94,9 +85,9 @@ public class AttributeMap {
     }
 
     public fun toPersistentMap(): Map<String, Any> =
-        attributes.filterKeys {
-            it.persistenceKey != null && !it.temp
-        }.mapKeys { it.key.persistenceKey!! }
+        attributes
+            .filterKeys { it.persistenceKey != null && !it.temp }
+            .mapKeys { it.key.persistenceKey!! }
 
     /**
      * Restores entries produced by [toPersistentMap] (or equivalent JSON), keyed by each
@@ -120,7 +111,9 @@ public class AttributeMap {
                     k.toString() to normalizePersistenceValue(v as Any)
                 }
             is List<*> ->
-                value.map { if (it == null) null else normalizePersistenceValue(it as Any) }.toMutableList()
+                value
+                    .map { if (it == null) null else normalizePersistenceValue(it as Any) }
+                    .toMutableList()
             is Number ->
                 when (value) {
                     is Int -> value

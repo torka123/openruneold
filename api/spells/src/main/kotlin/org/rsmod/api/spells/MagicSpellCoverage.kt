@@ -9,14 +9,12 @@ import org.rsmod.api.spells.attack.SpellAttackRegistry
 @Singleton
 public class MagicSpellCoverage
 @Inject
-constructor(
-    private val spells: MagicSpellRegistry,
-    private val attacks: SpellAttackRegistry,
-) {
+constructor(private val spells: MagicSpellRegistry, private val attacks: SpellAttackRegistry) {
     public fun snapshot(): Snapshot {
         val autocastIds = spells.autocastSpells().entries.associate { it.value.obj.id to it.key }
         val entries =
-            spells.allSpells()
+            spells
+                .allSpells()
                 .map { spell ->
                     Entry(
                         spell = spell,
@@ -30,12 +28,12 @@ constructor(
     }
 
     public data class Snapshot(public val entries: List<Entry>) {
-        public val combatSpells: List<Entry> = entries.filter { it.spell.type == MagicSpellType.Combat }
+        public val combatSpells: List<Entry> =
+            entries.filter { it.spell.type == MagicSpellType.Combat }
 
         public val autocastSpells: List<Entry> = entries.filter { it.autocastId != null }
 
-        public val missingCombatAttacks: List<Entry> =
-            combatSpells.filterNot { it.hasSpellAttack }
+        public val missingCombatAttacks: List<Entry> = combatSpells.filterNot { it.hasSpellAttack }
 
         public val missingAutocastAttacks: List<Entry> =
             autocastSpells.filterNot { it.hasSpellAttack }

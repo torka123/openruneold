@@ -3,14 +3,23 @@ package org.rsmod.api.net.rsprot.provider
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlin.jvm.java
+import net.rsprot.protocol.game.incoming.buttons.If1Button
 import net.rsprot.protocol.game.incoming.buttons.If3Button
 import net.rsprot.protocol.game.incoming.buttons.IfButtonD
 import net.rsprot.protocol.game.incoming.buttons.IfButtonT
 import net.rsprot.protocol.game.incoming.buttons.IfScriptTrigger
 import net.rsprot.protocol.game.incoming.buttons.IfSubOp
-import net.rsprot.protocol.game.incoming.locs.OpLocV2
+import net.rsprot.protocol.game.incoming.clan.AffinedClanSettingsAddBannedFromChannel
+import net.rsprot.protocol.game.incoming.clan.AffinedClanSettingsSetMutedFromChannel
+import net.rsprot.protocol.game.incoming.clan.ClanChannelFullRequest
+import net.rsprot.protocol.game.incoming.clan.ClanChannelKickUser
+import net.rsprot.protocol.game.incoming.clan.ClanSettingsFullRequest
+import net.rsprot.protocol.game.incoming.friendchat.FriendChatJoinLeave
+import net.rsprot.protocol.game.incoming.friendchat.FriendChatKick
+import net.rsprot.protocol.game.incoming.friendchat.FriendChatSetRank
 import net.rsprot.protocol.game.incoming.locs.OpLoc6
 import net.rsprot.protocol.game.incoming.locs.OpLocT
+import net.rsprot.protocol.game.incoming.locs.OpLocV2
 import net.rsprot.protocol.game.incoming.messaging.MessagePrivate
 import net.rsprot.protocol.game.incoming.messaging.MessagePublic
 import net.rsprot.protocol.game.incoming.misc.client.MapBuildComplete
@@ -21,11 +30,13 @@ import net.rsprot.protocol.game.incoming.misc.user.CloseModal
 import net.rsprot.protocol.game.incoming.misc.user.MoveGameClick
 import net.rsprot.protocol.game.incoming.misc.user.MoveMinimapClick
 import net.rsprot.protocol.game.incoming.misc.user.SetChatFilterSettings
-import net.rsprot.protocol.game.incoming.npcs.OpNpcV2
+import net.rsprot.protocol.game.incoming.misc.user.SetHeading
 import net.rsprot.protocol.game.incoming.npcs.OpNpc6
 import net.rsprot.protocol.game.incoming.npcs.OpNpcT
-import net.rsprot.protocol.game.incoming.objs.OpObjV2
+import net.rsprot.protocol.game.incoming.npcs.OpNpcV2
 import net.rsprot.protocol.game.incoming.objs.OpObj6
+import net.rsprot.protocol.game.incoming.objs.OpObjV2
+import net.rsprot.protocol.game.incoming.objs.OpObjT
 import net.rsprot.protocol.game.incoming.players.OpPlayer
 import net.rsprot.protocol.game.incoming.players.OpPlayerT
 import net.rsprot.protocol.game.incoming.resumed.ResumePCountDialog
@@ -39,11 +50,20 @@ import net.rsprot.protocol.game.incoming.social.IgnoreListAdd
 import net.rsprot.protocol.game.incoming.social.IgnoreListDel
 import net.rsprot.protocol.message.codec.incoming.GameMessageConsumerRepositoryBuilder
 import net.rsprot.protocol.message.codec.incoming.provider.DefaultGameMessageConsumerRepositoryProvider
+import org.rsmod.api.net.rsprot.handlers.AffinedClanSettingsAddBannedHandler
+import org.rsmod.api.net.rsprot.handlers.AffinedClanSettingsSetMutedHandler
+import org.rsmod.api.net.rsprot.handlers.ClanChannelFullRequestHandler
+import org.rsmod.api.net.rsprot.handlers.ClanChannelKickUserHandler
+import org.rsmod.api.net.rsprot.handlers.ClanSettingsFullRequestHandler
 import org.rsmod.api.net.rsprot.handlers.ClickWorldMapHandler
 import org.rsmod.api.net.rsprot.handlers.ClientCheatHandler
 import org.rsmod.api.net.rsprot.handlers.CloseModalHandler
+import org.rsmod.api.net.rsprot.handlers.FriendChatJoinLeaveHandler
+import org.rsmod.api.net.rsprot.handlers.FriendChatKickHandler
+import org.rsmod.api.net.rsprot.handlers.FriendChatSetRankHandler
 import org.rsmod.api.net.rsprot.handlers.FriendListAddHandler
 import org.rsmod.api.net.rsprot.handlers.FriendListDeleteHandler
+import org.rsmod.api.net.rsprot.handlers.If1ButtonHandler
 import org.rsmod.api.net.rsprot.handlers.If3ButtonHandler
 import org.rsmod.api.net.rsprot.handlers.IfButtonDHandler
 import org.rsmod.api.net.rsprot.handlers.IfButtonTHandler
@@ -64,6 +84,7 @@ import org.rsmod.api.net.rsprot.handlers.OpNpcHandler
 import org.rsmod.api.net.rsprot.handlers.OpNpcTHandler
 import org.rsmod.api.net.rsprot.handlers.OpObj6Handler
 import org.rsmod.api.net.rsprot.handlers.OpObjHandler
+import org.rsmod.api.net.rsprot.handlers.OpObjTHandler
 import org.rsmod.api.net.rsprot.handlers.OpPlayerHandler
 import org.rsmod.api.net.rsprot.handlers.OpPlayerTHandler
 import org.rsmod.api.net.rsprot.handlers.ResumePCountDialogHandler
@@ -72,6 +93,7 @@ import org.rsmod.api.net.rsprot.handlers.ResumePObjDialogHandler
 import org.rsmod.api.net.rsprot.handlers.ResumePStringDialogHandler
 import org.rsmod.api.net.rsprot.handlers.ResumePauseButtonHandler
 import org.rsmod.api.net.rsprot.handlers.SetChatFilterSettingsHandler
+import org.rsmod.api.net.rsprot.handlers.SetHeadingHandler
 import org.rsmod.api.net.rsprot.handlers.WindowStatusHandler
 import org.rsmod.game.entity.Player
 
@@ -96,13 +118,23 @@ constructor(
     private val messagePrivate: MessagePrivateHandler,
     private val friendListAdd: FriendListAddHandler,
     private val friendListDelete: FriendListDeleteHandler,
+    private val friendChatJoinLeave: FriendChatJoinLeaveHandler,
+    private val friendChatKick: FriendChatKickHandler,
+    private val friendChatSetRank: FriendChatSetRankHandler,
+    private val clanChannelFullRequest: ClanChannelFullRequestHandler,
+    private val clanSettingsFullRequest: ClanSettingsFullRequestHandler,
+    private val clanChannelKickUser: ClanChannelKickUserHandler,
+    private val clanSettingsAddBanned: AffinedClanSettingsAddBannedHandler,
+    private val clanSettingsSetMuted: AffinedClanSettingsSetMutedHandler,
     private val ignoreListAdd: IgnoreListAddHandler,
     private val ignoreListDelete: IgnoreListDeleteHandler,
     private val setChatFilterSettings: SetChatFilterSettingsHandler,
+    private val if1Button: If1ButtonHandler,
     private val if3Button: If3ButtonHandler,
     private val closeModal: CloseModalHandler,
     private val resumePauseButton: ResumePauseButtonHandler,
     private val opObj: OpObjHandler,
+    private val opObjT: OpObjTHandler,
     private val opObj6: OpObj6Handler,
     private val ifSubOp: IfSubOpHandler,
     private val resumePCountDialog: ResumePCountDialogHandler,
@@ -112,7 +144,8 @@ constructor(
     private val ifButtonD: IfButtonDHandler,
     private val ifButtonT: IfButtonTHandler,
     private val mapBuildComplete: MapBuildCompleteHandler,
-    private val scriptTriggerHandler : IfScriptTriggerHandler
+    private val scriptTriggerHandler: IfScriptTriggerHandler,
+    private val setHeading: SetHeadingHandler,
 ) {
     fun get(): DefaultGameMessageConsumerRepositoryProvider<Player> {
         val builder = GameMessageConsumerRepositoryBuilder<Player>()
@@ -133,13 +166,29 @@ constructor(
         builder.addListener(MessagePrivate::class.java, messagePrivate)
         builder.addListener(FriendListAdd::class.java, friendListAdd)
         builder.addListener(FriendListDel::class.java, friendListDelete)
+        builder.addListener(FriendChatJoinLeave::class.java, friendChatJoinLeave)
+        builder.addListener(FriendChatKick::class.java, friendChatKick)
+        builder.addListener(FriendChatSetRank::class.java, friendChatSetRank)
+        builder.addListener(ClanChannelFullRequest::class.java, clanChannelFullRequest)
+        builder.addListener(ClanSettingsFullRequest::class.java, clanSettingsFullRequest)
+        builder.addListener(ClanChannelKickUser::class.java, clanChannelKickUser)
+        builder.addListener(
+            AffinedClanSettingsAddBannedFromChannel::class.java,
+            clanSettingsAddBanned,
+        )
+        builder.addListener(
+            AffinedClanSettingsSetMutedFromChannel::class.java,
+            clanSettingsSetMuted,
+        )
         builder.addListener(IgnoreListAdd::class.java, ignoreListAdd)
         builder.addListener(IgnoreListDel::class.java, ignoreListDelete)
         builder.addListener(SetChatFilterSettings::class.java, setChatFilterSettings)
+        builder.addListener(If1Button::class.java, if1Button)
         builder.addListener(If3Button::class.java, if3Button)
         builder.addListener(CloseModal::class.java, closeModal)
         builder.addListener(ResumePauseButton::class.java, resumePauseButton)
         builder.addListener(OpObjV2::class.java, opObj)
+        builder.addListener(OpObjT::class.java, opObjT)
         builder.addListener(OpObj6::class.java, opObj6)
         builder.addListener(IfSubOp::class.java, ifSubOp)
         builder.addListener(ResumePCountDialog::class.java, resumePCountDialog)
@@ -150,6 +199,7 @@ constructor(
         builder.addListener(IfButtonT::class.java, ifButtonT)
         builder.addListener(MapBuildComplete::class.java, mapBuildComplete)
         builder.addListener(IfScriptTrigger::class.java, scriptTriggerHandler)
+        builder.addListener(SetHeading::class.java, setHeading)
         return DefaultGameMessageConsumerRepositoryProvider(builder.build())
     }
 }

@@ -1,6 +1,5 @@
 package org.rsmod.api.inv.map
 
-import dev.openrune.types.InventoryServerType
 import org.rsmod.game.entity.Player
 import org.rsmod.game.inv.Inventory
 

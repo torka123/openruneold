@@ -14,7 +14,8 @@ public fun LoginResponse.toOpenRuneLoginOutcome(): OpenRuneLoginOutcome =
                 accountHash = accountHash,
                 userId = userId,
                 userHash = userHash,
-                authenticatorKind = authenticatorResponse::class.simpleName ?: "AuthenticatorResponse",
+                authenticatorKind =
+                    authenticatorResponse::class.simpleName ?: "AuthenticatorResponse",
             )
         LoginResponse.InvalidUsernameOrPassword -> OpenRuneLoginOutcome.Denied.InvalidCredentials
         LoginResponse.Banned -> OpenRuneLoginOutcome.Denied.Banned
@@ -27,8 +28,10 @@ public fun LoginResponse.toOpenRuneLoginOutcome(): OpenRuneLoginOutcome =
         LoginResponse.LoginServerOffline -> OpenRuneLoginOutcome.Denied.LoginServerOffline
         LoginResponse.LoginServerNoReply -> OpenRuneLoginOutcome.Denied.LoginServerNoReply
         LoginResponse.LoginServerLoadError -> OpenRuneLoginOutcome.Denied.LoginServerLoadError
-        LoginResponse.UnknownReplyFromLoginServer -> OpenRuneLoginOutcome.Denied.UnknownReplyFromLoginServer
-        LoginResponse.InvalidAuthenticatorCode -> OpenRuneLoginOutcome.Denied.InvalidAuthenticatorCode
+        LoginResponse.UnknownReplyFromLoginServer ->
+            OpenRuneLoginOutcome.Denied.UnknownReplyFromLoginServer
+        LoginResponse.InvalidAuthenticatorCode ->
+            OpenRuneLoginOutcome.Denied.InvalidAuthenticatorCode
         LoginResponse.Authenticator -> OpenRuneLoginOutcome.Denied.AuthenticatorRequired
         LoginResponse.InvalidSave -> OpenRuneLoginOutcome.Denied.InvalidSave
         LoginResponse.ConnectFail -> OpenRuneLoginOutcome.Denied.ConnectFail
@@ -40,7 +43,7 @@ public fun LoginResponse.toOpenRuneLoginOutcome(): OpenRuneLoginOutcome =
             )
         else ->
             OpenRuneLoginOutcome.Denied.Unmapped(
-                rsprotKind = this::class.simpleName ?: "LoginResponse",
+                rsprotKind = this::class.simpleName ?: "LoginResponse"
             )
     }
 
@@ -56,8 +59,10 @@ public fun OpenRuneLoginOutcome.Denied.toLoginResponse(): LoginResponse =
         OpenRuneLoginOutcome.Denied.LoginServerOffline -> LoginResponse.LoginServerOffline
         OpenRuneLoginOutcome.Denied.LoginServerNoReply -> LoginResponse.LoginServerNoReply
         OpenRuneLoginOutcome.Denied.LoginServerLoadError -> LoginResponse.LoginServerLoadError
-        OpenRuneLoginOutcome.Denied.UnknownReplyFromLoginServer -> LoginResponse.UnknownReplyFromLoginServer
-        OpenRuneLoginOutcome.Denied.InvalidAuthenticatorCode -> LoginResponse.InvalidAuthenticatorCode
+        OpenRuneLoginOutcome.Denied.UnknownReplyFromLoginServer ->
+            LoginResponse.UnknownReplyFromLoginServer
+        OpenRuneLoginOutcome.Denied.InvalidAuthenticatorCode ->
+            LoginResponse.InvalidAuthenticatorCode
         OpenRuneLoginOutcome.Denied.AuthenticatorRequired -> LoginResponse.Authenticator
         OpenRuneLoginOutcome.Denied.InvalidSave -> LoginResponse.InvalidSave
         OpenRuneLoginOutcome.Denied.ConnectFail -> LoginResponse.ConnectFail

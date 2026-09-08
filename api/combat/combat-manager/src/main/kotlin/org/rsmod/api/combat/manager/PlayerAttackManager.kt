@@ -1,11 +1,11 @@
 package org.rsmod.api.combat.manager
 
+import dev.openrune.CrimsonKisten
 import dev.openrune.rscm.RSCM
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
 import dev.openrune.types.ItemServerType
 import dev.openrune.types.SequenceServerType
-import dev.openrune.types.StatType
 import dev.openrune.types.aconverted.SpotanimType
 import dev.openrune.types.aconverted.SynthType
 import jakarta.inject.Inject
@@ -31,10 +31,14 @@ import org.rsmod.api.combat.formulas.AccuracyFormulae
 import org.rsmod.api.combat.formulas.MaxHitFormulae
 import org.rsmod.api.config.refs.params
 import org.rsmod.api.death.PvPPlayerHitHook
+import org.rsmod.api.death.PvPPlayerImpactHook
 import org.rsmod.api.npc.hit.modifier.NpcHitModifier
 import org.rsmod.api.npc.hit.queueHit
-import org.rsmod.api.player.hit.queueHit
+import org.rsmod.api.npc.hit.NpcAttackLaunchHook
 import org.rsmod.api.player.cheat.adminMaxHit
+import org.rsmod.api.player.hit.modifier.PlayerHitModifier
+import org.rsmod.api.player.hit.modifier.StandardPlayerHitModifier
+import org.rsmod.api.player.hit.queueHit
 import org.rsmod.api.player.interact.NpcInteractions
 import org.rsmod.api.player.interact.NpcTInteractions
 import org.rsmod.api.player.interact.PlayerInteractions
@@ -44,6 +48,7 @@ import org.rsmod.api.player.output.soundSynth
 import org.rsmod.api.player.protect.clearPendingAction
 import org.rsmod.api.player.stat.hitpoints
 import org.rsmod.api.player.stat.statAdvance
+import org.rsmod.api.player.worn.EquipmentChecks
 import org.rsmod.api.random.GameRandom
 import org.rsmod.api.repo.world.WorldRepository
 import org.rsmod.events.EventBus
@@ -51,6 +56,7 @@ import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.PathingEntity
 import org.rsmod.game.entity.Player
 import org.rsmod.game.hit.Hit
+import org.rsmod.game.hit.HitImpactHandler
 import org.rsmod.game.hit.HitType
 import org.rsmod.game.interact.InteractionOp
 import org.rsmod.game.proj.ProjAnim
@@ -71,7 +77,11 @@ constructor(
     private val npcTInteractions: NpcTInteractions,
     private val playerInteractions: PlayerInteractions,
     private val playerTInteractions: PlayerTInteractions,
+    private val npcAccuracyOverrideHooks: Set<PlayerNpcAccuracyOverrideHook>,
+    private val npcMeleeAttackDelayOverrideHooks: Set<PlayerNpcMeleeAttackDelayOverrideHook>,
     private val pvpPlayerHitHooks: Set<PvPPlayerHitHook>,
+    private val pvpPlayerImpactHooks: Set<PvPPlayerImpactHook>,
+    private val npcAttackLaunchHooks: Set<NpcAttackLaunchHook> = emptySet(),
 ) {
     /**
      * Determines if the player is still under an active attack delay.
@@ -83,6 +93,19 @@ constructor(
      */
     public fun isAttackDelayed(player: Player): Boolean {
         return player.actionDelay > player.currentMapClock
+    }
+
+    /**
+     * Determines whether a melee attack against [target] is delayed, after consulting any
+     * encounter-scoped one-shot bypasses.
+     *
+     * The bypass hooks are deliberately evaluated only by the melee pipeline. Ranged attacks, spell
+     * casts, and powered-staff attacks continue to use [isAttackDelayed].
+     */
+    public fun isMeleeAttackDelayed(player: Player, target: Npc): Boolean {
+        val delayed = isAttackDelayed(player)
+        if (!delayed) return false
+        return npcMeleeAttackDelayOverrideHooks.none { it.bypass(player, target) }
     }
 
     /**
@@ -193,15 +216,40 @@ constructor(
      * are used.
      */
     public fun playWeaponFx(player: Player, attack: CombatAttack.Melee) {
+        if (attack.weapon?.id == CrimsonKisten.ITEM) {
+            val sequence =
+                if (attack.type == MeleeAttackType.Stab) {
+                    CrimsonKisten.ATTACK_STAB
+                } else {
+                    CrimsonKisten.ATTACK_HEAVY
+                }
+            player.anim(sequence, priority = 6)
+            return
+        }
+
         val weapon = getOrNull(attack.weapon)
 
         val fx = MeleeAnimationAndSound.from(attack.stance)
         val (animParam, soundParam, defaultAnim, defaultSound) = fx
+        val twinflame = EquipmentChecks.isTwinflameStaff(attack.weapon)
+        val basicAttackFx = WeaponBasicAttackFx.resolve(weapon?.internalName, attack.stance)
 
-        val attackAnim = weapon?.paramOrNull(animParam) ?: SequenceServerType(defaultAnim.asRSCM(RSCMType.SEQ))
-        val attackSound = weapon?.paramOrNull(soundParam) ?: SynthType(defaultSound.asRSCM(RSCMType.SYNTH))
+        val attackAnim =
+            weapon?.paramOrNull(animParam)
+                ?: SequenceServerType(
+                    (basicAttackFx?.animation
+                            ?: if (twinflame) TWINFLAME_MELEE_ANIMATION else defaultAnim)
+                        .asRSCM(RSCMType.SEQ)
+                )
+        val attackSound =
+            weapon?.paramOrNull(soundParam)
+                ?: SynthType(
+                    basicAttackFx?.sound
+                        ?: if (twinflame) TWINFLAME_MELEE_SOUND
+                        else defaultSound.asRSCM(RSCMType.SYNTH)
+                )
 
-        player.anim(RSCM.getReverseMapping(RSCMType.SEQ,attackAnim.id), priority = 6)
+        player.anim(RSCM.getReverseMapping(RSCMType.SEQ, attackAnim.id), priority = 6)
         player.soundSynth(attackSound)
     }
 
@@ -218,7 +266,7 @@ constructor(
     public fun playWeaponFx(player: Player, attack: CombatAttack.Ranged): Boolean {
         val weapon = getInvObj(attack.weapon)
         val attackAnim = weapon.paramOrNull(params.attack_anim_stance1) ?: return false
-        player.anim(RSCM.getReverseMapping(RSCMType.SEQ,attackAnim.id), priority = 6)
+        player.anim(RSCM.getReverseMapping(RSCMType.SEQ, attackAnim.id), priority = 6)
         val attackSound = weapon.paramOrNull(params.attack_sound_stance1)
         attackSound?.let(player::soundSynth)
         return true
@@ -540,17 +588,83 @@ constructor(
         attackStyle: MeleeAttackStyle?,
         blockType: MeleeAttackType?,
         multiplier: Double,
+        defenceMultiplier: Double = 1.0,
+    ): Boolean {
+        if (source.adminMaxHit) {
+            return true
+        }
+        if (
+            target is Npc &&
+                npcAccuracyOverrideHooks.any {
+                    it.forceAccurate(source, target, PlayerNpcAccuracyStyle.Melee)
+                }
+        )
+            return true
+        return when (target) {
+            is Npc -> {
+                rollMeleeAccuracy(
+                    source,
+                    target,
+                    attackType,
+                    attackStyle,
+                    blockType,
+                    multiplier,
+                    defenceMultiplier,
+                )
+            }
+            is Player -> {
+                rollMeleeAccuracy(
+                    source,
+                    target,
+                    attackType,
+                    attackStyle,
+                    blockType,
+                    multiplier,
+                    defenceMultiplier,
+                )
+            }
+        }
+    }
+
+    /**
+     * Rolls a fixed fraction of [source]'s final melee attack roll against one random defence roll.
+     * This is distinct from normal melee accuracy, where both rolls are randomized.
+     */
+    public fun rollFixedMeleeAttackRoll(
+        source: Player,
+        target: PathingEntity,
+        attackType: MeleeAttackType?,
+        attackStyle: MeleeAttackStyle?,
+        blockType: MeleeAttackType?,
+        attackMultiplier: Double,
+        defenceMultiplier: Double = 1.0,
     ): Boolean {
         if (source.adminMaxHit) {
             return true
         }
         return when (target) {
-            is Npc -> {
-                rollMeleeAccuracy(source, target, attackType, attackStyle, blockType, multiplier)
-            }
-            is Player -> {
-                rollMeleeAccuracy(source, target, attackType, attackStyle, blockType, multiplier)
-            }
+            is Npc ->
+                accuracy.rollFixedMeleeAttackRoll(
+                    player = source,
+                    target = target,
+                    attackType = attackType,
+                    attackStyle = attackStyle,
+                    blockType = blockType,
+                    attackMultiplier = attackMultiplier,
+                    random = random,
+                    defenceMultiplier = defenceMultiplier,
+                )
+            is Player ->
+                accuracy.rollFixedMeleeAttackRoll(
+                    player = source,
+                    target = target,
+                    attackType = attackType,
+                    attackStyle = attackStyle,
+                    blockType = blockType,
+                    attackMultiplier = attackMultiplier,
+                    random = random,
+                    defenceMultiplier = defenceMultiplier,
+                )
         }
     }
 
@@ -561,6 +675,7 @@ constructor(
         attackStyle: MeleeAttackStyle?,
         blockType: MeleeAttackType?,
         specMultiplier: Double,
+        defenceMultiplier: Double,
     ): Boolean =
         accuracy.rollMeleeAccuracy(
             player = source,
@@ -569,6 +684,7 @@ constructor(
             attackStyle = attackStyle,
             blockType = blockType,
             specMultiplier = specMultiplier,
+            defenceMultiplier = defenceMultiplier,
             random = random,
         )
 
@@ -579,6 +695,7 @@ constructor(
         attackStyle: MeleeAttackStyle?,
         blockType: MeleeAttackType?,
         specMultiplier: Double,
+        defenceMultiplier: Double,
     ): Boolean =
         accuracy.rollMeleeAccuracy(
             player = source,
@@ -587,6 +704,7 @@ constructor(
             attackStyle = attackStyle,
             blockType = blockType,
             specMultiplier = specMultiplier,
+            defenceMultiplier = defenceMultiplier,
             random = random,
         )
 
@@ -697,30 +815,62 @@ constructor(
         target: PathingEntity,
         damage: Int,
         delay: Int = 1,
+        impactHandler: HitImpactHandler? = null,
+        modifier: PlayerHitModifier = StandardPlayerHitModifier,
     ): Hit =
         when (target) {
-            is Npc -> queueMeleeHit(source, target, damage, delay)
-            is Player -> queueMeleeHit(source, target, damage, delay)
+            is Npc -> queueMeleeHit(source, target, damage, delay, impactHandler)
+            is Player -> queueMeleeHit(source, target, damage, delay, impactHandler, modifier)
         }
 
-    private fun queueMeleeHit(source: Player, target: Npc, damage: Int, delay: Int): Hit {
+    private fun queueMeleeHit(
+        source: Player,
+        target: Npc,
+        damage: Int,
+        delay: Int,
+        impactHandler: HitImpactHandler?,
+    ): Hit {
         // Note: Retaliation must be queued _before_ the hit. If queued after, every hit would
         // trigger the "speed-up" death mechanic, since the hit queues would no longer be the
         // last entries in the queue list at the time of processing.
         target.queueCombatRetaliate(source)
 
-        val hit = target.queueHit(source, delay, HitType.Melee, damage, npcHitModifier)
+        val hit =
+            target.queueHit(
+                source = source,
+                delay = delay,
+                type = HitType.Melee,
+                damage = damage,
+                modifier = npcHitModifier,
+                impactHandler = impactHandler,
+            )
+        npcAttackLaunchHooks.forEach { it.onAttackLaunched(source, target) }
         target.combatPlayDefendAnim()
         return hit
     }
 
-    private fun queueMeleeHit(source: Player, target: Player, damage: Int, delay: Int): Hit {
+    private fun queueMeleeHit(
+        source: Player,
+        target: Player,
+        damage: Int,
+        delay: Int,
+        impactHandler: HitImpactHandler?,
+        modifier: PlayerHitModifier,
+    ): Hit {
         // Note: Retaliation must be queued _before_ the hit. If queued after, every hit would
         // trigger the "speed-up" death mechanic, since the hit queues would no longer be the
         // last entries in the queue list at the time of processing.
         target.queueCombatRetaliate(source)
 
-        val hit = target.queueHit(source, delay, HitType.Melee, damage)
+        val hit =
+            target.queueHit(
+                source = source,
+                delay = delay,
+                type = HitType.Melee,
+                damage = damage,
+                impactHandler = playerImpactHandler(source, target, impactHandler),
+                modifier = modifier,
+            )
         notifyPlayerHit(source, target)
         target.combatPlayDefendAnim()
         return hit
@@ -809,6 +959,13 @@ constructor(
         if (source.adminMaxHit) {
             return true
         }
+        if (
+            target is Npc &&
+                npcAccuracyOverrideHooks.any {
+                    it.forceAccurate(source, target, PlayerNpcAccuracyStyle.Ranged)
+                }
+        )
+            return true
         return when (target) {
             is Npc -> {
                 rollRangedAccuracy(source, target, attackType, attackStyle, blockType, multiplier)
@@ -831,7 +988,7 @@ constructor(
             attackType = attackType,
             attackStyle = attackStyle,
             blockType = blockType,
-            specMultiplier = specMultiplier,
+            specMultiplier = specMultiplier * target.incomingRangedAccuracyMultiplier,
             random = random,
         )
 
@@ -1008,10 +1165,31 @@ constructor(
         damage: Int,
         clientDelay: Int,
         hitDelay: Int,
+        impactHandler: HitImpactHandler? = null,
+        modifier: PlayerHitModifier = StandardPlayerHitModifier,
     ): Hit =
         when (target) {
-            is Npc -> queueRangedHit(source, target, ammo, damage, clientDelay, hitDelay)
-            is Player -> queueRangedHit(source, target, ammo, damage, clientDelay, hitDelay)
+            is Npc ->
+                queueRangedHit(
+                    source = source,
+                    target = target,
+                    ammo = ammo,
+                    damage = damage,
+                    clientDelay = clientDelay,
+                    hitDelay = hitDelay,
+                    impactHandler = impactHandler,
+                )
+            is Player ->
+                queueRangedHit(
+                    source = source,
+                    target = target,
+                    ammo = ammo,
+                    damage = damage,
+                    clientDelay = clientDelay,
+                    hitDelay = hitDelay,
+                    impactHandler = impactHandler,
+                    modifier = modifier,
+                )
         }
 
     private fun queueRangedHit(
@@ -1021,6 +1199,7 @@ constructor(
         damage: Int,
         clientDelay: Int,
         hitDelay: Int,
+        impactHandler: HitImpactHandler?,
     ): Hit {
         // Note: Retaliation must be queued _before_ the hit. If queued after, every hit would
         // trigger the "speed-up" death mechanic, since the hit queues would no longer be the
@@ -1035,7 +1214,9 @@ constructor(
                 damage = damage,
                 modifier = npcHitModifier,
                 sourceSecondary = ammo,
+                impactHandler = impactHandler,
             )
+        npcAttackLaunchHooks.forEach { it.onAttackLaunched(source, target) }
         target.combatPlayDefendAnim(clientDelay)
         target.combatPlayDefendSpot(ammo, clientDelay)
         return hit
@@ -1048,6 +1229,8 @@ constructor(
         damage: Int,
         clientDelay: Int,
         hitDelay: Int,
+        impactHandler: HitImpactHandler?,
+        modifier: PlayerHitModifier,
     ): Hit {
         // Note: Retaliation must be queued _before_ the hit. If queued after, every hit would
         // trigger the "speed-up" death mechanic, since the hit queues would no longer be the
@@ -1061,6 +1244,8 @@ constructor(
                 type = HitType.Ranged,
                 damage = damage,
                 sourceSecondary = ammo,
+                impactHandler = playerImpactHandler(source, target, impactHandler),
+                modifier = modifier,
             )
         notifyPlayerHit(source, target)
         target.combatPlayDefendAnim(clientDelay)
@@ -1073,6 +1258,18 @@ constructor(
             hook.onPlayerHit(source, target)
         }
     }
+
+    private fun playerImpactHandler(
+        source: Player,
+        target: Player,
+        delegate: HitImpactHandler?,
+    ): HitImpactHandler =
+        HitImpactHandler { impact ->
+            delegate?.onImpact(impact)
+            for (hook in pvpPlayerImpactHooks) {
+                hook.onPlayerImpact(source, target, impact)
+            }
+        }
 
     /**
      * Queues a ranged hit on [target], applying damage after the specified [hitDelay].
@@ -1093,10 +1290,21 @@ constructor(
         ammo: ItemServerType?,
         damage: Int,
         hitDelay: Int,
+        impactHandler: HitImpactHandler? = null,
+        modifier: PlayerHitModifier = StandardPlayerHitModifier,
     ): Hit =
         when (target) {
-            is Npc -> queueRangedDamage(source, target, ammo, damage, hitDelay)
-            is Player -> queueRangedDamage(source, target, ammo, damage, hitDelay)
+            is Npc -> queueRangedDamage(source, target, ammo, damage, hitDelay, impactHandler)
+            is Player ->
+                queueRangedDamage(
+                    source = source,
+                    target = target,
+                    ammo = ammo,
+                    damage = damage,
+                    hitDelay = hitDelay,
+                    impactHandler = impactHandler,
+                    modifier = modifier,
+                )
         }
 
     private fun queueRangedDamage(
@@ -1105,6 +1313,8 @@ constructor(
         ammo: ItemServerType?,
         damage: Int,
         hitDelay: Int,
+        impactHandler: HitImpactHandler?,
+        modifier: PlayerHitModifier,
     ): Hit {
         val hit =
             target.queueHit(
@@ -1113,6 +1323,8 @@ constructor(
                 type = HitType.Ranged,
                 damage = damage,
                 sourceSecondary = ammo,
+                impactHandler = playerImpactHandler(source, target, impactHandler),
+                modifier = modifier,
             )
         return hit
     }
@@ -1123,6 +1335,7 @@ constructor(
         ammo: ItemServerType?,
         damage: Int,
         hitDelay: Int,
+        impactHandler: HitImpactHandler?,
     ): Hit {
         val hit =
             target.queueHit(
@@ -1132,6 +1345,7 @@ constructor(
                 damage = damage,
                 modifier = npcHitModifier,
                 sourceSecondary = ammo,
+                impactHandler = impactHandler,
             )
         return hit
     }
@@ -1159,6 +1373,13 @@ constructor(
         if (source.adminMaxHit) {
             return true
         }
+        if (
+            target is Npc &&
+                npcAccuracyOverrideHooks.any {
+                    it.forceAccurate(source, target, PlayerNpcAccuracyStyle.Magic)
+                }
+        )
+            return true
         return when (target) {
             is Npc -> rollSpellAccuracy(source, target, spell, spellbook, sunfireRune)
             is Player -> rollSpellAccuracy(source, target, spell, spellbook, sunfireRune)
@@ -1347,6 +1568,13 @@ constructor(
         attackStyle: MagicAttackStyle?,
         multiplier: Double,
     ): Boolean {
+        if (
+            target is Npc &&
+                npcAccuracyOverrideHooks.any {
+                    it.forceAccurate(source, target, PlayerNpcAccuracyStyle.Magic)
+                }
+        )
+            return true
         return when (target) {
             is Npc -> rollStaffAccuracy(source, target, attackStyle, multiplier)
             is Player -> rollStaffAccuracy(source, target, attackStyle, multiplier)
@@ -1500,6 +1728,9 @@ constructor(
         clientDelay: Int,
         hitDelay: Int,
         retaliationDelay: Int = hitDelay,
+        impactHandler: HitImpactHandler? = null,
+        modifier: PlayerHitModifier = StandardPlayerHitModifier,
+        notifyAttackLaunch: Boolean = true,
     ): Hit =
         when (target) {
             is Npc ->
@@ -1511,6 +1742,8 @@ constructor(
                     clientDelay = clientDelay,
                     hitDelay = hitDelay,
                     retaliationDelay = retaliationDelay,
+                    impactHandler = impactHandler,
+                    notifyAttackLaunch = notifyAttackLaunch,
                 )
             is Player ->
                 queueMagicHit(
@@ -1521,6 +1754,8 @@ constructor(
                     clientDelay = clientDelay,
                     hitDelay = hitDelay,
                     retaliationDelay = retaliationDelay,
+                    impactHandler = impactHandler,
+                    modifier = modifier,
                 )
         }
 
@@ -1532,6 +1767,8 @@ constructor(
         clientDelay: Int,
         hitDelay: Int,
         retaliationDelay: Int,
+        impactHandler: HitImpactHandler?,
+        notifyAttackLaunch: Boolean,
     ): Hit {
         // Note: Retaliation must be queued _before_ the hit. If queued after, every hit would
         // trigger the "speed-up" death mechanic, since the hit queues would no longer be the
@@ -1546,7 +1783,9 @@ constructor(
                 damage = damage,
                 modifier = npcHitModifier,
                 sourceSecondary = spell,
+                impactHandler = impactHandler,
             )
+        if (notifyAttackLaunch) npcAttackLaunchHooks.forEach { it.onAttackLaunched(source, target) }
         target.combatPlayDefendAnim(clientDelay)
         return hit
     }
@@ -1559,6 +1798,8 @@ constructor(
         clientDelay: Int,
         hitDelay: Int,
         retaliationDelay: Int,
+        impactHandler: HitImpactHandler?,
+        modifier: PlayerHitModifier,
     ): Hit {
         // Note: Retaliation must be queued _before_ the hit. If queued after, every hit would
         // trigger the "speed-up" death mechanic, since the hit queues would no longer be the
@@ -1572,6 +1813,8 @@ constructor(
                 type = HitType.Magic,
                 damage = damage,
                 sourceSecondary = spell,
+                impactHandler = playerImpactHandler(source, target, impactHandler),
+                modifier = modifier,
             )
         notifyPlayerHit(source, target)
         target.combatPlayDefendAnim(clientDelay)
@@ -2070,6 +2313,28 @@ constructor(
         }
     }
 
+    /** Spawns a projectile whose visible impact is delayed without delaying its launch. */
+    public fun spawnProjectileWithImpactOffset(
+        source: Player,
+        target: PathingEntity,
+        spotanim: String,
+        projanim: String,
+        impactOffset: Int,
+    ): ProjAnim {
+        require(impactOffset >= 0) { "Projectile impact offset must be non-negative." }
+        val spotanimType = SpotanimType(spotanim.asRSCM(RSCMType.SPOTANIM))
+        val base =
+            when (target) {
+                is Npc ->
+                    ProjAnim.fromBoundsToNpc(source.bounds(), target, spotanimType.id, projanim)
+                is Player ->
+                    ProjAnim.fromBoundsToPlayer(source.bounds(), target, spotanimType.id, projanim)
+            }
+        val delayed = base.copy(endTime = base.endTime + impactOffset)
+        worldRepo.projAnim(delayed)
+        return delayed
+    }
+
     public fun spawnProjectile(
         source: Player,
         target: Npc,
@@ -2100,4 +2365,9 @@ constructor(
             radius = radius,
             size = size,
         )
+
+    private companion object {
+        const val TWINFLAME_MELEE_ANIMATION: String = "seq.human_staff_pummel"
+        const val TWINFLAME_MELEE_SOUND: Int = 2555
+    }
 }

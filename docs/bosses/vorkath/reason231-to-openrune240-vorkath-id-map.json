@@ -1,0 +1,66 @@
+{
+  "targetRevision": 240,
+  "classificationLegend": {
+    "NATIVE_SAME_ID": "Present in the active revision-240 cache at the same numeric ID.",
+    "NATIVE_NAMED": "Resolved through OpenRune's revision-240 RSCM name rather than a donor numeric constant.",
+    "SERVER_ONLY": "Implemented as server logic; no cache archive is needed.",
+    "UNRESOLVED": "Not confidently identifiable from the supplied donor and active definition metadata."
+  },
+  "npcs": [
+    {"role":"placeholder","donorId":8026,"openrune240Id":8026,"classification":"NATIVE_SAME_ID"},
+    {"role":"sleeping scenery","donorId":8058,"openrune240Id":8058,"classification":"NATIVE_SAME_ID","rscm":"npc.vorkath_sleeping_noop"},
+    {"role":"sleeping Poke form","donorId":8059,"openrune240Id":8059,"classification":"NATIVE_SAME_ID","rscm":"npc.vorkath_sleeping"},
+    {"role":"quest active form","donorId":8060,"openrune240Id":8060,"classification":"NATIVE_SAME_ID"},
+    {"role":"post-quest active form","donorId":8061,"openrune240Id":8061,"classification":"NATIVE_SAME_ID","rscm":"npc.vorkath"},
+    {"role":"quest zombified spawn","donorId":8062,"openrune240Id":8062,"classification":"NATIVE_SAME_ID"},
+    {"role":"post-quest zombified spawn","donorId":8063,"openrune240Id":8063,"classification":"NATIVE_SAME_ID","rscm":"npc.vorkath_spawn"},
+    {"role":"Torfinn Rellekka travel","openrune240Id":10403,"classification":"NATIVE_SAME_ID","rscm":"npc.torfinn_rellekka"},
+    {"role":"Torfinn Ungael travel","openrune240Id":10404,"classification":"NATIVE_SAME_ID","rscm":"npc.torfinn_ungael"},
+    {"role":"Torfinn Rellekka collect","openrune240Id":10405,"classification":"NATIVE_SAME_ID","rscm":"npc.torfinn_collect_rellekka"},
+    {"role":"Torfinn Ungael collect","openrune240Id":10406,"classification":"NATIVE_SAME_ID","rscm":"npc.torfinn_collect_ungael"}
+  ],
+  "locations": [
+    {"role":"ice chunks, west","openrune240Id":31990,"classification":"NATIVE_SAME_ID","option":"Climb-over"},
+    {"role":"ice chunks, center","openrune240Id":31992,"classification":"NATIVE_SAME_ID","option":"Climb-over"},
+    {"role":"ice chunks, east","openrune240Id":31994,"classification":"NATIVE_SAME_ID","option":"Climb-over"},
+    {"role":"acid pool","donorId":32000,"openrune240Id":32000,"classification":"NATIVE_SAME_ID"}
+  ],
+  "sequences": [
+    {"role":"sleeping idle","donorId":7946,"openrune240Id":7946,"classification":"NATIVE_SAME_ID"},
+    {"role":"walk","donorId":7947,"openrune240Id":7947,"classification":"NATIVE_SAME_ID"},
+    {"role":"active idle","donorId":7948,"openrune240Id":7948,"classification":"NATIVE_SAME_ID"},
+    {"role":"death","donorId":7949,"openrune240Id":7949,"classification":"NATIVE_SAME_ID"},
+    {"role":"wake","donorId":7950,"openrune240Id":7950,"classification":"NATIVE_SAME_ID","rscm":"seq.ds2_vorkath_spawn"},
+    {"role":"melee","donorId":7951,"openrune240Id":7951,"classification":"NATIVE_SAME_ID","rscm":"seq.ds2_vorkath_attack_melee"},
+    {"role":"forward ranged/breath cast","donorId":7952,"openrune240Id":7952,"classification":"NATIVE_SAME_ID","rscm":"seq.ds2_vorkath_ranged"},
+    {"role":"acid special","donorId":7957,"openrune240Id":7957,"classification":"NATIVE_SAME_ID","rscm":"seq.ds2_vorkath_acid"},
+    {"role":"upward cast","donorId":7960,"openrune240Id":7960,"classification":"NATIVE_SAME_ID","rscm":"seq.ds2_vorkath_ranged_up"},
+    {"role":"zombified spawn attack","donorId":7890,"classification":"NATIVE_NAMED","rscm":"seq.ds2_spawn_attack"},
+    {"role":"zombified spawn death","classification":"NATIVE_NAMED","rscm":"seq.ds2_spawn_death"}
+  ],
+  "spotAnimations": [
+    {"role":"normal dragonfire travel","donorId":393,"openrune240Id":393,"classification":"NATIVE_SAME_ID","rscm":"spotanim.dragon_ranged_fire_attack"},
+    {"role":"venom dragonfire travel","donorId":1470,"openrune240Id":1470,"classification":"NATIVE_SAME_ID","rscm":"spotanim.dragon_ranged_venom_attack"},
+    {"role":"prayer-disable travel","donorId":1471,"openrune240Id":1471,"classification":"NATIVE_SAME_ID","rscm":"spotanim.dragon_ranged_corrupting_attack"},
+    {"role":"venom impact","donorId":1472,"openrune240Id":1472,"classification":"NATIVE_SAME_ID"},
+    {"role":"prayer-disable impact","donorId":1473,"openrune240Id":1473,"classification":"NATIVE_SAME_ID"},
+    {"role":"ranged travel","donorId":1477,"openrune240Id":1477,"classification":"NATIVE_SAME_ID","rscm":"spotanim.vorkath_ranged_travel"},
+    {"role":"ranged impact","donorId":1478,"openrune240Id":1478,"classification":"NATIVE_SAME_ID","rscm":"spotanim.vorkath_ranged_impact"},
+    {"role":"magic travel","donorId":1479,"openrune240Id":1479,"classification":"NATIVE_SAME_ID","rscm":"spotanim.vorkath_magic_travel"},
+    {"role":"magic impact","donorId":1480,"openrune240Id":1480,"classification":"NATIVE_SAME_ID","rscm":"spotanim.vorkath_magic_impact"},
+    {"role":"fireball travel","donorId":1481,"openrune240Id":1481,"classification":"NATIVE_SAME_ID","rscm":"spotanim.vorkath_area_travel"},
+    {"role":"rapid-fire travel","donorId":1482,"openrune240Id":1482,"classification":"NATIVE_SAME_ID","rscm":"spotanim.vorkath_area_small_travel"},
+    {"role":"acid travel","donorId":1483,"openrune240Id":1483,"classification":"NATIVE_SAME_ID","rscm":"spotanim.vorkath_acid_travel"},
+    {"role":"zombified spawn travel","donorId":1484,"openrune240Id":1484,"classification":"NATIVE_SAME_ID","rscm":"spotanim.vorkath_spawn_travel"}
+  ],
+  "mapsAndModels": [
+    {"role":"Ungael arena region","openrune240Id":9023,"classification":"NATIVE_SAME_ID"},
+    {"role":"Vorkath model","openrune240Id":35023,"classification":"NATIVE_SAME_ID"},
+    {"role":"zombified spawn model","openrune240Id":35025,"classification":"NATIVE_SAME_ID"}
+  ],
+  "serverOnly": [
+    {"role":"private instance state machine","classification":"SERVER_ONLY"},
+    {"role":"acid safe-lane selection and collision filter","classification":"SERVER_ONLY"},
+    {"role":"drop table, killcount, personal best and death storage","classification":"SERVER_ONLY"}
+  ]
+}

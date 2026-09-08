@@ -5,10 +5,14 @@ plugins {
 dependencies {
     implementation(libs.guice)
     implementation(projects.api.areaChecker)
+    implementation(projects.api.attr)
+    implementation(projects.api.collectionLog)
     implementation(projects.api.config)
     implementation(projects.api.death)
     implementation(projects.api.dropTable)
     implementation(projects.api.dropTablePlugin)
+    implementation(projects.api.market)
+    implementation(projects.api.net)
     implementation(projects.api.player)
     implementation(projects.api.playerOutput)
     implementation(projects.api.random)
@@ -18,4 +22,5 @@ dependencies {
     implementation(projects.engine.game)
     implementation(projects.engine.map)
     implementation(projects.engine.plugin)
+    testImplementation(kotlin("test"))
 }

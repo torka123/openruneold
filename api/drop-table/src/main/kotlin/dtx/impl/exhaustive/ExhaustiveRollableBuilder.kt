@@ -11,29 +11,22 @@ import dtx.core.SingleRollableBuilder
 import dtx.core.TransformResult
 import dtx.core.VetoRoll
 
-public open class ExhaustiveRollableBuilder<T, R>: AbstractRollableBuilder<
+public open class ExhaustiveRollableBuilder<T, R> :
+    AbstractRollableBuilder<
         T,
         R,
         ExhaustiveRollable<T, R>,
         ExhaustiveRollableHooks<T, R>,
         ExhaustiveRollableHooksBuilder<T, R>,
-        ExhaustiveRollableBuilder<T, R>
->(
-    createHookBuilder = { ExhaustiveRollableHooksBuilder<T, R>() }
-) {
+        ExhaustiveRollableBuilder<T, R>,
+    >(createHookBuilder = { ExhaustiveRollableHooksBuilder<T, R>() }) {
 
     private val wrappedRollableBuilder = SingleRollableBuilder<T, R>()
 
     public open var rolls: Int = 1
 
     init {
-        construct {
-            ExhaustiveRollableImpl(
-                wrappedRollableBuilder.build(),
-                hooks.build(),
-                rolls
-            )
-        }
+        construct { ExhaustiveRollableImpl(wrappedRollableBuilder.build(), hooks.build(), rolls) }
     }
 
     public override fun shouldInclude(block: ShouldInclude<T>): ExhaustiveRollableBuilder<T, R> {
@@ -64,7 +57,9 @@ public open class ExhaustiveRollableBuilder<T, R>: AbstractRollableBuilder<
         return this
     }
 
-    public override fun selectResult(block: ExhaustiveRollable<T, R>.(T, ArgMap) -> RollResult<R>): ExhaustiveRollableBuilder<T, R> {
+    public override fun selectResult(
+        block: ExhaustiveRollable<T, R>.(T, ArgMap) -> RollResult<R>
+    ): ExhaustiveRollableBuilder<T, R> {
 
         wrappedRollableBuilder.selectResult(block as (Rollable<T, R>.(T, ArgMap) -> RollResult<R>))
 

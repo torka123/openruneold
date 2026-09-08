@@ -5,6 +5,7 @@ import dev.openrune.types.ItemServerType
 import dev.openrune.types.ObjectServerType
 import org.rsmod.events.EventBus
 import org.rsmod.game.loc.BoundLocInfo
+import org.rsmod.map.CoordGrid
 
 public sealed class LocEvents {
     /**
@@ -62,6 +63,35 @@ public sealed class LocEvents {
 
     public class Ap5(loc: BoundLocInfo, vis: BoundLocInfo, type: ObjectServerType) :
         Ap(loc, vis, type)
+}
+
+/** Location operations keyed by both base object id and exact static-map coordinate. */
+public sealed class LocCoordEvents {
+    public sealed class Op(
+        public val loc: BoundLocInfo,
+        public val vis: BoundLocInfo,
+        public val type: ObjectServerType,
+    ) : OpEvent(key(loc.id, loc.coords))
+
+    public class Op1(loc: BoundLocInfo, vis: BoundLocInfo, type: ObjectServerType) :
+        Op(loc, vis, type)
+
+    public class Op2(loc: BoundLocInfo, vis: BoundLocInfo, type: ObjectServerType) :
+        Op(loc, vis, type)
+
+    public class Op3(loc: BoundLocInfo, vis: BoundLocInfo, type: ObjectServerType) :
+        Op(loc, vis, type)
+
+    public class Op4(loc: BoundLocInfo, vis: BoundLocInfo, type: ObjectServerType) :
+        Op(loc, vis, type)
+
+    public class Op5(loc: BoundLocInfo, vis: BoundLocInfo, type: ObjectServerType) :
+        Op(loc, vis, type)
+
+    public companion object {
+        public fun key(locId: Int, coords: CoordGrid): Long =
+            EventBus.composeLongKey(locId, coords.packed)
+    }
 }
 
 public sealed class LocContentEvents {
@@ -139,20 +169,40 @@ public sealed class LocCategoryEvents {
         category: Int,
     ) : OpEvent(category.toLong())
 
-    public class Op1(loc: BoundLocInfo, vis: BoundLocInfo, type: ObjectServerType, category: Int = type.category) :
-        Op(loc, vis, type, category)
+    public class Op1(
+        loc: BoundLocInfo,
+        vis: BoundLocInfo,
+        type: ObjectServerType,
+        category: Int = type.category,
+    ) : Op(loc, vis, type, category)
 
-    public class Op2(loc: BoundLocInfo, vis: BoundLocInfo, type: ObjectServerType, category: Int = type.category) :
-        Op(loc, vis, type, category)
+    public class Op2(
+        loc: BoundLocInfo,
+        vis: BoundLocInfo,
+        type: ObjectServerType,
+        category: Int = type.category,
+    ) : Op(loc, vis, type, category)
 
-    public class Op3(loc: BoundLocInfo, vis: BoundLocInfo, type: ObjectServerType, category: Int = type.category) :
-        Op(loc, vis, type, category)
+    public class Op3(
+        loc: BoundLocInfo,
+        vis: BoundLocInfo,
+        type: ObjectServerType,
+        category: Int = type.category,
+    ) : Op(loc, vis, type, category)
 
-    public class Op4(loc: BoundLocInfo, vis: BoundLocInfo, type: ObjectServerType, category: Int = type.category) :
-        Op(loc, vis, type, category)
+    public class Op4(
+        loc: BoundLocInfo,
+        vis: BoundLocInfo,
+        type: ObjectServerType,
+        category: Int = type.category,
+    ) : Op(loc, vis, type, category)
 
-    public class Op5(loc: BoundLocInfo, vis: BoundLocInfo, type: ObjectServerType, category: Int = type.category) :
-        Op(loc, vis, type, category)
+    public class Op5(
+        loc: BoundLocInfo,
+        vis: BoundLocInfo,
+        type: ObjectServerType,
+        category: Int = type.category,
+    ) : Op(loc, vis, type, category)
 
     /**
      * @param loc The _base_ loc target of the event.
@@ -168,20 +218,40 @@ public sealed class LocCategoryEvents {
         category: Int,
     ) : ApEvent(category.toLong())
 
-    public class Ap1(loc: BoundLocInfo, vis: BoundLocInfo, type: ObjectServerType, category: Int = type.category) :
-        Ap(loc, vis, type, category)
+    public class Ap1(
+        loc: BoundLocInfo,
+        vis: BoundLocInfo,
+        type: ObjectServerType,
+        category: Int = type.category,
+    ) : Ap(loc, vis, type, category)
 
-    public class Ap2(loc: BoundLocInfo, vis: BoundLocInfo, type: ObjectServerType, category: Int = type.category) :
-        Ap(loc, vis, type, category)
+    public class Ap2(
+        loc: BoundLocInfo,
+        vis: BoundLocInfo,
+        type: ObjectServerType,
+        category: Int = type.category,
+    ) : Ap(loc, vis, type, category)
 
-    public class Ap3(loc: BoundLocInfo, vis: BoundLocInfo, type: ObjectServerType, category: Int = type.category) :
-        Ap(loc, vis, type, category)
+    public class Ap3(
+        loc: BoundLocInfo,
+        vis: BoundLocInfo,
+        type: ObjectServerType,
+        category: Int = type.category,
+    ) : Ap(loc, vis, type, category)
 
-    public class Ap4(loc: BoundLocInfo, vis: BoundLocInfo, type: ObjectServerType, category: Int = type.category) :
-        Ap(loc, vis, type, category)
+    public class Ap4(
+        loc: BoundLocInfo,
+        vis: BoundLocInfo,
+        type: ObjectServerType,
+        category: Int = type.category,
+    ) : Ap(loc, vis, type, category)
 
-    public class Ap5(loc: BoundLocInfo, vis: BoundLocInfo, type: ObjectServerType, category: Int = type.category) :
-        Ap(loc, vis, type, category)
+    public class Ap5(
+        loc: BoundLocInfo,
+        vis: BoundLocInfo,
+        type: ObjectServerType,
+        category: Int = type.category,
+    ) : Ap(loc, vis, type, category)
 }
 
 public sealed class LocDefaultEvents {
@@ -542,6 +612,7 @@ public class LocUDefaultEvents {
     /**
      * Fired when _any_ item is used on a loc whose [ObjectServerType.category] matches the
      * registered category.
+     *
      * @param loc The _base_ loc target of the event.
      * @param vis The current _visual_ representation of [loc], based on the player's varps. If
      *   [loc] has a [ObjectServerType.multiLoc], [vis] reflects the resolved variant. Otherwise,
@@ -559,6 +630,7 @@ public class LocUDefaultEvents {
 
     /**
      * The approach (`ap`) counterpart to [OpCategory].
+     *
      * @param loc The _base_ loc target of the event.
      * @param vis The current _visual_ representation of [loc], based on the player's varps. If
      *   [loc] has a [ObjectServerType.multiLoc], [vis] reflects the resolved variant. Otherwise,

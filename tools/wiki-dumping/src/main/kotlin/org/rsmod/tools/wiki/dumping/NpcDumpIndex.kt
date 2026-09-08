@@ -1,10 +1,7 @@
 package org.rsmod.tools.wiki.dumping
 
 /** Parsed Joshua-F [dump.npc] index (npc id → internal name / remains). */
-data class NpcDumpIndex(
-    val namesById: Map<Int, String>,
-    val remainsByNpcId: Map<Int, String>,
-) {
+data class NpcDumpIndex(val namesById: Map<Int, String>, val remainsByNpcId: Map<Int, String>) {
     companion object {
         private val npcIdLine = Regex("""^//\s*(\d+)\s*$""")
         private val npcNameLine = Regex("""^\[([^\]]+)]$""")
@@ -44,8 +41,12 @@ data class NpcDumpIndex(
 
         private fun toObjKey(dumpName: String, objLookup: ObjRscmLookup): String {
             val normalized = dumpName.lowercase()
-            objLookup.resolveByDisplayName(normalized.replace('_', ' '))?.let { return it }
-            objLookup.resolveByDisplayName(dumpName)?.let { return it }
+            objLookup.resolveByDisplayName(normalized.replace('_', ' '))?.let {
+                return it
+            }
+            objLookup.resolveByDisplayName(dumpName)?.let {
+                return it
+            }
             return if (normalized.startsWith("obj.")) normalized else "obj.$normalized"
         }
     }

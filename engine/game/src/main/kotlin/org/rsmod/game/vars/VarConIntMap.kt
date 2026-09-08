@@ -26,7 +26,9 @@ public value class VarConIntMap(public val backing: Int2IntMap = Int2IntOpenHash
     public operator fun get(key: VarConType): Int = backing.getOrDefault(key.id, 0)
 
     public operator fun set(key: String, value: Int?) {
-        val varconType = ServerCacheManager.getVarCon(key.asRSCM(RSCMType.VARCON)) ?: error("Unable to find varcon: $key")
+        val varconType =
+            ServerCacheManager.getVarCon(key.asRSCM(RSCMType.VARCON))
+                ?: error("Unable to find varcon: $key")
         set(varconType, value)
     }
 

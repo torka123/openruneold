@@ -1,0 +1,37 @@
+[[area]]
+name = "Edgeville Dungeon"
+area_id = "area.edgeville_dungeon"
+levels = [0]
+
+# Region 12441 contains the southern Obor/Hill Giant extension.
+[[area.polygons]]
+vertices = [
+    [3072, 9792],
+    [3135, 9792],
+    [3135, 9860],
+    [3072, 9860],
+]
+
+[[area.polygons]]
+vertices = [
+    [3085, 9861],
+    [3144, 9861],
+    [3144, 9919],
+    [3085, 9919],
+]
+
+[[area.polygons]]
+vertices = [
+    [3145, 9861],
+    [3175, 9861],
+    [3175, 9920],
+    [3145, 9920],
+]
+
+[[area.polygons]]
+vertices = [
+    [3076, 9920],
+    [3144, 9920],
+    [3144, 10015],
+    [3076, 10015],
+]

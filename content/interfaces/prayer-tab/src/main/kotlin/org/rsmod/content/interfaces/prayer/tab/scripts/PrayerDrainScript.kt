@@ -6,6 +6,7 @@ import kotlin.math.min
 import org.rsmod.api.player.bonus.WornBonuses
 import org.rsmod.api.player.disablePrayers
 import org.rsmod.api.player.output.mes
+import org.rsmod.api.player.prayer.PrayerDrainResistance
 import org.rsmod.api.player.output.soundSynth
 import org.rsmod.api.player.stat.prayerLvl
 import org.rsmod.api.player.stat.statSub
@@ -78,7 +79,6 @@ constructor(private val repo: PrayerRepository, private val bonuses: WornBonuses
     }
 
     private fun Player.updateDrainResistance() {
-        val resistance = 60 + (bonuses.prayerBonus(this) * 2)
-        drainResistance = resistance
+        PrayerDrainResistance.refresh(this, bonuses)
     }
 }

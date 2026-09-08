@@ -49,13 +49,6 @@ object KonarDialogue {
 
     suspend fun Dialogue.needAnotherAssignment() {
         chatPlayer(neutral, "I need another assignment.")
-        if (SlayerTaskManager.hasPendingMortimerChoice(access)) {
-            chatNpc(
-                neutral,
-                "Hmm... It appears as though Mortimer has provided you with a task choice, you must go to them in order to pick.",
-            )
-            return
-        }
         if (player.combatLevel < COMBAT_LEVEL_REQ) {
             lowCombatStart()
             return
@@ -180,11 +173,7 @@ object KonarDialogue {
     }
 
     private suspend fun Dialogue.assignKonarTask() {
-        assignNewTask("npc.slayer_master_8") { _, count ->
-            val task = SlayerTaskManager.getCurrentSlayerTask(access) ?: return@assignNewTask
-            val area = KonarSlayerDialogueHelpers.currentArea(access.player)
-            konarAssignedDialogue(task, count, area)
-        }
+        assignNewTask("npc.slayer_master_8")
     }
 
     private suspend fun Dialogue.konarAssignedDialogue(task: SlayerTaskRow, count: Int, area: SlayerAreaRow?) {

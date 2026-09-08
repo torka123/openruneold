@@ -8,6 +8,8 @@ import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.util.concurrent.atomic.AtomicLong
 import org.rsmod.api.instances.events.InstanceEndedEvent
+import org.rsmod.api.instances.events.InstancePersonalBestEvent
+import org.rsmod.api.instances.events.InstancePlayerExternalTeleportEvent
 import org.rsmod.api.instances.events.InstancePlayerJoinEvent
 import org.rsmod.api.instances.events.InstancePlayerJoinUnboundEvent
 import org.rsmod.api.instances.events.InstancePlayerLeaveEvent
@@ -15,8 +17,6 @@ import org.rsmod.api.instances.events.InstancePlayerLeaveUnboundEvent
 import org.rsmod.api.instances.events.InstanceStartedEvent
 import org.rsmod.api.instances.events.InstanceTimeTickEvent
 import org.rsmod.api.instances.region.InstanceAreaResolver
-import org.rsmod.api.instances.region.InstancePlacement
-import org.rsmod.api.instances.region.OsrsInstancing
 import org.rsmod.api.instances.region.enterCoord
 import org.rsmod.api.instances.region.localCoord
 import org.rsmod.api.instances.timer.InstanceKillTimer
@@ -27,20 +27,27 @@ import org.rsmod.api.player.output.ChatType
 import org.rsmod.api.player.output.mes
 import org.rsmod.api.repo.npc.NpcRepository
 import org.rsmod.api.repo.region.RegionRepository
-import org.rsmod.api.table.InstanceSettingsRow
 import org.rsmod.events.EventBus
 import org.rsmod.events.KeyedEvent
 import org.rsmod.game.MapClock
 import org.rsmod.game.damage.DamageContributions
 import org.rsmod.game.entity.Npc
-import org.rsmod.game.entity.PathingEntity
 import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
 import org.rsmod.game.entity.npc.NpcUid
-import org.rsmod.game.entity.util.PathingEntityCommon
 import org.rsmod.game.region.Region
 import org.rsmod.map.CoordGrid
 import org.rsmod.routefinder.collision.CollisionFlagMap
+
+internal fun isWithinInstanceBounds(
+    coords: CoordGrid,
+    southWest: CoordGrid,
+    northEast: CoordGrid,
+): Boolean =
+    coords.x >= southWest.x &&
+        coords.x < northEast.x &&
+        coords.z >= southWest.z &&
+        coords.z < northEast.z
 
 @Singleton
 public class InstanceManager
@@ -52,7 +59,7 @@ constructor(
     private val eventBus: EventBus,
     private val areaResolver: InstanceAreaResolver,
     private val worldClock: MapClock,
-    private val collision: CollisionFlagMap
+    private val collision: CollisionFlagMap,
 ) {
     private val nextId = AtomicLong(1)
 
@@ -63,6 +70,7 @@ constructor(
     private val playerIndex = HashMap<Long, InstanceId>()
     private val spawnedNpcs = HashMap<InstanceId, MutableList<Npc>>()
     private val npcInstanceIndex = HashMap<NpcUid, InstanceId>()
+    private val deferredLogoutReclaims = HashMap<InstanceId, Int>()
 
     public sealed interface Result {
         public data class Created(val session: InstanceSession, val enter: CoordGrid) : Result
@@ -139,10 +147,12 @@ constructor(
                 is InstanceAreaResolver.Result.Ready -> resolved.placement
             }
 
-        val region = regionRepo.add(placement.regionTemplate) ?: run {
-            areaResolver.release(spec.area, placement)
-            return null
-        }
+        val region =
+            regionRepo.add(placement.regionTemplate)
+                ?: run {
+                    areaResolver.release(spec.area, placement)
+                    return null
+                }
 
         val instanceId = allocateId()
         val session =
@@ -218,6 +228,12 @@ constructor(
     public fun sessionForRegion(regionId: Int): InstanceSession? =
         regionToInstance[regionId]?.let(sessions::get)
 
+    /** Resolves an original-map local coordinate into this session's allocated region. */
+    public fun localCoord(session: InstanceSession, local: RegionLocal): CoordGrid? {
+        val region = regions[session.id] ?: return null
+        return session.localCoord(region, local)
+    }
+
     public fun contributionsFor(id: InstanceId): DamageContributions? =
         sessionForId(id)?.damageContributions
 
@@ -228,6 +244,12 @@ constructor(
     public fun attachNpc(instanceId: InstanceId, npc: Npc) {
         spawnedNpcs.getOrPut(instanceId) { mutableListOf() }.add(npc)
         indexNpc(instanceId, npc)
+    }
+
+    /** Releases an encounter-owned helper without retaining it for the whole instance lifetime. */
+    public fun detachNpc(instanceId: InstanceId, npc: Npc) {
+        spawnedNpcs[instanceId]?.remove(npc)
+        if (npcInstanceIndex[npc.uid] == instanceId) npcInstanceIndex.remove(npc.uid)
     }
 
     public fun registerSessionNpc(player: Player, npc: Npc): Boolean {
@@ -263,7 +285,9 @@ constructor(
         val region = regions[session.id] ?: return Result.Failed("That instance no longer exists.")
         if (!session.isServerOwned && !regionRepo.isValid(region)) {
             destroy(session)
-            return Result.Failed("That instance is no longer available. Please create a new instance.")
+            return Result.Failed(
+                "That instance is no longer available. Please create a new instance."
+            )
         }
         abandonOwnedSessionIfEmpty(player, session, currentTick)
         if (session.occupants.isEmpty() && !session.arenaExpired) {
@@ -276,6 +300,7 @@ constructor(
     /** Call after the player has telejumped into the instance (e.g. after an enter transition). */
     public fun finalizeEntry(player: Player, session: InstanceSession, currentTick: Int) {
         val playerId = player.playerId()
+        rememberRecoveryExit(player, session.placement.exitCoord)
         if (playerId in session.occupants) {
             return
         }
@@ -287,10 +312,12 @@ constructor(
     public fun cancelPendingEntry(player: Player, currentTick: Int) {
         val playerId = player.playerId()
         val ownedId = ownerIndex[playerId] ?: return
-        val session = sessions[ownedId] ?: run {
-            ownerIndex.remove(playerId)
-            return
-        }
+        val session =
+            sessions[ownedId]
+                ?: run {
+                    ownerIndex.remove(playerId)
+                    return
+                }
         if (playerId in session.occupants) {
             return
         }
@@ -309,7 +336,7 @@ constructor(
         }
         val owned = sessions[ownedId] ?: return
         if (playerId in owned.occupants) {
-            removeOccupant(player, owned, currentTick)
+            leave(player, owned, currentTick)
         } else if (owned.owner == playerId) {
             destroy(owned)
         }
@@ -352,23 +379,77 @@ constructor(
 
     public fun leave(player: Player, session: InstanceSession, currentTick: Int): CoordGrid {
         removeOccupant(player, session, currentTick)
+        clearRecoveryExit(player)
         return session.placement.exitCoord
     }
 
-    public fun handleLogout(player: Player, currentTick: Int) {
+    /**
+     * Detaches a player who teleports outside the bounds of their current dynamic region. Teleports
+     * between floors or rooms inside the same region deliberately retain membership.
+     */
+    public fun leaveForExternalTeleport(
+        player: Player,
+        destination: CoordGrid,
+        currentTick: Int,
+    ): Boolean {
+        val session = sessionForPlayer(player) ?: return false
+        val region = regions[session.id] ?: return false
+        val remainsInside = isWithinInstanceBounds(destination, region.southWest, region.northEast)
+        if (remainsInside) return false
+        removeOccupant(player, session, currentTick)
+        clearRecoveryExit(player)
+        eventBus.publish(
+            InstancePlayerExternalTeleportEvent(player, session.key, session.id, session.owner)
+        )
+        return true
+    }
+
+    /** Immediately tears down a verified session and all of its instance-owned entities. */
+    public fun terminate(session: InstanceSession): Boolean {
+        if (sessions[session.id] !== session) return false
+        destroy(session)
+        return true
+    }
+
+    /**
+     * Ends instance membership and moves the server-side player to the configured public exit
+     * before character persistence runs. The recovery marker deliberately remains until the next
+     * successful login, providing a second line of defence if saving or shutdown is interrupted.
+     * Instance teardown is delayed one cycle so content logout hooks can finish against a valid
+     * region regardless of event subscription order.
+     */
+    public fun leaveForLogout(player: Player, currentTick: Int): CoordGrid? {
         val session = sessionForPlayer(player)
         if (session != null) {
             val exit = session.placement.exitCoord
-            removeOccupant(player, session, currentTick)
-            player.attr[InstanceAttributes.LOGIN_EXIT_COORD] = exit.packed
-            return
+            rememberRecoveryExit(player, exit)
+            removeOccupant(player, session, currentTick, reclaimWhenEmpty = false)
+            deferredLogoutReclaims[session.id] = currentTick + 1
+            if (exit != CoordGrid.ZERO) {
+                player.coords = exit
+            }
+            return exit
         }
         cancelPendingEntry(player, currentTick)
+        return null
+    }
+
+    public fun handleLogout(player: Player, currentTick: Int) {
+        leaveForLogout(player, currentTick)
+    }
+
+    /** Returns true when an active or pending instance was ended by the disconnect. */
+    public fun handleDisconnect(player: Player, currentTick: Int): Boolean {
+        val pending =
+            sessionForOwner(player.playerId())?.let { player.playerId() !in it.occupants } == true
+        return leaveForLogout(player, currentTick) != null || pending
     }
 
     public fun handleDeath(player: Player, currentTick: Int) {
         val session = sessionForPlayer(player) ?: return
+        if (RaidLogoutTabPolicy.retainsInstanceMembershipOnDeath(session.key)) return
         removeOccupant(player, session, currentTick)
+        clearRecoveryExit(player)
     }
 
     public fun handleBossKill(npc: Npc, currentTick: Int) {
@@ -390,24 +471,33 @@ constructor(
     }
 
     public fun tickReclaim(currentTick: Int) {
+        reclaimDeferredLogouts(currentTick)
         reconcileOccupants(currentTick)
         tickTimed(currentTick)
         val expired = sessions.values.filter { it.isExpired(currentTick) }
         expired.forEach(::destroy)
     }
 
+    private fun reclaimDeferredLogouts(currentTick: Int) {
+        val due = deferredLogoutReclaims.filterValues { currentTick >= it }.keys.toList()
+        for (id in due) {
+            deferredLogoutReclaims.remove(id)
+            sessions[id]?.let { reclaimEmptySession(it, currentTick) }
+        }
+    }
+
     private fun reconcileOccupants(currentTick: Int) {
         for (session in sessions.values.toList()) {
             val region = regions[session.id] ?: continue
-            val center = session.enterCoord(region)
             val leavers =
                 session.occupants.filter { occupant ->
                     val player = playerList.firstOrNull { it.uuid == occupant }
-                    player == null || player.coords.chebyshevDistance(center) > REGION_RADIUS
+                    player == null ||
+                        !isWithinInstanceBounds(player.coords, region.southWest, region.northEast)
                 }
             for (occupant in leavers) {
                 val player = playerList.firstOrNull { it.uuid == occupant } ?: continue
-                removeOccupant(player, session, currentTick)
+                leaveForExternalTeleport(player, player.coords, currentTick)
             }
         }
     }
@@ -466,15 +556,21 @@ constructor(
     }
 
     private fun startBossKillTimer(session: InstanceSession, npc: Npc, currentTick: Int) {
-        if (!countsAsFightBoss(session, npc) || !InstanceKillTimer.tracksKillTime(session)) {
+        if (
+            !session.spec.recordsEligible ||
+                !countsAsFightBoss(session, npc) ||
+                !InstanceKillTimer.tracksKillTime(session)
+        ) {
             return
         }
         session.bossFightStartTick = currentTick
     }
 
     private fun completeBossKillTimer(session: InstanceSession, currentTick: Int) {
-
-        if (session.isServerOwned) return
+        if (session.isServerOwned || !session.spec.recordsEligible) {
+            session.bossFightStartTick = null
+            return
+        }
 
         val startTick = session.bossFightStartTick ?: return
         session.bossFightStartTick = null
@@ -484,15 +580,23 @@ constructor(
         val elapsed = currentTick - startTick
         for (player in InstanceTiming.playersIn(session, playerList)) {
             if (session.damageContributions.damageBy(player) <= 0) continue
-            InstanceKillTimer.reportKillTime(player, session.key, elapsed)
+            val improved = InstanceKillTimer.reportKillTime(player, session.key, elapsed)
+            if (improved) {
+                eventBus.publish(
+                    InstancePersonalBestEvent(
+                        player = player,
+                        key = session.key,
+                        elapsedTicks = elapsed,
+                        formattedDuration = InstanceKillTimer.formatDuration(elapsed),
+                    )
+                )
+            }
         }
     }
 
     private fun countsAsFightBoss(session: InstanceSession, npc: Npc): Boolean {
         val bossTypes = session.spec.bossNpcs ?: return false
-        return bossTypes.any { bossType ->
-            npcMatchesBossType(npc, bossType)
-        }
+        return bossTypes.any { bossType -> npcMatchesBossType(npc, bossType) }
     }
 
     private fun isBossAlive(session: InstanceSession): Boolean {
@@ -505,9 +609,7 @@ constructor(
 
         val npcs = spawnedNpcs[session.id] ?: return false
         return npcs.any { npc ->
-            npc.isSlotAssigned &&
-                npc.hitpoints > 0 &&
-                npcCountsAsBoss(npc, bossTypes, spawnTypes)
+            npc.isSlotAssigned && npc.hitpoints > 0 && npcCountsAsBoss(npc, bossTypes, spawnTypes)
         }
     }
 
@@ -520,9 +622,7 @@ constructor(
             return true
         }
 
-        return spawnTypes.any { spawnType ->
-            npc.isType(spawnType) || npc.isVisType(spawnType)
-        }
+        return spawnTypes.any { spawnType -> npc.isType(spawnType) || npc.isVisType(spawnType) }
     }
 
     private fun npcMatchesBossType(npc: Npc, bossType: NpcServerType): Boolean {
@@ -572,7 +672,7 @@ constructor(
         val exit = session.placement.exitCoord
         for (occupant in session.occupants.toList()) {
             val player = playerList.firstOrNull { it.uuid == occupant } ?: continue
-            removeOccupant(player, session, currentTick)
+            leave(player, session, currentTick)
             player.coords = exit
         }
         if (session.isServerOwned) {
@@ -609,6 +709,7 @@ constructor(
 
     private fun destroy(session: InstanceSession) {
         if (sessions.remove(session.id) == null) return
+        deferredLogoutReclaims.remove(session.id)
         publish(
             InstanceEndedEvent(
                 key = session.key,
@@ -638,11 +739,20 @@ constructor(
         }
     }
 
-    private fun removeOccupant(player: Player, session: InstanceSession, currentTick: Int) {
+    private fun removeOccupant(
+        player: Player,
+        session: InstanceSession,
+        currentTick: Int,
+        reclaimWhenEmpty: Boolean = true,
+    ) {
         val playerId = player.playerId()
         session.removeOccupant(playerId, currentTick)
         clearOccupant(player)
         publishPlayerLeave(player, session)
+        if (reclaimWhenEmpty) reclaimEmptySession(session, currentTick)
+    }
+
+    private fun reclaimEmptySession(session: InstanceSession, currentTick: Int) {
         if (
             session.spec.destroyWhenEmpty &&
                 !session.isServerOwned &&
@@ -652,9 +762,23 @@ constructor(
             destroy(session)
             return
         }
-        if (session.isServerOwned && session.occupants.isEmpty() && session.state is SessionState.Grace) {
+        if (
+            session.isServerOwned &&
+                session.occupants.isEmpty() &&
+                session.state is SessionState.Grace
+        ) {
             resetServerOwned(session, currentTick)
         }
+    }
+
+    private fun rememberRecoveryExit(player: Player, exit: CoordGrid) {
+        if (exit != CoordGrid.ZERO) {
+            player.attr[InstanceAttributes.LOGIN_EXIT_COORD] = exit.packed
+        }
+    }
+
+    private fun clearRecoveryExit(player: Player) {
+        player.attr.remove(InstanceAttributes.LOGIN_EXIT_COORD)
     }
 
     private fun assignOccupant(player: Player, session: InstanceSession) {
@@ -766,7 +890,6 @@ constructor(
             player.username.equals(name, ignoreCase = true)
 
     private companion object {
-        private const val REGION_RADIUS = OsrsInstancing.PADDING_BETWEEN_INSTANCES
         private const val SERVER_OWNER_ID: Long = 0L
     }
 }

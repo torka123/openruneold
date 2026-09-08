@@ -5,37 +5,63 @@ import dev.openrune.ServerCacheManager
 import dev.openrune.rscm.RSCM
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
+import dev.openrune.types.ItemServerType
 import dev.openrune.types.NpcMode
 import jakarta.inject.Inject
 import kotlin.math.max
 import kotlin.math.min
 import org.rsmod.annotations.InternalApi
 import org.rsmod.api.area.checker.AreaChecker
+import org.rsmod.api.combat.commons.CombatAttack
+import org.rsmod.api.combat.commons.CombatStance
+import org.rsmod.api.combat.commons.styles.MagicAttackStyle
+import org.rsmod.api.combat.commons.styles.MeleeAttackStyle
+import org.rsmod.api.combat.commons.styles.RangedAttackStyle
+import org.rsmod.api.combat.commons.types.MeleeAttackType
+import org.rsmod.api.combat.commons.types.RangedAttackType
+import org.rsmod.api.combat.weapon.styles.AttackStyles
+import org.rsmod.api.combat.weapon.types.AttackTypes
 import org.rsmod.api.death.prepareAdminDieTest
+import org.rsmod.api.death.preparePvpDeath
 import org.rsmod.api.instances.BossInstanceRegistry
 import org.rsmod.api.instances.InstanceArea
-import org.rsmod.api.death.preparePvpDeath
+import org.rsmod.api.instances.InstanceManager
+import org.rsmod.api.invtx.add
 import org.rsmod.api.invtx.invAdd
 import org.rsmod.api.invtx.invClear
+import org.rsmod.api.invtx.invTransaction
+import org.rsmod.api.invtx.select
 import org.rsmod.api.mechanics.toxins.impl.PlayerDisease
 import org.rsmod.api.mechanics.toxins.impl.PlayerPoison
 import org.rsmod.api.mechanics.toxins.impl.PlayerVenom
+import org.rsmod.api.player.cheat.ADMIN_GOD_HITPOINTS_MAX
+import org.rsmod.api.player.cheat.AdminItemSearchState
+import org.rsmod.api.player.cheat.adminGodHitpoints
 import org.rsmod.api.player.cheat.adminGodMode
+import org.rsmod.api.player.cheat.adminItemSearch
 import org.rsmod.api.player.cheat.adminMaxHit
+import org.rsmod.api.player.cheat.adminOneHit
+import org.rsmod.api.player.clearInteractionRoute
+import org.rsmod.api.player.combatClearQueue
+import org.rsmod.api.player.hat
+import org.rsmod.api.player.hook.TeleportType
 import org.rsmod.api.player.ironman.PlayerGamemode
 import org.rsmod.api.player.ironman.setGamemode
-import org.rsmod.api.player.hook.TeleportType
+import org.rsmod.api.player.legs
 import org.rsmod.api.player.output.MiscOutput
 import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.output.soundSynth
-import org.rsmod.api.player.cheat.adminGodMode
-import org.rsmod.api.player.cheat.adminMaxHit
 import org.rsmod.api.player.protect.ProtectedAccessLauncher
 import org.rsmod.api.player.queueDeath
+import org.rsmod.api.player.quiver
+import org.rsmod.api.player.ranged.BlowpipeAmmo
+import org.rsmod.api.player.righthand
 import org.rsmod.api.player.stat.PlayerSkillXP
 import org.rsmod.api.player.stat.stat
 import org.rsmod.api.player.stat.statAdvance
+import org.rsmod.api.player.stat.statHeal
 import org.rsmod.api.player.stat.statSub
+import org.rsmod.api.player.torso
 import org.rsmod.api.player.ui.PlayerInterfaceUpdates
 import org.rsmod.api.player.vars.VarPlayerIntMapSetter
 import org.rsmod.api.player.vars.boolVarBit
@@ -43,13 +69,22 @@ import org.rsmod.api.player.vars.resyncVar
 import org.rsmod.api.registry.region.RegionRegistry
 import org.rsmod.api.repo.loc.LocRepository
 import org.rsmod.api.repo.npc.NpcRepository
+import org.rsmod.api.specials.SpecialAttack
+import org.rsmod.api.specials.SpecialAttackRegistry
+import org.rsmod.api.specials.energy.SpecialAttackEnergy
 import org.rsmod.api.utils.format.formatAmount
 import org.rsmod.api.utils.system.SafeServiceExit
+import org.rsmod.content.interfaces.bank.BankTab
 import org.rsmod.game.GameUpdate
+import org.rsmod.game.MapClock
 import org.rsmod.game.cheat.Cheat
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
+import org.rsmod.game.interact.InteractionNpcOp
+import org.rsmod.game.interact.InteractionOp
+import org.rsmod.game.inv.InvObj
+import org.rsmod.game.inv.Inventory
 import org.rsmod.game.loc.LocAngle
 import org.rsmod.game.loc.LocEntity
 import org.rsmod.game.loc.LocInfo
@@ -63,7 +98,9 @@ import org.rsmod.map.zone.ZoneKey
 import org.rsmod.objtx.TransactionResult
 import org.rsmod.plugin.scripts.PluginScript
 import org.rsmod.plugin.scripts.ScriptContext
+import org.rsmod.routefinder.collision.CollisionFlagMap
 import org.rsmod.routefinder.loc.LocLayerConstants
+import org.rsmod.utils.bits.withBits
 import org.simmetrics.metrics.StringMetrics
 
 class AdminCommands
@@ -77,10 +114,24 @@ constructor(
     private val areaChecker: AreaChecker,
     private val regions: RegionRegistry,
     private val instanceRegistry: BossInstanceRegistry,
+    private val instances: InstanceManager,
+    private val clock: MapClock,
+    private val specialAttacks: SpecialAttackRegistry,
+    private val specialEnergy: SpecialAttackEnergy,
+    private val attackStyles: AttackStyles,
+    private val attackTypes: AttackTypes,
+    private val collision: CollisionFlagMap,
 ) : PluginScript() {
     private val logger = InlineLogger()
 
     private val levenshteinMetric = StringMetrics.levenshtein()
+
+    private companion object {
+        private const val SEARCH_PAGE_SIZE = 8
+        private const val MAX_SEARCH_RESULTS = 100
+        private const val SPECIAL_TARGET_HITPOINTS = 100_000
+        private const val SPECIAL_TARGET_DURATION_CYCLES = 100_000
+    }
 
     private var Player.insideWilderness by boolVarBit("varbit.inside_wilderness")
 
@@ -91,6 +142,9 @@ constructor(
         onCommand("tele", "Teleport to coordgrid", ::tele) {
             invalidArgs = "Usage: ::tele mx mz [level](e.g. ::tele 3200 3200 0)"
         }
+        onCommand("barrows", "Teleport to the Barrows entrance", ::barrows)
+        onCommand("prif", "Teleport to the Prifddinas Agility Course", ::prifAgility)
+        onCommand("prifagility", "Teleport to the Prifddinas Agility Course", ::prifAgility)
         onCommand("telezone", "Teleport to zone key", ::teleZone) {
             invalidArgs = "Use as ::telezone zoneX zoneY level (ex: 400 400 0)"
         }
@@ -128,9 +182,40 @@ constructor(
         }
 
         onCommand("invadd", "Spawn obj into inv", ::invAdd)
-        onCommand("item", "Spawn obj into inv", ::invAdd)
+        onCommand("item", "Spawn an item into your inventory", ::invAdd) {
+            invalidArgs = "Usage: ::item <object-id> [quantity] (e.g. ::item 4151 1)"
+        }
+        onCommand("find", "Find item IDs", ::find) {
+            invalidArgs = "Usage: ::find <item name or item id>"
+        }
+        onCommand("findnext", "Show the next item search results page", ::findNext) {
+            invalidArgs = "Usage: ::findnext"
+        }
+        onCommand("findprevious", "Show the previous item search results page", ::findPrevious) {
+            invalidArgs = "Usage: ::findprevious"
+        }
 
         onCommand("invclear", "Remove all objs from inv", ::invClear)
+        onCommand(
+            "specialbank",
+            "Add every special weapon and its complete test kit to your bank",
+            ::specialBank,
+        )
+        onCommand(
+            "specialtarget",
+            "Spawn a stationary 100,000-HP special-attack test target",
+            ::specialTarget,
+        ) {
+            invalidArgs = "Usage: ::specialtarget [vampire]"
+        }
+        onCommand(
+            "specialaudit",
+            "Run every registered special through the real PvN interaction pipeline",
+            ::specialAudit,
+        ) {
+            invalidArgs =
+                "Usage: ::specialaudit [cycles-per-weapon, 6-12] [start-index] [end-index]"
+        }
         onCommand("varp", "Set varp value", ::setVarp) {
             invalidArgs = "Use as ::varp debugNameOrId value (ex: option_run 1)"
         }
@@ -167,8 +252,13 @@ constructor(
             invalidArgs =
                 "Usage: ::die pvm|pvp [true|false]  (second arg = in Wilderness, default false)"
         }
-        onCommand("god", "Toggle god mode (invincibility)", ::god)
+        onCommand("god", "Toggle 10,000,000 damageable hitpoints", ::god)
+        onCommand("god2", "Toggle invulnerability and one-hit attacks", ::god2)
+        onCommand("godmode", "Toggle administrator god mode", ::godmode) {
+            invalidArgs = "Usage: ::godmode [on/off]"
+        }
         onCommand("maxhit", "Toggle always max hit", ::maxhit)
+        onCommand("spec", "Restore special-attack energy", ::spec)
         onCommand("openbank", "Open the bank", ::bank)
         onCommand("transmog", "Transmog player to NPC appearance (no args to reset)", ::transmog) {
             invalidArgs = "Use as ::transmog npcNameOrId (ex: goblin or 126) or ::transmog to reset"
@@ -176,11 +266,7 @@ constructor(
         onCommand("gamemode", "Set account gamemode (normal|ironman|uim|hcim)", ::gamemode) {
             invalidArgs = "Use as ::gamemode normal|ironman|uim|hcim"
         }
-        onCommand(
-            "instanceexit",
-            "Teleport to an instance's exit coord",
-            ::instanceExit,
-        ) {
+        onCommand("instanceexit", "Teleport to an instance's exit coord", ::instanceExit) {
             invalidArgs = "Use as ::instanceexit instanceKey (ex: ::instanceexit graardor)"
         }
     }
@@ -212,14 +298,90 @@ constructor(
 
     private fun god(cheat: Cheat) =
         with(cheat) {
-            player.adminGodMode = !player.adminGodMode
-            player.mes("God mode ${if (player.adminGodMode) "enabled" else "disabled"}.")
+            val enabled = player.adminGodHitpoints == null
+            player.adminGodMode = false
+            player.adminOneHit = false
+            player.adminGodHitpoints = if (enabled) ADMIN_GOD_HITPOINTS_MAX else null
+            player.statHeal("stat.hitpoints", constant = 0, percent = 100)
+            if (enabled) {
+                PlayerPoison.clear(player)
+                PlayerVenom.clear(player)
+                PlayerDisease.clear(player)
+                player.mes("God enabled: 10,000,000 HP. NPC hits still deal damage.")
+            } else {
+                player.mes("God disabled: normal hitpoints restored.")
+            }
+        }
+
+    private fun god2(cheat: Cheat) =
+        with(cheat) {
+            val enabled = !(player.adminGodMode && player.adminOneHit)
+            player.adminGodHitpoints = null
+            player.adminGodMode = enabled
+            player.adminOneHit = enabled
+            player.statHeal("stat.hitpoints", constant = 0, percent = 100)
+            if (enabled) {
+                PlayerPoison.clear(player)
+                PlayerVenom.clear(player)
+                PlayerDisease.clear(player)
+                player.mes(
+                    "God2 enabled: incoming damage blocked and attacks against NPCs are one-hit."
+                )
+            } else {
+                player.mes("God2 disabled.")
+            }
+        }
+
+    private fun godmode(cheat: Cheat) =
+        with(cheat) {
+            val enabled =
+                when (args.singleOrNull()?.lowercase()) {
+                    null -> !player.adminGodMode
+                    "on" -> true
+                    "off" -> false
+                    else -> {
+                        player.mes("Usage: ::godmode [on/off]")
+                        return@with
+                    }
+                }
+            player.adminGodHitpoints = null
+            player.adminGodMode = enabled
+            player.adminOneHit = false
+            if (enabled) {
+                PlayerPoison.clear(player)
+                PlayerVenom.clear(player)
+                PlayerDisease.clear(player)
+                player.statHeal("stat.hitpoints", constant = 0, percent = 100)
+                player.statHeal("stat.prayer", constant = 0, percent = 100)
+                player.mes("God mode enabled: incoming damage is blocked.")
+            } else {
+                player.mes("God mode disabled.")
+            }
+            logger.info {
+                "Administrator '${player.displayName}' ${if (enabled) "enabled" else "disabled"} god mode."
+            }
         }
 
     private fun maxhit(cheat: Cheat) =
         with(cheat) {
             player.adminMaxHit = !player.adminMaxHit
             player.mes("Max hit ${if (player.adminMaxHit) "enabled" else "disabled"}.")
+        }
+
+    private fun spec(cheat: Cheat) =
+        with(cheat) {
+            if (args.isNotEmpty()) {
+                player.mes("Usage: ::spec")
+                return@with
+            }
+            val restored = specialEnergy.restoreFullSpecialEnergy(player)
+            player.mes(
+                if (restored == 0) {
+                    "Your special attack energy is already full."
+                } else {
+                    "Your special attack energy has been fully restored."
+                }
+            )
         }
 
     private fun poisonTest(cheat: Cheat) =
@@ -283,7 +445,28 @@ constructor(
             val coords = CoordGrid(x, y, level)
             protectedAccess.launch(player) {
                 player.mes("Teleported to $coords.")
+                instances.leaveForExternalTeleport(player, coords, clock.cycle)
                 telejump(coords, TeleportType.Exempt)
+            }
+        }
+
+    private fun barrows(cheat: Cheat) =
+        with(cheat) {
+            val destination = CoordGrid(3564, 3288, 0)
+            protectedAccess.launch(player) {
+                player.mes("Teleported to Barrows. Talk to the Strange Old Man to begin.")
+                instances.leaveForExternalTeleport(player, destination, clock.cycle)
+                telejump(destination, TeleportType.Exempt)
+            }
+        }
+
+    private fun prifAgility(cheat: Cheat) =
+        with(cheat) {
+            val destination = CoordGrid(3253, 6109, 0)
+            protectedAccess.launch(player) {
+                player.mes("Teleported to the Prifddinas Agility Course starting ladder.")
+                instances.leaveForExternalTeleport(player, destination, clock.cycle)
+                telejump(destination, TeleportType.Exempt)
             }
         }
 
@@ -296,6 +479,7 @@ constructor(
             val coords = ZoneKey(zoneX, zoneZ, level).toCoords()
             protectedAccess.launch(player) {
                 player.mes("Teleported to $coords.")
+                instances.leaveForExternalTeleport(player, coords, clock.cycle)
                 telejump(coords, TeleportType.Exempt)
             }
         }
@@ -337,6 +521,7 @@ constructor(
             val dest = current.copy(level = destLevel)
             protectedAccess.launch(player) {
                 player.mes("Teleported to $dest.")
+                instances.leaveForExternalTeleport(player, dest, clock.cycle)
                 telejump(dest, TeleportType.Exempt)
             }
         }
@@ -453,17 +638,173 @@ constructor(
             player.mes("Spawned npc `${args[1]}` (duration: $duration cycles)")
         }
 
+    private fun find(cheat: Cheat) =
+        with(cheat) {
+            val query = args.joinToString(" ").trim()
+            if (query.isEmpty()) {
+                player.mes("Usage: ::find <item name or item id>")
+                return@with
+            }
+            val matches = findItems(query)
+            if (matches.isEmpty()) {
+                player.adminItemSearch = null
+                player.mes("No items found for '$query'.")
+                return@with
+            }
+            val state =
+                AdminItemSearchState(
+                    query = query,
+                    resultIds = matches.take(MAX_SEARCH_RESULTS).map(ItemServerType::id),
+                    totalMatches = matches.size,
+                )
+            player.adminItemSearch = state
+
+            if (matches.size > state.resultIds.size) {
+                player.mes(
+                    "Showing the top ${state.resultIds.size} of ${matches.size} matching items."
+                )
+            }
+            displaySearchResults(player, state)
+        }
+
+    private fun findNext(cheat: Cheat) =
+        with(cheat) {
+            if (args.isNotEmpty()) {
+                player.mes("Usage: ::findnext")
+                return@with
+            }
+            val state =
+                player.adminItemSearch
+                    ?: run {
+                        player.mes("Use ::find <item name or item id> first.")
+                        return@with
+                    }
+            val lastPage = (state.resultIds.size - 1) / SEARCH_PAGE_SIZE
+            if (state.page >= lastPage) {
+                player.mes("This is already the last search results page.")
+                return@with
+            }
+            val next = state.copy(page = state.page + 1)
+            player.adminItemSearch = next
+            displaySearchResults(player, next)
+        }
+
+    private fun findPrevious(cheat: Cheat) =
+        with(cheat) {
+            if (args.isNotEmpty()) {
+                player.mes("Usage: ::findprevious")
+                return@with
+            }
+            val state =
+                player.adminItemSearch
+                    ?: run {
+                        player.mes("Use ::find <item name or item id> first.")
+                        return@with
+                    }
+            if (state.page == 0) {
+                player.mes("This is already the first search results page.")
+                return@with
+            }
+            val previous = state.copy(page = state.page - 1)
+            player.adminItemSearch = previous
+            displaySearchResults(player, previous)
+        }
+
+    private fun findItems(query: String): List<ItemServerType> {
+        val numericId = query.toIntOrNull()
+        if (numericId != null) {
+            return listOfNotNull(ServerCacheManager.getItem(numericId)).filter { item ->
+                item.isSearchableDefinition()
+            }
+        }
+        val normalized = query.lowercase()
+        val words = normalized.split(Regex("\\s+")).filter(String::isNotBlank)
+        return ServerCacheManager.getItemTypes()
+            .asSequence()
+            .filter { item -> item.isSearchableDefinition() }
+            .filter { item ->
+                val name = item.name.lowercase()
+                name.contains(normalized) || words.all(name::contains) || words.any(name::contains)
+            }
+            .sortedWith(
+                compareBy<ItemServerType>(
+                    { item -> item.searchRank(normalized, words) },
+                    { item -> item.name.lowercase() },
+                    ItemServerType::id,
+                )
+            )
+            .toList()
+    }
+
+    private fun ItemServerType.searchRank(query: String, words: List<String>): Int =
+        when {
+            name.equals(query, ignoreCase = true) -> 0
+            name.startsWith(query, ignoreCase = true) -> 1
+            words.all { word -> name.contains(word, ignoreCase = true) } -> 2
+            else -> 3
+        }
+
+    private fun ItemServerType.isSearchableDefinition(): Boolean {
+        val trimmedName = name.trim()
+        return trimmedName.isNotEmpty() && !trimmedName.equals("null", ignoreCase = true)
+    }
+
+    private fun ItemServerType.searchLabel(): String {
+        val trimmedName = name.trim()
+        return if (isCert && !trimmedName.endsWith("(noted)", ignoreCase = true)) {
+            "$trimmedName (noted)"
+        } else {
+            trimmedName
+        }
+    }
+
+    private fun displaySearchResults(player: Player, state: AdminItemSearchState) {
+        val lastPage = (state.resultIds.size - 1) / SEARCH_PAGE_SIZE
+        val page = state.page.coerceIn(0, lastPage)
+        if (page != state.page) {
+            player.adminItemSearch = state.copy(page = page)
+        }
+        val start = page * SEARCH_PAGE_SIZE
+        val end = min(start + SEARCH_PAGE_SIZE, state.resultIds.size)
+        player.mes(
+            "Item results for '${state.query}' (${state.totalMatches} matches, page ${page + 1}/${lastPage + 1}):"
+        )
+        for (index in start until end) {
+            val item = ServerCacheManager.getItem(state.resultIds[index]) ?: continue
+            player.mes("${index + 1}. ${item.searchLabel()} - ID ${item.id}")
+        }
+        player.mes("Use ::item <item ID> [amount] to spawn an item.")
+        if (page < lastPage) {
+            player.mes("Use ::findnext for more results.")
+        }
+        if (page > 0) {
+            player.mes("Use ::findprevious for earlier results.")
+        }
+    }
+
     private fun invAdd(cheat: Cheat) =
         with(cheat) {
             val (typeName, countArg) = args.asTypeNameAndNumber(defaultNumber = 1)
             val normalizedName = "obj.$typeName"
+            val itemId =
+                typeName.toIntOrNull()
+                    ?: try {
+                        normalizedName.asRSCM(RSCMType.OBJ)
+                    } catch (_: IllegalStateException) {
+                        player.mes("Item `$typeName` does not exist.")
+                        return@with
+                    }
             val type =
-                ServerCacheManager.getItem(normalizedName.asRSCM(RSCMType.OBJ)) ?: return@with
+                ServerCacheManager.getItem(itemId)
+                    ?: run {
+                        player.mes("Item `$typeName` does not exist.")
+                        return@with
+                    }
 
             val count = countArg.toLong().coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
             val objName = type.name.ifEmpty { normalizedName }
 
-            val spawned = player.invAdd(player.inv, normalizedName, count, strict = false)
+            val spawned = player.invAdd(player.inv, itemId, count, strict = false)
             if (spawned.err is TransactionResult.RestrictedDummyitem) {
                 player.mes("You can't spawn this item!")
                 return
@@ -472,6 +813,351 @@ constructor(
         }
 
     private fun invClear(cheat: Cheat) = with(cheat) { player.invClear(player.inv) }
+
+    private fun specialBank(cheat: Cheat) =
+        with(cheat) {
+            protectedAccess.launch(player) {
+                val specialIds = specialAttacks.registeredItemIds()
+                val supportItems =
+                    mapOf(
+                        "obj.dragon_arrow".asRSCM(RSCMType.OBJ) to 10_000,
+                        "obj.rune_arrow".asRSCM(RSCMType.OBJ) to 10_000,
+                        "obj.bronze_arrow".asRSCM(RSCMType.OBJ) to 10_000,
+                        "obj.dragon_javelin".asRSCM(RSCMType.OBJ) to 10_000,
+                        "obj.dttd_bone_crossbow_bolt".asRSCM(RSCMType.OBJ) to 10_000,
+                        "obj.dragon_bolts".asRSCM(RSCMType.OBJ) to 10_000,
+                        "obj.dragon_bolts_enchanted_ruby".asRSCM(RSCMType.OBJ) to 10_000,
+                        "obj.dragon_bolts_enchanted_diamond".asRSCM(RSCMType.OBJ) to 10_000,
+                        "obj.atlatl_dart".asRSCM(RSCMType.OBJ) to 10_000,
+                        "obj.dragon_dart".asRSCM(RSCMType.OBJ) to 10_000,
+                        "obj.snakeboss_scale".asRSCM(RSCMType.OBJ) to 100_000,
+                        21_820 to 100_000, // Revenant ether; no stable revision-240 RSCM alias.
+                        "obj.frost_moon_helm".asRSCM(RSCMType.OBJ) to 1,
+                        "obj.frost_moon_chestplate".asRSCM(RSCMType.OBJ) to 1,
+                        "obj.frost_moon_tassets".asRSCM(RSCMType.OBJ) to 1,
+                        "obj.blood_moon_helm".asRSCM(RSCMType.OBJ) to 1,
+                        "obj.blood_moon_chestplate".asRSCM(RSCMType.OBJ) to 1,
+                        "obj.blood_moon_tassets".asRSCM(RSCMType.OBJ) to 1,
+                        "obj.eclipse_moon_helm".asRSCM(RSCMType.OBJ) to 1,
+                        "obj.eclipse_moon_chestplate".asRSCM(RSCMType.OBJ) to 1,
+                        "obj.eclipse_moon_tassets".asRSCM(RSCMType.OBJ) to 1,
+                    )
+                val existingIds = bank.objs.asSequence().filterNotNull().map { it.id }.toHashSet()
+                val missing = specialIds.filterNot(existingIds::contains).sorted()
+                val missingSupport = supportItems.filterKeys { it !in existingIds }
+                if (missing.isEmpty() && missingSupport.isEmpty()) {
+                    mes(
+                        "Your bank already contains all ${specialIds.size} special weapons and the complete test kit."
+                    )
+                    return@launch
+                }
+
+                val result =
+                    player.invTransaction(bank) {
+                        val target = select(bank)
+                        for (id in missing) {
+                            add(target, obj = id, count = 1, strict = true)
+                        }
+                        for ((id, count) in missingSupport) {
+                            add(target, obj = id, count = count, strict = true)
+                        }
+                    }
+                if (!result.success) {
+                    mes(
+                        "No items were added. You need enough free bank slots for ${missing.size + missingSupport.size} test-kit items."
+                    )
+                    return@launch
+                }
+                BankTab.repairLayout(player, bank)
+                mes(
+                    "Added ${missing.size} special weapons and ${missingSupport.size} support items (${specialIds.size} registered weapons total)."
+                )
+            }
+        }
+
+    private fun specialTarget(cheat: Cheat) =
+        with(cheat) {
+            val vampire = args.firstOrNull()?.equals("vampire", ignoreCase = true) == true
+            val typeId =
+                if (vampire) {
+                    "npc.burgh_vampire_juvenile_1".asRSCM(RSCMType.NPC)
+                } else {
+                    2215 // Revision-240 General Graardor; no stable RSCM NPC symbol exists.
+                }
+            val type = requireNotNull(ServerCacheManager.getNpc(typeId))
+            val npc = Npc(type, player.coords.translateX(if (vampire) 2 else 4))
+            npc.mode = NpcMode.None
+            npc.baseHitpointsLvl = SPECIAL_TARGET_HITPOINTS
+            npc.hitpoints = if (vampire) SPECIAL_TARGET_HITPOINTS / 2 else SPECIAL_TARGET_HITPOINTS
+            npcRepo.add(npc, SPECIAL_TARGET_DURATION_CYCLES)
+            player.mes(
+                "Spawned stationary ${type.name} special target with ${npc.hitpoints.formatAmount}/${SPECIAL_TARGET_HITPOINTS.formatAmount} HP."
+            )
+        }
+
+    private fun specialAudit(cheat: Cheat) =
+        with(cheat) {
+            val delayCycles = args.firstOrNull()?.toIntOrNull()?.coerceIn(6, 12) ?: 8
+            val requestedStart = args.getOrNull(1)?.toIntOrNull() ?: 1
+            val requestedEnd = args.getOrNull(2)?.toIntOrNull()
+            protectedAccess.launch(player) {
+                val weaponIds = specialAttacks.registeredItemIds().sorted()
+                val startIndex = requestedStart.coerceIn(1, weaponIds.size)
+                val endIndex = (requestedEnd ?: weaponIds.size).coerceIn(startIndex, weaponIds.size)
+                val primaryType = requireNotNull(ServerCacheManager.getNpc(2215))
+                val vampireTypeId = "npc.burgh_vampire_juvenile_1".asRSCM(RSCMType.NPC)
+                val vampireType = requireNotNull(ServerCacheManager.getNpc(vampireTypeId))
+                val primaryTarget = Npc(primaryType, player.coords.translateX(4))
+                val vampireTarget = Npc(vampireType, player.coords.translateX(1))
+                for (npc in listOf(primaryTarget, vampireTarget)) {
+                    npc.mode = NpcMode.None
+                    npc.baseHitpointsLvl = SPECIAL_TARGET_HITPOINTS
+                    npc.hitpoints = SPECIAL_TARGET_HITPOINTS
+                    npcRepo.add(npc, SPECIAL_TARGET_DURATION_CYCLES)
+                }
+                primaryTarget.retainerUntil = Int.MAX_VALUE
+
+                val retainerWeapons = buildSet {
+                    add("obj.ivandis_flail".asRSCM(RSCMType.OBJ))
+                    add("obj.blisterwood_flail".asRSCM(RSCMType.OBJ))
+                    add("obj.hallowed_flail".asRSCM(RSCMType.OBJ))
+                    for (charges in 1..10) {
+                        add("obj.burgh_rod_command_final_$charges".asRSCM(RSCMType.OBJ))
+                    }
+                }
+                val remainingCount = endIndex - startIndex + 1
+                val etaMinutes = remainingCount * delayCycles * 0.6 / 60.0
+                mes(
+                    "Starting live special audit at $startIndex-$endIndex/${weaponIds.size} " +
+                        "(${"%.1f".format(etaMinutes)} minutes)."
+                )
+                logger.info {
+                    "SPECIAL_AUDIT start player=${player.username} weapons=${weaponIds.size} " +
+                        "delay=$delayCycles start=$startIndex end=$endIndex"
+                }
+
+                var accepted = 0
+                var rejected = 0
+                var errors = 0
+                for ((offset, itemId) in
+                    weaponIds.slice(startIndex - 1 until endIndex).withIndex()) {
+                    val index = startIndex - 1 + offset
+                    player.clearInteractionRoute()
+                    player.combatClearQueue()
+                    resetAnim()
+                    val itemType = requireNotNull(ServerCacheManager.getItem(itemId))
+                    val weapon = player.specialAuditWeapon(itemType)
+                    player.righthand = weapon
+                    player.quiver = specialAuditAmmo(itemType)
+                    when {
+                        "frostmoon_spear" in itemType.internalName -> {
+                            player.hat = InvObj("obj.frost_moon_helm")
+                            player.torso = InvObj("obj.frost_moon_chestplate")
+                            player.legs = InvObj("obj.frost_moon_tassets")
+                        }
+                        "dual_macuahuitl" in itemType.internalName -> {
+                            player.hat = InvObj("obj.blood_moon_helm")
+                            player.torso = InvObj("obj.blood_moon_chestplate")
+                            player.legs = InvObj("obj.blood_moon_tassets")
+                        }
+                        "eclipse_atlatl" in itemType.internalName -> {
+                            player.hat = InvObj("obj.eclipse_moon_helm")
+                            player.torso = InvObj("obj.eclipse_moon_chestplate")
+                            player.legs = InvObj("obj.eclipse_moon_tassets")
+                        }
+                        else -> {
+                            player.hat = null
+                            player.torso = null
+                            player.legs = null
+                        }
+                    }
+                    if ("noxious_halberd" in itemType.internalName) {
+                        VarPlayerIntMapSetter.set(player, "varp.poison_severity", 46)
+                    }
+                    if ("soulreaper" in itemType.internalName) {
+                        VarPlayerIntMapSetter.set(player, "varp.soulreaper_stacks", 5)
+                    }
+                    specialEnergy.restoreFullSpecialEnergy(player)
+
+                    val needsSmallOrAdjacentTarget =
+                        itemId in retainerWeapons ||
+                            "granite_maul" in itemType.internalName ||
+                            "fang_of_the_hound" in itemType.internalName ||
+                            "eclipse_atlatl" in itemType.internalName ||
+                            "dragon_spear" in itemType.internalName ||
+                            "zamorak_spear" in itemType.internalName ||
+                            "zamorak_hasta" in itemType.internalName
+                    val target = if (needsSmallOrAdjacentTarget) vampireTarget else primaryTarget
+                    if (
+                        "granite_maul" in itemType.internalName ||
+                            "fang_of_the_hound" in itemType.internalName
+                    ) {
+                        player.interaction =
+                            InteractionNpcOp(
+                                target = target,
+                                op = InteractionOp.Op2,
+                                hasOpTrigger = false,
+                                hasApTrigger = true,
+                            )
+                    }
+                    // Specials such as Shove move the shared adjacent fixture. Reset both audit
+                    // targets before every entry so one weapon cannot invalidate a later test or
+                    // hide its animation behind stale collision/position state.
+                    primaryTarget.telejump(collision, player.coords.translateX(4))
+                    vampireTarget.telejump(collision, player.coords.translateX(1))
+
+                    target.baseHitpointsLvl = SPECIAL_TARGET_HITPOINTS
+                    target.hitpoints =
+                        if (target === vampireTarget) {
+                            SPECIAL_TARGET_HITPOINTS / 2
+                        } else {
+                            SPECIAL_TARGET_HITPOINTS
+                        }
+                    val special = requireNotNull(specialAttacks[weapon])
+                    val label = "[${index + 1}/${weaponIds.size}] ${itemType.name} (ID $itemId)"
+                    mes("Testing $label")
+                    logger.info { "SPECIAL_AUDIT testing $label" }
+
+                    val syntheticCondition =
+                        when (itemId) {
+                            22516 -> "verzik-phase-1-only"
+                            else -> null
+                        }
+                    if (syntheticCondition != null) {
+                        rejected++
+                        logger.info {
+                            "SPECIAL_AUDIT result item=$itemId accepted=false " +
+                                "condition=$syntheticCondition energy=${specialEnergy.getSpecialEnergy(player)}"
+                        }
+                        delay(delayCycles)
+                        continue
+                    }
+
+                    try {
+                        val instantAccepted =
+                            when (special) {
+                                is SpecialAttack.Instant -> special.activate(this)
+                                is SpecialAttack.Melee -> {
+                                    val type = MeleeAttackType.from(attackTypes.get(player))
+                                    val style = MeleeAttackStyle.from(attackStyles.get(player))
+                                    val stance =
+                                        CombatStance[player.vars["varp.com_mode"]]
+                                            ?: CombatStance.Stance1
+                                    if (itemId == 27859) {
+                                        special.attack(
+                                            this,
+                                            player,
+                                            CombatAttack.Melee(weapon, type, style, stance),
+                                        )
+                                    } else
+                                        special.attack(
+                                            this,
+                                            target,
+                                            CombatAttack.Melee(weapon, type, style, stance),
+                                        )
+                                }
+                                is SpecialAttack.Ranged -> {
+                                    val type = RangedAttackType.from(attackTypes.get(player))
+                                    val style = RangedAttackStyle.from(attackStyles.get(player))
+                                    special.attack(
+                                        this,
+                                        target,
+                                        CombatAttack.Ranged(weapon, type, style),
+                                    )
+                                }
+                                is SpecialAttack.Magic -> {
+                                    val style = MagicAttackStyle.from(attackStyles.get(player))
+                                    special.attack(this, target, CombatAttack.Staff(weapon, style))
+                                }
+                            }
+                        // The audit invokes handlers directly. Cancel their normal-combat
+                        // re-engagement immediately so the next ordinary attack cannot overwrite
+                        // the special animation one cycle later (most visibly with Dark bows).
+                        player.clearInteractionRoute()
+                        delay(delayCycles)
+                        player.clearInteractionRoute()
+                        val energyConsumed =
+                            specialEnergy.getSpecialEnergy(player) < SpecialAttackEnergy.MAX_ENERGY
+                        val didAccept = instantAccepted || energyConsumed
+                        if (didAccept) {
+                            accepted++
+                        } else {
+                            rejected++
+                        }
+                        logger.info {
+                            "SPECIAL_AUDIT result item=$itemId accepted=$didAccept " +
+                                "energy=${specialEnergy.getSpecialEnergy(player)}"
+                        }
+                    } catch (t: Throwable) {
+                        errors++
+                        logger.error(t) { "SPECIAL_AUDIT error item=$itemId name=${itemType.name}" }
+                    }
+                }
+
+                player.clearInteractionRoute()
+                player.combatClearQueue()
+                player.righthand = null
+                player.quiver = null
+                player.hat = null
+                player.torso = null
+                player.legs = null
+                mes(
+                    "Special audit complete: $remainingCount tested, $accepted accepted, " +
+                        "$rejected condition-rejected, $errors errors."
+                )
+                logger.info {
+                    "SPECIAL_AUDIT complete player=${player.username} tested=$remainingCount " +
+                        "accepted=$accepted rejected=$rejected errors=$errors"
+                }
+            }
+        }
+
+    private fun Player.specialAuditWeapon(itemType: ItemServerType): InvObj {
+        val weapon = InvObj(itemType, if (itemType.stackable) 10_000 else 1)
+        if ("webweaver" in itemType.internalName) {
+            val varobj =
+                requireNotNull(
+                    ServerCacheManager.getVarObj("varobj.charges_16383".asRSCM(RSCMType.VAROBJ))
+                )
+            return weapon.copy(vars = weapon.vars.withBits(varobj.bits, 10_000))
+        }
+
+        if ("blowpipe" !in itemType.internalName) {
+            return weapon
+        }
+
+        val fixture = Inventory(inv.type, arrayOfNulls(inv.objs.size))
+        fixture[0] = weapon
+        val dartAlias =
+            if (BlowpipeAmmo.isToxic(weapon)) {
+                "obj.dragon_dart"
+            } else {
+                "obj.adamant_dart"
+            }
+        val dartType = requireNotNull(ServerCacheManager.getItem(dartAlias.asRSCM(RSCMType.OBJ)))
+        check(BlowpipeAmmo.storeDarts(fixture, 0, dartType, 10_000) == 10_000) {
+            "Unable to load $dartAlias into ${itemType.internalName}"
+        }
+        if (BlowpipeAmmo.isToxic(fixture[0])) {
+            check(BlowpipeAmmo.storeScales(fixture, 0, 10_000) == 10_000) {
+                "Unable to load scales into ${itemType.internalName}"
+            }
+        }
+        return requireNotNull(fixture[0])
+    }
+
+    private fun specialAuditAmmo(itemType: ItemServerType): InvObj? =
+        when {
+            "dttd_bone_crossbow" in itemType.internalName ->
+                InvObj("obj.dttd_bone_crossbow_bolt", 10_000)
+            "atlatl" in itemType.internalName -> InvObj("obj.atlatl_dart", 10_000)
+            itemType.isCategoryType("category.ballista") -> InvObj("obj.dragon_javelin", 10_000)
+            itemType.isCategoryType("category.crossbow") ||
+                "crossbow" in itemType.internalName ||
+                "crossbow" in itemType.name.lowercase() -> InvObj("obj.dragon_bolts", 10_000)
+            itemType.isCategoryType("category.bow") -> InvObj("obj.rune_arrow", 10_000)
+            else -> null
+        }
 
     private fun setVarp(cheat: Cheat) =
         with(cheat) {
@@ -630,34 +1316,37 @@ constructor(
             player.mes("Transmog: '$npcName'")
         }
 
-    private fun instanceExit(cheat: Cheat) = with(cheat) {
-        val key = args.getOrNull(0)?.trim()
-        if (key.isNullOrEmpty()) {
-            player.mes("Usage: ::instanceexit instanceKey")
-            player.mes("Known keys: ${instanceRegistry.keys().sorted().joinToString(", ")}")
-            return@with
+    private fun instanceExit(cheat: Cheat) =
+        with(cheat) {
+            val key = args.getOrNull(0)?.trim()
+            if (key.isNullOrEmpty()) {
+                player.mes("Usage: ::instanceexit instanceKey")
+                player.mes("Known keys: ${instanceRegistry.keys().sorted().joinToString(", ")}")
+                return@with
+            }
+            val spec = instanceRegistry.get(key)
+            if (spec == null) {
+                player.mes("No instance found with key: '$key'")
+                player.mes("Known keys: ${instanceRegistry.keys().sorted().joinToString(", ")}")
+                return@with
+            }
+            val exit = spec.area.exitCoord()
+            if (exit == null || exit == CoordGrid.ZERO) {
+                player.mes("Instance '$key' has no exit coord configured.")
+                return@with
+            }
+            protectedAccess.launch(player) {
+                player.mes("Teleported to '$key' instance exit coord: $exit")
+                instances.leaveForExternalTeleport(player, exit, clock.cycle)
+                telejump(exit, TeleportType.Exempt)
+            }
         }
-        val spec = instanceRegistry.get(key)
-        if (spec == null) {
-            player.mes("No instance found with key: '$key'")
-            player.mes("Known keys: ${instanceRegistry.keys().sorted().joinToString(", ")}")
-            return@with
-        }
-        val exit = spec.area.exitCoord()
-        if (exit == null || exit == CoordGrid.ZERO) {
-            player.mes("Instance '$key' has no exit coord configured.")
-            return@with
-        }
-        protectedAccess.launch(player) {
-            player.mes("Teleported to '$key' instance exit coord: $exit")
-            telejump(exit, TeleportType.Exempt)
-        }
-    }
 
-    private fun InstanceArea.exitCoord(): CoordGrid? = when (this) {
-        is InstanceArea.Template -> exitCoord
-        is InstanceArea.CopyRegions -> exitCoord
-    }
+    private fun InstanceArea.exitCoord(): CoordGrid? =
+        when (this) {
+            is InstanceArea.Template -> exitCoord
+            is InstanceArea.CopyRegions -> exitCoord
+        }
 
     private fun resolveArgTypeId(arg: String, names: Map<String, Int>): Int? {
         val argAsInt = arg.toIntOrNull()

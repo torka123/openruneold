@@ -7,10 +7,7 @@ import dtx.rs.SeparateRollAccess
 import dtx.rs.group
 import org.rsmod.game.entity.Player
 
-public data class DropSpec internal constructor(
-    val obj: String,
-    val count: IntRange,
-) {
+public data class DropSpec internal constructor(val obj: String, val count: IntRange) {
     public fun toItem(): DropRollItem = DropRollItem(obj = obj, count = count)
 }
 
@@ -21,9 +18,8 @@ public infix fun String.count(value: Int): DropSpec = DropSpec(this, value..valu
 public infix fun String.count(range: IntRange): DropSpec = DropSpec(this, range)
 
 @DropTableDsl
-public class DropWeightedTableScope internal constructor(
-    private val builder: RSWeightedTableBuilder<Player, DropRollItem>,
-) {
+public class DropWeightedTableScope
+internal constructor(private val builder: RSWeightedTableBuilder<Player, DropRollItem>) {
     private val pendingCounts = mutableListOf<PendingWeightedItemCount>()
     private val pendingSeparateItems = mutableListOf<PendingSeparateItem>()
 
@@ -92,40 +88,42 @@ public class DropWeightedTableScope internal constructor(
         builder.run { this@outOf outOf other }
 
     public infix fun SeparateRollAccess.separate(objKey: String): PendingSeparateItemBuilder =
-        PendingSeparateItemBuilder(builder, numerator, denominator, objKey, ::registerPendingSeparateItem)
+        PendingSeparateItemBuilder(
+            builder,
+            numerator,
+            denominator,
+            objKey,
+            ::registerPendingSeparateItem,
+        )
 
     public infix fun SeparateRollAccess.separate(rollable: Rollable<Player, DropRollItem>) {
-        builder.apply {
-            this@separate separate rollable
-        }
+        builder.apply { this@separate separate rollable }
     }
 
     public infix fun SeparateRollAccess.separate(item: DropRollItem) {
-        builder.apply {
-            this@separate separate item
-        }
+        builder.apply { this@separate separate item }
     }
 
     public infix fun SeparateRollAccess.separate(spec: DropSpec) {
-        builder.apply {
-            this@separate separate spec.toItem()
-        }
+        builder.apply { this@separate separate spec.toItem() }
     }
 
     public infix fun SeparateRollAccess.separate(block: DropWeightedTableScope.() -> Unit) {
         builder.apply {
-            this@separate separate {
-                DropWeightedTableScope(this).apply {
-                    block()
-                    flushPendingItems()
+            this@separate separate
+                {
+                    DropWeightedTableScope(this).apply {
+                        block()
+                        flushPendingItems()
+                    }
                 }
-            }
         }
     }
 }
 
 @DropTableDsl
-public class PendingWeightedItem internal constructor(
+public class PendingWeightedItem
+internal constructor(
     private val builder: RSWeightedTableBuilder<Player, DropRollItem>,
     private val weight: Int,
     private val obj: String,
@@ -139,7 +137,8 @@ public class PendingWeightedItem internal constructor(
 }
 
 @DropTableDsl
-public class PendingWeightedItemCount internal constructor(
+public class PendingWeightedItemCount
+internal constructor(
     private val builder: RSWeightedTableBuilder<Player, DropRollItem>,
     private val weight: Int,
     obj: String,
@@ -168,7 +167,8 @@ public class PendingWeightedItemCount internal constructor(
 }
 
 @DropTableDsl
-public class PendingSeparateItemBuilder internal constructor(
+public class PendingSeparateItemBuilder
+internal constructor(
     private val builder: RSWeightedTableBuilder<Player, DropRollItem>,
     private val numerator: Int,
     private val denominator: Int,
@@ -183,7 +183,8 @@ public class PendingSeparateItemBuilder internal constructor(
 }
 
 @DropTableDsl
-public class PendingSeparateItem internal constructor(
+public class PendingSeparateItem
+internal constructor(
     private val builder: RSWeightedTableBuilder<Player, DropRollItem>,
     private val numerator: Int,
     private val denominator: Int,
@@ -209,7 +210,8 @@ public class PendingSeparateItem internal constructor(
 }
 
 @DropTableDsl
-public class PendingWeightedDrop internal constructor(
+public class PendingWeightedDrop
+internal constructor(
     private val builder: RSWeightedTableBuilder<Player, DropRollItem>,
     private var spec: DropSpec,
 ) {
@@ -222,15 +224,14 @@ public class PendingWeightedDrop internal constructor(
 }
 
 @DropTableDsl
-public class PendingSeparateRate internal constructor(
+public class PendingSeparateRate
+internal constructor(
     private val builder: RSWeightedTableBuilder<Player, DropRollItem>,
     private val spec: DropSpec,
     private val numerator: Int,
 ) {
     public infix fun outOf(denominator: Int) {
-        builder.apply {
-            (numerator outOf denominator) separate spec.toItem()
-        }
+        builder.apply { (numerator outOf denominator) separate spec.toItem() }
     }
 }
 

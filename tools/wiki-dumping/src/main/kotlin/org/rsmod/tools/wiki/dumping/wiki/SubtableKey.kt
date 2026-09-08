@@ -9,10 +9,10 @@ enum class SubtableKey(val codegenRef: String, val wikiLabel: String) {
     SEED("SharedDropTables.seed", "general seed drop table"),
     RARE_SEED("SharedDropTables.rareSeed", "rare seed drop table"),
     RDT("SharedDropTables.rareDrop", "rare drop table"),
-    MEGA_RARE("SharedDropTables.megaRare", "mega-rare drop table"),
-    ;
+    MEGA_RARE("SharedDropTables.megaRare", "mega-rare drop table");
 
-    val needsHardcodedSharedTable: Boolean get() = this == MEGA_RARE
+    val needsHardcodedSharedTable: Boolean
+        get() = this == MEGA_RARE
 }
 
 data class ParsedSubtableAccess(

@@ -8,6 +8,8 @@ public class TransactionInventory<T>(
     public val image: Array<TransactionObj?>,
     public val placeholders: Boolean = false,
     public val modifiedSlots: BitSet? = null,
+    /** Optional destination policy applied before insertion and stack/capacity checks. */
+    public val normalizeIncoming: ((TransactionObj) -> TransactionObj)? = null,
 ) {
     internal val stackAll: Boolean
         get() = stackType == AlwaysStack

@@ -26,11 +26,11 @@ public class VarPlayerIntMapDelegate(
     }
 
     public operator fun set(internal: String, value: Int) {
-        if(internal.startsWith("varp.")) {
-            val varp = ServerCacheManager.getVarp(internal.asRSCM(RSCMType.VARP))?: return
+        if (internal.startsWith("varp.")) {
+            val varp = ServerCacheManager.getVarp(internal.asRSCM(RSCMType.VARP)) ?: return
             set(varp, value)
         } else {
-            val varbit = ServerCacheManager.getVarbit(internal.asRSCM(RSCMType.VARBIT))?: return
+            val varbit = ServerCacheManager.getVarbit(internal.asRSCM(RSCMType.VARBIT)) ?: return
             set(varbit, value)
         }
     }

@@ -4,6 +4,8 @@ import dev.openrune.rscm.RSCM
 import dev.openrune.rscm.RSCMType
 import jakarta.inject.Inject
 import org.rsmod.api.combat.commons.CombatAttack
+import org.rsmod.api.combat.commons.ranged.RangedAmmunition
+import org.rsmod.api.combat.formulas.attributes.FrostweaverState
 import org.rsmod.api.combat.manager.PlayerAttackManager
 import org.rsmod.api.combat.manager.RangedAmmoManager
 import org.rsmod.api.combat.player.activateMagicSpecial
@@ -12,16 +14,21 @@ import org.rsmod.api.combat.player.activateRangedSpecial
 import org.rsmod.api.combat.player.activateShieldSpecial
 import org.rsmod.api.combat.player.setPkVars
 import org.rsmod.api.combat.player.specialAttackType
-import org.rsmod.api.death.PvPSkullHook
-import org.rsmod.api.death.PvPSpecialAttackHook
 import org.rsmod.api.combat.weapon.WeaponSpeeds
 import org.rsmod.api.config.constants
 import org.rsmod.api.config.refs.params
+import org.rsmod.api.death.PvPSkullHook
+import org.rsmod.api.death.PvPSpecialAttackHook
+import org.rsmod.api.player.hat
 import org.rsmod.api.player.isValidTarget
 import org.rsmod.api.player.lefthand
+import org.rsmod.api.player.legs
 import org.rsmod.api.player.protect.ProtectedAccess
 import org.rsmod.api.player.quiver
 import org.rsmod.api.player.righthand
+import org.rsmod.api.player.torso
+import org.rsmod.api.player.worn.EquipmentChecks
+import org.rsmod.api.specials.NextCycleRangedSpecialTiming
 import org.rsmod.api.specials.SpecialAttackRegistry
 import org.rsmod.api.specials.SpecialAttackType
 import org.rsmod.api.specials.energy.SpecialAttackEnergy
@@ -43,6 +50,7 @@ constructor(
     private val manager: PlayerAttackManager,
     private val ammunition: RangedAmmoManager,
     private val spellsReg: SpellAttackRegistry,
+    private val armourEffects: ArmourCombatEffects,
     private val skullHooks: Set<PvPSkullHook>,
     private val specialAttackHooks: Set<PvPSpecialAttackHook>,
 ) {
@@ -73,7 +81,19 @@ constructor(
             return
         }
 
-        if (manager.isAttackDelayed(player)) {
+        val fullBlueMoon =
+            EquipmentChecks.isBlueMoonSet(player.hat, player.torso, player.legs, player.righthand)
+        val frostweaver =
+            if (FrostweaverState.isReady(player) && fullBlueMoon) {
+                FrostweaverState.consume(player)
+            } else {
+                if (!fullBlueMoon) {
+                    FrostweaverState.clear(player)
+                }
+                false
+            }
+
+        if (!frostweaver && manager.isAttackDelayed(player)) {
             manager.continueCombat(player, target)
             return
         }
@@ -122,10 +142,16 @@ constructor(
 
         applyPkVars(target)
 
-        val damage = manager.rollMeleeDamage(player, target, attack)
-        manager.giveCombatXp(player, target, attack, damage)
+        val resolution = armourEffects.resolveMelee(player, target, attack, manager)
+        manager.giveCombatXp(player, target, attack, resolution.damage)
         manager.playWeaponFx(player, attack)
-        manager.queueMeleeHit(player, target, damage)
+        manager.queueMeleeHit(
+            source = player,
+            target = target,
+            damage = resolution.damage,
+            impactHandler = resolution.impactHandler,
+            modifier = resolution.playerModifier,
+        )
         manager.continueCombat(player, target)
     }
 
@@ -134,7 +160,21 @@ constructor(
             return
         }
 
-        if (manager.isAttackDelayed(player)) {
+        val timing =
+            NextCycleRangedSpecialTiming.resolve(
+                player = player,
+                weaponId = attack.weapon.id,
+                specialSelected = specialAttackType == SpecialAttackType.Weapon,
+            )
+        if (timing == NextCycleRangedSpecialTiming.Resolution.Wait) {
+            manager.continueCombat(player, target)
+            return
+        }
+
+        if (
+            manager.isAttackDelayed(player) &&
+                timing != NextCycleRangedSpecialTiming.Resolution.BypassAttackDelay
+        ) {
             manager.continueCombat(player, target)
             return
         }
@@ -211,7 +251,7 @@ constructor(
         }
 
         val projectileID = righthandType.paramOrNull(params.proj_type)?.id
-        val travelSpotanim = weaponType.paramOrNull(params.proj_travel)
+        val travelSpotanim = RangedAmmunition.projectileTravel(righthandType, weaponType)
         // All valid ammunition requires a `proj_travel` spotanim type and `proj_type` projanim type
         // param so that the projectile can be created and referenced for its proper delays.
         if (projectileID == null || travelSpotanim == null) {
@@ -220,7 +260,7 @@ constructor(
             return
         }
 
-        val projanimType = RSCM.getReverseMapping(RSCMType.PROJANIM,projectileID)
+        val projanimType = RSCM.getReverseMapping(RSCMType.PROJANIM, projectileID)
 
         // All valid ranged weapons require an `attack_anim_stance1` seq type param to be used in
         // combat.
@@ -237,7 +277,7 @@ constructor(
         // has no `proj_launch` param, a "null" (-1) spotanim will still be sent in the same slot
         // and height as usual.
         val launchSpotanim = weaponType.paramOrNull(params.proj_launch)?.id ?: NULL_SPOTANIM_ID
-        player.spotanim(RSCM.getReverseMapping(RSCMType.SPOTANIM,launchSpotanim), height = 96, slot = constants.spotanim_slot_combat)
+        player.spotanim(launchSpotanim, height = 96, slot = constants.spotanim_slot_combat)
 
         val projanim = manager.spawnProjectile(player, target, travelSpotanim, projanimType)
         val (serverDelay, clientDelay) = projanim.durations
@@ -253,11 +293,29 @@ constructor(
             ammunition.useQuiverAmmo(player, quiverType, target.coords, dropDelay = serverDelay)
         }
 
-        val damage = manager.rollRangedDamage(player, target, attack)
-        manager.giveCombatXp(player, target, attack, damage)
+        val resolution = armourEffects.resolveRanged(player, target, attack, manager)
+        // Karil's Amulet of the damned follow-up hit does not award combat XP.
+        manager.giveCombatXp(player, target, attack, resolution.damage)
 
         val hitAmmoObj = if (usingThrown) null else quiverType
-        manager.queueRangedHit(player, target, hitAmmoObj, damage, clientDelay, serverDelay)
+        manager.queueRangedHit(
+            source = player,
+            target = target,
+            ammo = hitAmmoObj,
+            damage = resolution.damage,
+            clientDelay = clientDelay,
+            hitDelay = serverDelay,
+            impactHandler = resolution.impactHandler,
+        )
+        if (resolution.extraHit) {
+            manager.queueRangedDamage(
+                source = player,
+                target = target,
+                ammo = hitAmmoObj,
+                damage = resolution.extraDamage,
+                hitDelay = serverDelay,
+            )
+        }
 
         if (usingThrown && player.righthand == null) {
             mes("That was your last one!")
@@ -280,10 +338,11 @@ constructor(
             return
         }
 
-        val attackRate = MAGIC_SPELL_ATTACK_RATE
+        val attackRate =
+            EquipmentChecks.spellAttackRateOverride(attack.weapon) ?: MAGIC_SPELL_ATTACK_RATE
         manager.setNextAttackDelay(player, attackRate)
 
-        val spell = spellsReg[RSCM.getReverseMapping(RSCMType.OBJ,attack.spell.obj.id)]
+        val spell = spellsReg[RSCM.getReverseMapping(RSCMType.OBJ, attack.spell.obj.id)]
         if (spell != null) {
             applyPkVars(target)
             spell.attack(this, target, attack)

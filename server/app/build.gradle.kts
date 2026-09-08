@@ -40,6 +40,7 @@ dependencies {
     implementation(projects.server.logging)
     implementation(projects.server.services)
     implementation(projects.server.shared)
+    testImplementation(kotlin("test"))
 }
 
 tasks.named<JavaExec>("run") {
@@ -47,7 +48,44 @@ tasks.named<JavaExec>("run") {
     workingDir = rootProject.projectDir
 }
 
+tasks.register<JavaExec>("generateWildernessInteractionAudit") {
+    group = "verification"
+    description = "Loads the production cache/map/scripts and writes the Wilderness interaction audit manifests"
+    dependsOn(tasks.named("classes"))
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("org.rsmod.server.app.WildernessInteractionAuditMainKt")
+    workingDir = rootProject.projectDir
+    providers.gradleProperty("auditArgs").orNull
+        ?.split(',')
+        ?.filter(String::isNotBlank)
+        ?.let(::args)
+    providers.gradleProperty("auditArgsAt").orNull
+        ?.split('@')
+        ?.filter(String::isNotBlank)
+        ?.let(::args)
+}
+
+tasks.register<JavaExec>("generateHouseTest2Audit") {
+    group = "verification"
+    description =
+        "Loads production cache/map/scripts and writes the HouseTest2 interaction audit"
+    dependsOn(tasks.named("classes"))
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("org.rsmod.server.app.HouseTest2AuditMainKt")
+    workingDir = rootProject.projectDir
+}
+
+tasks.register<JavaExec>("generateArmourAudit") {
+    group = "verification"
+    description = "Loads the production revision caches and writes raw-ID armour audit manifests"
+    dependsOn(tasks.named("classes"))
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("org.rsmod.server.app.ArmourAuditMainKt")
+    workingDir = rootProject.projectDir
+}
+
 tasks.named<ShadowJar>("shadowJar") {
     archiveFileName.set("server.jar")
+    isZip64 = true
     mergeServiceFiles()
 }

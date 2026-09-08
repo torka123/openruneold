@@ -65,13 +65,6 @@ object KrystiliaDialogue {
 
     suspend fun Dialogue.needAnotherAssignment() {
         chatPlayer(neutral, "I need another assignment.")
-        if (SlayerTaskManager.hasPendingMortimerChoice(access)) {
-            chatNpc(
-                neutral,
-                "Hmm... It appears as though Mortimer has provided you with a task choice, you must go to them in order to pick.",
-            )
-            return
-        }
         if (SlayerTaskManager.isUntrainedSlayer(player)) {
             chatNpc(
                 neutral,
@@ -144,16 +137,7 @@ object KrystiliaDialogue {
     }
 
     private suspend fun Dialogue.assignWildernessTask() {
-        assignNewTask("npc.slayer_master_7") { taskName, count ->
-            chatNpc(neutral, "Your new task is to kill $count $taskName.")
-            when (choice2("Got any tips for me?", 1, "Okay, great!", 2)) {
-                1 -> krystiliaSlayerTip()
-                2 -> {
-                    chatPlayer(happy, "Okay, great!")
-                    chatNpc(neutral, "Good luck! Don't forget to come back when you need a new assignment.")
-                }
-            }
-        }
+        assignNewTask("npc.slayer_master_7")
     }
 
     private suspend fun Dialogue.krystiliaSlayerTip() {

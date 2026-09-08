@@ -1,0 +1,82 @@
+package org.rsmod.content.bosses.dt2
+
+import dev.openrune.ServerCacheManager
+import jakarta.inject.Inject
+import org.rsmod.api.death.NpcDeath
+import org.rsmod.api.droptable.NpcKillRewardContext
+import org.rsmod.api.droptable.NpcKillRewardContexts
+import org.rsmod.api.script.onAiApPlayer2
+import org.rsmod.api.script.onModifyNpcHit
+import org.rsmod.api.script.onNpcQueue
+import org.rsmod.game.entity.PlayerList
+import org.rsmod.game.entity.player.PlayerUid
+import org.rsmod.plugin.scripts.PluginScript
+import org.rsmod.plugin.scripts.ScriptContext
+
+internal class Dt2Combat
+@Inject
+constructor(
+    private val encounters: Dt2EncounterManager,
+    private val death: NpcDeath,
+    private val players: PlayerList,
+) : PluginScript() {
+    override fun ScriptContext.startup() {
+        encounters.combatNpcTypes().forEach { type ->
+            onAiApPlayer2(type) { encounters.attack(this, it.target) }
+            onModifyNpcHit(type) {
+                val player =
+                    if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players)
+                    else null
+                if (player == null) hit.damage = 0 else encounters.modifyNpcHit(player, npc, hit)
+            }
+            onNpcQueue(type, "queue.death") {
+                val run = encounters.beginBossDeath(npc)
+                if (run == null) {
+                    death.deathNoDrops(this)
+                } else {
+                    if (encounters.rewardEligible(run)) {
+                        NpcKillRewardContexts.set(
+                            npc,
+                            NpcKillRewardContext(
+                                rewardEligible = true,
+                                awakened = run.difficulty == Dt2Difficulty.AWAKENED,
+                                perfectKill =
+                                    (run.bossKind == Dt2Boss.LEVIATHAN && run.leviathanPerfectKill) ||
+                                        (run.bossKind == Dt2Boss.DUKE && run.duke.perfect),
+                                eventId = "${run.eventToken}:reward",
+                            ),
+                        )
+                        try {
+                            encounters.prepareDropForm(npc, run)
+                            death.deathWithDrops(this, encounters.rewardTile(run),
+                                if (run.bossKind == Dt2Boss.DUKE) DukeRules.DEATH else null)
+                        } finally {
+                            NpcKillRewardContexts.clear(npc)
+                        }
+                    } else {
+                        death.deathNoDrops(this, if (run.bossKind == Dt2Boss.DUKE) DukeRules.DEATH else null)
+                    }
+                    encounters.finishBossDeath(npc)
+                }
+            }
+        }
+        encounters.helperNpcTypes().forEach { type ->
+            onModifyNpcHit(type) {
+                val player =
+                    if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players)
+                    else null
+                if (player == null) hit.damage = 0 else encounters.modifyNpcHit(player, npc, hit)
+            }
+            onNpcQueue(type, "queue.death") {
+                encounters.helperDied(npc)
+                death.deathNoDrops(this)
+            }
+        }
+    }
+
+    @Suppress("unused")
+    private fun requireNpc(id: Int) =
+        requireNotNull(ServerCacheManager.getNpc(id)) {
+            "Missing revision-240 DT2 npc definition: $id"
+        }
+}

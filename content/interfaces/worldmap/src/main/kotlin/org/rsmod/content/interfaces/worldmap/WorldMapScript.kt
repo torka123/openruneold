@@ -1,5 +1,6 @@
 package org.rsmod.content.interfaces.worldmap
 
+import dev.openrune.ServerCacheManager
 import dev.openrune.types.aconverted.interf.IfButtonOp
 import dev.or2.central.account.Rights
 import jakarta.inject.Inject
@@ -7,6 +8,7 @@ import org.rsmod.api.player.hook.TeleportType
 import org.rsmod.api.player.output.runClientScript
 import org.rsmod.api.player.output.soundSynth
 import org.rsmod.api.player.ui.ifCloseOverlay
+import org.rsmod.api.player.ui.ifOpenMainModal
 import org.rsmod.api.player.ui.ifOpenOverlay
 import org.rsmod.api.player.vars.boolVarBit
 import org.rsmod.api.script.onIfOverlayButton
@@ -21,9 +23,7 @@ import org.rsmod.game.entity.Player
 import org.rsmod.plugin.scripts.PluginScript
 import org.rsmod.plugin.scripts.ScriptContext
 
-class WorldMapScript @Inject constructor(
-    private val eventBus: EventBus
-) : PluginScript() {
+class WorldMapScript @Inject constructor(private val eventBus: EventBus) : PluginScript() {
 
     private var Player.isFullScreenMap by boolVarBit("varbit.fullscreen_worldmap")
     private var Player.orbsMinimized by boolVarBit("varbit.minimap_toggle")
@@ -37,9 +37,7 @@ class WorldMapScript @Inject constructor(
     private val fullscreenTopLevel = "interface.toplevel_display"
 
     override fun ScriptContext.startup() {
-        onPlayerLogin {
-            player.orbsMinimized = false
-        }
+        onPlayerLogin { player.orbsMinimized = false }
         onIfOverlayButton(worldMapOrb) { player.openMap(it.op) }
         onIfOverlayButton("component.orbs_nomap:worldmap") { player.openMap(it.op) }
 
@@ -52,12 +50,21 @@ class WorldMapScript @Inject constructor(
         if (ui.contains(mapInterface)) return
 
         soundSynth(synthSound)
+        if (option == IfButtonOp.Op2 && hasCorruptedGauntletMap()) {
+            ifOpenMainModal(CORRUPTED_GAUNTLET_MAP_INTERFACE, eventBus)
+            runClientScript(CORRUPTED_GAUNTLET_MAP_SCRIPT)
+            return
+        }
 
         when (option) {
             IfButtonOp.Op2 -> openMapOverlay()
             IfButtonOp.Op3 -> openFullscreen()
             IfButtonOp.Op4 -> {
-                this.ifOpenOverlay(if (orbsMinimized) "interface.orbs" else "interface.orbs_nomap", "component.toplevel_osrs_stretch:orbs", eventBus)
+                this.ifOpenOverlay(
+                    if (orbsMinimized) "interface.orbs" else "interface.orbs_nomap",
+                    "component.toplevel_osrs_stretch:orbs",
+                    eventBus,
+                )
                 orbsMinimized = !orbsMinimized
             }
             else -> error("Invalid option on world map: $option")
@@ -85,19 +92,31 @@ class WorldMapScript @Inject constructor(
         isFullScreenMap = true
     }
 
+    private fun Player.hasCorruptedGauntletMap(): Boolean {
+        val type = ServerCacheManager.getVarbit(CORRUPTED_GAUNTLET_MAP_VARBIT) ?: return false
+        return vars[type] != 0
+    }
+
     private fun Player.moveGameframe(toFullscreen: Boolean) {
         val fullscreen = gameframes.values.first { it.topLevel == fullscreenTopLevel }
         val normal = gameframes.getValue(gameframeTopLevel)
 
-        val (from, to) = if (toFullscreen) {
-            normal to fullscreen
-        } else {
-            fullscreen to normal
-        }
+        val (from, to) =
+            if (toFullscreen) {
+                normal to fullscreen
+            } else {
+                fullscreen to normal
+            }
 
         val move = resolveGameframeMove(from = from, dest = to)
         softQueue("queue.fullscreen_map", 1, move)
 
         delay(2)
+    }
+
+    private companion object {
+        const val CORRUPTED_GAUNTLET_MAP_VARBIT = 9_178
+        const val CORRUPTED_GAUNTLET_MAP_INTERFACE = 638
+        const val CORRUPTED_GAUNTLET_MAP_SCRIPT = 2_908
     }
 }

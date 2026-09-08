@@ -5,11 +5,13 @@ import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
 
 /**
- * DB stores RSCM string keys (`varp.*`, `inv.*`, `obj.*`). Legacy rows may still have plain
- * integer strings from older schemas; those decode via [RSCM.getReverseMapping].
+ * DB stores RSCM string keys (`varp.*`, `inv.*`, `obj.*`). Legacy rows may still have plain integer
+ * strings from older schemas; those decode via [RSCM.getReverseMapping].
  *
- * Inventories are keyed in SQL by [`character_id`][org.rsmod.api.account.character.inv.CharacterInventoryData.Inventory.characterId]
- * + [`inv`][org.rsmod.api.account.character.inv.CharacterInventoryData.Inventory.invDbKey] (no composite `id` string).
+ * Inventories are keyed in SQL by
+ * [`character_id`][org.rsmod.api.account.character.inv.CharacterInventoryData.Inventory.characterId]
+ * + [`inv`][org.rsmod.api.account.character.inv.CharacterInventoryData.Inventory.invDbKey] (no
+ *   composite `id` string).
  */
 internal object GamePersistenceRscmKeys {
     fun decodeVarpKey(db: String): Int {

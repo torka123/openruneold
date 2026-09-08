@@ -195,3 +195,46 @@ angle = 8
 lengthAdjustment = 15
 progress = 11
 stepMultiplier = 5
+[[projectile]]
+isServerOnly = true
+id = "projanim.zulrah_attack"
+startHeight = 370
+endHeight = 50
+delay = 40
+angle = 0
+lengthAdjustment = 15
+progress = 0
+stepMultiplier = 5
+
+[[projectile]]
+isServerOnly = true
+id = "projanim.zulrah_cloud_primary"
+startHeight = 370
+endHeight = 20
+delay = 40
+angle = 0
+lengthAdjustment = 50
+progress = 0
+stepMultiplier = 0
+
+[[projectile]]
+isServerOnly = true
+id = "projanim.zulrah_cloud_secondary"
+startHeight = 370
+endHeight = 20
+delay = 45
+angle = 10
+lengthAdjustment = 75
+progress = 0
+stepMultiplier = 0
+
+[[projectile]]
+isServerOnly = true
+id = "projanim.zulrah_snakeling_egg"
+startHeight = 370
+endHeight = 20
+delay = 40
+angle = 0
+lengthAdjustment = 80
+progress = 0
+stepMultiplier = 0

@@ -3,9 +3,9 @@ package org.rsmod.api.combat
 import dev.openrune.rscm.RSCM
 import dev.openrune.rscm.RSCMType
 import jakarta.inject.Inject
-import org.rsmod.api.death.NpcAttackValidateHook
-import org.rsmod.api.death.NpcAttackValidateResult
 import org.rsmod.api.combat.commons.CombatAttack
+import org.rsmod.api.combat.commons.ranged.RangedAmmunition
+import org.rsmod.api.combat.formulas.attributes.FrostweaverState
 import org.rsmod.api.combat.manager.PlayerAttackManager
 import org.rsmod.api.combat.manager.RangedAmmoManager
 import org.rsmod.api.combat.player.activateMagicSpecial
@@ -16,11 +16,18 @@ import org.rsmod.api.combat.player.specialAttackType
 import org.rsmod.api.combat.weapon.WeaponSpeeds
 import org.rsmod.api.config.constants
 import org.rsmod.api.config.refs.params
+import org.rsmod.api.death.NpcAttackValidateHook
+import org.rsmod.api.death.NpcAttackValidateResult
 import org.rsmod.api.npc.isValidTarget
+import org.rsmod.api.player.hat
 import org.rsmod.api.player.lefthand
+import org.rsmod.api.player.legs
 import org.rsmod.api.player.protect.ProtectedAccess
 import org.rsmod.api.player.quiver
 import org.rsmod.api.player.righthand
+import org.rsmod.api.player.torso
+import org.rsmod.api.player.worn.EquipmentChecks
+import org.rsmod.api.specials.NextCycleRangedSpecialTiming
 import org.rsmod.api.specials.SpecialAttackRegistry
 import org.rsmod.api.specials.SpecialAttackType
 import org.rsmod.api.specials.energy.SpecialAttackEnergy
@@ -43,6 +50,7 @@ constructor(
     private val manager: PlayerAttackManager,
     private val ammunition: RangedAmmoManager,
     private val spellsReg: SpellAttackRegistry,
+    private val armourEffects: ArmourCombatEffects,
     private val attackValidateHooks: Set<NpcAttackValidateHook>,
 ) {
     suspend fun attack(access: ProtectedAccess, target: Npc, attack: CombatAttack.PlayerAttack) {
@@ -59,7 +67,19 @@ constructor(
             return
         }
 
-        if (manager.isAttackDelayed(player)) {
+        val fullBlueMoon =
+            EquipmentChecks.isBlueMoonSet(player.hat, player.torso, player.legs, player.righthand)
+        val frostweaver =
+            if (FrostweaverState.isReady(player) && fullBlueMoon) {
+                FrostweaverState.consume(player)
+            } else {
+                if (!fullBlueMoon) {
+                    FrostweaverState.clear(player)
+                }
+                false
+            }
+
+        if (manager.isMeleeAttackDelayed(player, npc) && !frostweaver) {
             manager.continueCombat(player, npc)
             return
         }
@@ -97,10 +117,15 @@ constructor(
             }
         }
 
-        val damage = manager.rollMeleeDamage(player, npc, attack)
-        manager.giveCombatXp(player, npc, attack, damage)
+        val resolution = armourEffects.resolveMelee(player, npc, attack, manager)
+        manager.giveCombatXp(player, npc, attack, resolution.damage)
         manager.playWeaponFx(player, attack)
-        manager.queueMeleeHit(player, npc, damage)
+        manager.queueMeleeHit(
+            source = player,
+            target = npc,
+            damage = resolution.damage,
+            impactHandler = resolution.impactHandler,
+        )
         manager.continueCombat(player, npc)
     }
 
@@ -109,7 +134,21 @@ constructor(
             return
         }
 
-        if (manager.isAttackDelayed(player)) {
+        val timing =
+            NextCycleRangedSpecialTiming.resolve(
+                player = player,
+                weaponId = attack.weapon.id,
+                specialSelected = specialAttackType == SpecialAttackType.Weapon,
+            )
+        if (timing == NextCycleRangedSpecialTiming.Resolution.Wait) {
+            manager.continueCombat(player, npc)
+            return
+        }
+
+        if (
+            manager.isAttackDelayed(player) &&
+                timing != NextCycleRangedSpecialTiming.Resolution.BypassAttackDelay
+        ) {
             manager.continueCombat(player, npc)
             return
         }
@@ -180,14 +219,14 @@ constructor(
         }
 
         val projectileID = righthandType.paramOrNull(params.proj_type)?.id
-        val travelSpotanim = weaponType.paramOrNull(params.proj_travel)
+        val travelSpotanim = RangedAmmunition.projectileTravel(righthandType, weaponType)
         if (projectileID == null || travelSpotanim == null) {
             manager.stopCombat(player)
             mes("You are unable to fire your ammunition.")
             return
         }
 
-        val projanimType = RSCM.getReverseMapping(RSCMType.PROJANIM,projectileID)
+        val projanimType = RSCM.getReverseMapping(RSCMType.PROJANIM, projectileID)
 
         // All valid ranged weapons require an `attack_anim_stance1` seq type param to be used in
         // combat.
@@ -202,7 +241,7 @@ constructor(
         // has no `proj_launch` param, a "null" (-1) spotanim will still be sent in the same slot
         // and height as usual.
         val launchSpotanim = weaponType.paramOrNull(params.proj_launch)?.id ?: NULL_SPOTANIM_ID
-        player.spotanim(RSCM.getReverseMapping(RSCMType.SPOTANIM,launchSpotanim), height = 96, slot = constants.spotanim_slot_combat)
+        player.spotanim(launchSpotanim, height = 96, slot = constants.spotanim_slot_combat)
 
         val projanim = manager.spawnProjectile(player, npc, travelSpotanim, projanimType)
         val (serverDelay, clientDelay) = projanim.durations
@@ -213,11 +252,19 @@ constructor(
             ammunition.useQuiverAmmo(player, quiverType, npc.coords, dropDelay = serverDelay)
         }
 
-        val damage = manager.rollRangedDamage(player, npc, attack)
-        manager.giveCombatXp(player, npc, attack, damage)
+        val resolution = armourEffects.resolveRanged(player, npc, attack, manager)
+        manager.giveCombatXp(player, npc, attack, resolution.damage)
 
         val hitAmmoObj = if (usingThrown) null else quiverType
-        manager.queueRangedHit(player, npc, hitAmmoObj, damage, clientDelay, serverDelay)
+        manager.queueRangedHit(
+            source = player,
+            target = npc,
+            ammo = hitAmmoObj,
+            damage = resolution.damage,
+            clientDelay = clientDelay,
+            hitDelay = serverDelay,
+            impactHandler = resolution.impactHandler,
+        )
 
         if (usingThrown && player.righthand == null) {
             mes("That was your last one!")
@@ -228,7 +275,8 @@ constructor(
     }
 
     private suspend fun ProtectedAccess.attackMagicSpell(npc: Npc, attack: CombatAttack.Spell) {
-        if (!canAttack(npc)) {
+        val spell = spellsReg[RSCM.getReverseMapping(RSCMType.OBJ, attack.spell.obj.id)]
+        if (!canAttack(npc, spell?.canTargetNonCombatNpc(npc) == true)) {
             return
         }
 
@@ -237,10 +285,10 @@ constructor(
             return
         }
 
-        val attackRate = MAGIC_SPELL_ATTACK_RATE
+        val attackRate =
+            EquipmentChecks.spellAttackRateOverride(attack.weapon) ?: MAGIC_SPELL_ATTACK_RATE
         manager.setNextAttackDelay(player, attackRate)
 
-        val spell = spellsReg[RSCM.getReverseMapping(RSCMType.OBJ,attack.spell.obj.id)]
         if (spell != null) {
             spell.attack(this, npc, attack)
             return
@@ -301,7 +349,7 @@ constructor(
         mes("Your staff fails to respond.")
     }
 
-    private fun ProtectedAccess.canAttack(npc: Npc): Boolean {
+    private fun ProtectedAccess.canAttack(npc: Npc, allowNonCombatNpc: Boolean = false): Boolean {
         for (hook in attackValidateHooks) {
             when (val result = hook.validate(player, npc)) {
                 is NpcAttackValidateResult.Deny -> {
@@ -318,7 +366,7 @@ constructor(
         }
 
         val hasAttackOp = npc.visType.hasOp(InteractionOp.Op2.slot)
-        if (!hasAttackOp) {
+        if (!hasAttackOp && !allowNonCombatNpc) {
             mes("You can't attack this npc.")
             return false
         }

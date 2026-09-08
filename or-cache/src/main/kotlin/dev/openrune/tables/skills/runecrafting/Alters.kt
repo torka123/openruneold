@@ -15,8 +15,8 @@ enum class AltarData(
     val entrance: Int? = null,
     val exit: Int? = null,
     val option: String = "craft-rune",
-    val row : String,
-    val combo : List<CombinationRuneData> = emptyList()
+    val row: String,
+    val combo: List<CombinationRuneData> = emptyList(),
 ) {
     AIR(
         ruins = listOf("loc.airtemple_ruined_old", "loc.airtemple_ruined_new"),
@@ -29,11 +29,12 @@ enum class AltarData(
         entrance = Coord(2841, 4830).pack(),
         exit = Coord(2983, 3288).pack(),
         row = "dbrow.runecrafting_altar_air",
-        combo = listOf(
-            CombinationRuneData.MIST_AIR,
-            CombinationRuneData.SMOKE_AIR,
-            CombinationRuneData.DUST_AIR,
-        )
+        combo =
+            listOf(
+                CombinationRuneData.MIST_AIR,
+                CombinationRuneData.SMOKE_AIR,
+                CombinationRuneData.DUST_AIR,
+            ),
     ),
     MIND(
         ruins = listOf("loc.mindtemple_ruined_old", "loc.mindtemple_ruined_new"),
@@ -45,7 +46,7 @@ enum class AltarData(
         rune = Rune.MIND,
         entrance = Coord(2793, 4829).pack(),
         exit = Coord(2980, 3511).pack(),
-        row = "dbrow.runecrafting_altar_mind"
+        row = "dbrow.runecrafting_altar_mind",
     ),
     WATER(
         ruins = listOf("loc.watertemple_ruined_old", "loc.watertemple_ruined_new"),
@@ -58,9 +59,12 @@ enum class AltarData(
         entrance = Coord(2725, 4832).pack(),
         exit = Coord(3182, 3162).pack(),
         row = "dbrow.runecrafting_altar_water",
-        combo = listOf(
-            CombinationRuneData.MUD_WATER, CombinationRuneData.MIST_WATER,
-            CombinationRuneData.STEAM_WATER)
+        combo =
+            listOf(
+                CombinationRuneData.MUD_WATER,
+                CombinationRuneData.MIST_WATER,
+                CombinationRuneData.STEAM_WATER,
+            ),
     ),
     EARTH(
         ruins = listOf("loc.earthtemple_ruined_old", "loc.earthtemple_ruined_new"),
@@ -73,9 +77,12 @@ enum class AltarData(
         entrance = Coord(2657, 4830).pack(),
         exit = Coord(3302, 3477).pack(),
         row = "dbrow.runecrafting_altar_earth",
-        combo = listOf(
-            CombinationRuneData.DUST_EARTH, CombinationRuneData.MUD_EARTH,
-            CombinationRuneData.LAVA_EARTH)
+        combo =
+            listOf(
+                CombinationRuneData.DUST_EARTH,
+                CombinationRuneData.MUD_EARTH,
+                CombinationRuneData.LAVA_EARTH,
+            ),
     ),
     FIRE(
         ruins = listOf("loc.firetemple_ruined_old", "loc.firetemple_ruined_new"),
@@ -88,9 +95,12 @@ enum class AltarData(
         entrance = Coord(2576, 4848).pack(),
         exit = Coord(3310, 3252).pack(),
         row = "dbrow.runecrafting_altar_fire",
-        combo = listOf(
-            CombinationRuneData.LAVA_FIRE, CombinationRuneData.SMOKE_FIRE,
-            CombinationRuneData.STEAM_FIRE)
+        combo =
+            listOf(
+                CombinationRuneData.LAVA_FIRE,
+                CombinationRuneData.SMOKE_FIRE,
+                CombinationRuneData.STEAM_FIRE,
+            ),
     ),
     BODY(
         ruins = listOf("loc.bodytemple_ruined_old", "loc.bodytemple_ruined_new"),
@@ -102,7 +112,7 @@ enum class AltarData(
         rune = Rune.BODY,
         entrance = Coord(2519, 4847).pack(),
         exit = Coord(3050, 3442).pack(),
-        row = "dbrow.runecrafting_altar_body"
+        row = "dbrow.runecrafting_altar_body",
     ),
     COSMIC(
         ruins = listOf("loc.cosmictemple_ruined_old", "loc.cosmictemple_ruined_new"),
@@ -114,7 +124,7 @@ enum class AltarData(
         rune = Rune.COSMIC,
         entrance = Coord(2142, 4813).pack(),
         exit = Coord(2405, 4381).pack(),
-        row = "dbrow.runecrafting_altar_cosmic"
+        row = "dbrow.runecrafting_altar_cosmic",
     ),
     CHAOS(
         ruins = listOf("loc.chaostemple_ruined_old", "loc.chaostemple_ruined_new"),
@@ -126,13 +136,9 @@ enum class AltarData(
         rune = Rune.CHAOS,
         entrance = Coord(2280, 4837).pack(),
         exit = Coord(3060, 3585).pack(),
-        row = "dbrow.runecrafting_altar_chaos"
+        row = "dbrow.runecrafting_altar_chaos",
     ),
-    ASTRAL(
-        altar = "loc.astral_altar",
-        rune = Rune.ASTRAL,
-        row = "dbrow.runecrafting_altar_astral"
-    ),
+    ASTRAL(altar = "loc.astral_altar", rune = Rune.ASTRAL, row = "dbrow.runecrafting_altar_astral"),
     NATURE(
         ruins = listOf("loc.naturetemple_ruined_old", "loc.naturetemple_ruined_new"),
         altar = "loc.nature_altar",
@@ -143,7 +149,7 @@ enum class AltarData(
         rune = Rune.NATURE,
         entrance = Coord(2400, 4835).pack(),
         exit = Coord(2865, 3022).pack(),
-        row = "dbrow.runecrafting_altar_nature"
+        row = "dbrow.runecrafting_altar_nature",
     ),
     LAW(
         ruins = listOf("loc.lawtemple_ruined_old", "loc.lawtemple_ruined_new"),
@@ -155,7 +161,7 @@ enum class AltarData(
         rune = Rune.LAW,
         entrance = Coord(2464, 4819).pack(),
         exit = Coord(2858, 3378).pack(),
-        row = "dbrow.runecrafting_altar_law"
+        row = "dbrow.runecrafting_altar_law",
     ),
     DEATH(
         ruins = listOf("loc.deathtemple_ruined_old", "loc.deathtemple_ruined_new"),
@@ -167,7 +173,7 @@ enum class AltarData(
         rune = Rune.DEATH,
         entrance = Coord(2208, 4830).pack(),
         exit = Coord(1863, 4639).pack(),
-        row = "dbrow.runecrafting_altar_death"
+        row = "dbrow.runecrafting_altar_death",
     ),
     SUNFIRE(
         altar = "loc.ralos_shrine",
@@ -207,7 +213,7 @@ enum class AltarData(
         rune = Rune.WRATH,
         entrance = Coord(2335, 4826).pack(),
         exit = Coord(2447, 2822).pack(),
-        row = "dbrow.runecrafting_altar_wrath"
+        row = "dbrow.runecrafting_altar_wrath",
     );
 
     companion object {
@@ -228,59 +234,56 @@ object Alters {
     const val RUINS = 8
     const val COMBO = 9
 
-    fun altars() = dbTable("dbtable.runecrafting_altars", serverOnly = true) {
+    fun altars() =
+        dbTable("dbtable.runecrafting_altars", serverOnly = true) {
+            column("altar_object", ALTAR_OBJECT, VarType.LOC)
+            column("exit_portal", EXIT_PORTAL, VarType.LOC)
+            column("talisman", TALISMAN, VarType.OBJ)
+            column("tiara", TIARA_ITEM, VarType.DBROW)
+            column("varbit", VARBIT, VarType.INT)
+            column("rune", RUNE, VarType.DBROW)
+            column("entrance", ENTRANCE, VarType.COORDGRID)
+            column("exit", EXIT, VarType.COORDGRID)
+            column("ruins", RUINS, VarType.LOC)
+            column("combo", COMBO, VarType.DBROW)
 
-        column("altar_object", ALTAR_OBJECT, VarType.LOC)
-        column("exit_portal", EXIT_PORTAL, VarType.LOC)
-        column("talisman", TALISMAN, VarType.OBJ)
-        column("tiara", TIARA_ITEM, VarType.DBROW)
-        column("varbit", VARBIT, VarType.INT)
-        column("rune", RUNE, VarType.DBROW)
-        column("entrance", ENTRANCE, VarType.COORDGRID)
-        column("exit", EXIT, VarType.COORDGRID)
-        column("ruins", RUINS, VarType.LOC)
-        column("combo", COMBO, VarType.DBROW)
+            AltarData.values.forEach {
+                row(it.row) {
+                    columnRSCM(ALTAR_OBJECT, it.altar)
+                    columnRSCM(RUNE, it.rune.dbId)
 
-        AltarData.values.forEach {
-            row(it.row) {
-                columnRSCM(ALTAR_OBJECT, it.altar)
-                columnRSCM(RUNE, it.rune.dbId)
+                    if (it.ruins != null) {
+                        columnRSCM(RUINS, *it.ruins.toTypedArray())
+                    }
 
-                if (it.ruins != null) {
-                    columnRSCM(RUINS, *it.ruins.toTypedArray())
+                    if (it.exit != null) {
+                        column(EXIT, it.exit)
+                    }
+
+                    if (it.exitPortal != null) {
+                        columnRSCM(EXIT_PORTAL, it.exitPortal)
+                    }
+
+                    if (it.talisman != null) {
+                        columnRSCM(TALISMAN, it.talisman)
+                    }
+
+                    if (it.tiara != null) {
+                        columnRSCM(TIARA_ITEM, it.tiara)
+                    }
+
+                    if (it.entrance != null) {
+                        column(ENTRANCE, it.entrance)
+                    }
+
+                    if (it.varbit != null) {
+                        columnRSCM(VARBIT, it.varbit)
+                    }
+
+                    if (it.combo.isNotEmpty()) {
+                        columnRSCM(COMBO, *it.combo.map { combo -> combo.row }.toTypedArray())
+                    }
                 }
-
-                if (it.exit != null) {
-                    column(EXIT, it.exit)
-                }
-
-                if (it.exitPortal != null) {
-                    columnRSCM(EXIT_PORTAL, it.exitPortal)
-                }
-
-                if (it.talisman != null) {
-                    columnRSCM(TALISMAN, it.talisman)
-                }
-
-                if (it.tiara != null) {
-                    columnRSCM(TIARA_ITEM, it.tiara)
-                }
-
-                if (it.entrance != null) {
-                    column(ENTRANCE, it.entrance)
-                }
-
-                if (it.varbit != null) {
-                    columnRSCM(VARBIT, it.varbit)
-                }
-
-                if (it.combo.isNotEmpty()) {
-                    columnRSCM(COMBO, *it.combo.map { combo -> combo.row }.toTypedArray())
-                }
-
             }
         }
-
-    }
-
 }

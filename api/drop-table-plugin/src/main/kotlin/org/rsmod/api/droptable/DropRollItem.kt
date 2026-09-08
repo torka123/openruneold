@@ -67,11 +67,5 @@ public fun DropRollItem.rollCount(random: GameRandom): Int {
 }
 
 public fun nothingDrop(
-    includeWhen: (Player) -> Boolean = { player -> !player.wearingRingOfWealth() },
-): DropRollItem =
-    DropRollItem(
-        obj = "",
-        count = 1,
-        isNothing = true,
-        condition = includeWhen,
-    )
+    includeWhen: (Player) -> Boolean = { player -> !player.wearingRingOfWealth() }
+): DropRollItem = DropRollItem(obj = "", count = 1, isNothing = true, condition = includeWhen)

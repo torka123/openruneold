@@ -1,22 +1,27 @@
 package org.rsmod.api.death
 
-import dev.or2.central.account.Rights
 import dev.openrune.ServerCacheManager
 import dev.openrune.rscm.RSCM
 import dev.openrune.rscm.RSCMType
+import dev.or2.central.account.Rights
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import org.rsmod.api.area.checker.AreaChecker
+import org.rsmod.api.area.checker.EDGEVILLE_DUNGEON_WILDERNESS_LEVEL
+import org.rsmod.api.area.checker.corporealBeastLairWildernessLevel
+import org.rsmod.api.area.checker.isInCorporealBeastLair
+import org.rsmod.api.area.checker.isInEdgevilleDungeon
 import org.rsmod.api.area.checker.isInWildernessBasic
+import org.rsmod.api.mechanics.toxins.Toxin.cureAllToxins
 import org.rsmod.api.player.death.DEATH_CAUSE_ATTR
 import org.rsmod.api.player.death.DeathCause
-import org.rsmod.api.player.hasProtectItemPrayer
-import org.rsmod.api.mechanics.toxins.Toxin.cureAllToxins
 import org.rsmod.api.player.deathResetTimers
 import org.rsmod.api.player.disablePrayers
+import org.rsmod.api.player.hasProtectItemPrayer
 import org.rsmod.api.player.protect.ProtectedAccess
 import org.rsmod.api.player.vars.boolVarBit
 import org.rsmod.api.player.vars.intVarp
+import org.rsmod.api.realm.Realm
 import org.rsmod.game.MapClock
 import org.rsmod.game.entity.Player
 import org.rsmod.map.CoordGrid
@@ -30,6 +35,10 @@ constructor(
     private val handlingResolver: PlayerDeathHandlingResolver,
     private val cleanupHooks: Set<PlayerDeathCleanupHook>,
     private val areaChecker: AreaChecker,
+    private val realm: Realm,
+    private val storageHooks: Set<PlayerDeathStorageHook>,
+    private val noticeHooks: Set<PlayerDeathNoticeHook>,
+    private val dropLocationHooks: Set<PlayerDeathDropLocationHook> = emptySet(),
 ) {
     private var Player.specialAttackType by intVarp("varp.sa_attack")
     private var Player.inInstance by boolVarBit("varbit.player_in_instance")
@@ -40,7 +49,7 @@ constructor(
     }
 
     private suspend fun ProtectedAccess.deathSequence() {
-        val respawn = CoordGrid(0, 50, 50, 21, 18)
+        val respawn = realm.config.respawnCoord
         val randomRespawn = mapFindSquareLineOfWalk(respawn, minRadius = 0, maxRadius = 2)
 
         stopAction()
@@ -82,23 +91,40 @@ constructor(
         player.attr.remove(DEATH_DROPS_BYPASS_ADMIN_ATTR)
         if (player.modLevel.isAtLeast(Rights.ADMINISTRATOR) && !bypassAdmin) return
 
-        val killer = when (val cause = player.attr[DEATH_CAUSE_ATTR]) {
-            is DeathCause.ByPlayer -> cause.killer
-            else -> player.attr[DEATH_KILLER_ATTR]
-        }
+        val killer =
+            when (val cause = player.attr[DEATH_CAUSE_ATTR]) {
+                is DeathCause.ByPlayer -> cause.killer
+                else -> player.attr[DEATH_KILLER_ATTR]
+            }
 
         val context = buildContext(player, deathCoords, killer)
+        noticeHooks.forEach { it.onDeath(context) }
         val handling = handlingResolver.resolve(context)
 
-        val result = drops.selectDrops(player, context, handling)
-        drops.applyDrops(player, result, handling, deathCoords)
-        drops.spawnRemains(deathCoords, handling)
+        val selected = drops.selectDrops(player, context, handling)
+        val stored = storageHooks.any { it.store(context, selected) }
+        val applied =
+            if (stored) {
+                selected.copy(
+                    supplyPile = emptyList(),
+                    lostTradeable = emptyList(),
+                    lostUntradeable = emptyList(),
+                    coinsForKiller = 0L,
+                )
+            } else selected
+        val dropCoords = dropLocationHooks.firstNotNullOfOrNull { it.dropLocation(context) } ?: deathCoords
+        drops.applyDrops(player, applied, handling, dropCoords)
+        drops.spawnRemains(dropCoords, handling)
 
         player.attr.remove(DEATH_KILLER_ATTR)
         player.attr.remove(DEATH_CAUSE_ATTR)
     }
 
-    private fun buildContext(player: Player, deathCoords: CoordGrid, killer: Player?): PlayerDeathContext {
+    private fun buildContext(
+        player: Player,
+        deathCoords: CoordGrid,
+        killer: Player?,
+    ): PlayerDeathContext {
         val wildernessLevel = deathCoords.wildernessLevel()
         val recentPvp = wasRecentlyHitByPlayer(player)
 
@@ -125,13 +151,17 @@ constructor(
         player.specialAttackType = 0
         player.skullIcon = null
 
-        for (hook in cleanupHooks) {
+        for (hook in cleanupHooks.sortedByDescending(PlayerDeathCleanupHook::priority)) {
             hook.cleanup(player)
         }
 
         rebuildAppearance()
         camReset()
-        statRestoreAll(ServerCacheManager.getStats().values.map { RSCM.getReverseMapping(RSCMType.STAT, it.id) })
+        statRestoreAll(
+            ServerCacheManager.getStats().values.map {
+                RSCM.getReverseMapping(RSCMType.STAT, it.id)
+            }
+        )
         minimapReset()
     }
 
@@ -145,6 +175,8 @@ constructor(
             if (!isInWildernessBasic()) return -1
             val y = z
             return when {
+                isInEdgevilleDungeon() -> EDGEVILLE_DUNGEON_WILDERNESS_LEVEL
+                isInCorporealBeastLair() -> corporealBeastLairWildernessLevel()
                 level == 0 && x in 2944..3392 && y in 3520..4351 -> ((y - 3520) shr 3) + 1
                 level == 0 && x in 3008..3071 && y in 10112..10175 -> ((y - 9920) shr 3) - 1
                 level == 0 && x in 2944..3455 && y in 9920..10879 -> ((y - 9920) shr 3) + 1

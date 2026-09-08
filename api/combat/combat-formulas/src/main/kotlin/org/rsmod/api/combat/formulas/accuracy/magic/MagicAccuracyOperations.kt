@@ -52,7 +52,10 @@ public object MagicAccuracyOperations {
         // attack can count as a "silver weapon." Unsure if this is an oversight in dps
         // calculator, or if this is intentional. We will assume the latter for now.
 
-        if (SpellAttr.SmokeStaff in spellAttributes && SpellAttr.StandardBook in spellAttributes) {
+        if (
+            SpellAttr.StandardBook in spellAttributes &&
+                (SpellAttr.SmokeStaff in spellAttributes || SpellAttr.TwinflameStaff in spellAttributes)
+        ) {
             additiveBonus += 10
         }
 
@@ -129,7 +132,10 @@ public object MagicAccuracyOperations {
         var modified = attackRoll
 
         var additiveBonus = 0
-        if (SpellAttr.SmokeStaff in spellAttributes && SpellAttr.StandardBook in spellAttributes) {
+        if (
+            SpellAttr.StandardBook in spellAttributes &&
+                (SpellAttr.SmokeStaff in spellAttributes || SpellAttr.TwinflameStaff in spellAttributes)
+        ) {
             additiveBonus += 10
         }
 

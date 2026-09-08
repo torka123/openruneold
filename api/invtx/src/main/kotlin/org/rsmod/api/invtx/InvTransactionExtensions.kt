@@ -11,9 +11,11 @@ import org.rsmod.game.entity.Player
 import org.rsmod.game.inv.InvObj
 import org.rsmod.game.inv.Inventory
 import org.rsmod.game.obj.Obj
+import org.rsmod.game.obj.EnsouledHeadProvenance
 import org.rsmod.map.CoordGrid
 import org.rsmod.objtx.Transaction
 import org.rsmod.objtx.TransactionInventory
+import org.rsmod.objtx.TransactionObj
 import org.rsmod.objtx.TransactionResult
 import org.rsmod.objtx.TransactionResultList
 
@@ -537,9 +539,21 @@ public fun Transaction<InvObj>.select(inv: Inventory): TransactionInventory<InvO
     val image = Array(inv.objs.size) { input(inv.objs[it]) }
     val stack = inv.type.stack.toTransactionStackType()
     val transformed =
-        TransactionInventory(stack, inv.objs, image, inv.type.placeholders, inv.modifiedSlots)
+        TransactionInventory(
+            stack, inv.objs, image, inv.type.placeholders, inv.modifiedSlots,
+            normalizeIncoming = if (inv.internalName in economicInventories) ::normalizeEconomicItem else null,
+        )
     register(transformed)
     return transformed
+}
+
+private val economicInventories = setOf("inv.bank", "inv.tradeoffer")
+
+@OptIn(dev.openrune.types.util.UncheckedType::class)
+private fun normalizeEconomicItem(item: TransactionObj): TransactionObj {
+    if (!EnsouledHeadProvenance.isFresh(item.id)) return item
+    val normalized = EnsouledHeadProvenance.normalizeStored(InvObj(item.id, item.count, item.vars))
+    return TransactionObj(normalized.id, normalized.count, normalized.vars)
 }
 
 public fun Player.invTransaction(

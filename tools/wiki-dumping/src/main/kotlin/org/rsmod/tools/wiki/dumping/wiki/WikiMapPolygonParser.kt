@@ -13,9 +13,7 @@ object WikiMapPolygonParser {
     private val xyPair = Regex("""x\s*:\s*(\d+)\s*,\s*y\s*:\s*(\d+)""", RegexOption.IGNORE_CASE)
 
     fun parseAll(wikitext: String): List<WikiNamedPolygon> =
-        WikiTemplateParser
-            .extractTemplates(wikitext, "Map")
-            .mapNotNull(::parseMapTemplate)
+        WikiTemplateParser.extractTemplates(wikitext, "Map").mapNotNull(::parseMapTemplate)
 
     private fun parseMapTemplate(content: String): WikiNamedPolygon? {
         val params = WikiTemplateParser.parseParams(content)
@@ -65,7 +63,8 @@ object WikiMapPolygonParser {
                     val trimmed = part.trim()
                     trimmed.contains('=') &&
                         trimmed.substringBefore('=').trim().lowercase() in IGNORED_PARAM_KEYS
-                }.joinToString("|")
+                }
+                .joinToString("|")
 
         vertices += parseCoordBlob(stripped)
         return vertices.distinct()

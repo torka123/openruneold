@@ -14,10 +14,7 @@ private typealias CharacterInventory = CharacterInventoryData.Inventory
 
 private typealias CharacterObj = CharacterInventoryData.Obj
 
-private data class InventoryParent(
-    val characterId: Int,
-    val invDbKey: String,
-)
+private data class InventoryParent(val characterId: Int, val invDbKey: String)
 
 public class CharacterInventoryPipeline
 @Inject
@@ -36,10 +33,7 @@ constructor(private val applier: CharacterInventoryApplier) : CharacterDataStage
         val placeholders = (0 until inventories.size).joinToString(",") { "?" }
         val select =
             connection.prepareStatement(
-                OpenRuneSql.text(
-                    "game/inventory/select_objs_in_ids.sql",
-                    "__IN__" to placeholders,
-                ),
+                OpenRuneSql.text("game/inventory/select_objs_in_ids.sql", "__IN__" to placeholders)
             )
 
         select.use {
@@ -73,7 +67,7 @@ constructor(private val applier: CharacterInventoryApplier) : CharacterDataStage
 
         val select =
             connection.prepareStatement(
-                OpenRuneSql.text("game/inventory/select_inventories_for_character.sql"),
+                OpenRuneSql.text("game/inventory/select_inventories_for_character.sql")
             )
 
         select.use {
@@ -97,21 +91,20 @@ constructor(private val applier: CharacterInventoryApplier) : CharacterDataStage
 
         val delete =
             connection.prepareStatement(
-                OpenRuneSql.text("game/inventory/delete_obj_by_inventory_slot.sql"),
+                OpenRuneSql.text("game/inventory/delete_obj_by_inventory_slot.sql")
             )
 
         // Note: Not all database engines support `ON CONFLICT`. This syntax works with our current
         // database setup (PostgreSQL), but may need to be adapted for others (e.g., mysql uses
         // `ON DUPLICATE KEY UPDATE` for similar functionality).
         val upsert =
-            connection.prepareStatement(
-                OpenRuneSql.text("game/inventory/upsert_inventory_obj.sql"),
-            )
+            connection.prepareStatement(OpenRuneSql.text("game/inventory/upsert_inventory_obj.sql"))
 
         delete.use { delete ->
             upsert.use { upsert ->
                 for (inventory in persistentInvs) {
-                    val invTypeKey = GamePersistenceRscmKeys.encodeInvTypeKey(inventory.internalName)
+                    val invTypeKey =
+                        GamePersistenceRscmKeys.encodeInvTypeKey(inventory.internalName)
 
                     val parent = ensureInventoryRow(connection, characterId, invTypeKey)
                     if (parent == null) {
@@ -163,20 +156,23 @@ constructor(private val applier: CharacterInventoryApplier) : CharacterDataStage
                     OpenRuneSql.text(
                         "game/inventory/delete_inventories_not_in_types.sql",
                         "__IN__" to activeInvPlaceholders,
-                    ),
+                    )
                 )
 
             deleteStaleInventories.use {
                 it.setInt(1, characterId)
                 inventories.forEachIndexed { index, inv ->
-                    it.setString(2 + index, GamePersistenceRscmKeys.encodeInvTypeKey(inv.internalName))
+                    it.setString(
+                        2 + index,
+                        GamePersistenceRscmKeys.encodeInvTypeKey(inv.internalName),
+                    )
                 }
                 it.executeUpdate()
             }
         } else {
             val deleteAllInventories =
                 connection.prepareStatement(
-                    OpenRuneSql.text("game/inventory/delete_all_inventories_for_character.sql"),
+                    OpenRuneSql.text("game/inventory/delete_all_inventories_for_character.sql")
                 )
 
             deleteAllInventories.use {
@@ -193,7 +189,7 @@ constructor(private val applier: CharacterInventoryApplier) : CharacterDataStage
     ): InventoryParent? {
         val insert =
             connection.prepareStatement(
-                OpenRuneSql.text("game/inventory/insert_inventory_row_conflict_do_nothing.sql"),
+                OpenRuneSql.text("game/inventory/insert_inventory_row_conflict_do_nothing.sql")
             )
 
         insert.use {
@@ -203,9 +199,7 @@ constructor(private val applier: CharacterInventoryApplier) : CharacterDataStage
         }
 
         val select =
-            connection.prepareStatement(
-                OpenRuneSql.text("game/inventory/select_inventory_id.sql"),
-            )
+            connection.prepareStatement(OpenRuneSql.text("game/inventory/select_inventory_id.sql"))
 
         select.use {
             it.setInt(1, characterId)

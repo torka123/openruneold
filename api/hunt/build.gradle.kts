@@ -13,4 +13,5 @@ dependencies {
     implementation(projects.engine.game)
     implementation(projects.engine.map)
     implementation(projects.engine.module)
+    testImplementation(kotlin("test"))
 }

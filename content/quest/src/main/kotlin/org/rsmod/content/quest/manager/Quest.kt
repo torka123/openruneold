@@ -9,12 +9,19 @@ import org.rsmod.api.player.protect.ProtectedAccess
 import org.rsmod.api.player.vars.intVarBit
 import org.rsmod.api.player.vars.intVarp
 import org.rsmod.api.table.QuestRow
+import org.rsmod.events.UnboundEvent
 import org.rsmod.game.entity.Player
 import org.rsmod.map.CoordGrid
 
 val QUEST_STAGE_MAP_ATTR = AttributeKey<MutableMap<String, Int>>("quest_stages")
 
 data class ItemRewardDisplay(val item: String, val zoom: Int = 10)
+
+data class QuestCompletionEvent(
+    val player: Player,
+    val questKey: String,
+    val questName: String,
+) : UnboundEvent
 
 data class Quest(
     val id: Int,
@@ -188,6 +195,7 @@ data class Quest(
             val text = linesToShow.getOrNull(i) ?: ""
             access.ifSetText(componentId, text)
         }
+        access.publish(QuestCompletionEvent(access.player, key, displayName))
 
     }
 

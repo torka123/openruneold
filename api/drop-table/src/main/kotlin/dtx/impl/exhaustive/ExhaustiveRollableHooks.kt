@@ -3,7 +3,7 @@ package dtx.impl.exhaustive
 import dtx.core.DefaultRollableHooks
 import dtx.core.RollableHooks
 
-public interface ExhaustiveRollableHooks<T, R>: RollableHooks<T, R> {
+public interface ExhaustiveRollableHooks<T, R> : RollableHooks<T, R> {
 
     public fun onExhaust(target: T): Unit
 
@@ -20,7 +20,8 @@ public interface ExhaustiveRollableHooks<T, R>: RollableHooks<T, R> {
     }
 }
 
-internal data object DefaultExhaustiveRollableHooks: ExhaustiveRollableHooks<Any?, Any?>, RollableHooks<Any?, Any?> by DefaultRollableHooks {
+internal data object DefaultExhaustiveRollableHooks :
+    ExhaustiveRollableHooks<Any?, Any?>, RollableHooks<Any?, Any?> by DefaultRollableHooks {
 
     override fun onExhaust(target: Any?): Unit {
         return Unit
@@ -37,5 +38,4 @@ internal data object DefaultExhaustiveRollableHooks: ExhaustiveRollableHooks<Any
     override fun incrementExhaustible(rollable: ExhaustiveRollable<Any?, Any?>) {
         rollable.rolls -= 1
     }
-
 }

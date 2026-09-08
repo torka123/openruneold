@@ -47,6 +47,7 @@ object GemContactDialogue {
             chatMaster(remote, neutral, "You don't currently have a Slayer assignment.")
             return
         }
+        val displayName = SlayerTaskManager.currentTaskDisplayName(access.player) ?: task.nameUppercase
         val count = access.vars["varp.slayer_count"]
         val points = SlayerRewardsPoints.getPoints(access.player)
         val message =
@@ -58,7 +59,7 @@ object GemContactDialogue {
                         ?: "the assigned location"
                 "You're currently assigned to bring balance to $monster in $areaName; you have $count more to go. Your reward point tally is $points."
             } else {
-                "You're currently assigned to kill ${task.nameUppercase}; you have $count more to go. Your reward point tally is $points."
+                "You're currently assigned to kill $displayName; you have $count more to go. Your reward point tally is $points."
             }
         chatMaster(remote, neutral, message)
     }

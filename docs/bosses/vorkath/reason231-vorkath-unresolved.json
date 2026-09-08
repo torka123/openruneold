@@ -1,0 +1,19 @@
+{
+  "items": [
+    {
+      "category": "sound",
+      "status": "UNRESOLVED",
+      "detail": "The supplied donor Vorkath implementation contains no explicit sound-effect IDs. Revision-240 sequence-embedded audio remains intact, but standalone OSRS sound IDs and exact trigger ticks were not inventively guessed."
+    },
+    {
+      "category": "quest-progression",
+      "status": "ENGINE_LIMITATION",
+      "detail": "OpenRune does not expose a complete Dragon Slayer II quest-state implementation. VorkathAccessPolicy is the single injection point and currently permits access so the boss remains testable."
+    },
+    {
+      "category": "donor-revision-label",
+      "status": "SOURCE_AMBIGUITY",
+      "detail": "The prompt calls the donor Reason 231, while the supplied package decodes as build 229.1. No target cache decision relies on the label."
+    }
+  ]
+}

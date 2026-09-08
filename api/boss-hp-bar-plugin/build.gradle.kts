@@ -17,4 +17,5 @@ dependencies {
     implementation(projects.engine.plugin)
     implementation(projects.api.pluginCommons)
     implementation(projects.api.player)
+    testImplementation(kotlin("test"))
 }

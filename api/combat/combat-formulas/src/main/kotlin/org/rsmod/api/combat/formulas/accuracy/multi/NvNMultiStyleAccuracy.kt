@@ -31,7 +31,7 @@ constructor(
         targetType: NpcServerType,
     ): Int {
         val attackRoll = melee.computeAttackRoll(source, sourceType)
-        val defenceRoll = magic.computeDefenceRoll(targetType, target.defenceLvl, target.magicLvl)
+        val defenceRoll = magic.computeDefenceRoll(targetType, target.defenceLvl, target.magicDefenceLvl)
         return AccuracyOperations.calculateHitChance(attackRoll, defenceRoll)
     }
 
@@ -91,7 +91,7 @@ constructor(
         targetType: NpcServerType,
     ): Int {
         val attackRoll = ranged.computeAttackRoll(source, sourceType)
-        val defenceRoll = magic.computeDefenceRoll(targetType, target.defenceLvl, target.magicLvl)
+        val defenceRoll = magic.computeDefenceRoll(targetType, target.defenceLvl, target.magicDefenceLvl)
         return AccuracyOperations.calculateHitChance(attackRoll, defenceRoll)
     }
 }

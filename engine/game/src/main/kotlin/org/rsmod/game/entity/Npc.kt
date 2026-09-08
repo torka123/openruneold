@@ -10,17 +10,15 @@ import dev.openrune.types.HuntModeType
 import dev.openrune.types.MoveRestrict
 import dev.openrune.types.NpcMode
 import dev.openrune.types.NpcServerType
-import dev.openrune.types.SequenceServerType
-import dev.openrune.types.aconverted.SpotanimType
 import dev.openrune.util.BlockWalk
 import org.rsmod.annotations.InternalApi
+import org.rsmod.game.damage.DamageContributions
 import org.rsmod.game.entity.npc.NpcInfoProtocol
 import org.rsmod.game.entity.npc.NpcUid
 import org.rsmod.game.entity.npc.OpVisibility
 import org.rsmod.game.entity.player.PlayerUid
 import org.rsmod.game.entity.util.EntityFaceTarget
 import org.rsmod.game.entity.util.PathingEntityCommon
-import org.rsmod.game.damage.DamageContributions
 import org.rsmod.game.headbar.Headbar
 import org.rsmod.game.hero.HeroPoints
 import org.rsmod.game.hit.Hitmark
@@ -49,14 +47,18 @@ public class Npc(
         this.spawnCoords = coords
     }
 
-    public constructor(type: String, coords: CoordGrid) : this(
+    public constructor(
+        type: String,
+        coords: CoordGrid,
+    ) : this(
         requireNotNull(ServerCacheManager.getNpc(type.asRSCM(RSCMType.NPC))) {
             "NPC type '$type' not found in cache"
-        },
+        }
     ) {
         this.coords = coords
         this.spawnCoords = coords
     }
+
     override val blockWalkCollisionFlag: Int?
         get() = blockWalk.collisionFlag
 
@@ -86,6 +88,14 @@ public class Npc(
     public var respawnDir: Direction = type.respawnDir
     public var respawns: Boolean = false
 
+    /**
+     * Suppresses remains and every kill hook for controlled development encounters. Production
+     * spawns leave this false; diagnostics set it explicitly so tests cannot create rewards.
+     */
+    public var suppressRewards: Boolean = false
+    /** Suppress item loot while retaining ordinary kill attribution, including Slayer progress. */
+    public var suppressDrops: Boolean = false
+
     public var mode: NpcMode? = type.defaultMode
 
     /**
@@ -94,6 +104,27 @@ public class Npc(
      */
     public var ignoreCombatInteractions: Boolean = false
 
+    /** Prevents normal combat hit reactions from replacing a scripted NPC's active sequence. */
+    public var suppressCombatDefendAnimation: Boolean = false
+
+    /**
+     * Prevents development one-hit mode from replacing damage already controlled by a scripted
+     * encounter transition. Normal combat remains unchanged when this flag is false.
+     */
+    public var scriptedDamageGate: Boolean = false
+
+    /**
+     * Prevents only natural hitpoint regeneration while leaving attack, strength, defence, ranged,
+     * and magic restoration intact for encounters whose cache definition has no HP regen.
+     */
+    public var suppressHitpointsRegen: Boolean = false
+
+    /**
+     * Prevents ordinary combat hits from publishing this NPC's hitpoint headbar. Scripted
+     * encounters can use a different progress bar while retaining normal hitsplats and damage.
+     */
+    public var suppressHitpointHeadbar: Boolean = false
+
     /**
      * Whether the Npc has locked movement. This is enforced in NpcMovementProcessor.process by
      * continually resetting the Npc's route.
@@ -101,13 +132,22 @@ public class Npc(
     public var movementLocked: Boolean = false
 
     /**
-     * Used for temporarily overwriting a Npc's ap-range, i.e. the distance at which it can
-     * perform a ranged attack.
+     * Used for temporarily overwriting a Npc's ap-range, i.e. the distance at which it can perform
+     * a ranged attack.
      */
     public var apRangeOverride: Int? = null
 
     public val attackRange: Int
         get() = apRangeOverride ?: visType.attackRange
+
+    /**
+     * Optional maximum interaction/chase range measured from [spawnCoords]. Boss encounters may
+     * widen their leash without incorrectly widening their actual attack range.
+     */
+    public var maxOpRangeOverride: Int? = null
+
+    public val maxOpRange: Int
+        get() = maxOpRangeOverride ?: type.maxRange
 
     public var apRequiresLineOfSight: Boolean = true
 
@@ -122,12 +162,43 @@ public class Npc(
     public var lifecycleDelayedAddCycle: Int = -1
     public var lifecycleDelayedAddDuration: Int = -1
 
+    public val combatImmunities: NpcCombatImmunities = NpcCombatImmunities()
+
     public var attackLvl: Int = type.attack
+        set(value) {
+            if (!combatImmunities.statDrain || value >= field) field = value
+        }
+
     public var strengthLvl: Int = type.strength
+        set(value) {
+            if (!combatImmunities.statDrain || value >= field) field = value
+        }
+
     public var defenceLvl: Int = type.defence
+        set(value) {
+            if (!combatImmunities.statDrain || value >= field) field = value
+        }
+
     public var hitpoints: Int = type.hitpoints
+
     public var rangedLvl: Int = type.ranged
+        set(value) {
+            if (!combatImmunities.statDrain || value >= field) field = value
+        }
+
     public var magicLvl: Int = type.magic
+        set(value) {
+            if (!combatImmunities.statDrain || value >= field) field = value
+        }
+
+    /**
+     * Defensive Magic level used when another entity rolls a magic attack against this NPC. Kept
+     * separate from [magicLvl], which remains the NPC's offensive Magic level.
+     */
+    public var magicDefenceLvl: Int = type.magic
+        set(value) {
+            if (!combatImmunities.statDrain || value >= field) field = value
+        }
 
     public var baseAttackLvl: Int = type.attack
     public var baseStrengthLvl: Int = type.strength
@@ -135,6 +206,10 @@ public class Npc(
     public var baseHitpointsLvl: Int = type.hitpoints
     public var baseRangedLvl: Int = type.ranged
     public var baseMagicLvl: Int = type.magic
+    public var baseMagicDefenceLvl: Int = type.magic
+
+    /** Target-specific multiplier applied to incoming player ranged attack rolls. */
+    public var incomingRangedAccuracyMultiplier: Double = 1.0
 
     public var regenClock: Int = 0
     public val regenRate: Int = type.regenRate
@@ -174,9 +249,10 @@ public class Npc(
 
     public var actionDelay: Int = -1
 
-    /**
-     * A persistent idle/stand animation override.
-     */
+    /** Map clock until which Retainer prevents this npc from retaliating. */
+    public var retainerUntil: Int = -1
+
+    /** A persistent idle/stand animation override. */
     public var idleSequence: EntitySeq = EntitySeq.NULL
         private set
 
@@ -192,10 +268,10 @@ public class Npc(
         get() = !isDelayed
 
     public val isBusy: Boolean
-        get() = isDelayed
+        get() = isDelayed || isShoveStunned
 
     public val canProcess: Boolean
-        get() = isNotDelayed && isVisible
+        get() = isNotDelayed && !isShoveStunned && isVisible
 
     public val id: Int
         get() = type.id
@@ -242,8 +318,8 @@ public class Npc(
     }
 
     /**
-     * Walks to [dest] and runs [onArrival] once the route completes (the npc reaches the destination
-     * or the route otherwise ends).
+     * Walks to [dest] and runs [onArrival] once the route completes (the npc reaches the
+     * destination or the route otherwise ends).
      */
     public fun walk(dest: CoordGrid, onArrival: () -> Unit) {
         walk(dest)
@@ -251,8 +327,8 @@ public class Npc(
     }
 
     /**
-     * Walks the npc along a precomputed list of [waypoints] (e.g. the output of a pathfinder), running
-     * [onArrival] once the route completes.
+     * Walks the npc along a precomputed list of [waypoints] (e.g. the output of a pathfinder),
+     * running [onArrival] once the route completes.
      */
     public fun walk(waypoints: List<CoordGrid>, onArrival: (() -> Unit)? = null) {
         abortRoute()
@@ -346,6 +422,7 @@ public class Npc(
         pendingTelejump = true
         transmog = null
         cachedHitmark = null
+        retainerUntil = -1
         mode = defaultMode
         assignUid()
         clearInteraction()
@@ -355,6 +432,7 @@ public class Npc(
         resetAnim()
         showAllOps()
         copyStats(type)
+        incomingRangedAccuracyMultiplier = 1.0
         clearHeroPoints()
         queueList.clear()
         vars.backing.clear()
@@ -369,6 +447,15 @@ public class Npc(
 
     override fun anim(seq: String, delay: Int, priority: Int) {
         val setSequence = PathingEntityCommon.anim(this, seq, delay, priority)
+        updateAnimProtocol(setSequence)
+    }
+
+    override fun anim(seq: Int, delay: Int, priority: Int) {
+        val setSequence = PathingEntityCommon.anim(this, seq, delay, priority)
+        updateAnimProtocol(setSequence)
+    }
+
+    private fun updateAnimProtocol(setSequence: Boolean) {
         if (!setSequence) {
             return
         }
@@ -406,6 +493,23 @@ public class Npc(
         infoProtocol.setSpotanim(spot.asRSCM(RSCMType.SPOTANIM), delay, height, slot)
     }
 
+    override fun spotanim(spot: Int, delay: Int, height: Int, slot: Int) {
+        PathingEntityCommon.spotanim(this, spot, delay, height, slot)
+        infoProtocol.setSpotanim(spot, delay, height, slot)
+    }
+
+    /** Applies a client-side colour tint to the non-textured parts of this NPC. */
+    public fun tint(
+        startTime: Int,
+        endTime: Int,
+        hue: Int,
+        saturation: Int,
+        lightness: Int,
+        weight: Int,
+    ) {
+        infoProtocol.setTinting(startTime, endTime, hue, saturation, lightness, weight)
+    }
+
     public fun say(text: String) {
         infoProtocol.setSay(text)
     }
@@ -426,9 +530,7 @@ public class Npc(
         infoProtocol.toggleOps(OpVisibility.hideAll())
     }
 
-    /**
-     * The square this npc's facing is pinned to, or [CoordGrid.NULL] when facing is not locked.
-     */
+    /** The square this npc's facing is pinned to, or [CoordGrid.NULL] when facing is not locked. */
     public var faceLockSquare: CoordGrid = CoordGrid.NULL
         private set
 
@@ -520,6 +622,7 @@ public class Npc(
         baseHitpointsLvl = from.hitpoints
         baseRangedLvl = from.ranged
         baseMagicLvl = from.magic
+        baseMagicDefenceLvl = from.magic
     }
 
     public fun copyCurrentStats(from: NpcServerType) {
@@ -529,6 +632,7 @@ public class Npc(
         hitpoints = from.hitpoints
         rangedLvl = from.ranged
         magicLvl = from.magic
+        magicDefenceLvl = from.magic
     }
 
     public fun facingTarget(playerList: PlayerList): Player? =
@@ -638,7 +742,8 @@ public class Npc(
      */
     public fun <T : Any> param(param: TypedParamType<T>): T = type.param(param)
 
-    public fun isContentType(content: String): Boolean = type.contentGroup == content.asRSCM(RSCMType.CONTENT)
+    public fun isContentType(content: String): Boolean =
+        type.contentGroup == content.asRSCM(RSCMType.CONTENT)
 
     override fun toString(): String = "Npc(uid=$uid, slot=$slotId, coords=$coords, type=$type)"
 }

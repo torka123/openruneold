@@ -114,7 +114,9 @@ public class HeldEquipOp @Inject constructor(private val eventBus: EventBus) {
 
     private fun equip(player: Player, type: ItemServerType): HeldEquipResult {
         val statRequirements =
-            type.statRequirements().filter { player.statBase(RSCM.getReverseMapping(RSCMType.STAT,it.stat.id)) < it.level }
+            type.statRequirements().filter {
+                player.statBase(RSCM.getReverseMapping(RSCMType.STAT, it.stat.id)) < it.level
+            }
         if (statRequirements.isNotEmpty()) {
             val messages = type.toMessages(statRequirements)
             return HeldEquipResult.Fail.StatRequirements(messages)

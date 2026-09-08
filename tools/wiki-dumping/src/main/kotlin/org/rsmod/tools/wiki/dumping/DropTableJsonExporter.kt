@@ -10,11 +10,7 @@ import kotlin.io.path.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
 
-data class JsonItemRef(
-    val wikiName: String,
-    val itemId: Int?,
-    val internalName: String,
-)
+data class JsonItemRef(val wikiName: String, val itemId: Int?, val internalName: String)
 
 data class JsonDropEntry(
     val item: JsonItemRef,
@@ -54,11 +50,7 @@ data class JsonDropTable(
     val tertiary: List<JsonDropEntry>,
 )
 
-data class JsonNpcManifestEntry(
-    val npcId: Int,
-    val wikiName: String,
-    val tableRef: String,
-)
+data class JsonNpcManifestEntry(val npcId: Int, val wikiName: String, val tableRef: String)
 
 object DropTableJsonExporter {
     private val mapper: ObjectMapper =
@@ -67,10 +59,7 @@ object DropTableJsonExporter {
             .setDefaultPropertyInclusion(JsonInclude.Include.NON_EMPTY)
             .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
 
-    fun exportTable(
-        result: DumpResult,
-        wikiPage: String,
-    ): JsonDropTable {
+    fun exportTable(result: DumpResult, wikiPage: String): JsonDropTable {
         val spec = result.spec
         return JsonDropTable(
             tableId = spec.tableVarName,
@@ -117,7 +106,8 @@ object DropTableJsonExporter {
 
         for (entry in canonical) {
             for (result in entry.results) {
-                val tableRef = DropTableJsonOutputLayout.relativeTablePath(jsonRoot, result.spec.tableVarName)
+                val tableRef =
+                    DropTableJsonOutputLayout.relativeTablePath(jsonRoot, result.spec.tableVarName)
                 addNpcManifestEntries(
                     npcs = npcs,
                     wikiPage = entry.wikiPage,
@@ -155,12 +145,7 @@ object DropTableJsonExporter {
     ) {
         val wikiName = displayWikiPageName(wikiPage)
         for (npcId in npcIds) {
-            npcs +=
-                JsonNpcManifestEntry(
-                    npcId = npcId,
-                    wikiName = wikiName,
-                    tableRef = tableRef,
-                )
+            npcs += JsonNpcManifestEntry(npcId = npcId, wikiName = wikiName, tableRef = tableRef)
         }
     }
 
@@ -188,7 +173,8 @@ object DropTableJsonExporter {
                 }
                 JsonDropEntry(
                     item = toItemRef(objKey.removePrefix("obj.").replace('_', ' '), objKey),
-                    quantity = bonus.countMax?.let { "${bonus.count}-$it" } ?: bonus.count.toString(),
+                    quantity =
+                        bonus.countMax?.let { "${bonus.count}-$it" } ?: bonus.count.toString(),
                 )
             }
 
@@ -220,10 +206,7 @@ object DropTableJsonExporter {
 
     private fun stripObjPrefix(objKey: String): String = objKey.removePrefix("obj.")
 
-    data class CanonicalJsonExport(
-        val wikiPage: String,
-        val results: List<DumpResult>,
-    )
+    data class CanonicalJsonExport(val wikiPage: String, val results: List<DumpResult>)
 }
 
 data class JsonExportConfig(

@@ -122,3 +122,18 @@ coords = "0_27_81_9_25"
 npc = "npc.mole_giant"
 coords = "0_27_81_31_5"
 
+[[spawn]]
+npc = "npc.mole_giant"
+coords = "0_27_80_9_37"
+
+[[spawn]]
+npc = "npc.mole_giant"
+coords = "0_27_80_39_42"
+
+[[spawn]]
+npc = "npc.mole_giant"
+coords = "0_27_81_10_38"
+
+[[spawn]]
+npc = "npc.mole_giant"
+coords = "0_27_81_41_39"

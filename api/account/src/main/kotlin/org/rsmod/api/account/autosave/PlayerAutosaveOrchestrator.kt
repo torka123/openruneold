@@ -1,10 +1,10 @@
 package org.rsmod.api.account.autosave
 
 import com.github.michaelbull.logging.InlineLogger
+import dev.openrune.types.InvScope
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.util.concurrent.ConcurrentHashMap
-import dev.openrune.types.InvScope
 import org.rsmod.api.account.AccountManager
 import org.rsmod.api.account.saver.request.AccountSaveResponse
 import org.rsmod.api.attr.AttributeKey
@@ -19,21 +19,16 @@ import org.rsmod.game.entity.PlayerPersistenceHints
 @Singleton
 public class PlayerAutosaveOrchestrator
 @Inject
-constructor(
-    private val accountManager: AccountManager,
-) {
+constructor(private val accountManager: AccountManager) {
     private val logger = InlineLogger()
 
-    private val queuedSave: MutableSet<Player> =
-        ConcurrentHashMap.newKeySet()
+    private val queuedSave: MutableSet<Player> = ConcurrentHashMap.newKeySet()
 
     private var periodicCounter: Int = PERIODIC_INTERVAL_CYCLES
 
     init {
         PlayerPersistenceHints.bind(this::onPersistenceRelevantChange)
-        AttributeMap.persistenceMutationSink = { key ->
-            onPersistentAttrMutated(key)
-        }
+        AttributeMap.persistenceMutationSink = { key -> onPersistentAttrMutated(key) }
     }
 
     /**
@@ -45,7 +40,9 @@ constructor(
             if (!player.canProcess) {
                 continue
             }
-            if (player.invMap.values.any { it.type.scope == InvScope.Perm && it.hasModifiedSlots() }) {
+            if (
+                player.invMap.values.any { it.type.scope == InvScope.Perm && it.hasModifiedSlots() }
+            ) {
                 onPersistenceRelevantChange(player)
             }
         }
@@ -84,7 +81,9 @@ constructor(
             when (response) {
                 is AccountSaveResponse.Success -> {}
                 is AccountSaveResponse.ExcessiveRetries ->
-                    logger.error { "Background autosave failed after retries for ${player.displayName}" }
+                    logger.error {
+                        "Background autosave failed after retries for ${player.displayName}"
+                    }
                 is AccountSaveResponse.InternalShutdownError ->
                     logger.error { "Background autosave shutdown error for ${player.displayName}" }
             }

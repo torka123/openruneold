@@ -6,6 +6,7 @@ import jakarta.inject.Inject
 import org.rsmod.api.player.output.ClientScripts
 import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.output.soundSynth
+import org.rsmod.api.player.prayer.ProtectionPrayerLock
 import org.rsmod.api.player.protect.ProtectedAccess
 import org.rsmod.api.player.protect.ProtectedAccessLauncher
 import org.rsmod.api.player.stat.prayerLvl
@@ -40,6 +41,12 @@ private constructor(
 
     private fun Player.selectPrayer(prayer: Prayer) {
         ifClose(eventBus)
+        if (ProtectionPrayerLock.blocks(this, prayer.enabled)) {
+            mes("Your protection prayers have been disabled.")
+            resyncVar(prayer.enabled)
+            soundSynth("synth.prayer_disable")
+            return
+        }
         if (isAccessProtected && !prayer.hasAllRequirements(this)) {
             val message = failedRequirementMessage(prayer).replace("<br>", " ")
             mes(message)
@@ -54,6 +61,10 @@ private constructor(
     }
 
     private suspend fun ProtectedAccess.togglePrayer(prayer: Prayer) {
+        if (ProtectionPrayerLock.blocks(player, prayer.enabled)) {
+            player.resyncVar(prayer.enabled)
+            return
+        }
         if (vars[prayer.enabled] != 0) {
             disablePrayer(prayer)
         } else {
@@ -125,3 +136,11 @@ private constructor(
 
     private fun Prayer.lockedMessage(): String = lockedMessage ?: levelReqMessage()
 }
+
+internal fun Prayer.isProtectionPrayer(): Boolean =
+    enabled in
+        setOf(
+            "varbit.prayer_protectfrommagic",
+            "varbit.prayer_protectfrommissiles",
+            "varbit.prayer_protectfrommelee",
+        )

@@ -20,6 +20,7 @@ data class PhaseSpec(
     val entryHp: Double? = null,
     val transmog: String? = null,
     val lockMovement: Boolean = false,
+    val attackRate: Int? = null,
     val exitAfter: Int? = null,
     val nextPhase: String? = null,
     val idleAnim: String? = null,

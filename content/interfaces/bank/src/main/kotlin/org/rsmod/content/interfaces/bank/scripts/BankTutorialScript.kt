@@ -38,10 +38,7 @@ class BankTutorialScript @Inject constructor(private val eventBus: EventBus) : P
         player.tutorialTotalPages = pages.size
 
         player.highlightNoClick()
-        access.ifOpenOverlay(
-            "interface.screenhighlight",
-            "component.bankmain:bank_highlight",
-        )
+        access.ifOpenOverlay("interface.screenhighlight", "component.bankmain:bank_highlight")
         access.ifSetEvents("component.screenhighlight:continue", 9..9, IfEvent.Op1)
         access.ifSetEvents("component.screenhighlight:previous", 9..9, IfEvent.Op1)
         player.highlightStart()

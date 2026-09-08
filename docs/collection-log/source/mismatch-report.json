@@ -1,0 +1,47 @@
+{
+  "metadata" : {
+    "cacheRevision" : 240,
+    "generatedAt" : "2026-08-22T03:16:35Z",
+    "generatorVersion" : "1.0.0",
+    "wikiPages" : [ {
+      "title" : "Collection log",
+      "revisionId" : 15315992,
+      "timestamp" : "2026-08-22T03:14:54Z",
+      "sha1" : "998a5df85f5b8b3f23cf6d3f1673f3d812963b70"
+    }, {
+      "title" : "Collection log/Table",
+      "revisionId" : 14936656,
+      "timestamp" : "2025-07-12T14:13:28Z",
+      "sha1" : "8817eed6f7627ebf469cbfc36bed646c7f801bd0"
+    }, {
+      "title" : "Module:Collection log/completion.json",
+      "revisionId" : 15240204,
+      "timestamp" : "2026-06-26T17:33:38Z",
+      "sha1" : "1d9920c3588ac46f683754baee7fc3bc6bfe93ac"
+    }, {
+      "title" : "Module:Collection log/data.json",
+      "revisionId" : 15315995,
+      "timestamp" : "2026-08-22T03:16:35Z",
+      "sha1" : "dfdecdb061d3736dcc42974fafb5cc680042b465"
+    } ]
+  },
+  "cacheTotals" : {
+    "sections" : 124,
+    "slots" : 1921,
+    "uniqueCanonicalEntries" : 1712
+  },
+  "wikiUniqueItems" : 1712,
+  "mismatches" : [ {
+    "kind" : "WIKI_SECTION_MISMATCH",
+    "message" : "Item 33663 (Venator tooth) is in cache section Slayer but Wiki tabs are [Venators]"
+  }, {
+    "kind" : "WIKI_SECTION_MISMATCH",
+    "message" : "Item 33661 (Venator fang) is in cache section Slayer but Wiki tabs are [Venators]"
+  }, {
+    "kind" : "WIKI_SECTION_MISSING_FROM_CACHE",
+    "message" : "Wiki section 'Venators' for item 33663 does not exist in revision-240"
+  }, {
+    "kind" : "WIKI_SECTION_MISSING_FROM_CACHE",
+    "message" : "Wiki section 'Venators' for item 33661 does not exist in revision-240"
+  } ]
+}

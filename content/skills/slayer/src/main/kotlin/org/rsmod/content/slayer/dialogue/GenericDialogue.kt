@@ -78,10 +78,9 @@ object GenericDialogue {
         when (choice2("Yes, please.", 1, "No, thanks.", 2)) {
             1 -> {
                 chatPlayer(neutral, "Yes, please.")
-                assignNewTask(npc!!.visType.internalName) { taskName, count ->
-                    SlayerTaskManager.setSlayerStreak(access, 0)
-                    chatNpc(neutral, "Your new task is to kill $count $taskName.")
-                }
+                SlayerTaskManager.setSlayerStreak(access, 0)
+                SlayerTaskManager.resetTask(access)
+                assignNewTask(npc!!.visType.internalName)
             }
             2 -> chatPlayer(neutral, "No, thanks.")
         }

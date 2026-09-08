@@ -23,7 +23,7 @@ data class Prayer(
         lockedMessage?.replace("<col=000080>", "")?.replace("</col>", "")?.replace("<br>", " ")
 
     fun hasAllRequirements(player: Player): Boolean {
-        if (unlocked != null && player.vars[unlocked] < unlockState) {
+        if (requiresUnlock(player)) {
             return false
         } else if (defenceReq != null && player.baseDefenceLvl < defenceReq) {
             return false
@@ -32,4 +32,15 @@ data class Prayer(
     }
 
     fun hasBaseRequirement(player: Player): Boolean = player.basePrayerLvl >= level
+
+    private fun requiresUnlock(player: Player): Boolean =
+        unlocked != null &&
+            !isQuestRequirementFreePrayer(enabled) &&
+            player.vars[unlocked] < unlockState
 }
+
+internal fun isQuestRequirementFreePrayer(enabled: String): Boolean =
+    enabled in QUEST_REQUIREMENT_FREE_PRAYERS
+
+private val QUEST_REQUIREMENT_FREE_PRAYERS =
+    setOf("varbit.prayer_chivalry", "varbit.prayer_piety")

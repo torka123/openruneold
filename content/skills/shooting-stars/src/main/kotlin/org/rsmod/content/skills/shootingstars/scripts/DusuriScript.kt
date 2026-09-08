@@ -6,6 +6,10 @@ import dev.openrune.rscm.RSCMType
 import dev.openrune.types.ItemServerType
 import dev.openrune.types.util.UncheckedType
 import jakarta.inject.Inject
+import org.rsmod.api.attr.AttributeKey
+import org.rsmod.api.collectionlog.CollectionLogAwardKind
+import org.rsmod.api.collectionlog.CollectionLogAwardSource
+import org.rsmod.api.collectionlog.CollectionLogService
 import org.rsmod.api.player.dialogue.Dialogue
 import org.rsmod.api.player.protect.ProtectedAccess
 import org.rsmod.api.player.vars.boolVarBit
@@ -35,6 +39,7 @@ class DusuriScript
 constructor(
     private val shops: Shops,
     private val shopOps: ShopOperationMap,
+    private val collectionLog: CollectionLogService,
 ) : PluginScript() {
     private var Player.starTraderMet by boolVarBit("varbit.star_trader_met")
 
@@ -43,6 +48,7 @@ constructor(
 
     override fun ScriptContext.startup() {
         shopOps.costOf(CURRENCY, ::stardustCost)
+        shopOps.onPurchase(CURRENCY, ::recordCollectionLogPurchase)
         syncStarTeleportShopStock()
 
         for (npc in DUSURI_NPCS) {
@@ -124,14 +130,7 @@ constructor(
             return
         }
 
-        when (
-            choice2(
-                "I have some here. Can we trade?",
-                1,
-                "I'll bear that in mind.",
-                2,
-            )
-        ) {
+        when (choice2("I have some here. Can we trade?", 1, "I'll bear that in mind.", 2)) {
             1 -> {
                 chatPlayer(happy, "I have some here. Can we trade?")
                 openShopFromDialogue()
@@ -228,6 +227,22 @@ constructor(
         )
     }
 
+    private fun recordCollectionLogPurchase(player: Player, type: ItemServerType, count: Int) {
+        if (type.id !in COLLECTION_LOG_REWARDS) {
+            return
+        }
+        val sequence = (player.attr[COLLECTION_LOG_PURCHASE_SEQUENCE] ?: 0) + 1
+        player.attr[COLLECTION_LOG_PURCHASE_SEQUENCE] = sequence
+        collectionLog.record(
+            player = player,
+            itemId = type.id,
+            amount = count,
+            source =
+                CollectionLogAwardSource(CollectionLogAwardKind.SkillingReward, "shooting-stars"),
+            eventId = "dusuri:$sequence",
+        )
+    }
+
     private fun Player.hasSeenShootingStar(): Boolean =
         (attr[ALL_TIME_TOTAL_DUST] ?: 0) > 0 || attr[SEEN_SHOOTING_STAR] == true
 
@@ -235,6 +250,8 @@ constructor(
         private const val CURRENCY = "currency.stardust"
         private const val SHOP_INV = "inv.magictraining_inventory"
         private const val STAR_TELEPORT = "obj.poh_tablet_shootingstar"
+        private val COLLECTION_LOG_PURCHASE_SEQUENCE =
+            AttributeKey<Int>(persistenceKey = "shooting_star_collection_log_purchase_sequence_v1")
         private val DUSURI_NPCS =
             listOf("npc.star_trader", "npc.star_trader_1op", "npc.star_trader_2op")
 
@@ -245,6 +262,12 @@ constructor(
                 "obj.star_reward_gem_bag" to 300,
                 "obj.star_pack_softclay" to 150,
                 "obj.poh_tablet_shootingstar" to 50,
+            )
+
+        private val COLLECTION_LOG_REWARDS =
+            setOf(
+                "obj.celestial_ring".asRSCM(RSCMType.OBJ),
+                "obj.star_fragment".asRSCM(RSCMType.OBJ),
             )
 
         private fun stardustCost(type: ItemServerType): Int {

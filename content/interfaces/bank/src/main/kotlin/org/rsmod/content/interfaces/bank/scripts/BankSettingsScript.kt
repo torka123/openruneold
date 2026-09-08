@@ -41,14 +41,22 @@ class BankSettingsScript @Inject constructor(private val bankScript: BankInvScri
         onIfModalButton("component.bankmain:incinerator_toggle") { incinerator = !incinerator }
         onIfModalButton("component.bankmain:banktut_toggle") { tutorialButton = !tutorialButton }
         onIfModalButton("component.bankmain:sideops_toggle") { toggleInvItemOptions() }
-        onIfModalButton("component.bankmain:depositinv_toggle") { depositInvButton = !depositInvButton }
-        onIfModalButton("component.bankmain:depositworn_toggle") { depositWornButton = !depositWornButton }
+        onIfModalButton("component.bankmain:depositinv_toggle") {
+            depositInvButton = !depositInvButton
+        }
+        onIfModalButton("component.bankmain:depositworn_toggle") {
+            depositWornButton = !depositWornButton
+        }
         onIfModalButton("component.bankmain:release_placeholders") { selectReleasePlaceholders() }
         onIfModalButton("component.bankmain:bank_filler_1") { bankFillerMode = BankFillerMode.One }
         onIfModalButton("component.bankmain:bank_filler_10") { bankFillerMode = BankFillerMode.Ten }
-        onIfModalButton("component.bankmain:bank_filler_50") { bankFillerMode = BankFillerMode.Fifty }
+        onIfModalButton("component.bankmain:bank_filler_50") {
+            bankFillerMode = BankFillerMode.Fifty
+        }
         onIfModalButton("component.bankmain:bank_filler_x") { bankFillerMode = BankFillerMode.X }
-        onIfModalButton("component.bankmain:bank_filler_all") { bankFillerMode = BankFillerMode.All }
+        onIfModalButton("component.bankmain:bank_filler_all") {
+            bankFillerMode = BankFillerMode.All
+        }
         onIfModalButton("component.bankmain:bank_filler_confirm") { selectBankFillerFill() }
     }
 

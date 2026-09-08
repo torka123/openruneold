@@ -1,9 +1,11 @@
 package org.rsmod.content.interfaces.bank
 
-import dev.openrune.definition.type.VarBitType
 import kotlin.math.max
 import org.rsmod.api.player.protect.ProtectedAccess
+import org.rsmod.api.player.vars.VarPlayerIntMapSetter
 import org.rsmod.api.utils.vars.VarEnumDelegate
+import org.rsmod.game.entity.Player
+import org.rsmod.game.inv.Inventory
 
 enum class BankTab(val index: Int, val sizeVarBit: String, override val varValue: Int) :
     VarEnumDelegate {
@@ -71,6 +73,27 @@ enum class BankTab(val index: Int, val sizeVarBit: String, override val varValue
                 currSlot += size
             }
             return null
+        }
+
+        /**
+         * Recovers bank tab bookkeeping when items were inserted directly into the bank inventory.
+         *
+         * Bank tabs own contiguous slot ranges. A direct inventory transaction can place an item
+         * beyond those ranges without updating the Main tab's size, which makes later withdrawals
+         * fail because the slot has no tab association. Existing tab ranges are preserved and only
+         * the Main tab is extended to cover the unowned tail.
+         */
+        fun repairLayout(player: Player, bank: Inventory, minimumSlots: Int = 0): Boolean {
+            val requiredSlots = max(bank.lastOccupiedSlot(), minimumSlots)
+            val allocatedSlots = entries.sumOf { player.vars[it.sizeVarBit] }
+            if (requiredSlots <= allocatedSlots) {
+                return false
+            }
+
+            val missingSlots = requiredSlots - allocatedSlots
+            val mainSize = player.vars[Main.sizeVarBit]
+            VarPlayerIntMapSetter.set(player, Main.sizeVarBit, mainSize + missingSlots)
+            return true
         }
     }
 }

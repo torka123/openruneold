@@ -21,9 +21,21 @@ public class ZoneUpdateMap {
         updates += prot
     }
 
+    public fun locAddPrivate(loc: LocInfo, observerId: Long) {
+        val updates = loc.coords.getOrPutUpdateList()
+        val prot = ZoneUpdateTransformer.toPrivateLocAddChangeProt(loc, observerId)
+        updates += prot
+    }
+
     public fun locDel(loc: LocInfo) {
         val updates = loc.coords.getOrPutUpdateList()
         val prot = ZoneUpdateTransformer.toLocDelProt(loc)
+        updates += prot
+    }
+
+    public fun locDelPrivate(loc: LocInfo, observerId: Long) {
+        val updates = loc.coords.getOrPutUpdateList()
+        val prot = ZoneUpdateTransformer.toPrivateLocDelProt(loc, observerId)
         updates += prot
     }
 
@@ -88,6 +100,19 @@ public class ZoneUpdateMap {
     public fun mapAnim(spotanim: Int, coord: CoordGrid, height: Int, delay: Int) {
         val updates = coord.getOrPutUpdateList()
         val prot = ZoneUpdateTransformer.toMapAnimProt(spotanim, coord, height, delay)
+        updates += prot
+    }
+
+    public fun mapAnimPrivate(
+        spotanim: Int,
+        coord: CoordGrid,
+        height: Int,
+        delay: Int,
+        observerId: Long,
+    ) {
+        val updates = coord.getOrPutUpdateList()
+        val prot =
+            ZoneUpdateTransformer.toPrivateMapAnimProt(spotanim, coord, height, delay, observerId)
         updates += prot
     }
 

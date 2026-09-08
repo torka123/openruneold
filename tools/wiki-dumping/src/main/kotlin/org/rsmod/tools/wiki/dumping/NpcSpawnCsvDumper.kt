@@ -4,7 +4,6 @@ import java.nio.file.Path
 import kotlin.io.path.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
-import kotlin.io.path.nameWithoutExtension
 import kotlin.io.path.writeText
 import kotlin.system.exitProcess
 import kotlin.system.measureTimeMillis
@@ -19,11 +18,7 @@ private const val DEFAULT_OUTPUT_DIR_RELATIVE = ".data/raw-cache/map/npcs"
 private const val DEFAULT_RADIUS_FILE_RELATIVE = ".data/raw-cache/map/npcs/npc_radius.txt"
 private const val WIKI_CSV_AREA_HALF_SIZE = 5
 
-data class CsvNpcCoord(
-    val x: Int,
-    val z: Int,
-    val plane: Int,
-)
+data class CsvNpcCoord(val x: Int, val z: Int, val plane: Int)
 
 enum class NpcSpawnSource {
     CSV,
@@ -144,10 +139,12 @@ class NpcSpawnCsvDumper(
                 log.verbose("$title skip wiki — ${error.message}")
                 return 0
             }
-        val npcId = WikiNpcSpawnParser.resolveSingleNpcId(source) ?: run {
-            log.verbose("$title skip wiki — multi-version or missing id")
-            return 0
-        }
+        val npcId =
+            WikiNpcSpawnParser.resolveSingleNpcId(source)
+                ?: run {
+                    log.verbose("$title skip wiki — multi-version or missing id")
+                    return 0
+                }
         val npcKey = npcLookup.toRscm(npcId)
         if (npcKey == null) {
             unresolved += npcId
@@ -162,9 +159,7 @@ class NpcSpawnCsvDumper(
         var added = 0
 
         for (mapSpawn in WikiNpcSpawnParser.parseInfoboxMapSpawns(source)) {
-            mapSpawn.radius?.let { radius ->
-                recordRadius(radii, npcKey, radius, title)
-            }
+            mapSpawn.radius?.let { radius -> recordRadius(radii, npcKey, radius, title) }
             added +=
                 addWikiSpawn(
                     npcKey = npcKey,
@@ -216,7 +211,9 @@ class NpcSpawnCsvDumper(
                 // NPC not in CSV — add wiki spawn as-is.
             }
             csvCoords.size == 1 -> {
-                log.verbose("$pageTitle skip $npcKey @ $x,$z,$plane — single csv instance is authoritative")
+                log.verbose(
+                    "$pageTitle skip $npcKey @ $x,$z,$plane — single csv instance is authoritative"
+                )
                 return 0
             }
             isCoveredByCsvAreas(x, z, plane, csvCoords) -> {
@@ -242,9 +239,7 @@ class NpcSpawnCsvDumper(
         plane: Int,
         csvCoords: List<CsvNpcCoord>,
     ): Boolean =
-        csvCoords.any { csv ->
-            csv.plane == plane && isWithin10x10Area(x, z, csv.x, csv.z)
-        }
+        csvCoords.any { csv -> csv.plane == plane && isWithin10x10Area(x, z, csv.x, csv.z) }
 
     /** Centered 10x10 tile area around a csv coordinate. */
     private fun isWithin10x10Area(x: Int, z: Int, anchorX: Int, anchorZ: Int): Boolean {
@@ -295,10 +290,9 @@ class NpcSpawnCsvDumper(
     fun writeRadiusFile(radii: Map<String, Int>, output: Path) {
         output.parent?.createDirectories()
         val body =
-            radii
-                .toSortedMap()
-                .entries
-                .joinToString(separator = "\n") { (npcKey, radius) -> "$npcKey=$radius" }
+            radii.toSortedMap().entries.joinToString(separator = "\n") { (npcKey, radius) ->
+                "$npcKey=$radius"
+            }
         output.writeText(if (body.isEmpty()) "" else "$body\n")
     }
 
@@ -311,8 +305,7 @@ class NpcSpawnCsvDumper(
             val resolved =
                 areaIndex.resolveArea(spawn.x, spawn.z, spawn.level)
                     ?: ResolvedArea(fileSlug = WikiAreaIndex.unassignedSlug())
-            buckets
-                .getOrPut(resolved.fileSlug) { mutableListOf() } +=
+            buckets.getOrPut(resolved.fileSlug) { mutableListOf() } +=
                 spawn.copy(areaSection = resolved.sectionLabel)
         }
         return buckets.mapValues { (_, bucket) ->
@@ -320,42 +313,41 @@ class NpcSpawnCsvDumper(
         }
     }
 
-    private fun formatToml(spawns: List<ResolvedNpcSpawn>): String =
-        buildString {
-            var currentSection: String? = null
-            val distinctSections = spawns.mapNotNull { it.areaSection }.distinct()
-            val hasUnsectioned = spawns.any { it.areaSection == null }
-            val closeLastSection = hasUnsectioned || distinctSections.size > 1
+    private fun formatToml(spawns: List<ResolvedNpcSpawn>): String = buildString {
+        var currentSection: String? = null
+        val distinctSections = spawns.mapNotNull { it.areaSection }.distinct()
+        val hasUnsectioned = spawns.any { it.areaSection == null }
+        val closeLastSection = hasUnsectioned || distinctSections.size > 1
 
-            fun hasNamedSectionBelow(fromIndex: Int): Boolean =
-                spawns.subList(fromIndex, spawns.size).any { it.areaSection != null }
+        fun hasNamedSectionBelow(fromIndex: Int): Boolean =
+            spawns.subList(fromIndex, spawns.size).any { it.areaSection != null }
 
-            fun closeSectionIfLast(fromIndex: Int) {
-                if (!closeLastSection) {
-                    return
-                }
-                if (currentSection != null && !hasNamedSectionBelow(fromIndex)) {
-                    appendLine("## $currentSection End")
+        fun closeSectionIfLast(fromIndex: Int) {
+            if (!closeLastSection) {
+                return
+            }
+            if (currentSection != null && !hasNamedSectionBelow(fromIndex)) {
+                appendLine("## $currentSection End")
+                appendLine()
+            }
+        }
+
+        for ((index, spawn) in spawns.withIndex()) {
+            if (spawn.areaSection != currentSection) {
+                closeSectionIfLast(fromIndex = index)
+                currentSection = spawn.areaSection
+                if (spawn.areaSection != null) {
+                    appendLine("## ${spawn.areaSection}")
                     appendLine()
                 }
             }
-
-            for ((index, spawn) in spawns.withIndex()) {
-                if (spawn.areaSection != currentSection) {
-                    closeSectionIfLast(fromIndex = index)
-                    currentSection = spawn.areaSection
-                    if (spawn.areaSection != null) {
-                        appendLine("## ${spawn.areaSection}")
-                        appendLine()
-                    }
-                }
-                appendLine("[[spawn]]")
-                appendLine("npc = \"${spawn.npcKey}\"")
-                appendLine("coords = \"${spawn.coords}\"")
-                appendLine()
-            }
-            closeSectionIfLast(fromIndex = spawns.size)
+            appendLine("[[spawn]]")
+            appendLine("npc = \"${spawn.npcKey}\"")
+            appendLine("coords = \"${spawn.coords}\"")
+            appendLine()
         }
+        closeSectionIfLast(fromIndex = spawns.size)
+    }
 
     private fun dedupe(spawns: List<ResolvedNpcSpawn>): List<ResolvedNpcSpawn> =
         spawns.distinctBy { "${it.npcKey}|${it.coords}" }
@@ -408,11 +400,7 @@ private fun resolveInputPath(
     return if (path.isAbsolute) path else (repoRoot ?: Path.of(".")).resolve(path).normalize()
 }
 
-private fun resolveOutputPath(
-    flagValue: String?,
-    default: Path,
-    repoRoot: Path?,
-): Path {
+private fun resolveOutputPath(flagValue: String?, default: Path, repoRoot: Path?): Path {
     if (flagValue == null) {
         return default
     }
@@ -433,7 +421,8 @@ fun main(args: Array<String>) {
     val rlhdAreasUrl =
         flags.firstOrNull { it.startsWith("--rlhd-areas=") }?.substringAfter("--rlhd-areas=")
             ?: RlhdAreaLoader.DEFAULT_RLHD_AREAS_URL
-    val wikiDumpDir = flags.firstOrNull { it.startsWith("--wiki-dump=") }?.substringAfter("--wiki-dump=")
+    val wikiDumpDir =
+        flags.firstOrNull { it.startsWith("--wiki-dump=") }?.substringAfter("--wiki-dump=")
     val rootDir =
         flags.firstOrNull { it.startsWith("--root=") }?.substringAfter("--root=")
             ?: System.getProperty("RSPS_ROOT")
@@ -466,73 +455,73 @@ fun main(args: Array<String>) {
     }
 
     runBlocking {
-        val totalElapsed =
-            measureTimeMillis {
-                GameValLoader.ensureLoaded(rootDir)
-                val dump = NpcDumpFiles.readOrFetch(rootDir, fetchDumpNpc)
-                if (dump.downloaded) {
-                    log.info("downloaded dump.npc to ${dump.source?.toAbsolutePath()?.normalize()}")
-                }
-                val npcLookup = NpcRscmLookup.load(rootDir, dump.text)
-                val csvRows = CsvNpcSpawnReader.read(csvPath)
-                log.info("loaded ${csvRows.size} csv spawn row(s) from ${csvPath.fileName}")
+        val totalElapsed = measureTimeMillis {
+            GameValLoader.ensureLoaded(rootDir)
+            val dump = NpcDumpFiles.readOrFetch(rootDir, fetchDumpNpc)
+            if (dump.downloaded) {
+                log.info("downloaded dump.npc to ${dump.source?.toAbsolutePath()?.normalize()}")
+            }
+            val npcLookup = NpcRscmLookup.load(rootDir, dump.text)
+            val csvRows = CsvNpcSpawnReader.read(csvPath)
+            log.info("loaded ${csvRows.size} csv spawn row(s) from ${csvPath.fileName}")
 
-                WikiClient.open(wikiDumpDir = wikiDumpDir, onPageFetch = { log.onWikiFetch(it) }).use { wiki ->
-                    log.info("loaded ${wiki.loadedPages} wiki page(s)")
+            WikiClient.open(wikiDumpDir = wikiDumpDir, onPageFetch = { log.onWikiFetch(it) }).use {
+                wiki ->
+                log.info("loaded ${wiki.loadedPages} wiki page(s)")
 
-                    val wikiPageTitles =
-                        if (supplementWiki) {
-                            collectWikiSupplementPages(wiki, csvRows, limit, log)
-                        } else {
-                            emptyList()
-                        }
+                val wikiPageTitles =
+                    if (supplementWiki) {
+                        collectWikiSupplementPages(wiki, csvRows, limit, log)
+                    } else {
+                        emptyList()
+                    }
 
-                    val areaIndex =
-                        if (splitByArea) {
-                            WikiAreaIndex.load(
-                                wikiStore = wiki.wikiDumpStore(),
-                                rootDir = repoRoot,
-                                log = log,
-                                rlhdAreasUrl = rlhdAreasUrl,
-                            )
-                        } else {
-                            null
-                        }
-
-                    val dumper = NpcSpawnCsvDumper(npcLookup, wiki, log)
-                    val result = dumper.dump(csvRows, supplementWiki, wikiPageTitles)
-
+                val areaIndex =
                     if (splitByArea) {
-                        requireNotNull(areaIndex)
-                        val buckets = dumper.writeTomlByArea(result.spawns, areaIndex, outputDir)
-                        val unassigned = buckets[WikiAreaIndex.unassignedSlug()] ?: 0
-                        log.info(
-                            "wrote ${result.spawns.size} spawn(s) across ${buckets.size} file(s) " +
-                                "in ${outputDir.toAbsolutePath().normalize()} " +
-                                "($unassigned unassigned)",
+                        WikiAreaIndex.load(
+                            wikiStore = wiki.wikiDumpStore(),
+                            rootDir = repoRoot,
+                            log = log,
+                            rlhdAreasUrl = rlhdAreasUrl,
                         )
                     } else {
-                        val combined = outputDir.resolve("npc_spawns.toml")
-                        dumper.writeToml(result.spawns, combined)
-                        log.info(
-                            "wrote ${result.spawns.size} spawn(s) to ${combined.toAbsolutePath().normalize()}",
-                        )
+                        null
                     }
 
-                    dumper.writeRadiusFile(result.radii, radiusFile)
+                val dumper = NpcSpawnCsvDumper(npcLookup, wiki, log)
+                val result = dumper.dump(csvRows, supplementWiki, wikiPageTitles)
+
+                if (splitByArea) {
+                    requireNotNull(areaIndex)
+                    val buckets = dumper.writeTomlByArea(result.spawns, areaIndex, outputDir)
+                    val unassigned = buckets[WikiAreaIndex.unassignedSlug()] ?: 0
                     log.info(
-                        "wrote ${result.radii.size} npc radius mapping(s) to " +
-                            radiusFile.toAbsolutePath().normalize(),
+                        "wrote ${result.spawns.size} spawn(s) across ${buckets.size} file(s) " +
+                            "in ${outputDir.toAbsolutePath().normalize()} " +
+                            "($unassigned unassigned)"
                     )
+                } else {
+                    val combined = outputDir.resolve("npc_spawns.toml")
+                    dumper.writeToml(result.spawns, combined)
+                    log.info(
+                        "wrote ${result.spawns.size} spawn(s) to ${combined.toAbsolutePath().normalize()}"
+                    )
+                }
 
-                    if (result.wikiAdded > 0) {
-                        log.info("added ${result.wikiAdded} spawn(s) from wiki supplement")
-                    }
-                    if (result.unresolvedNpcIds.isNotEmpty()) {
-                        log.warn("${result.unresolvedNpcIds.size} unresolved npc id(s)")
-                    }
+                dumper.writeRadiusFile(result.radii, radiusFile)
+                log.info(
+                    "wrote ${result.radii.size} npc radius mapping(s) to " +
+                        radiusFile.toAbsolutePath().normalize()
+                )
+
+                if (result.wikiAdded > 0) {
+                    log.info("added ${result.wikiAdded} spawn(s) from wiki supplement")
+                }
+                if (result.unresolvedNpcIds.isNotEmpty()) {
+                    log.warn("${result.unresolvedNpcIds.size} unresolved npc id(s)")
                 }
             }
+        }
         log.summary(1, totalElapsed)
     }
 }
@@ -554,8 +543,9 @@ private suspend fun collectWikiSupplementPages(
     titles += infoboxMapPages
     log.info(
         "wiki supplement will scan ${titles.size} page(s) " +
-            "(${locLinePages.size} LocLine, ${infoboxMapPages.size} Infobox NPC map)",
+            "(${locLinePages.size} LocLine, ${infoboxMapPages.size} Infobox NPC map)"
     )
-    val sorted = titles.filter { it.isNotBlank() && !NpcSpawnFilters.isExcludedWikiPage(it) }.sorted()
+    val sorted =
+        titles.filter { it.isNotBlank() && !NpcSpawnFilters.isExcludedWikiPage(it) }.sorted()
     return if (limit != null) sorted.take(limit) else sorted
 }

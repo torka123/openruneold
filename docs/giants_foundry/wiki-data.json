@@ -1,0 +1,362 @@
+{
+  "schemaVersion": 1,
+  "dataset": "osrs-giants-foundry-wiki-mechanics",
+  "researchedAsOf": "2026-08-27",
+  "scope": "Live OSRS mechanics evidence; cache IDs and OpenRune implementation status are out of scope.",
+  "sources": [
+    {"page":"Giants' Foundry","pageId":358579,"revisionId":15307204,"timestamp":"2026-08-19T16:12:34Z","url":"https://oldschool.runescape.wiki/w/Giants%27_Foundry?oldid=15307204"},
+    {"page":"Giants' Foundry/Strategies","pageId":358711,"revisionId":15275840,"timestamp":"2026-07-26T12:57:10Z","url":"https://oldschool.runescape.wiki/w/Giants%27_Foundry/Strategies?oldid=15275840"},
+    {"page":"Giants' Foundry Reward Shop","pageId":358771,"revisionId":15318598,"timestamp":"2026-08-25T01:43:24Z","url":"https://oldschool.runescape.wiki/w/Giants%27_Foundry_Reward_Shop?oldid=15318598"},
+    {"page":"Foundry Reputation","pageId":358686,"revisionId":14974229,"timestamp":"2025-08-26T07:10:49Z","url":"https://oldschool.runescape.wiki/w/Foundry_Reputation?oldid=14974229"},
+    {"page":"Giants' Foundry/Mould List","pageId":361329,"revisionId":14715973,"timestamp":"2024-08-10T22:44:00Z","url":"https://oldschool.runescape.wiki/w/Giants%27_Foundry/Mould_List?oldid=14715973"},
+    {"page":"Transcript:Kovac","pageId":393109,"revisionId":15162322,"timestamp":"2026-03-31T12:50:53Z","url":"https://oldschool.runescape.wiki/w/Transcript:Kovac?oldid=15162322"},
+    {"page":"Preform","pageId":358715,"revisionId":15190927,"timestamp":"2026-04-22T04:40:52Z","url":"https://oldschool.runescape.wiki/w/Preform?oldid=15190927"},
+    {"page":"Preform storage","pageId":358734,"revisionId":14998309,"timestamp":"2025-10-03T05:49:40Z","url":"https://oldschool.runescape.wiki/w/Preform_storage?oldid=14998309"},
+    {"page":"Crucible","pageId":361219,"revisionId":15202175,"timestamp":"2026-04-29T05:38:56Z","url":"https://oldschool.runescape.wiki/w/Crucible?oldid=15202175"},
+    {"page":"Sleeping Giants","pageId":358593,"revisionId":15241064,"timestamp":"2026-06-27T15:20:22Z","url":"https://oldschool.runescape.wiki/w/Sleeping_Giants?oldid=15241064"},
+    {"page":"Smiths' Uniform","pageId":358683,"revisionId":15276149,"timestamp":"2026-07-26T21:05:21Z","url":"https://oldschool.runescape.wiki/w/Smiths%27_Uniform?oldid=15276149"},
+    {"page":"Double ammo mould","pageId":358646,"revisionId":15190919,"timestamp":"2026-04-22T04:40:48Z","url":"https://oldschool.runescape.wiki/w/Double_ammo_mould?oldid=15190919"},
+    {"page":"Smithing catalyst","pageId":358679,"revisionId":15190922,"timestamp":"2026-04-22T04:40:50Z","url":"https://oldschool.runescape.wiki/w/Smithing_catalyst?oldid=15190922"},
+    {"page":"Ore pack (Giants' Foundry)","pageId":358726,"revisionId":15190928,"timestamp":"2026-04-22T04:40:52Z","url":"https://oldschool.runescape.wiki/w/Ore_pack_%28Giants%27_Foundry%29?oldid=15190928"},
+    {"page":"Kovac's grog","pageId":358651,"revisionId":15304454,"timestamp":"2026-08-17T18:03:13Z","url":"https://oldschool.runescape.wiki/w/Kovac%27s_grog?oldid=15304454"},
+    {"page":"Colossal blade","pageId":358654,"revisionId":15261790,"timestamp":"2026-07-12T13:05:07Z","url":"https://oldschool.runescape.wiki/w/Colossal_blade?oldid=15261790"},
+    {"page":"Update:Q&A Summary 09/06/2022","pageId":359375,"revisionId":14296513,"timestamp":"2022-06-21T17:55:05Z","url":"https://oldschool.runescape.wiki/w/Update:Q%26A_Summary_09/06/2022?oldid=14296513"},
+    {"page":"Update:Giants' Foundry","pageId":358643,"revisionId":14293393,"timestamp":"2022-06-09T15:15:59Z","url":"https://oldschool.runescape.wiki/w/Update:Giants%27_Foundry?oldid=14293393"},
+    {"page":"Update:Giants' Foundry Changes","pageId":359140,"revisionId":14295784,"timestamp":"2022-06-18T06:17:51Z","url":"https://oldschool.runescape.wiki/w/Update:Giants%27_Foundry_Changes?oldid=14295784"},
+    {"page":"Update:Poll 78 Updates & More","pageId":376448,"revisionId":14375650,"timestamp":"2023-02-11T09:51:33Z","url":"https://oldschool.runescape.wiki/w/Update:Poll_78_Updates_%26_More?oldid=14375650"},
+    {"page":"Update:More Poll 84 & Yama Prep","pageId":579763,"revisionId":14896480,"timestamp":"2025-05-07T12:49:43Z","url":"https://oldschool.runescape.wiki/w/Update:More_Poll_84_%26_Yama_Prep?oldid=14896480"}
+  ],
+  "access": {
+    "members": true,
+    "safe": true,
+    "postTutorialInstanced": false,
+    "requiredQuest": "Sleeping Giants",
+    "questSmithingLevel": 15,
+    "questLevelBoostAllowed": false,
+    "questRewards": {"questPoints":1,"smithingXp":6000},
+    "requiredPickupAid": ["bucket of water", "ice gloves", "smiths gloves (i)"],
+    "normalMaterialCapacity": 28,
+    "confidence": "high"
+  },
+  "commissions": {
+    "firstDescriptorPool": ["broad", "heavy", "light", "narrow"],
+    "secondDescriptorPool": ["flat", "heavy", "light", "spiked"],
+    "invalidPairs": [["heavy","heavy"],["light","light"]],
+    "validPairs": [
+      ["broad","heavy"], ["broad","light"], ["broad","spiked"], ["broad","flat"],
+      ["narrow","heavy"], ["narrow","light"], ["narrow","spiked"], ["narrow","flat"],
+      ["heavy","spiked"], ["heavy","flat"], ["light","spiked"], ["light","flat"]
+    ],
+    "weighting": {"publicStatement":"No weights as such; invalid combinations are prevented.","implementationAssumption":"Uniform over the 12 valid pairs is plausible but not proven.","confidence":"medium"},
+    "timer": {"starts":"commission assignment","stops":"successful or ruined hand-in","pausedByStorage":false,"longElapsedDisplayOmissionThreshold":"unresolved"},
+    "cancellable": false,
+    "cancellationAlternative": ["complete", "ruin and hand in", "store indefinitely"],
+    "personalBestOrder": ["higher final quality", "shorter elapsed time as equal-quality tie-break"]
+  },
+  "descriptors": ["broad", "narrow", "heavy", "light", "spiked", "flat"],
+  "mouldScoring": {
+    "slots": ["forte", "blade", "tip"],
+    "formula": "sum(selectedPart.score[commissionDescriptorA] + selectedPart.score[commissionDescriptorB]) for forte, blade, tip",
+    "affectsDifficulty": false,
+    "maximum": 69,
+    "defaultOptimalAverage": 38,
+    "allUnlockedOptimalAverage": 59,
+    "allUnlockCost": 5400,
+    "purchaseBelowLevelAllowed": true,
+    "levelCheckMoment": "pour",
+    "boostAllowed": true,
+    "unlockType": "permanent",
+    "moulds": [
+      {"name":"Chopper Forte","slot":"forte","default":true,"level":null,"cost":0,"scores":{"broad":4,"narrow":0,"heavy":0,"light":4,"spiked":0,"flat":4}},
+      {"name":"Gladius Ricasso","slot":"forte","default":true,"level":null,"cost":0,"scores":{"broad":4,"narrow":0,"heavy":4,"light":0,"spiked":0,"flat":4}},
+      {"name":"Disarming Forte","slot":"forte","default":true,"level":null,"cost":0,"scores":{"broad":0,"narrow":4,"heavy":0,"light":4,"spiked":4,"flat":0}},
+      {"name":"Medusa Ricasso","slot":"forte","default":true,"level":null,"cost":0,"scores":{"broad":8,"narrow":0,"heavy":6,"light":0,"spiked":0,"flat":8}},
+      {"name":"Serpent Ricasso","slot":"forte","default":true,"level":null,"cost":0,"scores":{"broad":0,"narrow":6,"heavy":0,"light":8,"spiked":0,"flat":8}},
+      {"name":"Serrated Forte","slot":"forte","default":true,"level":null,"cost":0,"scores":{"broad":0,"narrow":8,"heavy":8,"light":0,"spiked":6,"flat":0}},
+      {"name":"Saw Blade","slot":"blade","default":true,"level":null,"cost":0,"scores":{"broad":4,"narrow":0,"heavy":0,"light":4,"spiked":4,"flat":0}},
+      {"name":"Defenders Edge","slot":"blade","default":true,"level":null,"cost":0,"scores":{"broad":4,"narrow":0,"heavy":4,"light":0,"spiked":4,"flat":0}},
+      {"name":"Fish Blade","slot":"blade","default":true,"level":null,"cost":0,"scores":{"broad":0,"narrow":4,"heavy":0,"light":4,"spiked":0,"flat":4}},
+      {"name":"Medusa Blade","slot":"blade","default":true,"level":null,"cost":0,"scores":{"broad":8,"narrow":0,"heavy":8,"light":0,"spiked":0,"flat":6}},
+      {"name":"Stiletto Blade","slot":"blade","default":true,"level":null,"cost":0,"scores":{"broad":0,"narrow":8,"heavy":0,"light":6,"spiked":0,"flat":8}},
+      {"name":"Gladius Edge","slot":"blade","default":true,"level":null,"cost":0,"scores":{"broad":0,"narrow":6,"heavy":8,"light":0,"spiked":0,"flat":8}},
+      {"name":"People Poker Point","slot":"tip","default":true,"level":null,"cost":0,"scores":{"broad":0,"narrow":4,"heavy":4,"light":0,"spiked":0,"flat":4}},
+      {"name":"Chopper Tip","slot":"tip","default":true,"level":null,"cost":0,"scores":{"broad":4,"narrow":0,"heavy":0,"light":4,"spiked":4,"flat":0}},
+      {"name":"Medusa's Head","slot":"tip","default":true,"level":null,"cost":0,"scores":{"broad":4,"narrow":0,"heavy":4,"light":0,"spiked":4,"flat":0}},
+      {"name":"Serpent's Fang","slot":"tip","default":true,"level":null,"cost":0,"scores":{"broad":0,"narrow":8,"heavy":0,"light":6,"spiked":8,"flat":0}},
+      {"name":"Gladius Point","slot":"tip","default":true,"level":null,"cost":0,"scores":{"broad":0,"narrow":8,"heavy":8,"light":0,"spiked":0,"flat":6}},
+      {"name":"Saw Tip","slot":"tip","default":true,"level":null,"cost":0,"scores":{"broad":6,"narrow":0,"heavy":8,"light":0,"spiked":8,"flat":0}},
+      {"name":"Stiletto Forte","slot":"forte","default":false,"level":50,"cost":300,"scores":{"broad":0,"narrow":8,"heavy":0,"light":10,"spiked":0,"flat":8}},
+      {"name":"Defender Base","slot":"forte","default":false,"level":51,"cost":300,"scores":{"broad":8,"narrow":0,"heavy":10,"light":0,"spiked":0,"flat":8}},
+      {"name":"Juggernaut Forte","slot":"forte","default":false,"level":61,"cost":350,"scores":{"broad":4,"narrow":0,"heavy":4,"light":0,"spiked":16,"flat":0}},
+      {"name":"Chopper Forte +1","slot":"forte","default":false,"level":70,"cost":400,"scores":{"broad":3,"narrow":0,"heavy":0,"light":4,"spiked":0,"flat":18}},
+      {"name":"Spiker!","slot":"forte","default":false,"level":79,"cost":450,"scores":{"broad":0,"narrow":1,"heavy":2,"light":0,"spiked":22,"flat":0}},
+      {"name":"Flamberge Blade","slot":"blade","default":false,"level":48,"cost":300,"scores":{"broad":0,"narrow":8,"heavy":0,"light":8,"spiked":10,"flat":0}},
+      {"name":"Serpent Blade","slot":"blade","default":false,"level":50,"cost":300,"scores":{"broad":0,"narrow":10,"heavy":0,"light":8,"spiked":0,"flat":8}},
+      {"name":"Claymore Blade","slot":"blade","default":false,"level":59,"cost":350,"scores":{"broad":16,"narrow":0,"heavy":4,"light":0,"spiked":0,"flat":4}},
+      {"name":"Fleur de Blade","slot":"blade","default":false,"level":71,"cost":400,"scores":{"broad":4,"narrow":0,"heavy":18,"light":0,"spiked":1,"flat":0}},
+      {"name":"Choppa!","slot":"blade","default":false,"level":80,"cost":450,"scores":{"broad":1,"narrow":0,"heavy":0,"light":22,"spiked":0,"flat":2}},
+      {"name":"Corrupted Point","slot":"tip","default":false,"level":49,"cost":300,"scores":{"broad":0,"narrow":8,"heavy":0,"light":10,"spiked":8,"flat":0}},
+      {"name":"Defenders Tip","slot":"tip","default":false,"level":52,"cost":300,"scores":{"broad":10,"narrow":0,"heavy":8,"light":0,"spiked":8,"flat":0}},
+      {"name":"Serrated Tip","slot":"tip","default":false,"level":60,"cost":350,"scores":{"broad":0,"narrow":4,"heavy":0,"light":16,"spiked":4,"flat":0}},
+      {"name":"Needle Point","slot":"tip","default":false,"level":69,"cost":400,"scores":{"broad":0,"narrow":18,"heavy":0,"light":3,"spiked":0,"flat":4}},
+      {"name":"The Point!","slot":"tip","default":false,"level":81,"cost":450,"scores":{"broad":2,"narrow":0,"heavy":0,"light":1,"spiked":0,"flat":22}}
+    ],
+    "bestScores": {
+      "default": {"broad-heavy":44,"broad-light":24,"broad-spiked":30,"broad-flat":36,"narrow-heavy":46,"narrow-light":42,"narrow-spiked":38,"narrow-flat":44,"heavy-spiked":38,"heavy-flat":44,"light-spiked":30,"light-flat":36},
+      "allUnlocked": {"broad-heavy":58,"broad-light":49,"broad-spiked":56,"broad-flat":65,"narrow-heavy":52,"narrow-light":61,"narrow-spiked":59,"narrow-flat":58,"heavy-spiked":59,"heavy-flat":58,"light-spiked":64,"light-flat":69}
+    },
+    "allUnlockedOptimalSelections": {
+      "broad-heavy":["Defender Base","Fleur de Blade","Defenders Tip"],
+      "broad-light":["Stiletto Forte","Choppa!","Serrated Tip"],
+      "broad-spiked":["Spiker!","Claymore Blade","Defenders Tip"],
+      "broad-flat":["Chopper Forte +1","Claymore Blade","The Point!"],
+      "narrow-heavy":["Serrated Forte","Fleur de Blade","Needle Point"],
+      "narrow-light":["Stiletto Forte","Choppa!","Needle Point"],
+      "narrow-spiked":["Spiker!","Flamberge Blade","Needle Point"],
+      "narrow-flat":["Chopper Forte +1","Serpent Blade","Needle Point"],
+      "heavy-spiked":["Spiker!","Fleur de Blade","Saw Tip"],
+      "heavy-flat":["Defender Base","Fleur de Blade","The Point!"],
+      "light-spiked":["Spiker!","Choppa!","Serrated Tip"],
+      "light-flat":["Chopper Forte +1","Choppa!","The Point!"]
+    }
+  },
+  "materials": {
+    "capacity": 28,
+    "tiers": [
+      {"name":"bronze","tier":1,"smithingLevel":15,"pureScore":10},
+      {"name":"iron","tier":2,"smithingLevel":15,"pureScore":20},
+      {"name":"steel","tier":3,"smithingLevel":30,"pureScore":30},
+      {"name":"mithril","tier":4,"smithingLevel":50,"pureScore":40},
+      {"name":"adamant","tier":5,"smithingLevel":70,"pureScore":50},
+      {"name":"rune","tier":6,"smithingLevel":85,"pureScore":60}
+    ],
+    "barEquivalent": 1,
+    "equipmentEquivalentFormula": "smithingBarCost - 1",
+    "equipmentBarEquivalents": {
+      "1":["scimitar","longsword","full helm","square shield","claws"],
+      "2":["warhammer","battleaxe","chainbody","kiteshield","2h sword","platelegs","plateskirt"],
+      "4":["platebody"]
+    },
+    "rejectedCategories": ["one-bar smithing products", "black equipment", "white equipment", "dragon equipment", "ornamental or trimmed equipment", "lead", "cupronickel", "keel parts", "lovakite", "blurite", "elemental"],
+    "overflow": "warn then destroy excess if confirmed",
+    "empty": "destroy all contents",
+    "pourBlockedByExistingUnhandedPreform": true,
+    "boostsAllowedAtAdd": true,
+    "topTwoScoringRule": "sort by amount descending, then tier descending; only first two contribute score",
+    "notedItemAcceptance": {"status":"unresolved","reason":"Not explicitly stated by the pinned pages."}
+  },
+  "metalScore": {
+    "tierMap": {"bronze":1,"iron":2,"steel":3,"mithril":4,"adamant":5,"rune":6},
+    "componentFormula": "Vn = 10 * tier_n * amount_n / 28",
+    "totalFormula": "floor((floor(10*V1) + floor(10*V2) + floor(V1*V2)) / 10)",
+    "roundingOrder": ["compute V1 and V2 without preliminary rounding", "floor 10*V1", "floor 10*V2", "floor V1*V2", "sum", "divide by 10", "floor"],
+    "pureMetalSecondComponent": 0,
+    "min": 10,
+    "max": 130,
+    "testVectors": [
+      {"amounts":{"bronze":28},"score":10,"sections":3},
+      {"amounts":{"iron":28},"score":20,"sections":4},
+      {"amounts":{"steel":28},"score":30,"sections":4},
+      {"amounts":{"mithril":28},"score":40,"sections":4},
+      {"amounts":{"adamant":28},"score":50,"sections":4},
+      {"amounts":{"rune":28},"score":60,"sections":5},
+      {"amounts":{"steel":19,"mithril":9},"score":59,"sections":4},
+      {"amounts":{"mithril":18,"adamant":10},"score":89,"sections":5},
+      {"amounts":{"adamant":19,"rune":9},"score":118,"sections":6},
+      {"amounts":{"adamant":14,"rune":14},"score":130,"sections":7}
+    ]
+  },
+  "quality": {
+    "initialFormula": "metalScore + mouldScore",
+    "documentedRange": [10,199],
+    "damageConflict": {
+      "gameplayStatement": "10 quality points per damaging wrong-tool or wrong-temperature action",
+      "rewardsStatement": "metal score + mould score - 5 per mistake",
+      "status": "unresolved-current-source-conflict",
+      "requiredAction": "Verify client HUD units and server hand-in value before choosing a constant."
+    },
+    "ruinedAt": 0,
+    "ruinedWorkBlocked": true,
+    "ruinedReward": {"smithingXp":30,"coins":60,"quality":0}
+  },
+  "difficulty": {
+    "sectionBands": [
+      {"minMetalScore":10,"maxMetalScore":19,"sections":3},
+      {"minMetalScore":20,"maxMetalScore":59,"sections":4},
+      {"minMetalScore":60,"maxMetalScore":89,"sections":5},
+      {"minMetalScore":90,"maxMetalScore":119,"sections":6},
+      {"minMetalScore":120,"maxMetalScore":130,"sections":7}
+    ],
+    "heatRangeScaling": "linear narrowing to half original width at metal score 130",
+    "exactHeatBoundaries": "unresolved"
+  },
+  "preform": {
+    "automaticallyEquipped": true,
+    "equipmentHands": 2,
+    "ordinaryUnequipAllowed": false,
+    "ordinaryDiscardAllowed": false,
+    "pickupRequirementsAny": ["bucket of water", "ice gloves", "smiths gloves (i)"],
+    "resolutionPaths": ["complete and hand in", "ruin and hand in", "store"],
+    "storage": {"preservesProgress":true,"preservesHeat":true,"pausesCommissionTimer":false,"autoOnCaveExit":true,"autoOnTeleport":true,"returnOrLoginMessage":"You notice your current commission is being kept warm in the preform storage."}
+  },
+  "processing": {
+    "machines": [
+      {"name":"trip hammer","requiredHeat":"hot","actionEveryTicks":5,"progressPercent":2.0,"heatDeltaPercent":-2.5,"smithingXp":4.5},
+      {"name":"grindstone","requiredHeat":"medium","actionEveryTicks":2,"progressPercent":1.0,"heatDeltaPercent":1.5,"smithingXp":3.2},
+      {"name":"polishing wheel","requiredHeat":"cold","actionEveryTicks":2,"progressPercent":1.0,"heatDeltaPercent":-1.7,"smithingXp":3.3}
+    ],
+    "temperatureStations": {
+      "lavaPool":[{"option":"Heat-preform","initialRate":"slow","accelerates":true},{"option":"Dunk-preform","initialRate":"fast","accelerates":true}],
+      "waterfall":[{"option":"Cool-preform","initialRate":"slow","accelerates":true},{"option":"Quench-preform","initialRate":"fast","accelerates":true}]
+    },
+    "accelerationCurve": "unresolved; strategy description says unattended change can approach 10% of full bar per tick",
+    "passiveCooling": "oscillating and unreliable; exact sequence unresolved",
+    "overwork": {"trigger":"click machine while already working, outside sweet spot","effect":"next machine action grants no progress","damagesQuality":false},
+    "wrongMachineOrHeat": {"effect":"quality damage","amount":"unresolved due current source conflict"},
+    "sameTickOrder": "unresolved"
+  },
+  "sweetSpots": {
+    "appears": "immediately after a machine tick while operating",
+    "windowTicksApprox": 10,
+    "windowSecondsApprox": 6,
+    "activation": "single machine click during window; border turns green",
+    "appliesOn": "next successful machine action",
+    "bonusProgressPercentApprox": 5,
+    "xpMultiplier": 2,
+    "restoresLostQualitySince": "2025-05-07",
+    "qualityRestoreAmount": "unresolved; described only as a unit/portion",
+    "requiresCorrectMachineAndHeat": true,
+    "canCrossSectionBoundary": true,
+    "maximumBySections": {"3":2,"4":2,"5":2,"6":3,"7":3},
+    "missConsumesOpportunity": true,
+    "exactScheduling": "unresolved"
+  },
+  "handIn": {
+    "xpFormula": "(floor(q*q/73) + floor(1.5*q) + 1) * 30",
+    "coinFormula": "2 * smithingXp",
+    "reputationFormula": "q",
+    "runEnergyRestorePercentagePoints": 50,
+    "coinDestination":"bank",
+    "ultimateIronCoinDestination":"inventory",
+    "coinPlaceholderSupported":true,
+    "resultShows":["final quality","elapsed time","personal best quality","personal best time","Smithing XP","coins","total swords made"],
+    "testVectors":[
+      {"q":0,"xp":30,"coins":60},
+      {"q":133,"xp":13260,"coins":26520},
+      {"q":153,"xp":16500,"coins":33000},
+      {"q":156,"xp":17040,"coins":34080},
+      {"q":168,"xp":19170,"coins":38340},
+      {"q":176,"xp":20670,"coins":41340},
+      {"q":188,"xp":23010,"coins":46020},
+      {"q":199,"xp":25230,"coins":50460}
+    ]
+  },
+  "rewardShop": {
+    "currency":"Foundry Reputation",
+    "infiniteStock":true,
+    "restockTimer":null,
+    "bankPinProtected":true,
+    "items":[
+      {"name":"Double ammo mould","cost":2000,"buyback":1600,"gate":"Dwarf Cannon complete","collectionLog":true},
+      {"name":"Kovac's grog","cost":300,"buyback":null,"gate":null,"collectionLog":true},
+      {"name":"Smithing catalyst","cost":15,"buyback":12,"gate":null,"collectionLog":true},
+      {"name":"Ore pack","cost":200,"buyback":160,"gate":null,"collectionLog":true},
+      {"name":"Smiths tunic","cost":4000,"buyback":3200,"gate":null,"collectionLog":true},
+      {"name":"Smiths trousers","cost":4000,"buyback":3200,"gate":null,"collectionLog":true},
+      {"name":"Smiths boots","cost":3500,"buyback":2800,"gate":null,"collectionLog":true},
+      {"name":"Smiths gloves","cost":3500,"buyback":2800,"gate":null,"collectionLog":true},
+      {"name":"Colossal blade","cost":5000,"buyback":null,"gate":null,"collectionLog":true}
+    ],
+    "allItemCostExcludingMoulds":22515,
+    "allItemAndMouldCost":27915,
+    "duplicateUniquePurchaseRules":"unresolved"
+  },
+  "externalRewards": {
+    "smithsUniform": {
+      "pieceCostTotal":15000,
+      "pieces":["Smiths tunic","Smiths trousers","Smiths boots","Smiths gloves"],
+      "anvilFourTickChancePercentByPieces":{"0":0,"1":20,"2":40,"3":60,"4":100},
+      "normalAnvilTicks":5,
+      "reducedAnvilTicks":4,
+      "foundryProgressChancePercentByPieces":{"0":0,"1":20,"2":40,"3":60,"4":100},
+      "foundryProgressBonus":{"tripHammerPercent":5,"grindstonePercent":10,"polishingWheelPercent":10},
+      "estimatedFullSetXpPerHourIncreasePercent":20,
+      "glovesCombineWithIceGloves":true,
+      "excludedProducts":["incendiary cannonballs","dragon metal sheets"]
+    },
+    "doubleAmmoMould": {
+      "dwarfCannonRequiredToBuy":true,
+      "barsPerAction":2,
+      "cannonballsPerAction":8,
+      "tiers":[
+        {"metal":"bronze","level":5,"xpPerTwoBars":18},
+        {"metal":"iron","level":20,"xpPerTwoBars":34},
+        {"metal":"steel","level":35,"xpPerTwoBars":51.2},
+        {"metal":"mithril","level":55,"xpPerTwoBars":68},
+        {"metal":"adamant","level":75,"xpPerTwoBars":85},
+        {"metal":"rune","level":90,"xpPerTwoBars":101}
+      ],
+      "goldQuestOperation":{"goldBars":2,"goldCannonballs":2,"xp":75},
+      "ancientFurnaceExternalSpeedMultiplier":2
+    },
+    "smithingCatalyst": {
+      "consumedPerProducedCoalBar":1,
+      "normalFurnaceCoalMultiplier":0.5,
+      "normalFurnaceXpMultiplier":2,
+      "superheatCoalMultiplier":0.5,
+      "superheatXpMultiplier":2,
+      "blastFurnaceCoalMultiplier":1,
+      "blastFurnaceXpMultiplier":2,
+      "supportedCoalUsingRecipes":["elemental bar","steel bar","lovakite bar","mithril bar","adamantite bar","runite bar"]
+    },
+    "orePack": {
+      "rolls":30,
+      "noted":true,
+      "independentRolls":true,
+      "levelInfluence":false,
+      "distributionType":"empirical estimate; not authoritative exact RNG",
+      "sample":{"packs":1913,"rolls":57390,"counts":{"coal":46854,"iron":5803,"mithril":3701,"adamantite":870,"runite":162}},
+      "estimatedProbability":{"coal":0.8164140094,"iron":0.1011151769,"mithril":0.0644885869,"adamantite":0.0151594354,"runite":0.0028227914}
+    },
+    "kovacsGrog": {"hitpointsRestore":1,"smithingBoost":4,"attackDrain":2,"rangedDrain":2,"magicDrain":2,"tradeable":true,"noteable":true},
+    "colossalBlade": {
+      "attackRequirement":60,"twoHanded":true,"specialAttack":false,"attackSpeed":6,"attackRange":1,
+      "stats":{"attackStab":-4,"attackSlash":98,"attackCrush":65,"attackMagic":-4,"attackRanged":0,"defenceStab":0,"defenceSlash":0,"defenceCrush":0,"defenceMagic":0,"defenceRanged":-1,"meleeStrength":100},
+      "maxHitPassive":"2 * min(targetSize, 5)","maximumPassiveBonus":10,"stacksWithBlackMask":true,
+      "tradeable":false,"noteable":false,"alchable":false,"perduReclaimCoins":300000,"pvpKillerCoins":225000
+    }
+  },
+  "lifecycle": {
+    "manualStorage":{"progress":"preserved","heat":"preserved","commissionTimer":"continues"},
+    "caveExit":"auto-store",
+    "teleport":"auto-store",
+    "returnOrLogin":"stored-commission reminder",
+    "commissionCancel":"refused",
+    "ruinedHandIn":{"xp":30,"coins":60},
+    "worldHop":"unresolved",
+    "serverRestart":"unresolved",
+    "forcedDeath":"unresolved; normal activity is safe",
+    "inventoryFull":"partially unresolved",
+    "multiPlayerStationContention":"unresolved; shared activity with per-player state implied"
+  },
+  "historicalChanges": [
+    {"date":"2025-05-07","change":"Prompt sweet-spot actions restore a portion of lost quality."},
+    {"date":"2023-02-08","change":"Eligible reward items gain 80% buyback; Colossal blade and grog excluded."},
+    {"date":"2022-07-13","change":"Reward shop Bank-PIN protection and commission coin-placeholder support."},
+    {"date":"2022-06-29","change":"Coins route to bank, total sword count appears, sweet spots more evenly distributed."},
+    {"date":"2022-06-15","change":"Best moulds sort first; next-commission confirmation removed; finished-sword examine movement fixed; crucible input-X remembered; mould-jig scroll/facing fixed."},
+    {"date":"2022-06","change":"Hotfix prevents erroneous trip-hammer quality loss."}
+  ],
+  "unresolved": [
+    {"id":"heat-bands","confidence":"low","fact":"Exact heat boundaries and linear scaling rounding."},
+    {"id":"temperature-tick-order","confidence":"low","fact":"Lava/water acceleration, passive cooling and same-tick ordering."},
+    {"id":"quality-penalty-conflict","confidence":"conflict","fact":"10 quality per damaging action versus 5 per mistake in current rewards prose."},
+    {"id":"sweet-spot","confidence":"medium-low","fact":"Exact RNG/distribution, exact bonus progress and exact restored quality."},
+    {"id":"commission-rng","confidence":"medium","fact":"Exact RNG despite official no-weights statement."},
+    {"id":"ore-pack-rng","confidence":"medium","fact":"Published distribution is empirical, not exact."},
+    {"id":"noted-crucible-input","confidence":"unknown","fact":"Noted bar/equipment acceptance."},
+    {"id":"unique-purchase-gates","confidence":"unknown","fact":"Duplicate-purchase behaviour for unique shop items."},
+    {"id":"lifecycle-gaps","confidence":"unknown","fact":"World hop, server restart, forced death, full inventory, long timer omission threshold."},
+    {"id":"cache-assets","confidence":"out-of-scope","fact":"Revision-240 loc/npc/item IDs, vars, interfaces, animations, graphics, sounds and packet ordering."}
+  ]
+}

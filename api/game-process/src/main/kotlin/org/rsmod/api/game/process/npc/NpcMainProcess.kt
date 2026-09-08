@@ -29,8 +29,11 @@ constructor(
 ) {
     public fun process() {
         for (npc in npcList) {
-            npc.processedMapClock = mapClock.cycle
-            npc.previousCoords = npc.coords
+            // Repository removal invalidates the slot immediately, but the current NpcList
+            // iterator may still contain the old reference until this cycle finishes. Never let
+            // that stale actor enter another processing stage.
+            if (!npc.isSlotAssigned) continue
+            npc.beginMainCycle(mapClock.cycle)
             npc.tryOrDespawn {
                 resumePausedProcess()
                 revealProcess()
@@ -47,71 +50,84 @@ constructor(
     }
 
     private fun Npc.resumePausedProcess() {
-        if (canProcess) {
+        if (isProcessable) {
             advanceActiveCoroutine()
         }
     }
 
     private fun Npc.revealProcess() {
-        reveal.process(this)
+        if (isSlotAssigned) {
+            reveal.process(this)
+        }
     }
 
     private fun Npc.processHunt() {
-        if (canProcess) {
+        if (isProcessable) {
             hunt.process(this)
         }
     }
 
     private fun Npc.processRegen() {
-        if (canProcess) {
+        if (isProcessable) {
             regen.process(this)
         }
     }
 
     private fun Npc.processAiTimer() {
-        if (canProcess) {
+        if (isProcessable) {
             aiTimers.process(this)
         }
     }
 
     private fun Npc.processAiQueues() {
-        if (canProcess) {
+        if (isProcessable) {
             aiQueues.process(this)
         }
     }
 
     private fun Npc.processQueues() {
-        if (canProcess) {
+        if (isProcessable) {
             queues.process(this)
         }
     }
 
     private fun Npc.processTimers() {
-        if (canProcess) {
+        if (isProcessable) {
             timers.process(this)
         }
     }
 
     private fun Npc.processModes() {
-        if (canProcess) {
+        if (isProcessable) {
             modes.process(this)
         }
     }
 
     private fun Npc.processInteractions() {
-        if (canProcess) {
+        if (isProcessable) {
             interactions.process(this)
         }
     }
+
+    private val Npc.isProcessable: Boolean
+        get() = isSlotAssigned && canProcess
 
     private inline fun Npc.tryOrDespawn(block: Npc.() -> Unit) =
         try {
             block(this)
         } catch (e: Exception) {
-            registry.del(this)
+            if (isSlotAssigned) registry.del(this)
             exceptionHandler.handle(e) { "Error processing main cycle for npc: $this." }
         } catch (e: NotImplementedError) {
-            registry.del(this)
+            if (isSlotAssigned) registry.del(this)
             exceptionHandler.handle(e) { "Error processing main cycle for npc: $this." }
         }
+}
+
+internal fun Npc.beginMainCycle(cycle: Int) {
+    processedMapClock = cycle
+    // Scripted encounters can move an npc from an earlier actor's cycle. Preserve the origin of
+    // that already-pending step instead of rewriting it to the destination and encoding a 0,0
+    // walk during post-tick.
+    if (!hasMovedThisCycle) previousCoords = coords
 }

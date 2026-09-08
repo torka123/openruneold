@@ -1,0 +1,1171 @@
+# Bank interaction metadata restored from the revision 240 cache.
+# Keep these definitions in raw-cache source so cache rebuilds retain bank dispatch.
+
+[[object]]
+id = "loc.ahoy_bankbooth"
+inherit = "loc.ahoy_bankbooth"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.ahoy_bankbooth_deadman"
+inherit = "loc.ahoy_bankbooth_deadman"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.ahoy_bankbooth_multi"
+inherit = "loc.ahoy_bankbooth_multi"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.aide_bankbooth_deadman"
+inherit = "loc.aide_bankbooth_deadman"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.archeeus_bank_booth_open_01"
+inherit = "loc.archeeus_bank_booth_open_01"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.archeeus_bank_booth_open_02"
+inherit = "loc.archeeus_bank_booth_open_02"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.archeeus_bank_booth_open_03"
+inherit = "loc.archeeus_bank_booth_open_03"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.archeeus_bank_booth_open_04"
+inherit = "loc.archeeus_bank_booth_open_04"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.bankbooth"
+inherit = "loc.bankbooth"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.bankbooth_ap1"
+inherit = "loc.bankbooth_ap1"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.bankbooth_deadman"
+inherit = "loc.bankbooth_deadman"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.bankbooth_end_left"
+inherit = "loc.bankbooth_end_left"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.bankbooth_end_right"
+inherit = "loc.bankbooth_end_right"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.bankbooth_multi"
+inherit = "loc.bankbooth_multi"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.banktable_breakroute_bankable"
+inherit = "loc.banktable_breakroute_bankable"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.booth_bank01_talkasti01"
+inherit = "loc.booth_bank01_talkasti01"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.cam_torum_bank_table"
+inherit = "loc.cam_torum_bank_table"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.cam_torum_bank_table02"
+inherit = "loc.cam_torum_bank_table02"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.canafis_bankbooth"
+inherit = "loc.canafis_bankbooth"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.conch_tortugan_bankbooth01"
+inherit = "loc.conch_tortugan_bankbooth01"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.contact_bank_booth"
+inherit = "loc.contact_bank_booth"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.contact_bank_booth_deadman"
+inherit = "loc.contact_bank_booth_deadman"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.contact_bank_booth_multi"
+inherit = "loc.contact_bank_booth_multi"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.darkm_bankbooth"
+inherit = "loc.darkm_bankbooth"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.dorgesh_bank_booth"
+inherit = "loc.dorgesh_bank_booth"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.dwarf_keldagrim_bankbooth"
+inherit = "loc.dwarf_keldagrim_bankbooth"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.elf_village_bankcounter"
+inherit = "loc.elf_village_bankcounter"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.elid_bankbooth"
+inherit = "loc.elid_bankbooth"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.exchange_bank_wall_bank"
+inherit = "loc.exchange_bank_wall_bank"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.exchange_bank_wall_bank_3ops"
+inherit = "loc.exchange_bank_wall_bank_3ops"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.fai_falador_bankbooth"
+inherit = "loc.fai_falador_bankbooth"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.fai_falador_bankbooth_deadman"
+inherit = "loc.fai_falador_bankbooth_deadman"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.fai_falador_bankbooth_multi"
+inherit = "loc.fai_falador_bankbooth_multi"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.fai_varrock_bankbooth_deadman"
+inherit = "loc.fai_varrock_bankbooth_deadman"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.fai_varrock_bankbooth_multi"
+inherit = "loc.fai_varrock_bankbooth_multi"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.fever_bankbooth"
+inherit = "loc.fever_bankbooth"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.gim_island_bankbooth"
+inherit = "loc.gim_island_bankbooth"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.kr_bankbooth"
+inherit = "loc.kr_bankbooth"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.kr_bankbooth_deadman"
+inherit = "loc.kr_bankbooth_deadman"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.kr_bankbooth_multi"
+inherit = "loc.kr_bankbooth_multi"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.lova_bank_booth_01"
+inherit = "loc.lova_bank_booth_01"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.lova_bank_booth_02"
+inherit = "loc.lova_bank_booth_02"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.lova_bank_booth_03"
+inherit = "loc.lova_bank_booth_03"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.lova_bank_booth_04"
+inherit = "loc.lova_bank_booth_04"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.lunar_moonclan_bankbooth"
+inherit = "loc.lunar_moonclan_bankbooth"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.pest_bankbooth"
+inherit = "loc.pest_bankbooth"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.pest_bankbooth_deadman"
+inherit = "loc.pest_bankbooth_deadman"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.pest_bankbooth_multi"
+inherit = "loc.pest_bankbooth_multi"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.piscarilius_bank_booth_01"
+inherit = "loc.piscarilius_bank_booth_01"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.piscarilius_bank_booth_02"
+inherit = "loc.piscarilius_bank_booth_02"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.piscarilius_bank_booth_03"
+inherit = "loc.piscarilius_bank_booth_03"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.piscarilius_bank_booth_04"
+inherit = "loc.piscarilius_bank_booth_04"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.prif_bankbooth_open"
+inherit = "loc.prif_bankbooth_open"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.sailing_bank_boat_clickbox"
+inherit = "loc.sailing_bank_boat_clickbox"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.table_bank01_civitas01"
+inherit = "loc.table_bank01_civitas01"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.table_bank01_civitas02"
+inherit = "loc.table_bank01_civitas02"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.tob_surface_bankbooth"
+inherit = "loc.tob_surface_bankbooth"
+contentGroup = "content.bank_booth"
+
+[[object]]
+id = "loc.amenity_bankchest_built"
+inherit = "loc.amenity_bankchest_built"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.amenity_bankchest_sangvesti_built"
+inherit = "loc.amenity_bankchest_sangvesti_built"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.bank_buffalo"
+inherit = "loc.bank_buffalo"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.bank_chest"
+inherit = "loc.bank_chest"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.bank_chest_small"
+inherit = "loc.bank_chest_small"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.barbassault_bank_chest"
+inherit = "loc.barbassault_bank_chest"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.bh_bankchest"
+inherit = "loc.bh_bankchest"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.bim_ruins_bankchest"
+inherit = "loc.bim_ruins_bankchest"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.blast_bank_chest"
+inherit = "loc.blast_bank_chest"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.brimstone_bankchest"
+inherit = "loc.brimstone_bankchest"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.burgh_bankbooth_repaired"
+inherit = "loc.burgh_bankbooth_repaired"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.castlewars_bankchest"
+inherit = "loc.castlewars_bankchest"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.champions_bankchest"
+inherit = "loc.champions_bankchest"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.chest_alchemist01_closed01"
+inherit = "loc.chest_alchemist01_closed01"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.chest_alchemist01_open01"
+inherit = "loc.chest_alchemist01_open01"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.colosseum_bank"
+inherit = "loc.colosseum_bank"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.deadman_arena_bank_chest"
+inherit = "loc.deadman_arena_bank_chest"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.diary_guild_bankchest"
+inherit = "loc.diary_guild_bankchest"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.fairy_chest_bank"
+inherit = "loc.fairy_chest_bank"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.fortis_bank_chest"
+inherit = "loc.fortis_bank_chest"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.fortis_bank_chest_small"
+inherit = "loc.fortis_bank_chest_small"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.fossil_bank_chest_built"
+inherit = "loc.fossil_bank_chest_built"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.fossil_volcano_bank_chest"
+inherit = "loc.fossil_volcano_bank_chest"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.fossil_washed_up_chest"
+inherit = "loc.fossil_washed_up_chest"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.fris_bank_chest_open"
+inherit = "loc.fris_bank_chest_open"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.giants_foundry_chest"
+inherit = "loc.giants_foundry_chest"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.gotr_bankchest"
+inherit = "loc.gotr_bankchest"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.lovakengj_bank_chest_grey"
+inherit = "loc.lovakengj_bank_chest_grey"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.lovakengj_bank_chest_orange"
+inherit = "loc.lovakengj_bank_chest_orange"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.magictraining_bankchest"
+inherit = "loc.magictraining_bankchest"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.mm_desk_bankchest"
+inherit = "loc.mm_desk_bankchest"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.newbiebankbooth"
+inherit = "loc.newbiebankbooth"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.pandemonium_bank_crab"
+inherit = "loc.pandemonium_bank_crab"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.raids_bank_chest_lobby_working"
+inherit = "loc.raids_bank_chest_lobby_working"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.sailing_bank_boat_bank_crab"
+inherit = "loc.sailing_bank_boat_bank_crab"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.soul_wars_bankchest"
+inherit = "loc.soul_wars_bankchest"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.tempoross_lobby_bank_chest"
+inherit = "loc.tempoross_lobby_bank_chest"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.thbankchest"
+inherit = "loc.thbankchest"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.toa_bank_camel"
+inherit = "loc.toa_bank_camel"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.tortugan_chest01_bank01_open01"
+inherit = "loc.tortugan_chest01_bank01_open01"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.tox_bank_chest"
+inherit = "loc.tox_bank_chest"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.tut2_bankbooth"
+inherit = "loc.tut2_bankbooth"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.tzhaar_bank_chest"
+inherit = "loc.tzhaar_bank_chest"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.wcguild_bankchest"
+inherit = "loc.wcguild_bankchest"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.wint_bankchest"
+inherit = "loc.wint_bankchest"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.wyrmscraig_bank_chest_built"
+inherit = "loc.wyrmscraig_bank_chest_built"
+contentGroup = "content.bank_chest"
+
+[[object]]
+id = "loc.kr_bank_deposit_box"
+inherit = "loc.kr_bank_deposit_box"
+category = "category.deposit_box"
+
+[[object]]
+id = "loc.sarim_deposit_box"
+inherit = "loc.sarim_deposit_box"
+category = "category.deposit_box"
+
+[[npc]]
+id = "npc.ahoy_ghost_banker"
+inherit = "npc.ahoy_ghost_banker"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.ahoy_ghost_banker_deadman"
+inherit = "npc.ahoy_ghost_banker_deadman"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.arceuus_banker_1_east"
+inherit = "npc.arceuus_banker_1_east"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.arceuus_banker_1_west"
+inherit = "npc.arceuus_banker_1_west"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.arceuus_banker_2_east"
+inherit = "npc.arceuus_banker_2_east"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.arceuus_banker_2_west"
+inherit = "npc.arceuus_banker_2_west"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.auburnvale_banker_east_1"
+inherit = "npc.auburnvale_banker_east_1"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.auburnvale_banker_north_1"
+inherit = "npc.auburnvale_banker_north_1"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.auburnvale_banker_south_1"
+inherit = "npc.auburnvale_banker_south_1"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.auburnvale_banker_west_1"
+inherit = "npc.auburnvale_banker_west_1"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.banker1"
+inherit = "npc.banker1"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.banker1_east"
+inherit = "npc.banker1_east"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.banker1_new"
+inherit = "npc.banker1_new"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.banker1_west"
+inherit = "npc.banker1_west"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.banker2"
+inherit = "npc.banker2"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.banker2_east"
+inherit = "npc.banker2_east"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.banker2_new"
+inherit = "npc.banker2_new"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.cam_torum_banker_1"
+inherit = "npc.cam_torum_banker_1"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.cam_torum_banker_2"
+inherit = "npc.cam_torum_banker_2"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.cam_torum_banker_3"
+inherit = "npc.cam_torum_banker_3"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.cam_torum_banker_4"
+inherit = "npc.cam_torum_banker_4"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.clan_hall_banker_0"
+inherit = "npc.clan_hall_banker_0"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.clan_hall_banker_1"
+inherit = "npc.clan_hall_banker_1"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.clan_hall_banker_2"
+inherit = "npc.clan_hall_banker_2"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.clan_hall_banker_3"
+inherit = "npc.clan_hall_banker_3"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.contact_banker_female"
+inherit = "npc.contact_banker_female"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.contact_banker_male"
+inherit = "npc.contact_banker_male"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.corscurs_banker_allops"
+inherit = "npc.corscurs_banker_allops"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.darkm_banker_female"
+inherit = "npc.darkm_banker_female"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.darkm_banker_male"
+inherit = "npc.darkm_banker_male"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.deadman_banker_blue_1"
+inherit = "npc.deadman_banker_blue_1"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.deadman_banker_blue_2"
+inherit = "npc.deadman_banker_blue_2"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.deadman_banker_enclave"
+inherit = "npc.deadman_banker_enclave"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.deadman_banker_gnome"
+inherit = "npc.deadman_banker_gnome"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.deadman_banker_grey_1"
+inherit = "npc.deadman_banker_grey_1"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.deadman_banker_grey_2"
+inherit = "npc.deadman_banker_grey_2"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.deadman_banker_neitiznot_model"
+inherit = "npc.deadman_banker_neitiznot_model"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.dorgesh_female_banker"
+inherit = "npc.dorgesh_female_banker"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.dorgesh_male_banker"
+inherit = "npc.dorgesh_male_banker"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.dream_birds_eye_jack"
+inherit = "npc.dream_birds_eye_jack"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.duel_fadli"
+inherit = "npc.duel_fadli"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.dwarf_city_banker1"
+inherit = "npc.dwarf_city_banker1"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.dwarf_city_banker2"
+inherit = "npc.dwarf_city_banker2"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.elid_banker"
+inherit = "npc.elid_banker"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.fairy_banker"
+inherit = "npc.fairy_banker"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.falador_banker"
+inherit = "npc.falador_banker"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.farming_guild_banker1"
+inherit = "npc.farming_guild_banker1"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.farming_guild_banker2"
+inherit = "npc.farming_guild_banker2"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.fever_banker_01"
+inherit = "npc.fever_banker_01"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.fever_banker_02"
+inherit = "npc.fever_banker_02"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.frisd_banker_deadman"
+inherit = "npc.frisd_banker_deadman"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.frisd_banker_normal"
+inherit = "npc.frisd_banker_normal"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.gim_tutor_shared_storage"
+inherit = "npc.gim_tutor_shared_storage"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.gnomebanker"
+inherit = "npc.gnomebanker"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.hg_banker_dwarf"
+inherit = "npc.hg_banker_dwarf"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.hosidius_banker_f_east"
+inherit = "npc.hosidius_banker_f_east"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.hosidius_banker_f_west"
+inherit = "npc.hosidius_banker_f_west"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.hosidius_banker_m_east"
+inherit = "npc.hosidius_banker_m_east"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.hosidius_banker_m_west"
+inherit = "npc.hosidius_banker_m_west"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.kharidbanker1"
+inherit = "npc.kharidbanker1"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.kharidbanker2"
+inherit = "npc.kharidbanker2"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.lotr_banker"
+inherit = "npc.lotr_banker"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.lovakengj_banker_f_east"
+inherit = "npc.lovakengj_banker_f_east"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.lovakengj_banker_f_north"
+inherit = "npc.lovakengj_banker_f_north"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.lovakengj_banker_f_south"
+inherit = "npc.lovakengj_banker_f_south"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.lovakengj_banker_f_west"
+inherit = "npc.lovakengj_banker_f_west"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.lovakengj_banker_m_east"
+inherit = "npc.lovakengj_banker_m_east"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.lovakengj_banker_m_south"
+inherit = "npc.lovakengj_banker_m_south"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.lunar_moonclan_monk_man"
+inherit = "npc.lunar_moonclan_monk_man"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.magearena_banker"
+inherit = "npc.magearena_banker"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.misc_banker"
+inherit = "npc.misc_banker"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.mistrock_banker_1"
+inherit = "npc.mistrock_banker_1"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.mistrock_banker_2"
+inherit = "npc.mistrock_banker_2"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.mm2_monkey_banker_model"
+inherit = "npc.mm2_monkey_banker_model"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.mourning_elf_bankerf"
+inherit = "npc.mourning_elf_bankerf"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.mourning_elf_bankerm"
+inherit = "npc.mourning_elf_bankerm"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.myq6_aranei_m4_bankop"
+inherit = "npc.myq6_aranei_m4_bankop"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.nex_story_npc_3op"
+inherit = "npc.nex_story_npc_3op"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.pest_squire_bank_2"
+inherit = "npc.pest_squire_bank_2"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.pest_squire_bank_deadman"
+inherit = "npc.pest_squire_bank_deadman"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.pest_squire_bank_man"
+inherit = "npc.pest_squire_bank_man"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.piscarilius_banker_1"
+inherit = "npc.piscarilius_banker_1"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.piscarilius_banker_2"
+inherit = "npc.piscarilius_banker_2"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.prif_bankerf1"
+inherit = "npc.prif_bankerf1"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.prif_bankerf2"
+inherit = "npc.prif_bankerf2"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.prif_bankerm1"
+inherit = "npc.prif_bankerm1"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.prif_bankerm2"
+inherit = "npc.prif_bankerm2"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.prif_bankerm3"
+inherit = "npc.prif_bankerm3"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.prif_bankerm4"
+inherit = "npc.prif_bankerm4"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.roguesden_banker"
+inherit = "npc.roguesden_banker"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.sailing_bank_boat_banker"
+inherit = "npc.sailing_bank_boat_banker"
+contentGroup = "content.banker"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[[npc]]
+id = "npc.shayzien_banker_f_east"
+inherit = "npc.shayzien_banker_f_east"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.shayzien_banker_f_north"
+inherit = "npc.shayzien_banker_f_north"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.shayzien_banker_f_west"
+inherit = "npc.shayzien_banker_f_west"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.shayzien_banker_m_east"
+inherit = "npc.shayzien_banker_m_east"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.shayzien_banker_m_north"
+inherit = "npc.shayzien_banker_m_north"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.shayzien_banker_m_west"
+inherit = "npc.shayzien_banker_m_west"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.shilobanker"
+inherit = "npc.shilobanker"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.tal_teklan_banker"
+inherit = "npc.tal_teklan_banker"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.tortugan_banker"
+inherit = "npc.tortugan_banker"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.tzhaar_banker1"
+inherit = "npc.tzhaar_banker1"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.tzhaar_banker2"
+inherit = "npc.tzhaar_banker2"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.vampyre_banker_female"
+inherit = "npc.vampyre_banker_female"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.vampyre_banker_male"
+inherit = "npc.vampyre_banker_male"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.varlamore_banker_e_1"
+inherit = "npc.varlamore_banker_e_1"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.varlamore_banker_e_2"
+inherit = "npc.varlamore_banker_e_2"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.varlamore_banker_e_3"
+inherit = "npc.varlamore_banker_e_3"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.varlamore_banker_e_4"
+inherit = "npc.varlamore_banker_e_4"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.varlamore_banker_n_1"
+inherit = "npc.varlamore_banker_n_1"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.varlamore_banker_n_2"
+inherit = "npc.varlamore_banker_n_2"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.varlamore_banker_n_3"
+inherit = "npc.varlamore_banker_n_3"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.varlamore_banker_n_4"
+inherit = "npc.varlamore_banker_n_4"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.varlamore_banker_s_1"
+inherit = "npc.varlamore_banker_s_1"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.varlamore_banker_s_2"
+inherit = "npc.varlamore_banker_s_2"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.varlamore_banker_s_3"
+inherit = "npc.varlamore_banker_s_3"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.varlamore_banker_s_4"
+inherit = "npc.varlamore_banker_s_4"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.varlamore_banker_w_1"
+inherit = "npc.varlamore_banker_w_1"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.varlamore_banker_w_2"
+inherit = "npc.varlamore_banker_w_2"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.varlamore_banker_w_3"
+inherit = "npc.varlamore_banker_w_3"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.varlamore_banker_w_4"
+inherit = "npc.varlamore_banker_w_4"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.warguild_banker"
+inherit = "npc.warguild_banker"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.werewolfbanker"
+inherit = "npc.werewolfbanker"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.wildy_hub_banker"
+inherit = "npc.wildy_hub_banker"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.wom_banker1"
+inherit = "npc.wom_banker1"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.wom_banker2"
+inherit = "npc.wom_banker2"
+contentGroup = "content.banker"
+
+[[npc]]
+id = "npc.wom_banker3"
+inherit = "npc.wom_banker3"
+contentGroup = "content.banker"

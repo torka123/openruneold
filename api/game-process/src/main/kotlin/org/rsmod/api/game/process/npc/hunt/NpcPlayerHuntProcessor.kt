@@ -5,9 +5,13 @@ import dev.openrune.types.HuntModeType
 import dev.openrune.types.hunt.HuntCheckNotTooStrong
 import dev.openrune.types.hunt.HuntType
 import jakarta.inject.Inject
+import org.rsmod.api.area.checker.AreaChecker
+import org.rsmod.api.area.checker.isInWilderness
 import org.rsmod.api.config.constants
 import org.rsmod.api.hunt.Hunt
 import org.rsmod.api.npc.isValidTarget
+import org.rsmod.api.player.isValidTarget
+import org.rsmod.api.player.mapNpcMultiway
 import org.rsmod.api.random.CoreRandom
 import org.rsmod.api.random.GameRandom
 import org.rsmod.game.MapClock
@@ -15,6 +19,9 @@ import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.player.PlayerUid
 import org.rsmod.game.type.getOrNull
+import org.rsmod.game.vars.VarPlayerIntMap
+import org.rsmod.map.CoordGrid
+import java.util.WeakHashMap
 
 public class NpcPlayerHuntProcessor
 @Inject
@@ -22,11 +29,27 @@ constructor(
     @CoreRandom private val random: GameRandom,
     private val mapClock: MapClock,
     private val hunt: Hunt,
+    private val areaChecker: AreaChecker,
+    private val validateHooks: Set<NpcPlayerHuntValidateHook>,
+    private val profileOverrides: Set<NpcPlayerHuntProfileOverride>,
 ) {
+    /**
+     * Profile providers are location-aware. Resolving them for every idle NPC on every game tick
+     * is needlessly expensive, but caching only by NPC would be wrong when an NPC crosses a
+     * Wilderness boundary. Keep the result for the current tile and refresh it after movement.
+     */
+    private val profileOverrideCache: WeakHashMap<Npc, CachedProfileOverride> = WeakHashMap()
+
     public fun process(npc: Npc) {
-        if (!npc.isValidTarget() || npc.isDelayed) {
+        if (
+            !npc.isValidTarget() ||
+                npc.isDelayed ||
+                npc.isShoveStunned ||
+                npc.ignoreCombatInteractions
+        ) {
             return
         }
+        if (!npc.hasInteraction()) npc.applyProfileOverride()
 
         val huntMode = npc.huntMode
         val huntDisabled = npc.huntRange == 0 || huntMode == null
@@ -56,7 +79,11 @@ constructor(
 
         val players = hunt.findPlayers(coords, huntRange, mode.checkVis)
         for (player in players) {
-            if (player.isInvisible) {
+            if (!player.isValidTarget() || player.pendingTeleport || player.pendingTelejump) {
+                continue
+            }
+
+            if (validateHooks.any { !it.canHunt(this, player) }) {
                 continue
             }
 
@@ -69,17 +96,22 @@ constructor(
             }
 
             if (mode.checkNotTooStrong == HuntCheckNotTooStrong.OutsideWilderness) {
-                if (player.combatLevel > type.combatLevel * 2 && !player.isInWilderness()) {
+                if (
+                    blockedByOutsideWildernessTolerance(
+                        npcCombatLevel = type.combatLevel,
+                        playerCombatLevel = player.combatLevel,
+                        playerInWilderness = player.coords.isInWilderness(areaChecker),
+                    )
+                ) {
                     continue
                 }
             }
 
             if (!player.isInMulti()) {
                 if (mode.checkNotCombat != -1) {
-                    val varp =
-                        ServerCacheManager.getVarp(mode.checkNotCombat)
-                            ?: error("Error finding varp")
-                    val delay = player.vars[varp] + constants.combat_activecombat_delay
+                    val delay =
+                        player.vars.huntVarp(mode.checkNotCombat) +
+                            constants.combat_activecombat_delay
                     if (delay > mapClock.cycle) {
                         continue
                     }
@@ -177,15 +209,68 @@ constructor(
         return false
     }
 
-    // TODO(combat): Wilderness indicator.
-    private fun Player.isInWilderness(): Boolean {
-        return false
+    private fun Npc.applyProfileOverride() {
+        val cached = profileOverrideCache[this]
+        val profile =
+            if (cached != null && cached.coords == coords) {
+                cached.profile
+            } else {
+                resolveProfileOverride().also {
+                    profileOverrideCache[this] = CachedProfileOverride(coords = coords, profile = it)
+                }
+            }
+        if (profile == null) return
+        require(profile.range > 0) { "Invalid player-hunt range: $profile" }
+        val mode =
+            requireNotNull(ServerCacheManager.getHunt(profile.modeId)) {
+                "Unknown player-hunt mode: $profile"
+            }
+        require(mode.type == HuntType.Player) { "Non-player hunt profile: $profile" }
+        if (huntMode != profile.modeId) {
+            setHuntMode(mode)
+        }
+        if (huntRange != profile.range) {
+            setHunt(profile.range)
+        }
     }
 
-    // Hunt can be quite expensive if not careful. We are assuming that using a possibly delayed
-    // multiway indicator will not have any inaccuracies in emulation. If it does, we can change
-    // this to a dynamic lookup on `AreaIndex` instead.
-    private fun Player.isInMulti(): Boolean {
-        return vars["varbit.multiway_indicator"] == 1
+    private fun Npc.resolveProfileOverride(): NpcPlayerHuntProfile? {
+        var profile: NpcPlayerHuntProfile? = null
+        for (override in profileOverrides) {
+            val candidate = override.resolve(this) ?: continue
+            if (profile == null) {
+                profile = candidate
+                continue
+            }
+            check(candidate.modeId == profile.modeId && candidate.range == profile.range) {
+                "Conflicting player-hunt profiles for npc=${type.internalName} at $coords: " +
+                    "first=$profile, conflicting=$candidate"
+            }
+        }
+        return profile
     }
+
+    // NPC-only multiway areas intentionally do not set the player's client multiway indicator.
+    private fun Player.isInMulti(): Boolean {
+        return mapNpcMultiway(areaChecker)
+    }
+
+    private data class CachedProfileOverride(
+        val coords: CoordGrid,
+        val profile: NpcPlayerHuntProfile?,
+    )
 }
+
+/**
+ * Hunt definitions store raw varp ids. Some of those ids, including the server-only
+ * `varp.lastcombat` used by every aggressive hunt mode, do not have a client-cache definition and
+ * therefore cannot be resolved through [ServerCacheManager.getVarp]. The player's backing map is
+ * already keyed by those raw ids, so read it directly and retain the normal zero default.
+ */
+internal fun VarPlayerIntMap.huntVarp(id: Int): Int = backing.getOrDefault(id, 0)
+
+internal fun blockedByOutsideWildernessTolerance(
+    npcCombatLevel: Int,
+    playerCombatLevel: Int,
+    playerInWilderness: Boolean,
+): Boolean = !playerInWilderness && playerCombatLevel > npcCombatLevel * 2

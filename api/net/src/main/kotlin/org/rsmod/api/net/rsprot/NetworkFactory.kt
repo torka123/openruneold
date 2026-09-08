@@ -80,6 +80,7 @@ constructor(
     }
 
     // start adv: disable netty backends to use rsprot off central
-    override fun getBootstrapBuilder() = BootstrapBuilder().eventLoopGroupTypes(BootstrapBuilder.EventLoopGroupType.NIO)
+    override fun getBootstrapBuilder() =
+        BootstrapBuilder().eventLoopGroupTypes(BootstrapBuilder.EventLoopGroupType.NIO)
     // end adv
 }

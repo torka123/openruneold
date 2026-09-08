@@ -2,12 +2,14 @@ package org.rsmod.content.interfaces.bank.scripts
 
 import dev.openrune.definition.type.widget.IfEvent
 import jakarta.inject.Inject
+import org.rsmod.api.attr.ItemSandboxAttributes
 import org.rsmod.api.combat.weapon.WeaponSpeeds
 import org.rsmod.api.config.constants
 import org.rsmod.api.player.bonus.WornBonuses
 import org.rsmod.api.player.ironman.IronmanRestrictions
 import org.rsmod.api.player.output.ClientScripts.mesLayerClose
 import org.rsmod.api.player.output.ClientScripts.tooltip
+import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.startInvTransmit
 import org.rsmod.api.player.stopInvTransmit
 import org.rsmod.api.player.ui.ifClose
@@ -16,6 +18,9 @@ import org.rsmod.api.player.ui.ifSetText
 import org.rsmod.api.player.vars.boolVarBit
 import org.rsmod.api.script.onIfClose
 import org.rsmod.api.script.onIfOpen
+import org.rsmod.api.script.onPlayerQueue
+import org.rsmod.content.interfaces.bank.BankTab
+import org.rsmod.content.interfaces.bank.UNSAFE_DUNGEON_BANK_SESSION
 import org.rsmod.content.interfaces.bank.bankCapacity
 import org.rsmod.content.interfaces.bank.configs.bank_comsubs
 import org.rsmod.content.interfaces.bank.configs.bank_constants
@@ -24,6 +29,7 @@ import org.rsmod.content.interfaces.bank.highlightNoClickClear
 import org.rsmod.content.interfaces.bank.setBankWornBonuses
 import org.rsmod.content.interfaces.bank.setBanksideExtraOps
 import org.rsmod.content.interfaces.bank.util.offset
+import org.rsmod.content.interfaces.bank.validateUnsafeDungeonBankSession
 import org.rsmod.events.EventBus
 import org.rsmod.game.entity.Player
 import org.rsmod.plugin.scripts.PluginScript
@@ -45,13 +51,20 @@ constructor(
         // `onBankOpen` occurs on `bank_side` trigger for emulation purposes.
         onIfOpen("interface.bankside") { player.onBankOpen() }
         onIfClose("interface.bankmain") { player.onBankClose() }
+        onPlayerQueue("queue.unsafe_dungeon_bank_monitor") { monitorUnsafeDungeonBank() }
     }
 
     private fun Player.onBankOpen() {
+        if (attr[ItemSandboxAttributes.active] == true) {
+            ifClose(eventBus)
+            mes("Banking is disabled while Clan Mayhem owns your temporary loadout.")
+            return
+        }
         if (IronmanRestrictions.blockUimBank(this)) {
             ifClose(eventBus)
             return
         }
+        BankTab.repairLayout(this, bank)
         if (!disableIfEvents) {
             val capacityIncrease = bank_constants.purchasable_capacity
             withdrawCert = false
@@ -69,15 +82,31 @@ constructor(
         }
 
         startInvTransmit(bank)
+        if (attr[UNSAFE_DUNGEON_BANK_SESSION] == true) {
+            clearQueue("queue.unsafe_dungeon_bank_monitor")
+            queue("queue.unsafe_dungeon_bank_monitor", 1)
+        }
     }
 
     private fun Player.onBankClose() {
+        clearQueue("queue.unsafe_dungeon_bank_monitor")
+        attr.remove(UNSAFE_DUNGEON_BANK_SESSION)
         stopInvTransmit(bank)
         mesLayerClose(this, constants.meslayer_mode_objsearch)
         if (!ui.containsOverlay("interface.screenhighlight")) {
             highlightNoClickClear()
         }
         queue("queue.bank_compress", 1)
+    }
+
+    private fun org.rsmod.api.player.protect.ProtectedAccess.monitorUnsafeDungeonBank() {
+        if (player.attr[UNSAFE_DUNGEON_BANK_SESSION] != true) {
+            return
+        }
+        if (!validateUnsafeDungeonBankSession(eventBus)) {
+            return
+        }
+        queue("queue.unsafe_dungeon_bank_monitor", 1)
     }
 
     private fun Player.setBankIfEvents() {

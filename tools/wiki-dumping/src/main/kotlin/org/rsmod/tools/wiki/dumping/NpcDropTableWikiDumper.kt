@@ -5,7 +5,6 @@ import java.nio.file.Path
 import kotlin.io.path.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.deleteIfExists
-import kotlin.io.path.writeText
 import kotlin.system.exitProcess
 import kotlin.system.measureTimeMillis
 import kotlinx.coroutines.runBlocking
@@ -13,12 +12,13 @@ import org.rsmod.tools.wiki.dumping.wiki.ParsedNpcDropTable
 import org.rsmod.tools.wiki.dumping.wiki.ParsedWikiDrop
 import org.rsmod.tools.wiki.dumping.wiki.SubtableKey
 import org.rsmod.tools.wiki.dumping.wiki.WikiClient
-import org.rsmod.tools.wiki.dumping.wiki.WikiDropParser
-import org.rsmod.tools.wiki.dumping.wiki.WikiInfoboxIds
-import org.rsmod.tools.wiki.dumping.wiki.WikiDropSection
 import org.rsmod.tools.wiki.dumping.wiki.WikiCompanionDropParser
+import org.rsmod.tools.wiki.dumping.wiki.WikiDropParser
+import org.rsmod.tools.wiki.dumping.wiki.WikiDropSection
+import org.rsmod.tools.wiki.dumping.wiki.WikiInfoboxIds
 
-private const val DEFAULT_OUTPUT_DIR = "content/drops/src/main/kotlin/org/rsmod/content/drops/tables"
+private const val DEFAULT_OUTPUT_DIR =
+    "content/drops/src/main/kotlin/org/rsmod/content/drops/tables"
 
 data class NpcDropDumpRequest(
     val wikiPage: String,
@@ -34,9 +34,14 @@ class NpcDropTableWikiDumper(
     private val itemLookup: ItemWikiLookup,
     private val log: DropDumpLog,
 ) {
-    private val npcLookup get() = resources.npcLookup
-    private val objLookup get() = resources.objLookup
-    private val remainsLookup get() = resources.remainsLookup
+    private val npcLookup
+        get() = resources.npcLookup
+
+    private val objLookup
+        get() = resources.objLookup
+
+    private val remainsLookup
+        get() = resources.remainsLookup
 
     suspend fun dumpAll(request: NpcDropDumpRequest): List<DumpResult> {
         val pageTitles = buildList {
@@ -71,11 +76,7 @@ class NpcDropTableWikiDumper(
 
         return tables.map { table ->
             val npcIds = (table.npcIds + relatedNpcIds).distinct().sorted()
-            dumpTable(
-                baseRequest = request,
-                table = table,
-                npcIds = npcIds,
-            )
+            dumpTable(baseRequest = request, table = table, npcIds = npcIds)
         }
     }
 
@@ -87,66 +88,76 @@ class NpcDropTableWikiDumper(
         kotlinOutput: Boolean = true,
     ): List<DumpResult> {
         lateinit var results: List<DumpResult>
-        val elapsed =
-            measureTimeMillis {
-                results = dumpAll(request)
-                val exportable = results.filter { it.hasJsonDropContent() }
-                val specs = exportable.map { it.spec }.filter { it.hasDropContent() }
-                if (exportable.isEmpty()) {
-                    log.verbose("${request.wikiPage} skip — no resolved drops")
-                    return@measureTimeMillis
-                }
-
-                outputDir.createDirectories()
-
-                val exportResult =
-                    DropTableExportWriter.exportPage(
-                        wikiPage = request.wikiPage,
-                        specs = specs,
-                        kotlinRoot = outputDir,
-                        tomlExport = tomlExport,
-                        kotlinOutput = kotlinOutput,
-                        log = log,
-                        onKotlinWritten = { output ->
-                            if (results.size > 1) {
-                                cleanupStaleSplitFiles(request.wikiPage, output.parent)
-                            }
-                        },
-                    )
-
-                jsonExport?.let { config ->
-                    for (result in exportable) {
-                        val table =
-                            DropTableJsonExporter.exportTable(
-                                result = result,
-                                wikiPage = request.wikiPage,
-                            )
-                        DropTableJsonExporter.writeTable(config.jsonRoot, result.spec.tableVarName, table)
-                        val jsonPath =
-                            DropTableJsonOutputLayout.resolveTableFile(config.jsonRoot, result.spec.tableVarName)
-                        log.info("wrote json ${config.jsonRoot.relativize(jsonPath)} → ${jsonPath.toAbsolutePath()}")
-                    }
-
-                    val manifest =
-                        DropTableJsonExporter.buildManifest(
-                            jsonRoot = config.jsonRoot,
-                            canonical =
-                                listOf(
-                                    DropTableJsonExporter.CanonicalJsonExport(
-                                        wikiPage = request.wikiPage,
-                                        results = exportable,
-                                    ),
-                                ),
-                            duplicates = emptyList(),
-                        )
-                    DropTableJsonExporter.writeManifest(config.jsonRoot, manifest)
-                }
+        val elapsed = measureTimeMillis {
+            results = dumpAll(request)
+            val exportable = results.filter { it.hasJsonDropContent() }
+            val specs = exportable.map { it.spec }.filter { it.hasDropContent() }
+            if (exportable.isEmpty()) {
+                log.verbose("${request.wikiPage} skip — no resolved drops")
+                return@measureTimeMillis
             }
+
+            outputDir.createDirectories()
+
+            val exportResult =
+                DropTableExportWriter.exportPage(
+                    wikiPage = request.wikiPage,
+                    specs = specs,
+                    kotlinRoot = outputDir,
+                    tomlExport = tomlExport,
+                    kotlinOutput = kotlinOutput,
+                    log = log,
+                    onKotlinWritten = { output ->
+                        if (results.size > 1) {
+                            cleanupStaleSplitFiles(request.wikiPage, output.parent)
+                        }
+                    },
+                )
+
+            jsonExport?.let { config ->
+                for (result in exportable) {
+                    val table =
+                        DropTableJsonExporter.exportTable(
+                            result = result,
+                            wikiPage = request.wikiPage,
+                        )
+                    DropTableJsonExporter.writeTable(
+                        config.jsonRoot,
+                        result.spec.tableVarName,
+                        table,
+                    )
+                    val jsonPath =
+                        DropTableJsonOutputLayout.resolveTableFile(
+                            config.jsonRoot,
+                            result.spec.tableVarName,
+                        )
+                    log.info(
+                        "wrote json ${config.jsonRoot.relativize(jsonPath)} → ${jsonPath.toAbsolutePath()}"
+                    )
+                }
+
+                val manifest =
+                    DropTableJsonExporter.buildManifest(
+                        jsonRoot = config.jsonRoot,
+                        canonical =
+                            listOf(
+                                DropTableJsonExporter.CanonicalJsonExport(
+                                    wikiPage = request.wikiPage,
+                                    results = exportable,
+                                )
+                            ),
+                        duplicates = emptyList(),
+                    )
+                DropTableJsonExporter.writeManifest(config.jsonRoot, manifest)
+            }
+        }
         log.verbose("${request.wikiPage} processed in ${elapsed}ms")
         return results.filter { it.hasJsonDropContent() }
     }
 
-    /** Pages with no real loot to generate — remains-only, Nothing-only, or informational ==Drops==. */
+    /**
+     * Pages with no real loot to generate — remains-only, Nothing-only, or informational ==Drops==.
+     */
     fun isIgnorableNonLootDropContent(tables: List<ParsedNpcDropTable>): Boolean {
         if (tables.isEmpty()) {
             return false
@@ -199,7 +210,8 @@ class NpcDropTableWikiDumper(
                         .filter { !it.isNothing }
                         .filter { !(skipSeeds && it.subsection.equals("Seeds", ignoreCase = true)) }
                         .map { it.name to it.isNoted }
-                }.distinct()
+                }
+                .distinct()
                 .filter { (name, noted) ->
                     !objLookup.canResolveLocally(name, noted = noted) &&
                         !objLookup.canResolveWithCachedWikiId(itemLookup, name, noted = noted)
@@ -235,7 +247,8 @@ class NpcDropTableWikiDumper(
                     denominator = access.denominator,
                     subsection = access.subsection,
                     wikiLabel = access.tableKey.wikiLabel,
-                    needsHardcodedSharedTable = access.fromProse || access.tableKey.needsHardcodedSharedTable,
+                    needsHardcodedSharedTable =
+                        access.fromProse || access.tableKey.needsHardcodedSharedTable,
                     herbRollVariants = access.herbRollVariants,
                 )
             }
@@ -274,7 +287,8 @@ class NpcDropTableWikiDumper(
 
         val suffix = tableNameSuffix(table.tableName) ?: dropVariantSuffix(table.dropVariant)
         val tableVarName = toTableVarName(baseRequest.wikiPage, suffix)
-        val tableIdentifier = tableIdentifier(baseRequest.wikiPage, table.tableName, table.dropVariant)
+        val tableIdentifier =
+            tableIdentifier(baseRequest.wikiPage, table.tableName, table.dropVariant)
         val areaRscmKeys = DropVariantAreas.areasForVariant(table.dropVariant)
         val tableRequest =
             baseRequest.copy(
@@ -285,41 +299,48 @@ class NpcDropTableWikiDumper(
 
         val spec =
             GeneratedDropTableSpec(
-                tableVarName = tableVarName,
-                tableIdentifier = tableIdentifier,
-                npcRscmKeys = npcKeys,
-                areaRscmKeys = areaRscmKeys,
-                guaranteed = guaranteed,
-                main = main,
-                subtableAccesses = subtableAccesses,
-                tertiary = tertiary,
-                unmappedItems = unmappedItems.distinct(),
-                unmappedLabel = table.tableName,
-                unknownDropRates = unknownDropRates.distinctUnknownRates(),
-            ).let { raw ->
-                val preRollDrops = raw.main.filter { GeneratedDropTableSpec.isPreRollSubsection(it.subsection) }
-                val standardMain = raw.main.filterNot { GeneratedDropTableSpec.isPreRollSubsection(it.subsection) }
-
-                val (preRollEntries, _, preRollSeparate) =
-                    GeneratedDropTableSpec.finalizeMainRolls(preRollDrops, emptyList())
-                val (mainEntries, mainMaxRoll, separateRolls) =
-                    GeneratedDropTableSpec.finalizeMainRolls(standardMain, raw.subtableAccesses)
-                val reconciledMaxRoll =
-                    GeneratedDropTableSpec.reconcileMainMaxRoll(
-                        main = mainEntries,
-                        mainMaxRoll = mainMaxRoll,
-                        subtableAccesses = raw.subtableAccesses,
-                    )
-
-                raw.copy(
-                    main = mainEntries,
-                    mainMaxRoll = reconciledMaxRoll,
-                    subtableAccesses = raw.subtableAccesses,
-                    separateRolls = separateRolls,
-                    preRoll = preRollEntries,
-                    preRollSeparateRolls = preRollSeparate,
+                    tableVarName = tableVarName,
+                    tableIdentifier = tableIdentifier,
+                    npcRscmKeys = npcKeys,
+                    areaRscmKeys = areaRscmKeys,
+                    guaranteed = guaranteed,
+                    main = main,
+                    subtableAccesses = subtableAccesses,
+                    tertiary = tertiary,
+                    unmappedItems = unmappedItems.distinct(),
+                    unmappedLabel = table.tableName,
+                    unknownDropRates = unknownDropRates.distinctUnknownRates(),
                 )
-            }
+                .let { raw ->
+                    val preRollDrops =
+                        raw.main.filter {
+                            GeneratedDropTableSpec.isPreRollSubsection(it.subsection)
+                        }
+                    val standardMain =
+                        raw.main.filterNot {
+                            GeneratedDropTableSpec.isPreRollSubsection(it.subsection)
+                        }
+
+                    val (preRollEntries, _, preRollSeparate) =
+                        GeneratedDropTableSpec.finalizeMainRolls(preRollDrops, emptyList())
+                    val (mainEntries, mainMaxRoll, separateRolls) =
+                        GeneratedDropTableSpec.finalizeMainRolls(standardMain, raw.subtableAccesses)
+                    val reconciledMaxRoll =
+                        GeneratedDropTableSpec.reconcileMainMaxRoll(
+                            main = mainEntries,
+                            mainMaxRoll = mainMaxRoll,
+                            subtableAccesses = raw.subtableAccesses,
+                        )
+
+                    raw.copy(
+                        main = mainEntries,
+                        mainMaxRoll = reconciledMaxRoll,
+                        subtableAccesses = raw.subtableAccesses,
+                        separateRolls = separateRolls,
+                        preRoll = preRollEntries,
+                        preRollSeparateRolls = preRollSeparate,
+                    )
+                }
 
         return DumpResult(
             request = tableRequest,
@@ -348,8 +369,13 @@ class NpcDropTableWikiDumper(
                     continue
                 }
                 for (name in spec.wikiNames) {
-                    WikiCompanionDropParser
-                        .resolveObj(itemLookup, objLookup, name, drop.name, droppedTogether = true)
+                    WikiCompanionDropParser.resolveObj(
+                            itemLookup,
+                            objLookup,
+                            name,
+                            drop.name,
+                            droppedTogether = true,
+                        )
                         ?.let { objs.add(it) }
                 }
             }
@@ -412,10 +438,12 @@ class NpcDropTableWikiDumper(
             }
         }
 
-        val resolved = DropTableCodeGenerator.resolveItemDrop(drop, itemLookup, objLookup) ?: run {
-            unmappedItems += drop.name
-            return
-        }
+        val resolved =
+            DropTableCodeGenerator.resolveItemDrop(drop, itemLookup, objLookup)
+                ?: run {
+                    unmappedItems += drop.name
+                    return
+                }
 
         if (resolved.obj in droppedTogetherCompanionObjs && !drop.wikiNotes.hasCompanionDrops) {
             return
@@ -449,7 +477,9 @@ private fun unknownRateEntry(
     )
 
 private fun List<UnknownDropRateEntry>.distinctUnknownRates(): List<UnknownDropRateEntry> =
-    distinctBy { Triple(it.itemName, it.rarity, it.section) }
+    distinctBy {
+        Triple(it.itemName, it.rarity, it.section)
+    }
 
 data class DumpResult(
     val request: NpcDropDumpRequest,
@@ -464,7 +494,8 @@ data class DumpResult(
     val unknownDropRates: List<UnknownDropRateEntry> = emptyList(),
     val guaranteedIncludingRemains: List<ResolvedDropEntry> = spec.guaranteed,
 ) {
-    fun hasJsonDropContent(): Boolean = spec.hasDropContent() || guaranteedIncludingRemains.isNotEmpty()
+    fun hasJsonDropContent(): Boolean =
+        spec.hasDropContent() || guaranteedIncludingRemains.isNotEmpty()
 }
 
 private fun findRepoRoot(): Path? = GameValLoader.resolveRootOrNull()
@@ -487,7 +518,8 @@ fun main(args: Array<String>) {
     val jsonOnly = flags.contains("--json-only")
     val exportToml = !flags.contains("--no-toml")
     val tomlOnly = flags.contains("--toml-only")
-    val wikiDumpDir = flags.firstOrNull { it.startsWith("--wiki-dump=") }?.substringAfter("--wiki-dump=")
+    val wikiDumpDir =
+        flags.firstOrNull { it.startsWith("--wiki-dump=") }?.substringAfter("--wiki-dump=")
     val bulkDump =
         flags.contains("--all-monsters") ||
             positional.isEmpty() ||
@@ -502,14 +534,17 @@ fun main(args: Array<String>) {
 
     val repoRoot = rootDir?.let { Path(it) } ?: findRepoRoot()
     val outFromFlag = flags.firstOrNull { it.startsWith("--out=") }?.substringAfter("--out=")
-    val jsonOutFromFlag = flags.firstOrNull { it.startsWith("--json-out=") }?.substringAfter("--json-out=")
-    val tomlOutFromFlag = flags.firstOrNull { it.startsWith("--toml-out=") }?.substringAfter("--toml-out=")
+    val jsonOutFromFlag =
+        flags.firstOrNull { it.startsWith("--json-out=") }?.substringAfter("--json-out=")
+    val tomlOutFromFlag =
+        flags.firstOrNull { it.startsWith("--toml-out=") }?.substringAfter("--toml-out=")
     val manifestOutFromFlag =
         flags.firstOrNull { it.startsWith("--manifest-out=") }?.substringAfter("--manifest-out=")
 
     val outputDir =
         when {
-            positional.size == 2 && Files.isDirectory(Path.of(positional[1])) -> Path.of(positional[1])
+            positional.size == 2 && Files.isDirectory(Path.of(positional[1])) ->
+                Path.of(positional[1])
             else -> outFromFlag?.let { Path(it) } ?: defaultOutputDir(repoRoot)
         }
     val jsonOutputDir =
@@ -525,144 +560,143 @@ fun main(args: Array<String>) {
             else -> defaultTomlOutputDir(repoRoot)
         }
     val manifestOutputDir =
-        manifestOutFromFlag?.let { Path(it) } ?: DropTableOutputLayout.defaultManifestOutputDir(repoRoot)
+        manifestOutFromFlag?.let { Path(it) }
+            ?: DropTableOutputLayout.defaultManifestOutputDir(repoRoot)
     val wikiPages =
         when {
             bulkDump -> emptyList()
-            positional.size == 2 && Files.isDirectory(Path.of(positional[1])) -> listOf(positional[0])
+            positional.size == 2 && Files.isDirectory(Path.of(positional[1])) ->
+                listOf(positional[0])
             else -> positional
         }
 
     runBlocking {
         var summaryPages = wikiPages.size
-        val totalElapsed =
-            measureTimeMillis {
-                val resources = DropDumpResources.load(rootDir, log, fetchDumpNpc)
+        val totalElapsed = measureTimeMillis {
+            val resources = DropDumpResources.load(rootDir, log, fetchDumpNpc)
 
-                val dumpDir = WikiClient.resolveDumpDirectory(wikiDumpDir)
-                log.info("wiki dump: ${dumpDir.absolutePath}")
+            val dumpDir = WikiClient.resolveDumpDirectory(wikiDumpDir)
+            log.info("wiki dump: ${dumpDir.absolutePath}")
 
-                WikiClient.open(wikiDumpDir = wikiDumpDir, onPageFetch = { log.onWikiFetch(it) }).use { wiki ->
+            WikiClient.open(wikiDumpDir = wikiDumpDir, onPageFetch = { log.onWikiFetch(it) }).use {
+                wiki ->
+                log.info(
+                    "loaded ${wiki.loadedPages} wiki page(s) " +
+                        "(${wiki.infoboxMonsterPages} Infobox Monster)"
+                )
+                val itemLookup = ItemWikiLookup(wiki, log)
+                val dumper = NpcDropTableWikiDumper(wiki, resources, itemLookup, log)
+                val jsonExport =
+                    jsonOutputDir?.let { dir ->
+                        JsonExportConfig(
+                            jsonRoot = dir,
+                            dumpIndex = resources.dumpIndex,
+                            npcLookup = resources.npcLookup,
+                        )
+                    }
+                val tomlExport = tomlOutputDir?.let { dir -> TomlExportConfig(tomlRoot = dir) }
+
+                if (bulkDump) {
+                    val categoryDumper =
+                        MonsterCategoryDropDumper(
+                            dumper = dumper,
+                            wiki = wiki,
+                            log = log,
+                            jsonExport = jsonExport,
+                            tomlExport = tomlExport,
+                            kotlinOutput = !jsonOnly && !tomlOnly,
+                        )
+                    log.info("Infobox Monster scan → ${outputDir.toAbsolutePath()}")
+                    if (jsonExport != null) {
+                        log.info("json export → ${jsonExport.jsonRoot.toAbsolutePath()}")
+                    }
+                    if (tomlExport != null) {
+                        log.info("toml export → ${tomlExport.tomlRoot.toAbsolutePath()}")
+                    }
+                    log.info("manifest export → ${manifestOutputDir.toAbsolutePath()}")
+                    val result =
+                        categoryDumper.dumpAllMonsters(
+                            outputDir = outputDir,
+                            manifestDir = manifestOutputDir,
+                            limit = limitFlag,
+                        )
+                    summaryPages =
+                        result.canonicalPages + result.duplicatePages + result.skippedPages
                     log.info(
-                        "loaded ${wiki.loadedPages} wiki page(s) " +
-                            "(${wiki.infoboxMonsterPages} Infobox Monster)",
+                        "category summary — " +
+                            "${result.canonicalPages} unique, " +
+                            "${result.duplicatePages} exact duplicates, " +
+                            "${result.skippedPages} skipped " +
+                            "(${result.skippedNoDropSection} no ==Drops==, " +
+                            "${result.skippedNoResolvedDrops} unresolved), " +
+                            "${result.failedPages} failed"
                     )
-                    val itemLookup = ItemWikiLookup(wiki, log)
-                    val dumper = NpcDropTableWikiDumper(wiki, resources, itemLookup, log)
-                    val jsonExport =
-                        jsonOutputDir?.let { dir ->
-                            JsonExportConfig(
-                                jsonRoot = dir,
-                                dumpIndex = resources.dumpIndex,
-                                npcLookup = resources.npcLookup,
-                            )
-                        }
-                    val tomlExport =
-                        tomlOutputDir?.let { dir ->
-                            TomlExportConfig(tomlRoot = dir)
-                        }
+                    if (result.unknownDropRates.isNotEmpty()) {
+                        log.info(
+                            "  ${result.unknownDropRates.size} drop(s) with unknown text rarity " +
+                                "→ ${DropTableOutputLayout.UNKNOWN_DROP_RATES_MANIFEST}"
+                        )
+                    }
+                    logSkippedExamples(log, result.skipped)
+                } else {
+                    var hadUnmappedNpcIds = false
 
-                    if (bulkDump) {
-                        val categoryDumper =
-                            MonsterCategoryDropDumper(
-                                dumper = dumper,
-                                wiki = wiki,
-                                log = log,
-                                jsonExport = jsonExport,
-                                tomlExport = tomlExport,
+                    log.info("dumping ${wikiPages.size} page(s) → ${outputDir.toAbsolutePath()}")
+
+                    for (wikiPage in wikiPages) {
+                        val request =
+                            NpcDropDumpRequest(
+                                wikiPage = wikiPage,
+                                tableVarName = toTableVarName(wikiPage),
+                                tableIdentifier = tableIdentifier(wikiPage, "Drops"),
+                                outputFileName = outputFileName(wikiPage),
+                                relatedNpcPages = defaultRelatedNpcPages(wikiPage),
+                            )
+
+                        log.info("— $wikiPage")
+                        val results =
+                            dumper.dumpToFile(
+                                request,
+                                outputDir,
+                                jsonExport,
+                                tomlExport,
                                 kotlinOutput = !jsonOnly && !tomlOnly,
                             )
-                        log.info("Infobox Monster scan → ${outputDir.toAbsolutePath()}")
-                        if (jsonExport != null) {
-                            log.info("json export → ${jsonExport.jsonRoot.toAbsolutePath()}")
-                        }
-                        if (tomlExport != null) {
-                            log.info("toml export → ${tomlExport.tomlRoot.toAbsolutePath()}")
-                        }
-                        log.info("manifest export → ${manifestOutputDir.toAbsolutePath()}")
-                        val result =
-                            categoryDumper.dumpAllMonsters(
-                                outputDir = outputDir,
-                                manifestDir = manifestOutputDir,
-                                limit = limitFlag,
-                            )
-                        summaryPages =
-                            result.canonicalPages + result.duplicatePages + result.skippedPages
-                        log.info(
-                            "category summary — " +
-                                "${result.canonicalPages} unique, " +
-                                "${result.duplicatePages} exact duplicates, " +
-                                "${result.skippedPages} skipped " +
-                                "(${result.skippedNoDropSection} no ==Drops==, " +
-                                "${result.skippedNoResolvedDrops} unresolved), " +
-                                "${result.failedPages} failed",
-                        )
-                        if (result.unknownDropRates.isNotEmpty()) {
+
+                        for (result in results) {
                             log.info(
-                                "  ${result.unknownDropRates.size} drop(s) with unknown text rarity " +
-                                    "→ ${DropTableOutputLayout.UNKNOWN_DROP_RATES_MANIFEST}",
+                                "${result.request.tableVarName}: " +
+                                    "${result.guaranteedCount} guaranteed, " +
+                                    "${result.mainCount} main, " +
+                                    "${result.tertiaryCount} tertiary, " +
+                                    "${result.npcRscmKeys.size} npcs " +
+                                    "(wiki ids: ${result.npcIds.joinToString()})"
                             )
-                        }
-                        logSkippedExamples(log, result.skipped)
-                    } else {
-                        var hadUnmappedNpcIds = false
 
-                        log.info("dumping ${wikiPages.size} page(s) → ${outputDir.toAbsolutePath()}")
-
-                        for (wikiPage in wikiPages) {
-                            val request =
-                                NpcDropDumpRequest(
-                                    wikiPage = wikiPage,
-                                    tableVarName = toTableVarName(wikiPage),
-                                    tableIdentifier = tableIdentifier(wikiPage, "Drops"),
-                                    outputFileName = outputFileName(wikiPage),
-                                    relatedNpcPages = defaultRelatedNpcPages(wikiPage),
+                            if (result.unmappedNpcIds.isNotEmpty()) {
+                                hadUnmappedNpcIds = true
+                                log.warn(
+                                    "${result.request.tableVarName} unmapped npc ids: " +
+                                        result.unmappedNpcIds.joinToString()
                                 )
-
-                            log.info("— $wikiPage")
-                            val results =
-                                dumper.dumpToFile(
-                                    request,
-                                    outputDir,
-                                    jsonExport,
-                                    tomlExport,
-                                    kotlinOutput = !jsonOnly && !tomlOnly,
+                            }
+                            if (result.unmappedItems.isNotEmpty()) {
+                                log.warn(
+                                    "${result.request.tableVarName} unmapped items: " +
+                                        result.unmappedItems.joinToString()
                                 )
-
-                            for (result in results) {
-                                log.info(
-                                    "${result.request.tableVarName}: " +
-                                        "${result.guaranteedCount} guaranteed, " +
-                                        "${result.mainCount} main, " +
-                                        "${result.tertiaryCount} tertiary, " +
-                                        "${result.npcRscmKeys.size} npcs " +
-                                        "(wiki ids: ${result.npcIds.joinToString()})",
-                                )
-
-                                if (result.unmappedNpcIds.isNotEmpty()) {
-                                    hadUnmappedNpcIds = true
-                                    log.warn(
-                                        "${result.request.tableVarName} unmapped npc ids: " +
-                                            result.unmappedNpcIds.joinToString(),
-                                    )
-                                }
-                                if (result.unmappedItems.isNotEmpty()) {
-                                    log.warn(
-                                        "${result.request.tableVarName} unmapped items: " +
-                                            result.unmappedItems.joinToString(),
-                                    )
-                                }
                             }
                         }
+                    }
 
-                        log.verbose("wiki pages cached: ${wiki.cachedPages}")
+                    log.verbose("wiki pages cached: ${wiki.cachedPages}")
 
-                        if (hadUnmappedNpcIds) {
-                            exitProcess(1)
-                        }
+                    if (hadUnmappedNpcIds) {
+                        exitProcess(1)
                     }
                 }
             }
+        }
 
         log.summary(summaryPages, totalElapsed)
     }
@@ -679,7 +713,8 @@ internal fun wikiPageBase(wikiPage: String): String =
             } else {
                 cleaned.replaceFirstChar { it.uppercase() }
             }
-        }.joinToString("")
+        }
+        .joinToString("")
 
 internal fun wikiPageTypeName(wikiPage: String): String =
     wikiPage
@@ -727,7 +762,11 @@ internal fun outputFileName(wikiPage: String): String = "${wikiPageTypeName(wiki
 internal fun displayWikiPageName(wikiPage: String): String =
     wikiPage.split('_').filter { it.isNotBlank() }.joinToString(" ")
 
-internal fun tableIdentifier(wikiPage: String, tableName: String, dropVariant: String = ""): String {
+internal fun tableIdentifier(
+    wikiPage: String,
+    tableName: String,
+    dropVariant: String = "",
+): String {
     val displayName = displayWikiPageName(wikiPage)
     return when {
         dropVariant.isNotBlank() -> "$displayName $dropVariant"
@@ -742,11 +781,16 @@ private fun defaultRelatedNpcPages(wikiPage: String): List<String> =
         else -> emptyList()
     }
 
-/** Returns null to scan all monster pages; supports `--limit=50`, `--limit 50`, or `--limit=all`. */
+/**
+ * Returns null to scan all monster pages; supports `--limit=50`, `--limit 50`, or `--limit=all`.
+ */
 internal fun parseScanLimit(args: Array<String>): Int? {
-    args.firstOrNull { it.startsWith("--limit=") }?.substringAfter("--limit=")?.let { raw ->
-        return parseScanLimitValue(raw)
-    }
+    args
+        .firstOrNull { it.startsWith("--limit=") }
+        ?.substringAfter("--limit=")
+        ?.let { raw ->
+            return parseScanLimitValue(raw)
+        }
 
     val idx = args.indexOf("--limit")
     if (idx >= 0 && idx + 1 < args.size) {
@@ -769,10 +813,26 @@ internal fun isAlternateEncounterWikiPage(wikiPage: String): Boolean {
     return normalized.contains("(echo)")
 }
 
-private fun logSkippedExamples(log: DropDumpLog, skipped: List<SkippedMonsterPage>, sampleSize: Int = 10) {
+private fun logSkippedExamples(
+    log: DropDumpLog,
+    skipped: List<SkippedMonsterPage>,
+    sampleSize: Int = 10,
+) {
     logSkippedExample(log, skipped, MonsterSkipReason.NO_DROP_SECTION, "no ==Drops==", sampleSize)
-    logSkippedExample(log, skipped, MonsterSkipReason.NO_RESOLVED_DROPS, "unresolved drops", sampleSize)
-    logSkippedExample(log, skipped, MonsterSkipReason.ALTERNATE_ENCOUNTER, "alternate encounter (Echo)", sampleSize)
+    logSkippedExample(
+        log,
+        skipped,
+        MonsterSkipReason.NO_RESOLVED_DROPS,
+        "unresolved drops",
+        sampleSize,
+    )
+    logSkippedExample(
+        log,
+        skipped,
+        MonsterSkipReason.ALTERNATE_ENCOUNTER,
+        "alternate encounter (Echo)",
+        sampleSize,
+    )
 }
 
 private fun logSkippedExample(

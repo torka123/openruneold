@@ -1,0 +1,9 @@
+[gamevals.obj]
+member_daily_mystery_box=65535
+streak_protection_scroll=65533
+
+[gamevals.inv]
+daily_adventure_shop=65535
+
+[gamevals.currency]
+daily_adventure=65534

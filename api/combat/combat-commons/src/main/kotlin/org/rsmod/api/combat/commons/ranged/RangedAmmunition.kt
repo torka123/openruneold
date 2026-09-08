@@ -4,6 +4,7 @@ import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
 import dev.openrune.types.ItemServerType
 import dev.openrune.types.aconverted.CategoryType
+import dev.openrune.types.aconverted.SpotanimType
 import dev.openrune.util.Wearpos
 import org.rsmod.api.config.refs.params
 import org.rsmod.api.player.back
@@ -187,18 +188,84 @@ public object RangedAmmunition {
         worldQueues.add(delay) { objRepo.add(obj, dropDuration) }
     }
 
-    public val defualtArrows: CategoryType = CategoryType("category.arrows".asRSCM(RSCMType.CATEGORY))
+    public val defualtArrows: CategoryType =
+        CategoryType("category.arrows".asRSCM(RSCMType.CATEGORY))
+
+    public fun projectileTravel(weapon: ItemServerType, ammunition: ItemServerType): SpotanimType? =
+        ammunition.paramOrNull(params.proj_travel)
+            ?: if (weapon.isEclipseAtlatl() && ammunition.isAtlatlDart()) {
+                SpotanimType("spotanim.vfx_atlatl_projectile_01".asRSCM(RSCMType.SPOTANIM))
+            } else {
+                null
+            }
+
+    private fun ItemServerType.isEclipseAtlatl(): Boolean =
+        isType("obj.eclipse_atlatl") || isType("obj.br_eclipse_atlatl")
+
+    private fun ItemServerType.isAtlatlDart(): Boolean =
+        isType("obj.atlatl_dart") ||
+            isType("obj.br_atlatl_dart") ||
+            isCategoryType("category.atlatl_dart")
+
+    private fun ItemServerType.isDarkBowVariant(): Boolean =
+        isType("obj.darkbow") ||
+            isType("obj.darkbow_green") ||
+            isType("obj.darkbow_blue") ||
+            isType("obj.darkbow_yellow") ||
+            isType("obj.darkbow_white") ||
+            isType("obj.bh_darkbow_imbue") ||
+            isType("obj.br_darkbow") ||
+            isType("obj.deadman_blighted_dark_bow") ||
+            isType("obj.deadman_darkbow")
 
     public fun validateArrows(weapon: ItemServerType, ammo: ItemServerType): Validation {
-
+        val atlatl = weapon.isEclipseAtlatl()
         val requiredAmmo = weapon.paramOrNull(params.required_ammo) ?: defualtArrows
 
-        // Dragon arrows have a separate category from standard arrows, but any bow that accepts
-        // regular arrows can also use dragon arrows, provided the `levelrequire` threshold is met.
         val isAlternativeAmmo =
-            requiredAmmo.isType("category.arrows") && ammo.isCategoryType("category.dragon_arrow")
+            !atlatl &&
+                requiredAmmo.isType("category.arrows") &&
+                ammo.isCategoryType("category.dragon_arrow")
 
-        if (!ammo.isCategory(requiredAmmo) && !isAlternativeAmmo) {
+        val validAmmo =
+            if (atlatl) {
+                ammo.isAtlatlDart()
+            } else {
+                ammo.isCategory(requiredAmmo) || isAlternativeAmmo
+            }
+        if (!validAmmo) {
+            return Validation.Invalid.IncorrectAmmo
+        }
+
+        if (
+            !atlatl &&
+                !weapon.isDarkBowVariant() &&
+                ammo.param(params.levelrequire) > weapon.param(params.levelrequire)
+        ) {
+            return Validation.Invalid.LevelTooHigh
+        }
+
+        return Validation.Valid
+    }
+
+    public fun validateBolts(weapon: ItemServerType, ammo: ItemServerType): Validation {
+        val boneWeapon = weapon.paramOrNull(params.bone_weapon) != 0
+        val boneAmmo = ammo.paramOrNull(params.bone_weapon) != 0
+
+        // Bone bolts are deliberately in their own category. Check the paired bone-weapon flags
+        // before applying the ordinary crossbow-bolt category rule so Dorgeshuun/bone crossbows
+        // accept bone bolts and every other crossbow rejects them cleanly.
+        if (boneWeapon) {
+            return if (boneAmmo) Validation.Valid else Validation.Invalid.BoneWeaponIncorrectAmmo
+        }
+        if (boneAmmo) {
+            return Validation.Invalid.ExpectedBoneWeapon
+        }
+
+        val requiredAmmo =
+            weapon.paramOrNull(params.required_ammo)
+                ?: CategoryType("category.crossbow_bolt".asRSCM(RSCMType.CATEGORY))
+        if (!ammo.isCategory(requiredAmmo)) {
             return Validation.Invalid.IncorrectAmmo
         }
 
@@ -209,30 +276,10 @@ public object RangedAmmunition {
         return Validation.Valid
     }
 
-    public fun validateBolts(weapon: ItemServerType, ammo: ItemServerType): Validation {
-        val requiredAmmo = weapon.paramOrNull(params.required_ammo) ?: CategoryType("category.crossbow_bolt".asRSCM(RSCMType.CATEGORY))
-
-        if (!ammo.isCategory(requiredAmmo)) {
-            return if (weapon.param(params.bone_weapon) != 0) {
-                Validation.Invalid.BoneWeaponIncorrectAmmo
-            } else {
-                Validation.Invalid.IncorrectAmmo
-            }
-        }
-
-        if (ammo.param(params.bone_weapon) != 0 && weapon.param(params.bone_weapon) == 0) {
-            return Validation.Invalid.ExpectedBoneWeapon
-        }
-
-        if (ammo.param(params.levelrequire) > weapon.param(params.levelrequire)) {
-            return Validation.Invalid.LevelTooHigh
-        }
-
-        return Validation.Valid
-    }
-
     public fun validateJavelins(weapon: ItemServerType, ammo: ItemServerType): Validation {
-        val requiredAmmo = weapon.paramOrNull(params.required_ammo) ?: CategoryType("category.javelin".asRSCM(RSCMType.CATEGORY))
+        val requiredAmmo =
+            weapon.paramOrNull(params.required_ammo)
+                ?: CategoryType("category.javelin".asRSCM(RSCMType.CATEGORY))
         return if (!ammo.isCategory(requiredAmmo)) {
             Validation.Invalid.IncorrectAmmo
         } else {

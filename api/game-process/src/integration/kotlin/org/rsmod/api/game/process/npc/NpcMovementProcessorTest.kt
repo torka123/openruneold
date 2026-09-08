@@ -1,6 +1,8 @@
 package org.rsmod.api.game.process.npc
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.rsmod.api.testing.GameTestState
 import org.rsmod.api.testing.factory.entityFactory
@@ -77,6 +79,50 @@ class NpcMovementProcessorTest {
                     process()
                     assertEquals(CollisionFlag.BLOCK_NPCS, it.collision[coords])
                     assertEquals(stopCoords, coords)
+                }
+            }
+        }
+
+    @Test
+    fun GameTestState.`removed npc discards a late route without trying to step`() =
+        runBasicGameTest {
+            withCollisionState {
+                val start = CoordGrid(0, 0, 0, 0, 0)
+                val npc = npcFactory.create(npcTypeFactory.create(), start)
+                check(!npc.isSlotAssigned)
+                npc.routeDestination.add(start.translateZ(1))
+                npc.previousCoords = start
+
+                NpcMovementProcessor(it.collision, it.stepFactory, eventBus).process(npc)
+
+                assertEquals(start, npc.coords)
+                assertTrue(npc.routeDestination.isEmpty())
+            }
+        }
+
+    @Test
+    fun boundNpcClearsLateRouteAndExpiresNormally() =
+        runBasicGameTest {
+            withCollisionState {
+                val start = CoordGrid(0, 0, 0, 0, 0)
+                val type = npcTypeFactory.create()
+                val npc = npcFactory.create(type, start)
+                withNpc(npc) {
+                    val movement = NpcMovementProcessor(it.collision, it.stepFactory, eventBus)
+                    currentMapClock = 10
+                    applyBind(bindCycles = 2)
+                    routeDestination.add(start.translateZ(1))
+
+                    movement.process(this)
+
+                    assertTrue(isBound)
+                    assertEquals(2, bindCyclesRemaining)
+                    assertEquals(start, coords)
+                    assertTrue(routeDestination.isEmpty())
+
+                    currentMapClock = 12
+                    assertFalse(isBound)
+                    assertEquals(0, bindCyclesRemaining)
                 }
             }
         }

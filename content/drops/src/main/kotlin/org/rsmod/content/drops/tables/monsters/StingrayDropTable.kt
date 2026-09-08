@@ -2,54 +2,60 @@ package org.rsmod.content.drops.tables.monsters
 
 import dtx.rs.RSDropTable
 import dtx.rs.npcs
-import dtx.rs.areas
-import org.rsmod.api.droptable.rsPlayerGuaranteedTable
+import org.rsmod.api.droptable.DropRollItem
+import org.rsmod.api.droptable.RegisterDropTable
+import org.rsmod.api.droptable.nothing
+import org.rsmod.api.droptable.rsPlayerPrerollTable
 import org.rsmod.api.droptable.rsPlayerTertiaryTable
 import org.rsmod.api.droptable.rsPlayerWeightedTable
-import org.rsmod.api.droptable.rsPlayerPrerollTable
-import org.rsmod.api.droptable.dropRollable
-import org.rsmod.content.drops.tables.shared.SharedDropTables
-import org.rsmod.api.droptable.DropRollItem
 import org.rsmod.content.drops.clueScrollTransformObj
-import org.rsmod.api.droptable.nothing
-import org.rsmod.api.droptable.RegisterDropTable
+import org.rsmod.content.drops.tables.shared.SharedDropTables
 import org.rsmod.game.entity.Player
 
 @field:RegisterDropTable
 @JvmField
-public val stingrayDropTable: RSDropTable<Player, DropRollItem> = RSDropTable(
-    tableIdentifier = "Stingray Drops",
-    npcs = npcs("npc.sailing_stingray"),
-    preRoll = rsPlayerPrerollTable {
-        1 outOf 30 weight "obj.ray_barbs" count 1
-    },
-    mainTable = rsPlayerWeightedTable(total = 100) {
-        name("Stingray Drops")
-        3 weight "obj.cert_bucket_sand" count 10..15
-        3 weight "obj.cert_seaweed" count 10..15
-        2 weight "obj.weapon_poison+" count 1
-        2 weight "obj.weapon_poison++" count 1
-        18 outOf 500 separate "obj.coral_elkhorn_frag" count 1..2
-        9 outOf 500 separate "obj.coral_pillar_frag" count 1..2
-        3 outOf 500 separate "obj.coral_umbral_frag" count 1..2
-        15 outOf 400 separate "obj.camphor_seed" count 1
-        4 outOf 400 separate "obj.ironwood_seed" count 1
-        1 outOf 400 separate "obj.rosewood_seed" count 1
+public val stingrayDropTable: RSDropTable<Player, DropRollItem> =
+    RSDropTable(
+        tableIdentifier = "Stingray Drops",
+        npcs = npcs("npc.sailing_stingray"),
+        preRoll = rsPlayerPrerollTable { 1 outOf 30 weight "obj.ray_barbs" count 1 },
+        mainTable =
+            rsPlayerWeightedTable(total = 100) {
+                name("Stingray Drops")
+                3 weight "obj.cert_bucket_sand" count 10..15
+                3 weight "obj.cert_seaweed" count 10..15
+                2 weight "obj.weapon_poison+" count 1
+                2 weight "obj.weapon_poison++" count 1
+                18 outOf 500 separate "obj.coral_elkhorn_frag" count 1..2
+                9 outOf 500 separate "obj.coral_pillar_frag" count 1..2
+                3 outOf 500 separate "obj.coral_umbral_frag" count 1..2
+                15 outOf 400 separate "obj.camphor_seed" count 1
+                4 outOf 400 separate "obj.ironwood_seed" count 1
+                1 outOf 400 separate "obj.rosewood_seed" count 1
 
-        4 weight SharedDropTables.combatHerb
-        86 weight nothing()
-    },
-    tertiaries = rsPlayerTertiaryTable {
-        1 outOf 10 weight "obj.sailing_stingray_skin" count 1 condition { player ->
-            // Drops Need Manual: Only dropped while on an applicable bounty task.
-             true
-        }
-        1 outOf 2 weight "obj.sailing_stingray_fin" count 1
-        1 outOf 175 weight "obj.trail_clue_hard_map001" count 1 transformObj { player ->
-             player.clueScrollTransformObj("obj.trail_clue_hard_map001")
-        }
-    },
-)
+                4 weight SharedDropTables.combatHerb
+                86 weight nothing()
+            },
+        tertiaries =
+            rsPlayerTertiaryTable {
+                1 outOf
+                    10 weight
+                    "obj.sailing_stingray_skin" count
+                    1 condition
+                    { player ->
+                        // Drops Need Manual: Only dropped while on an applicable bounty task.
+                        true
+                    }
+                1 outOf 2 weight "obj.sailing_stingray_fin" count 1
+                1 outOf
+                    175 weight
+                    "obj.trail_clue_hard_map001" count
+                    1 transformObj
+                    { player ->
+                        player.clueScrollTransformObj("obj.trail_clue_hard_map001")
+                    }
+            },
+    )
 
 // Unknown wiki drop rates (text rarity — need data collection):
 //   - Limpwurt seed [main/1/{{#expr:1/({{#var:uncseed}}*137) round 1}}]

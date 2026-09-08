@@ -1,7 +1,5 @@
 package org.rsmod.api.combat.commons.fx
 
-import dev.openrune.types.SequenceServerType
-import dev.openrune.types.aconverted.SynthType
 import org.rsmod.api.combat.commons.CombatStance
 import org.rsmod.api.config.aliases.ParamSeq
 import org.rsmod.api.config.aliases.ParamSynth

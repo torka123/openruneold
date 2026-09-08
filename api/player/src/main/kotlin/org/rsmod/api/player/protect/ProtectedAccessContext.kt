@@ -4,13 +4,14 @@ import org.rsmod.api.area.checker.AreaChecker
 import org.rsmod.api.market.MarketPrices
 import org.rsmod.api.player.dialogue.align.TextAlignment
 import org.rsmod.api.player.hit.processor.InstantPlayerHitProcessor
+import org.rsmod.api.player.hook.PlayerTeleportHooks
+import org.rsmod.api.player.hook.PlayerTeleportValidator
 import org.rsmod.api.player.interact.HeldInteractions
 import org.rsmod.api.player.interact.LocInteractions
 import org.rsmod.api.player.interact.NpcInteractions
 import org.rsmod.api.player.interact.PlayerInteractions
 import org.rsmod.api.player.interact.WornInteractions
 import org.rsmod.api.player.music.MusicPlayer
-import org.rsmod.api.player.hook.PlayerTeleportValidator
 import org.rsmod.api.random.GameRandom
 import org.rsmod.events.EventBus
 import org.rsmod.game.entity.NpcList
@@ -84,6 +85,7 @@ public data class ProtectedAccessContext(
     private val getMarketPrices: () -> MarketPrices,
     private val getInstantHitProcessor: () -> InstantPlayerHitProcessor,
     private val getTeleportValidator: () -> PlayerTeleportValidator,
+    private val getTeleportHooks: () -> PlayerTeleportHooks,
 ) {
     public val random: GameRandom by lazyLoad { getRandom() }
     public val eventBus: EventBus by lazyLoad { getEventBus() }
@@ -103,6 +105,7 @@ public data class ProtectedAccessContext(
         getInstantHitProcessor()
     }
     public val teleportValidator: PlayerTeleportValidator by lazyLoad { getTeleportValidator() }
+    public val teleportHooks: PlayerTeleportHooks by lazyLoad { getTeleportHooks() }
 }
 
 private fun <T> lazyLoad(init: () -> T): Lazy<T> = lazy(LazyThreadSafetyMode.NONE, init)

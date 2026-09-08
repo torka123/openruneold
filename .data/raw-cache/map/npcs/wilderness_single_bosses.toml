@@ -1,0 +1,11 @@
+[[spawn]]
+npc = "npc.callisto_singles"
+coords = "0_27_180_31_16"
+
+[[spawn]]
+npc = "npc.venenatis_singles"
+coords = "2_25_180_30_24"
+
+[[spawn]]
+npc = "npc.vetion_single"
+coords = "1_29_180_31_26"

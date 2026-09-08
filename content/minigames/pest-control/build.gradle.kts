@@ -1,0 +1,25 @@
+plugins { id("base-conventions") }
+
+dependencies {
+    implementation(projects.api.collectionLog)
+    implementation(projects.api.config)
+    implementation(projects.api.attr)
+    implementation(projects.api.death)
+    implementation(projects.api.gameProcess)
+    implementation(projects.api.instances)
+    implementation(projects.api.invtx)
+    implementation(projects.api.player)
+    implementation(projects.api.playerOutput)
+    implementation(projects.api.repo)
+    implementation(projects.api.script)
+    implementation(projects.api.specials)
+    implementation(projects.api.utils.utilsLogging)
+    implementation(projects.api.utils.utilsVars)
+    implementation(projects.api.pluginCommons)
+    implementation(projects.engine.events)
+    implementation(projects.engine.game)
+    implementation(projects.engine.map)
+    implementation(projects.engine.plugin)
+    implementation(projects.engine.routefinder)
+    implementation(libs.guice)
+}

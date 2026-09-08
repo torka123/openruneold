@@ -4,10 +4,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 object DbrowDumpFiles {
-    data class LoadedDump(
-        val text: String,
-        val source: Path,
-    )
+    data class LoadedDump(val text: String, val source: Path)
 
     fun requireLocal(rootDir: String?, explicitPath: String? = null): LoadedDump {
         explicitPath?.let { path ->
@@ -21,7 +18,7 @@ object DbrowDumpFiles {
         return readLocal(rootDir)
             ?: error(
                 "dump.dbrow not found. Place it at .data/osrs-dumps/dump.dbrow " +
-                    "or pass --dbrow=/path/to/dump.dbrow",
+                    "or pass --dbrow=/path/to/dump.dbrow"
             )
     }
 
@@ -42,18 +39,17 @@ object DbrowDumpFiles {
         return null
     }
 
-    private fun candidatePaths(rootDir: String?): List<Path> =
-        buildList {
-            if (!rootDir.isNullOrBlank()) {
-                val root = Path.of(rootDir)
-                add(root.resolve(".data/osrs-dumps/dump.dbrow"))
-                add(root.resolve(".data/raw-cache/dump.dbrow"))
-            }
-            var cursor = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize()
-            repeat(8) {
-                add(cursor.resolve(".data/osrs-dumps/dump.dbrow"))
-                add(cursor.resolve(".data/raw-cache/dump.dbrow"))
-                cursor = cursor.parent ?: return@repeat
-            }
+    private fun candidatePaths(rootDir: String?): List<Path> = buildList {
+        if (!rootDir.isNullOrBlank()) {
+            val root = Path.of(rootDir)
+            add(root.resolve(".data/osrs-dumps/dump.dbrow"))
+            add(root.resolve(".data/raw-cache/dump.dbrow"))
         }
+        var cursor = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize()
+        repeat(8) {
+            add(cursor.resolve(".data/osrs-dumps/dump.dbrow"))
+            add(cursor.resolve(".data/raw-cache/dump.dbrow"))
+            cursor = cursor.parent ?: return@repeat
+        }
+    }
 }

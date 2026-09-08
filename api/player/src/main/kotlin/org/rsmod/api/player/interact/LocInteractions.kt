@@ -8,6 +8,7 @@ import jakarta.inject.Inject
 import org.rsmod.api.player.events.interact.ApEvent
 import org.rsmod.api.player.events.interact.LocCategoryEvents
 import org.rsmod.api.player.events.interact.LocContentEvents
+import org.rsmod.api.player.events.interact.LocCoordEvents
 import org.rsmod.api.player.events.interact.LocDefaultEvents
 import org.rsmod.api.player.events.interact.LocEvents
 import org.rsmod.api.player.events.interact.LocUnimplementedEvents
@@ -69,6 +70,11 @@ constructor(private val boundValidator: BoundValidator, private val eventBus: Ev
             if (multiLocTrigger != null) {
                 return multiLocTrigger
             }
+        }
+
+        val coordEvent = toCoordOp(base, loc, type, op)
+        if (eventBus.contains(coordEvent::class.java, coordEvent.id)) {
+            return coordEvent
         }
 
         val typeEvent = toOp(base, loc, type, op)
@@ -174,6 +180,20 @@ constructor(private val boundValidator: BoundValidator, private val eventBus: Ev
             loc.copy(entity = LocEntity(multiLoc, loc.shapeId, loc.angleId))
         }
     }
+
+    private fun toCoordOp(
+        base: BoundLocInfo,
+        vis: BoundLocInfo,
+        type: ObjectServerType,
+        op: InteractionOp,
+    ): LocCoordEvents.Op =
+        when (op) {
+            InteractionOp.Op1 -> LocCoordEvents.Op1(base, vis, type)
+            InteractionOp.Op2 -> LocCoordEvents.Op2(base, vis, type)
+            InteractionOp.Op3 -> LocCoordEvents.Op3(base, vis, type)
+            InteractionOp.Op4 -> LocCoordEvents.Op4(base, vis, type)
+            InteractionOp.Op5 -> LocCoordEvents.Op5(base, vis, type)
+        }
 
     private fun toOp(
         base: BoundLocInfo,

@@ -17,6 +17,7 @@ class MultiHitMeleeWeapons @Inject constructor() : WeaponMap {
         register("obj.glacial_temotli", weapon)
         register("obj.sulphur_blades", weapon)
         register("obj.earthbound_tecpatl", weapon)
+        register("obj.infernal_tecpatl", weapon)
         register("obj.barrows_torag_weapon", weapon)
         register("obj.barrows_torag_weapon_100", weapon)
         register("obj.barrows_torag_weapon_75", weapon)

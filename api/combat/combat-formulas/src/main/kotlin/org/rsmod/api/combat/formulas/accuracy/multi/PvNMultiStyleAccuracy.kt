@@ -45,10 +45,11 @@ constructor(
             targetDefence = target.defenceLvl,
             targetCurrHp = target.hitpoints,
             targetMaxHp = target.baseHitpointsLvl,
-            targetMagic = target.magicLvl,
+            targetMagic = target.magicDefenceLvl,
             attackType = attackType,
             attackStyle = attackStyle,
             specialMultiplier = specialMultiplier,
+            slayerTask = target.isSlayerTask(player),
         )
     }
 
@@ -62,10 +63,10 @@ constructor(
         attackType: MeleeAttackType?,
         attackStyle: MeleeAttackStyle?,
         specialMultiplier: Double,
+        slayerTask: Boolean,
     ): Int {
         val meleeAttributes = meleeAttributes.collect(source, attackType)
 
-        val slayerTask = target.isSlayerTask(source)
         val npcAttributes = npcAttributes.collect(target, targetCurrHp, targetMaxHp, slayerTask)
 
         val baseAttackRoll =
@@ -103,6 +104,7 @@ constructor(
             attackStyle = attackStyle,
             blockType = blockType,
             specialMultiplier = specialMultiplier,
+            slayerTask = target.isSlayerTask(player),
         )
     }
 
@@ -116,10 +118,10 @@ constructor(
         attackStyle: MeleeAttackStyle?,
         blockType: RangedAttackType?,
         specialMultiplier: Double,
+        slayerTask: Boolean,
     ): Int {
         val meleeAttributes = meleeAttributes.collect(source, attackType)
 
-        val slayerTask = target.isSlayerTask(source)
         val npcAttributes = npcAttributes.collect(target, targetCurrHp, targetMaxHp, slayerTask)
 
         val baseAttackRoll =
@@ -155,6 +157,7 @@ constructor(
             attackStyle = attackStyle,
             blockType = blockType,
             specialMultiplier = specialMultiplier,
+            slayerTask = target.isSlayerTask(player),
         )
     }
 
@@ -167,8 +170,8 @@ constructor(
         attackStyle: MagicAttackStyle?,
         blockType: RangedAttackType?,
         specialMultiplier: Double,
+        slayerTask: Boolean,
     ): Int {
-        val slayerTask = target.isSlayerTask(source)
         val npcAttributes = npcAttributes.collect(target, targetCurrHp, targetMaxHp, slayerTask)
 
         // TODO(combat): Should we use `computeSpellAttackRoll` instead to take elemental weakness
@@ -198,7 +201,7 @@ constructor(
         specialMultiplier: Double,
     ): Int {
         val targetType = target.visType
-        val targetMagic = max(target.magicLvl, targetType.param(params.attack_magic))
+        val targetMagic = max(target.magicDefenceLvl, targetType.param(params.attack_magic))
         val targetDistance = player.coords.chebyshevDistance(target.coords)
         return computeMagicalRangedHitChance(
             source = player,
@@ -211,6 +214,7 @@ constructor(
             attackType = attackType,
             attackStyle = attackStyle,
             specialMultiplier = specialMultiplier,
+            slayerTask = target.isSlayerTask(player),
         )
     }
 
@@ -225,10 +229,10 @@ constructor(
         attackType: RangedAttackType?,
         attackStyle: RangedAttackStyle?,
         specialMultiplier: Double,
+        slayerTask: Boolean,
     ): Int {
         val rangeAttributes = rangedAttributes.collect(source, attackType, attackStyle)
 
-        val slayerTask = target.isSlayerTask(source)
         val npcAttributes = npcAttributes.collect(target, targetCurrHp, targetMaxHp, slayerTask)
 
         val baseAttackRoll =

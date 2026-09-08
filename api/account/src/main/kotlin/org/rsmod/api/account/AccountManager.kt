@@ -34,7 +34,12 @@ constructor(private val loader: AccountLoaderService, private val saver: Account
         callback: AccountLoadCallback,
     ): Boolean {
         val loadRequest =
-            AccountLoadRequest.SearchOrCreateWithPassword(hashedPassword, auth, accountName, callback)
+            AccountLoadRequest.SearchOrCreateWithPassword(
+                hashedPassword,
+                auth,
+                accountName,
+                callback,
+            )
         return loader.queue(loadRequest)
     }
 

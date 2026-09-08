@@ -8,14 +8,18 @@ internal fun formatManualWikiNote(raw: String): String {
     text = text.replace(Regex("""\[\[([^\]]+)$""")) { it.groupValues[1].trim() }
     text = text.replace("[[", "").replace("]]", "").trim()
 
-    if (text.contains("Frozen key", ignoreCase = true) && text.contains("Frozen Door", ignoreCase = true)) {
+    if (
+        text.contains("Frozen key", ignoreCase = true) &&
+            text.contains("Frozen Door", ignoreCase = true)
+    ) {
         return "Frozen key pieces are only dropped during The Frozen Door miniquest."
     }
 
     return text
 }
 
-internal fun formatKotlinComment(raw: String): String = formatManualWikiNote(raw).replace("*/", "* /")
+internal fun formatKotlinComment(raw: String): String =
+    formatManualWikiNote(raw).replace("*/", "* /")
 
 internal fun buildTomlExportNotes(spec: GeneratedDropTableSpec): List<String> {
     val notes = mutableListOf<String>()
@@ -28,16 +32,20 @@ internal fun buildTomlExportNotes(spec: GeneratedDropTableSpec): List<String> {
         val label = access.wikiLabel.ifBlank { access.tableRef }
         when {
             access.needsHardcodedSharedTable ->
-                notes += "Needs hardcoded shared table: $label (${access.numerator}/${access.denominator})"
+                notes +=
+                    "Needs hardcoded shared table: $label (${access.numerator}/${access.denominator})"
             !access.herbRollVariants.isNullOrEmpty() ->
-                notes += "Herb roll variants subtable: $label (${access.numerator}/${access.denominator})"
+                notes +=
+                    "Herb roll variants subtable: $label (${access.numerator}/${access.denominator})"
             else ->
-                notes += "Unsupported shared table access: ${access.tableRef} (${access.numerator}/${access.denominator})"
+                notes +=
+                    "Unsupported shared table access: ${access.tableRef} (${access.numerator}/${access.denominator})"
         }
     }
-    spec.poolPaddingWeight().takeIf { it > 0 }?.let { weight ->
-        notes += "$POOL_PADDING_TOML_NOTE ($weight weight)"
-    }
+    spec
+        .poolPaddingWeight()
+        .takeIf { it > 0 }
+        ?.let { weight -> notes += "$POOL_PADDING_TOML_NOTE ($weight weight)" }
     for (entry in spec.allResolvedEntries()) {
         for (note in entry.wikiNotes.condition) {
             val formatted = formatManualWikiNote(note)

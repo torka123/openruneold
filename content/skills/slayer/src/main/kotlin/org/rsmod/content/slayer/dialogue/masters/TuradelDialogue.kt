@@ -54,33 +54,22 @@ object TuradelDialogue {
                     "Oh okay then, you twisted my arm. You'll have to train against specific groups of creatures.",
                 )
                 chatPlayer(quiz, "Okay, what's first?")
-                assignNewTask(npc!!.visType.internalName) { taskName, count ->
+                chatNpc(
+                    neutral,
+                    "Choose one of the three assignments I offer you. Once you pick one, those creatures will become your Slayer task.",
+                )
+                chatNpc(
+                    neutral,
+                    "You'll also need this enchanted gem. It lets Slayer Masters update you on your progress. If you lose it, you can buy another from any Slayer Master.",
+                )
+                val gemAdd = access.invAdd(access.inv, "obj.slayer_gem", 1)
+                if (gemAdd.failure) {
                     chatNpc(
                         neutral,
-                        "We'll start you off hunting $taskName, you'll need to kill $count of them.",
+                        "I tried to give you an enchanted gem, but you had no room. Free a space or buy one from any Slayer Master.",
                     )
-                    chatNpc(
-                        neutral,
-                        "You'll also need this enchanted gem, it allows Slayer Masters like myself to contact you and update you on your progress. Don't worry if you lose it, you can buy another from any Slayer Master.",
-                    )
-                    val gemAdd = access.invAdd(access.inv, "obj.slayer_gem", 1)
-                    if (gemAdd.failure) {
-                        chatNpc(
-                            neutral,
-                            "I tried to give you this enchanted gem but you had no room, it allows Slayer Masters like myself to contact you and update you on your progress. Don't worry you can buy another from any Slayer Master.",
-                        )
-                    }
-                    when (choice2("Got any tips for me?", 1, "Okay, great!", 2)) {
-                        1 -> slayerTip()
-                        2 -> {
-                            chatPlayer(happy, "Okay, great!")
-                            chatNpc(
-                                neutral,
-                                "Good luck! Don't forget to come back when you need a new assignment.",
-                            )
-                        }
-                    }
                 }
+                assignNewTask(npc!!.visType.internalName)
             }
             2 -> {
                 chatPlayer(neutral, "Sounds useless to me.")

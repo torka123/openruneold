@@ -8,6 +8,8 @@ import org.rsmod.api.net.central.CentralSocialResult
 import org.rsmod.api.net.central.CentralSocialService
 import org.rsmod.api.net.central.OpenRuneCentralWorldLink
 import org.rsmod.api.net.central.writeCentralSocialSnapshot
+import org.rsmod.api.net.social.SocialRuntimeService
+import org.rsmod.api.server.config.ServerConfig
 import org.rsmod.api.social.writeSocialMessage
 import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
@@ -18,6 +20,8 @@ constructor(
     private val playerList: PlayerList,
     private val db: GameDbManager,
     private val social: CentralSocialService,
+    private val runtime: SocialRuntimeService,
+    private val config: ServerConfig,
 ) : MessageHandler<IgnoreListAdd> {
     override fun handle(player: Player, message: IgnoreListAdd) {
         val uid = player.uid
@@ -30,27 +34,23 @@ constructor(
         }
 
         db.request(
-            request = {
-                social.addIgnore(
-                    characterId = characterId,
-                    name = requestedName,
-                )
+            request = { connection ->
+                social.addIgnore(connection, characterId = characterId, name = requestedName)
             },
             response = { result ->
                 val current = uid.resolve(playerList) ?: return@request
 
                 result.fold(
-                    onOk = { socialResult ->
-                        when (socialResult) {
+                    onOk = { mutation ->
+                        when (val socialResult = mutation.result) {
                             CentralSocialResult.Ok -> {
+                                mutation.identity?.let {
+                                    runtime.addIgnore(characterId, it.characterId)
+                                }
                                 val refreshUid = current.uid
 
                                 db.request(
-                                    request = {
-                                        social.socialSnapshot(
-                                            characterId = characterId,
-                                        )
-                                    },
+                                    request = { social.socialSnapshot(characterId = characterId) },
                                     response = { refreshResult ->
                                         val refreshed =
                                             refreshUid.resolve(playerList) ?: return@request
@@ -59,7 +59,11 @@ constructor(
                                             onOk = { sync ->
                                                 when (sync) {
                                                     is OpenRuneCentralWorldLink.CentralSocialSnapshotResult.Ok -> {
-                                                        refreshed.writeCentralSocialSnapshot(sync.snapshot)
+                                                        refreshed.writeCentralSocialSnapshot(
+                                                            sync.snapshot,
+                                                            runtime.ranksByName(characterId),
+                                                            config,
+                                                        )
                                                     }
 
                                                     is OpenRuneCentralWorldLink.CentralSocialSnapshotResult.Failed -> {
@@ -68,7 +72,9 @@ constructor(
                                                 }
                                             },
                                             onErr = {
-                                                refreshed.writeSocialMessage("Unable to refresh social list right now.")
+                                                refreshed.writeSocialMessage(
+                                                    "Unable to refresh social list right now."
+                                                )
                                             },
                                         )
                                     },
@@ -82,9 +88,7 @@ constructor(
                             }
                         }
                     },
-                    onErr = {
-                        current.writeSocialMessage("Unable to ignore player right now.")
-                    },
+                    onErr = { current.writeSocialMessage("Unable to ignore player right now.") },
                 )
             },
         )

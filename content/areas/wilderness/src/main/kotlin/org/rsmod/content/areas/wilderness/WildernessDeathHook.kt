@@ -11,14 +11,29 @@ import org.rsmod.api.death.PlayerDeathDrops.Companion.wildernessKeepCount
 import org.rsmod.api.death.PlayerDeathHandling
 import org.rsmod.api.death.PlayerDeathHook
 import org.rsmod.api.death.UntradeableHandling
+import org.rsmod.api.player.output.mes
+import org.rsmod.api.realm.Realm
 
-public class WildernessDeathHook @Inject constructor() : PlayerDeathHook {
+public class WildernessDeathHook @Inject constructor(private val realm: Realm) : PlayerDeathHook {
     override fun handleDeath(context: PlayerDeathContext): PlayerDeathHandling? {
         if (!context.inWilderness) return null
+        transferForinthrySurge(context)
         if (context.inInstance) return wildernessInstance(context)
         if (context.isPvpDeath) return wildernessPvpDeath(context)
         if (context.inRevenantCaves) return revenantCaves(context)
         return wildernessPvmDeath(context)
+    }
+
+    private fun transferForinthrySurge(context: PlayerDeathContext) {
+        val killer = context.killer ?: return
+        val victim = context.player
+        if (
+            !victim.hasForinthrySurge() || !victim.isWearingAvarice() || !killer.isWearingAvarice()
+        ) {
+            return
+        }
+        killer.applyForinthrySurge(realm.config.id)
+        killer.mes("You take the Forinthry Surge from your defeated opponent.")
     }
 
     private fun wildernessPvpDeath(context: PlayerDeathContext): PlayerDeathHandling {
@@ -29,7 +44,8 @@ public class WildernessDeathHook @Inject constructor() : PlayerDeathHook {
             dropDuration = DROP_DURATION_PVP,
             revealDelay = if (context.killer != null) PVP_REVEAL_DELAY else 0,
             supplyPile = false,
-            untradeableHandling = if (above20) UntradeableHandling.COINS else UntradeableHandling.DROP,
+            untradeableHandling =
+                if (above20) UntradeableHandling.COINS else UntradeableHandling.DROP,
         )
     }
 

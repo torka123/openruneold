@@ -2,7 +2,6 @@ package org.rsmod.game.entity
 
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
-import dev.openrune.types.ControllerType
 import kotlin.coroutines.startCoroutine
 import org.rsmod.coroutine.GameCoroutine
 import org.rsmod.coroutine.suspension.GameCoroutineSimpleCompletion

@@ -9,18 +9,12 @@ import dtx.core.singleRollable
 import dtx.table.DefaultTableBuilder
 import dtx.table.TableHooks
 
-public open class WeightedTableBuilder<T, R, TT: WeightedTable<T, R>>(
+public open class WeightedTableBuilder<T, R, TT : WeightedTable<T, R>>(
     internal val impl: (String, Collection<WeightedRollable<T, R>>, TableHooks<T, R>) -> TT
-): DefaultTableBuilder<T, R, WeightedRollable<T, R>, TT>() {
+) : DefaultTableBuilder<T, R, WeightedRollable<T, R>, TT>() {
 
     init {
-        construct {
-            impl(
-                tableIdentifier,
-                weightedEntries,
-                hooks.build()
-            )
-        }
+        construct { impl(tableIdentifier, weightedEntries, hooks.build()) }
     }
 
     override val entries: MutableCollection<WeightedRollable<T, R>> = mutableListOf()
@@ -36,15 +30,19 @@ public open class WeightedTableBuilder<T, R, TT: WeightedTable<T, R>>(
         return weight(Single(entry))
     }
 
-    public infix fun Double.weightBy(selector: ResultSelector<T, R>): WeightedTableBuilder<T, R, TT> {
+    public infix fun Double.weightBy(
+        selector: ResultSelector<T, R>
+    ): WeightedTableBuilder<T, R, TT> {
         return weight(SingleByFun(selector))
     }
 
-    public infix fun Double.weight(block: SingleRollableBuilder<T, R>.() -> Unit): WeightedTableBuilder<T, R, TT> {
+    public infix fun Double.weight(
+        block: SingleRollableBuilder<T, R>.() -> Unit
+    ): WeightedTableBuilder<T, R, TT> {
         return weight(singleRollable(block))
     }
 
-    public inline infix fun Int.weight(rollable: Rollable<T, R>): WeightedTableBuilder<T, R, TT>{
+    public inline infix fun Int.weight(rollable: Rollable<T, R>): WeightedTableBuilder<T, R, TT> {
         return toDouble().weight(rollable)
     }
 
@@ -56,7 +54,9 @@ public open class WeightedTableBuilder<T, R, TT: WeightedTable<T, R>>(
         return toDouble().weightBy(selector)
     }
 
-    public infix fun Int.weight(block: SingleRollableBuilder<T, R>.() -> Unit): WeightedTableBuilder<T, R, TT> {
+    public infix fun Int.weight(
+        block: SingleRollableBuilder<T, R>.() -> Unit
+    ): WeightedTableBuilder<T, R, TT> {
         return toDouble().weight(block)
     }
 
@@ -68,10 +68,13 @@ public open class WeightedTableBuilder<T, R, TT: WeightedTable<T, R>>(
 
 public fun <T, R> weightedTable(
     tableName: String = "Unnamed Weighted Table",
-    block: WeightedTableBuilder<T, R, WeightedTable<T, R>>.() -> Unit
+    block: WeightedTableBuilder<T, R, WeightedTable<T, R>>.() -> Unit,
 ): WeightedTable<T, R> {
 
-    val builder = WeightedTableBuilder<T, R, WeightedTable<T, R>> { identifier, entries, hooks -> WeightedTableImpl(identifier, entries.toList(), hooks) }
+    val builder =
+        WeightedTableBuilder<T, R, WeightedTable<T, R>> { identifier, entries, hooks ->
+            WeightedTableImpl(identifier, entries.toList(), hooks)
+        }
     builder.apply { name(tableName) }
     builder.apply(block)
 

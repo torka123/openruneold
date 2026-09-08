@@ -9,7 +9,8 @@ import org.rsmod.game.inv.Inventory
 @Singleton
 public class PlayerItemStorage
 @Inject
-constructor(private val hooks: Set<@JvmSuppressWildcards PlayerItemStorageHook>) : InvVirtualStorage {
+constructor(private val hooks: Set<@JvmSuppressWildcards PlayerItemStorageHook>) :
+    InvVirtualStorage {
 
     public fun isManaged(player: Player, inventory: Inventory, itemInternal: String): Boolean {
         val ctx = PlayerItemStorageContext(player, inventory, itemInternal)

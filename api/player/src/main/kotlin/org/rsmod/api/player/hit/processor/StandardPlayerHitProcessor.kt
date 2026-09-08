@@ -1,6 +1,5 @@
 package org.rsmod.api.player.hit.processor
 
-import dev.openrune.rscm.RSCM
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
 import dev.openrune.types.ItemServerType
@@ -8,8 +7,8 @@ import dev.openrune.types.aconverted.SynthType
 import kotlin.math.min
 import org.rsmod.api.config.constants
 import org.rsmod.api.config.refs.BaseParams
-import org.rsmod.api.player.death.DEATH_CAUSE_ATTR
-import org.rsmod.api.player.death.DeathCause
+import org.rsmod.api.player.cheat.ADMIN_GOD_HITPOINTS_MAX
+import org.rsmod.api.player.cheat.adminGodHitpoints
 import org.rsmod.api.player.death.recordDeathCause
 import org.rsmod.api.player.death.resolveDeathCause
 import org.rsmod.api.player.events.PlayerHitpointsChangedEvent
@@ -27,15 +26,16 @@ import org.rsmod.game.hit.HitType
 
 public object StandardPlayerHitProcessor : QueuedPlayerHitProcessor {
     private val hitSoundsBodyA =
-        listOf("synth.human_hit_1", "synth.human_hit_2", "synth.human_hit_3", "synth.human_hit_4").map {
+        listOf("synth.human_hit_1", "synth.human_hit_2", "synth.human_hit_3", "synth.human_hit_4")
+            .map { SynthType(it.asRSCM(RSCMType.SYNTH)) }
+
+    private val hitSoundsBodyB =
+        listOf("synth.female_hit_1", "synth.female_hit_2").map {
             SynthType(it.asRSCM(RSCMType.SYNTH))
         }
 
-    private val hitSoundsBodyB = listOf("synth.female_hit_1", "synth.female_hit_2").map {
-        SynthType(it.asRSCM(RSCMType.SYNTH))
-    }
-
     override fun ProtectedAccess.process(hit: Hit) {
+        if (!hit.isValidNow()) return
         if (!hit.isValid(this)) {
             return
         }
@@ -43,17 +43,34 @@ public object StandardPlayerHitProcessor : QueuedPlayerHitProcessor {
 
         // TODO(combat): Process degradation, ring of recoil, retribution, etc.
 
-        val oldHitpoints = player.hitpoints
+        val godHitpoints = player.adminGodHitpoints
+        val oldHitpoints = godHitpoints ?: player.hitpoints
         val damage = min(oldHitpoints, hit.damage)
+        var currentHitpoints = oldHitpoints
         if (damage > 0) {
-            statSub("stat.hitpoints", constant = damage, percent = 0)
+            currentHitpoints = oldHitpoints - damage
+            if (godHitpoints != null) {
+                player.adminGodHitpoints = currentHitpoints.takeIf { it > 0 }
+                if (currentHitpoints == 0 && player.hitpoints > 0) {
+                    statSub("stat.hitpoints", constant = player.hitpoints, percent = 0)
+                }
+            } else {
+                statSub("stat.hitpoints", constant = damage, percent = 0)
+                currentHitpoints = player.hitpoints
+            }
             recordHitDamage(player, hit, damage)
-            publishPlayerHitpointsChangedEvent(oldHitpoints, hit)
+            publishPlayerHitpointsChangedEvent(
+                oldHitpoints = oldHitpoints,
+                currentHitpoints = currentHitpoints,
+                maximumHitpoints =
+                    if (godHitpoints != null) ADMIN_GOD_HITPOINTS_MAX else player.baseHitpointsLvl,
+                hit = hit,
+            )
         }
 
         playDefendSound(hit, random)
 
-        val queueDeath = player.hitpoints == 0 && "queue.death" !in player.queueList
+        val queueDeath = currentHitpoints == 0 && "queue.death" !in player.queueList
         if (queueDeath) {
             val npcSource = if (hit.isFromNpc) findHitNpcSource(hit) else null
             val playerSource = if (hit.isFromPlayer) findHitPlayerSource(hit) else null
@@ -63,18 +80,33 @@ public object StandardPlayerHitProcessor : QueuedPlayerHitProcessor {
 
         player.showHitmark(hit.hitmark)
 
-        val headbar = hit.createHeadbar(player.hitpoints, player.baseHitpointsLvl)
+        val maximumHitpoints =
+            if (godHitpoints != null) ADMIN_GOD_HITPOINTS_MAX else player.baseHitpointsLvl
+        val headbar = hit.createHeadbar(currentHitpoints, maximumHitpoints)
         player.showHeadbar(headbar)
+        hit.dispatchImpact(player, damage)
     }
 
-    private fun ProtectedAccess.publishPlayerHitpointsChangedEvent(oldHitpoints: Int, hit: Hit) {
+    private fun ProtectedAccess.publishPlayerHitpointsChangedEvent(
+        oldHitpoints: Int,
+        currentHitpoints: Int,
+        maximumHitpoints: Int,
+        hit: Hit,
+    ) {
+        val source =
+            when {
+                hit.isFromNpc -> findHitNpcSource(hit)
+                hit.isFromPlayer -> findHitPlayerSource(hit)
+                else -> null
+            }
         val event =
             PlayerHitpointsChangedEvent(
                 player = player,
                 oldHitpoints = oldHitpoints,
-                newHitpoints = player.hitpoints,
-                maxHitpoints = player.baseHitpointsLvl,
+                newHitpoints = currentHitpoints,
+                maxHitpoints = maximumHitpoints,
                 hit = hit,
+                source = source,
             )
         publish(event)
     }

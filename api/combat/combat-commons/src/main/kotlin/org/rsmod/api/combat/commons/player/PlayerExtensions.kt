@@ -1,10 +1,10 @@
 package org.rsmod.api.combat.commons.player
 
+import dev.openrune.CrimsonKisten
 import dev.openrune.ServerCacheManager
 import dev.openrune.rscm.RSCM
 import dev.openrune.rscm.RSCMType
 import dev.openrune.types.ItemServerType
-import dev.openrune.types.SequenceServerType
 import kotlin.math.min
 import org.rsmod.api.config.refs.params
 import org.rsmod.api.player.lefthand
@@ -55,21 +55,24 @@ public fun ProtectedAccess.combatRetaliate(uid: PlayerUid, flinchDelay: Int) {
 }
 
 public fun Player.combatPlayDefendAnim(clientDelay: Int = 0) {
+    if (righthand?.id == CrimsonKisten.ITEM) {
+        anim(CrimsonKisten.DEFEND, delay = clientDelay)
+        return
+    }
+
     val righthandType = getOrNull(righthand)
     val lefthandType = getOrNull(lefthand)
     val defendAnim = resolveDefendAnim(righthandType, lefthandType)
     anim(defendAnim, delay = clientDelay)
 }
 
-private fun resolveDefendAnim(
-    righthand: ItemServerType?,
-    lefthand: ItemServerType?,
-): String {
+private fun resolveDefendAnim(righthand: ItemServerType?, lefthand: ItemServerType?): String {
     val righthandAnim = righthand?.param(params.defend_anim)
     val lefthandAnim = lefthand?.param(params.defend_anim)
     return when {
-        lefthandAnim != null && !lefthandAnim.isType("seq.human_unarmedblock") -> RSCM.getReverseMapping(RSCMType.SEQ,lefthandAnim.id)
-        righthandAnim != null -> RSCM.getReverseMapping(RSCMType.SEQ,righthandAnim.id)
+        lefthandAnim != null && !lefthandAnim.isType("seq.human_unarmedblock") ->
+            RSCM.getReverseMapping(RSCMType.SEQ, lefthandAnim.id)
+        righthandAnim != null -> RSCM.getReverseMapping(RSCMType.SEQ, righthandAnim.id)
         else -> "seq.human_unarmedblock"
     }
 }

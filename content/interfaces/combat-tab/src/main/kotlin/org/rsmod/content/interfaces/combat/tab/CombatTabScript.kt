@@ -42,8 +42,11 @@ import org.rsmod.api.script.onPlayerQueue
 import org.rsmod.api.script.onPlayerQueueWithArgs
 import org.rsmod.api.specials.SpecialAttack
 import org.rsmod.api.specials.SpecialAttackRegistry
+import org.rsmod.api.specials.NextCycleRangedSpecialTiming
 import org.rsmod.api.specials.SpecialAttackType
 import org.rsmod.api.specials.energy.SpecialAttackEnergy
+import org.rsmod.api.specials.weapon.SpecialAttackWeapons
+import org.rsmod.api.specials.combat.NextCycleRangedSpecialAttack
 import org.rsmod.api.spells.MagicSpellRegistry
 import org.rsmod.api.spells.autocast.AutocastWeapons
 import org.rsmod.events.EventBus
@@ -69,6 +72,7 @@ constructor(
     private val autocast: AutocastWeapons,
     private val energy: SpecialAttackEnergy,
     private val specialReg: SpecialAttackRegistry,
+    private val specialWeapons: SpecialAttackWeapons,
     private val protectedAccess: ProtectedAccessLauncher,
 ) : PluginScript() {
     private var Player.combatStance by enumVarp<CombatStance>("varp.com_mode")
@@ -124,6 +128,7 @@ constructor(
 
     private fun Player.onWearposChange(wearpos: Wearpos) {
         if (wearpos == Wearpos.RightHand || wearpos == Wearpos.LeftHand) {
+            NextCycleRangedSpecialTiming.cancel(this)
             loadSavedWeaponStance()
             loadSavedMagicAutocast()
             validateStanceStyle()
@@ -133,7 +138,7 @@ constructor(
 
     private fun Player.loadSavedWeaponStance() {
         val weaponType = getOrNull(righthand)
-        val weaponCategory = WeaponCategory.getOrUnarmed(weaponType?.weaponCategory?.id)
+        val weaponCategory = WeaponCategory.getOrUnarmed(weaponType?.resolvedWeaponCategory?.id)
 
         val varbitID = stanceSaveVarBits.getOrNull(weaponCategory.id) ?: return
         val varbit = ServerCacheManager.getVarbit(varbitID)
@@ -150,8 +155,7 @@ constructor(
 
     private fun Player.loadSavedMagicAutocast() {
         val weaponType = getOrNull(righthand)
-        val weaponCategory = WeaponCategory.getOrUnarmed(weaponType?.weaponCategory?.id)
-        val autocastVarBits = autocast.getVarBits(weaponCategory)
+        val autocastVarBits = autocast.getVarBits(weaponType)
 
         if (weaponType == null || autocastVarBits == null) {
             clearActiveAutocast()
@@ -193,8 +197,7 @@ constructor(
         ifClose(eventBus)
 
         val weaponType = getOrNull(righthand)
-        val weaponCategory = WeaponCategory.getOrUnarmed(weaponType?.weaponCategory?.id)
-        val autocastVarBits = autocast.getVarBits(weaponCategory)
+        val autocastVarBits = autocast.getVarBits(weaponType)
         if (weaponType == null || autocastVarBits == null) {
             mes("You need to wield a staff to autocast spells.")
             clearActiveAutocast()
@@ -314,8 +317,7 @@ constructor(
         }
 
         val weaponType = getOrNull(righthand)
-        val weaponCategory = WeaponCategory.getOrUnarmed(weaponType?.weaponCategory?.id)
-        val autocastVarBits = autocast.getVarBits(weaponCategory)
+        val autocastVarBits = autocast.getVarBits(weaponType)
         if (weaponType == null || autocastVarBits == null) {
             mes("You need to wield a staff to autocast spells.")
             return
@@ -350,8 +352,7 @@ constructor(
         restoreCombatTabOverlay()
 
         val weaponType = getOrNull(righthand)
-        val weaponCategory = WeaponCategory.getOrUnarmed(weaponType?.weaponCategory?.id)
-        val autocastVarBits = autocast.getVarBits(weaponCategory)
+        val autocastVarBits = autocast.getVarBits(weaponType)
         if (autocastVarBits != null) {
             autocast.reset(this, autocastVarBits)
         }
@@ -464,7 +465,7 @@ constructor(
 
     private fun Player.saveCurrentStanceStyle() {
         val weaponType = getOrNull(righthand)
-        val weaponCategory = WeaponCategory.getOrUnarmed(weaponType?.weaponCategory?.id)
+        val weaponCategory = WeaponCategory.getOrUnarmed(weaponType?.resolvedWeaponCategory?.id)
         val varbitID = stanceSaveVarBits.getOrNull(weaponCategory.id) ?: return
         val varbit = ServerCacheManager.getVarbit(varbitID) ?: return
         VarPlayerIntMapSetter.set(this, varbit, combatStance.varValue)
@@ -490,13 +491,37 @@ constructor(
             is SpecialAttack.Instant -> attemptInstantSpecial()
             null -> {
                 resetSpecialType()
-                mes("This weapon does not have a special attack.")
+                val message =
+                    if (specialWeapons.hasSpecialAttack(righthand.id)) {
+                        "This weapon's special attack has not been implemented yet."
+                    } else {
+                        "This weapon does not have a special attack."
+                    }
+                mes(message)
             }
         }
     }
 
     private fun Player.activateCombatSpecial() {
         specialType = SpecialAttackType.Weapon
+        scheduleNextCycleRangedSpecial()
+    }
+
+    private fun Player.scheduleNextCycleRangedSpecial() {
+        val weapon = righthand ?: return
+        val special = specialReg[weapon] as? SpecialAttack.Ranged ?: return
+        if (special.special !is NextCycleRangedSpecialAttack) {
+            return
+        }
+
+        val energyRequirement = special.energyInHundreds
+        if (
+            energy.isSpecializedRequirement(energyRequirement) ||
+                !energy.hasSpecialEnergy(this, energyRequirement)
+        ) {
+            return
+        }
+        NextCycleRangedSpecialTiming.schedule(this, weapon.id)
     }
 
     private fun Player.attemptInstantSpecial() {
@@ -537,6 +562,7 @@ constructor(
 
     private fun Player.resetSpecialType() {
         specialType = SpecialAttackType.None
+        NextCycleRangedSpecialTiming.cancel(this)
     }
 
     private data class AutocastSelection(val autocastId: Int, val spell: MagicSpell)

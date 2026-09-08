@@ -1,7 +1,7 @@
 package org.rsmod.api.account.loader.request
 
-import kotlin.contracts.contract
 import dev.or2.central.account.AccountData
+import kotlin.contracts.contract
 import org.rsmod.api.account.character.CharacterDataTransformer
 
 public sealed class AccountLoadResponse {

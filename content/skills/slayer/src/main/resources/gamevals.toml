@@ -1,3 +1,6 @@
+[gamevals.queue]
+slayer_gem_teleport=60
+
 [gamevals.dbtable]
 slayer_masters=65518
 
@@ -42,6 +45,8 @@ slayer_last_target=65495
 slayer_last_master=65494
 slayer_last_area=65493
 slayer_last_count=65492
+slayer_assignment_category=65453
+slayer_last_category=65452
 slayer_dialogue_flags=65491
 slayer_mortimer_state=65489
 slayer_mortimer_offers=65488

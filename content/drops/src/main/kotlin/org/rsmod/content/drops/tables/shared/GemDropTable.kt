@@ -15,20 +15,22 @@ public val gemDropTable: RSWeightedTable<Player, DropRollItem> = rsWeightedTable
     32 weight DropRollItem("obj.uncut_sapphire", 1)
     16 weight DropRollItem("obj.uncut_emerald", 1)
     8 weight DropRollItem("obj.uncut_ruby", 1)
-    3 weight dropRollable(
-        DropRollItem(
-            "obj.chaos_talisman",
-            1,
-            killCondition = { _, npc, _ -> npc.coords.isUnderground() },
-        ),
-    )
-    3 weight dropRollable(
-        DropRollItem(
-            "obj.nature_talisman",
-            1,
-            killCondition = { _, npc, _ -> npc.coords.isOverworld() },
-        ),
-    )
+    3 weight
+        dropRollable(
+            DropRollItem(
+                "obj.chaos_talisman",
+                1,
+                killCondition = { _, npc, _ -> npc.coords.isUnderground() },
+            )
+        )
+    3 weight
+        dropRollable(
+            DropRollItem(
+                "obj.nature_talisman",
+                1,
+                killCondition = { _, npc, _ -> npc.coords.isOverworld() },
+            )
+        )
     2 weight DropRollItem("obj.uncut_diamond", 1)
     1 weight DropRollItem("obj.rune_javelin", 5)
     1 weight DropRollItem("obj.keyhalf2", 1)

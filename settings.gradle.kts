@@ -32,6 +32,7 @@ include(
     "engine",
     "server",
     "or-cache",
+    "tools:boss-roster",
     "tools:osrs-mcp",
     "tools:wiki-dumping",
 )

@@ -3,7 +3,6 @@ package org.rsmod.tools.wiki.dumping
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.writeText
-import org.rsmod.tools.wiki.dumping.wiki.SuperiorMonsterRow
 import org.rsmod.tools.wiki.dumping.wiki.WikiClient
 import org.rsmod.tools.wiki.dumping.wiki.WikiLinks
 import org.rsmod.tools.wiki.dumping.wiki.WikiNpcResolver
@@ -54,7 +53,9 @@ class SlayerSuperiorWikiDumper(
 
         for ((i, row) in rows.withIndex()) {
             if (!quiet) {
-                val label = WikiLinks.extractPageTitles(row.superiorCell).firstOrNull() ?: "row ${row.rowIndex}"
+                val label =
+                    WikiLinks.extractPageTitles(row.superiorCell).firstOrNull()
+                        ?: "row ${row.rowIndex}"
                 println("\r[superior-dump] [${i + 1}/${rows.size}] $label".padEnd(60))
             }
 
@@ -72,7 +73,9 @@ class SlayerSuperiorWikiDumper(
 
             val superiorTitle = superiorTitles.first()
             val superiorIds =
-                when (val result = resolver.resolveDirectMonsterTitle(superiorTitle, failures, row)) {
+                when (
+                    val result = resolver.resolveDirectMonsterTitle(superiorTitle, failures, row)
+                ) {
                     is WikiNpcResolver.DirectResolveResult.Ok -> result.npcIds
                     else -> emptyList()
                 }
@@ -98,7 +101,7 @@ class SlayerSuperiorWikiDumper(
             println()
             println(
                 "[superior-dump] Done in ${"%.1f".format(elapsed)}s — " +
-                    "${entries.size} entries, ${wikiFetches} wiki pages",
+                    "${entries.size} entries, ${wikiFetches} wiki pages"
             )
         }
 
@@ -109,21 +112,25 @@ class SlayerSuperiorWikiDumper(
         )
     }
 
-    fun renderToml(result: SlayerSuperiorDumpResult): String =
-        buildString {
-            appendLine("# https://oldschool.runescape.wiki/w/Superior_slayer_monster")
-            appendLine("# Normal NPC death on task can spawn superiorNpc (requires Bigger and Badder unlock).")
+    fun renderToml(result: SlayerSuperiorDumpResult): String = buildString {
+        appendLine("# https://oldschool.runescape.wiki/w/Superior_slayer_monster")
+        appendLine(
+            "# Normal NPC death on task can spawn superiorNpc (requires Bigger and Badder unlock)."
+        )
+        appendLine()
+        for (entry in result.entries) {
+            appendLine("[[slayer_superior]]")
+            appendLine("superiorNpc = \"${entry.superiorNpc}\"")
+            appendLine("normalNpcs = [${entry.normalNpcs.joinToString(", ") { "\"$it\"" }}]")
+            appendLine("wildernessAvailable = ${entry.wildernessAvailable}")
             appendLine()
-            for (entry in result.entries) {
-                appendLine("[[slayer_superior]]")
-                appendLine("superiorNpc = \"${entry.superiorNpc}\"")
-                appendLine("normalNpcs = [${entry.normalNpcs.joinToString(", ") { "\"$it\"" }}]")
-                appendLine("wildernessAvailable = ${entry.wildernessAvailable}")
-                appendLine()
-            }
         }
+    }
 
-    suspend fun dumpToFile(output: Path, pageTitle: String = "Superior slayer monster"): SlayerSuperiorDumpResult {
+    suspend fun dumpToFile(
+        output: Path,
+        pageTitle: String = "Superior slayer monster",
+    ): SlayerSuperiorDumpResult {
         val result = dump(pageTitle)
         output.parent?.let { Files.createDirectories(it) }
         if (!quiet) {

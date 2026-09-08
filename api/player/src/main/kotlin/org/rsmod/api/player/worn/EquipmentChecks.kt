@@ -5,10 +5,37 @@ import org.rsmod.game.inv.isAnyType
 import org.rsmod.game.inv.isType
 
 public object EquipmentChecks {
-    public fun isSmokeStaff(obj: InvObj?): Boolean =
-        obj.isAnyType("obj.smoke_battlestaff", "obj.mystic_smoke_battlestaff", "obj.twinflame_staff")
+    public const val TWINFLAME_SPELL_ATTACK_RATE: Int = 6
+    public const val HARMONISED_NIGHTMARE_SPELL_ATTACK_RATE: Int = 4
 
-    public fun isSoulreaperAxe(obj: InvObj?): Boolean = obj.isType("obj.soulreaper")
+    public fun isTwinflameStaff(obj: InvObj?): Boolean = obj.isType("obj.twinflame_staff")
+
+    public fun isHarmonisedNightmareStaff(obj: InvObj?): Boolean =
+        obj.isType("obj.nightmare_staff_harmonised")
+
+    public fun spellAttackRateOverride(obj: InvObj?): Int? =
+        when {
+            isTwinflameStaff(obj) -> TWINFLAME_SPELL_ATTACK_RATE
+            isHarmonisedNightmareStaff(obj) -> HARMONISED_NIGHTMARE_SPELL_ATTACK_RATE
+            else -> null
+        }
+
+    public fun isSmokeStaff(obj: InvObj?): Boolean =
+        obj.isAnyType(
+            "obj.smoke_battlestaff",
+            "obj.mystic_smoke_battlestaff",
+            "obj.twinflame_staff",
+        )
+
+    public fun isSoulreaperAxe(obj: InvObj?): Boolean =
+        obj.isAnyType("obj.soulreaper", "obj.soulreaper_axe_orn")
+
+    public fun isSerpentineHelm(obj: InvObj?): Boolean =
+        obj.isAnyType(
+            "obj.serpentine_helm_charged",
+            "obj.serpentine_helm_charged_cyan",
+            "obj.serpentine_helm_charged_red",
+        )
 
     public fun isTumekensShadow(obj: InvObj?): Boolean = obj.isType("obj.tumekens_shadow")
 
@@ -112,7 +139,12 @@ public object EquipmentChecks {
     public fun isVoidTop(obj: InvObj?): Boolean = isRegularVoidTop(obj) || isEliteVoidTop(obj)
 
     public fun isRegularVoidTop(obj: InvObj?): Boolean =
-        obj.isAnyType("obj.pest_void_knight_top", "obj.pest_void_knight_top_trouver", "obj.league_3_void_knight_top", "obj.league_3_void_knight_top_trouver")
+        obj.isAnyType(
+            "obj.pest_void_knight_top",
+            "obj.pest_void_knight_top_trouver",
+            "obj.league_3_void_knight_top",
+            "obj.league_3_void_knight_top_trouver",
+        )
 
     public fun isEliteVoidTop(obj: InvObj?): Boolean =
         obj.isAnyType(
@@ -125,7 +157,12 @@ public object EquipmentChecks {
     public fun isVoidRobe(obj: InvObj?): Boolean = isRegularVoidRobe(obj) || isEliteVoidRobe(obj)
 
     public fun isRegularVoidRobe(obj: InvObj?): Boolean =
-        obj.isAnyType("obj.pest_void_knight_robes", "obj.pest_void_knight_robes_trouver", "obj.league_3_void_knight_robes", "obj.league_3_void_knight_robes_trouver")
+        obj.isAnyType(
+            "obj.pest_void_knight_robes",
+            "obj.pest_void_knight_robes_trouver",
+            "obj.league_3_void_knight_robes",
+            "obj.league_3_void_knight_robes_trouver",
+        )
 
     public fun isEliteVoidRobe(obj: InvObj?): Boolean =
         obj.isAnyType(
@@ -143,83 +180,118 @@ public object EquipmentChecks {
             "obj.league_3_void_knight_gloves_trouver",
         )
 
+    /**
+     * Returns whether [obj] is an active Barrows piece for [brother] and [piece].
+     *
+     * The unnumbered, fully repaired item is active immediately. The 100/75/50/25 combat states
+     * retain identical stats and set effects. Broken/0 variants are intentionally excluded.
+     */
+    private fun isBarrowsPiece(obj: InvObj?, brother: String, piece: String): Boolean =
+        obj.isAnyType(
+            "obj.barrows_${brother}_${piece}",
+            "obj.barrows_${brother}_${piece}_100",
+            "obj.barrows_${brother}_${piece}_75",
+            "obj.barrows_${brother}_${piece}_50",
+            "obj.barrows_${brother}_${piece}_25",
+        )
+
+    private fun isBarrowsSet(
+        brother: String,
+        helm: InvObj?,
+        top: InvObj?,
+        legs: InvObj?,
+        weapon: InvObj?,
+    ): Boolean =
+        isBarrowsPiece(helm, brother, "head") &&
+            isBarrowsPiece(top, brother, "body") &&
+            isBarrowsPiece(legs, brother, "legs") &&
+            isBarrowsPiece(weapon, brother, "weapon")
+
+    /** The amulet keeps its Barrows enhancement until its remaining durability reaches zero. */
+    public fun isAmuletOfTheDamned(obj: InvObj?): Boolean =
+        obj.isAnyType("obj.damned_amulet", "obj.damned_amulet_degraded")
+
     public fun isDharokSet(helm: InvObj?, top: InvObj?, legs: InvObj?, weapon: InvObj?): Boolean =
-        helm.isAnyType(
-            "obj.barrows_dharok_head_100",
-            "obj.barrows_dharok_head_75",
-            "obj.barrows_dharok_head_50",
-            "obj.barrows_dharok_head_25",
-        ) &&
-            top.isAnyType(
-                "obj.barrows_dharok_body_100",
-                "obj.barrows_dharok_body_75",
-                "obj.barrows_dharok_body_50",
-                "obj.barrows_dharok_body_25",
-            ) &&
-            legs.isAnyType(
-                "obj.barrows_dharok_legs_100",
-                "obj.barrows_dharok_legs_75",
-                "obj.barrows_dharok_legs_50",
-                "obj.barrows_dharok_legs_25",
-            ) &&
-            weapon.isAnyType(
-                "obj.barrows_dharok_weapon_100",
-                "obj.barrows_dharok_weapon_75",
-                "obj.barrows_dharok_weapon_50",
-                "obj.barrows_dharok_weapon_25",
-            )
+        isBarrowsSet("dharok", helm, top, legs, weapon)
+
+    public fun isGuthanSet(helm: InvObj?, top: InvObj?, legs: InvObj?, weapon: InvObj?): Boolean =
+        isBarrowsSet("guthan", helm, top, legs, weapon)
+
+    public fun isKarilSet(helm: InvObj?, top: InvObj?, legs: InvObj?, weapon: InvObj?): Boolean =
+        isBarrowsSet("karil", helm, top, legs, weapon)
 
     public fun isToragSet(helm: InvObj?, top: InvObj?, legs: InvObj?, weapon: InvObj?): Boolean =
-        helm.isAnyType(
-            "obj.barrows_torag_head_100",
-            "obj.barrows_torag_head_75",
-            "obj.barrows_torag_head_50",
-            "obj.barrows_torag_head_25",
-        ) &&
-            top.isAnyType(
-                "obj.barrows_torag_body_100",
-                "obj.barrows_torag_body_75",
-                "obj.barrows_torag_body_50",
-                "obj.barrows_torag_body_25",
-            ) &&
-            legs.isAnyType(
-                "obj.barrows_torag_legs_100",
-                "obj.barrows_torag_legs_75",
-                "obj.barrows_torag_legs_50",
-                "obj.barrows_torag_legs_25",
-            ) &&
-            weapon.isAnyType(
-                "obj.barrows_torag_weapon_100",
-                "obj.barrows_torag_weapon_75",
-                "obj.barrows_torag_weapon_50",
-                "obj.barrows_torag_weapon_25",
-            )
+        isBarrowsSet("torag", helm, top, legs, weapon)
+
+    public fun isVeracSet(helm: InvObj?, top: InvObj?, legs: InvObj?, weapon: InvObj?): Boolean =
+        isBarrowsSet("verac", helm, top, legs, weapon)
 
     public fun isAhrimSet(helm: InvObj?, top: InvObj?, legs: InvObj?, weapon: InvObj?): Boolean =
+        isBarrowsSet("ahrim", helm, top, legs, weapon)
+
+    public fun isBloodMoonSet(
+        helm: InvObj?,
+        top: InvObj?,
+        legs: InvObj?,
+        weapon: InvObj?,
+    ): Boolean =
         helm.isAnyType(
-            "obj.barrows_ahrim_head_100",
-            "obj.barrows_ahrim_head_75",
-            "obj.barrows_ahrim_head_50",
-            "obj.barrows_ahrim_head_25",
+            "obj.blood_moon_helm",
+            "obj.blood_moon_helm_degraded",
+            "obj.br_blood_moon_helm",
         ) &&
             top.isAnyType(
-                "obj.barrows_ahrim_body_100",
-                "obj.barrows_ahrim_body_75",
-                "obj.barrows_ahrim_body_50",
-                "obj.barrows_ahrim_body_25",
+                "obj.blood_moon_chestplate",
+                "obj.blood_moon_chestplate_degraded",
+                "obj.br_blood_moon_chestplate",
             ) &&
             legs.isAnyType(
-                "obj.barrows_ahrim_legs_100",
-                "obj.barrows_ahrim_legs_75",
-                "obj.barrows_ahrim_legs_50",
-                "obj.barrows_ahrim_legs_25",
+                "obj.blood_moon_tassets",
+                "obj.blood_moon_tassets_degraded",
+                "obj.br_blood_moon_tassets",
             ) &&
-            weapon.isAnyType(
-                "obj.barrows_ahrim_weapon_100",
-                "obj.barrows_ahrim_weapon_75",
-                "obj.barrows_ahrim_weapon_50",
-                "obj.barrows_ahrim_weapon_25",
-            )
+            weapon.isAnyType("obj.dual_macuahuitl", "obj.br_dual_macuahuitl")
+
+    public fun isBlueMoonSet(helm: InvObj?, top: InvObj?, legs: InvObj?, weapon: InvObj?): Boolean =
+        helm.isAnyType(
+            "obj.frost_moon_helm",
+            "obj.frost_moon_helm_degraded",
+            "obj.br_frost_moon_helm",
+        ) &&
+            top.isAnyType(
+                "obj.frost_moon_chestplate",
+                "obj.frost_moon_chestplate_degraded",
+                "obj.br_frost_moon_chestplate",
+            ) &&
+            legs.isAnyType(
+                "obj.frost_moon_tassets",
+                "obj.frost_moon_tassets_degraded",
+                "obj.br_frost_moon_tassets",
+            ) &&
+            weapon.isAnyType("obj.frostmoon_spear", "obj.br_frostmoon_spear")
+
+    public fun isEclipseMoonSet(
+        helm: InvObj?,
+        top: InvObj?,
+        legs: InvObj?,
+        weapon: InvObj?,
+    ): Boolean =
+        helm.isAnyType(
+            "obj.eclipse_moon_helm",
+            "obj.eclipse_moon_helm_degraded",
+            "obj.br_eclipse_moon_helm",
+        ) &&
+            top.isAnyType(
+                "obj.eclipse_moon_chestplate",
+                "obj.eclipse_moon_chestplate_degraded",
+                "obj.br_eclipse_moon_chestplate",
+            ) &&
+            legs.isAnyType(
+                "obj.eclipse_moon_tassets",
+                "obj.eclipse_moon_tassets_degraded",
+                "obj.br_eclipse_moon_tassets",
+            ) &&
+            weapon.isAnyType("obj.eclipse_atlatl", "obj.br_eclipse_atlatl")
 
     public fun isJusticiarSet(helm: InvObj?, top: InvObj?, legs: InvObj?): Boolean =
         helm.isType("obj.justiciar_faceguard") &&

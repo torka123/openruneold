@@ -30,6 +30,9 @@ class DarkBowSpecialAttack @Inject constructor(private val ammunition: RangedAmm
         registerRanged("obj.darkbow_yellow", DarkBow(manager, ammunition))
         registerRanged("obj.darkbow_white", DarkBow(manager, ammunition))
         registerRanged("obj.bh_darkbow_imbue", DarkBow(manager, ammunition))
+        registerRanged("obj.br_darkbow", DarkBow(manager, ammunition))
+        registerRanged("obj.deadman_blighted_dark_bow", DarkBow(manager, ammunition))
+        registerRanged("obj.deadman_darkbow", DarkBow(manager, ammunition))
     }
 
     private class DarkBow(
@@ -93,7 +96,7 @@ class DarkBowSpecialAttack @Inject constructor(private val ammunition: RangedAmm
             travelSpot: String,
         ) {
             val launchSpot = quiverType.paramOrNull(params.proj_launch_double)
-            anim("seq.human_bow")
+            anim(DARK_BOW_FIRE_SEQUENCE)
             soundSynth("synth.darkbow_doublefire")
             soundSynth("synth.darkbow_shadow_attack")
             spotanim(RSCM.getReverseMapping(RSCMType.SPOTANIM,launchSpot!!.id), height = 96, slot = constants.spotanim_slot_combat)
@@ -151,7 +154,7 @@ class DarkBowSpecialAttack @Inject constructor(private val ammunition: RangedAmm
             travelSpot: String,
         ) {
             val launchSpot = quiverType.paramOrNull(params.proj_launch_double)
-            anim("seq.human_bow")
+            anim(DARK_BOW_FIRE_SEQUENCE)
             soundSynth("synth.darkbow_doublefire")
             soundSynth("synth.darkbow_dragon_attack")
             spotanim(RSCM.getReverseMapping(RSCMType.SPOTANIM,launchSpot!!.id), height = 96, slot = constants.spotanim_slot_combat)
@@ -242,5 +245,9 @@ class DarkBowSpecialAttack @Inject constructor(private val ammunition: RangedAmm
                     else -> throw ArrayIndexOutOfBoundsException()
                 }
         }
+    }
+
+    private companion object {
+        const val DARK_BOW_FIRE_SEQUENCE = "seq.human_bow"
     }
 }

@@ -1,7 +1,8 @@
 package org.rsmod.content.drops
 
-import org.rsmod.game.entity.Player
+import dev.openrune.ServerCacheManager
 import kotlin.math.floor
+import org.rsmod.game.entity.Player
 
 public const val X_MARKS_THE_SPOT_QUEST: String = "quest_xmarksthespot"
 
@@ -17,7 +18,9 @@ public enum class ClueScrollTier {
 /** X Marks the Spot — clue scrolls become scroll boxes after completion. Stub defaults to false. */
 public fun Player.hasCompletedXMarksTheSpot(): Boolean = hasCompletedQuest(X_MARKS_THE_SPOT_QUEST)
 
-/** Easy Combat Achievements reward tier unlocked (improves clue drop rate). Stub defaults to true. */
+/**
+ * Easy Combat Achievements reward tier unlocked (improves clue drop rate). Stub defaults to true.
+ */
 public fun Player.hasUnlockedEasyCombat(): Boolean = true
 
 public fun Player.hasUnlockedMediumCombat(): Boolean = true
@@ -41,21 +44,26 @@ public fun Player.clueDropDenominator(baseDenominator: Int, boostPercent: Int = 
 
 public fun Player.easyClueDropDenominator(baseDenominator: Int): Int {
     val base =
-        if (hasUnlockedEasyCombat()) combatAchievementClueDenominator(baseDenominator) else baseDenominator
+        if (hasUnlockedEasyCombat()) combatAchievementClueDenominator(baseDenominator)
+        else baseDenominator
     return clueDropDenominator(base)
 }
 
 public fun Player.mediumClueDropDenominator(baseDenominator: Int): Int =
-    if (hasUnlockedMediumCombat()) combatAchievementClueDenominator(baseDenominator) else baseDenominator
+    if (hasUnlockedMediumCombat()) combatAchievementClueDenominator(baseDenominator)
+    else baseDenominator
 
 public fun Player.hardClueDropDenominator(baseDenominator: Int): Int =
-    if (hasUnlockedHardCombat()) combatAchievementClueDenominator(baseDenominator) else baseDenominator
+    if (hasUnlockedHardCombat()) combatAchievementClueDenominator(baseDenominator)
+    else baseDenominator
 
 public fun Player.eliteClueDropDenominator(baseDenominator: Int): Int =
-    if (hasUnlockedEliteCombat()) combatAchievementClueDenominator(baseDenominator) else baseDenominator
+    if (hasUnlockedEliteCombat()) combatAchievementClueDenominator(baseDenominator)
+    else baseDenominator
 
 public fun Player.masterClueDropDenominator(baseDenominator: Int): Int =
-    if (hasUnlockedMasterCombat()) combatAchievementClueDenominator(baseDenominator) else baseDenominator
+    if (hasUnlockedMasterCombat()) combatAchievementClueDenominator(baseDenominator)
+    else baseDenominator
 
 public fun clueScrollTierForObj(obj: String): ClueScrollTier? {
     val normalized = obj.removePrefix("obj.").lowercase()
@@ -70,7 +78,8 @@ public fun clueScrollTierForObj(obj: String): ClueScrollTier? {
     }
 }
 
-public fun clueScrollBoxObj(tier: ClueScrollTier): String = "obj.league_clue_box_${tier.name.lowercase()}"
+public fun clueScrollBoxObj(tier: ClueScrollTier): String =
+    "obj.league_clue_box_${tier.name.lowercase()}"
 
 /**
  * For [transformObj] on clue scroll drops: returns the scroll box obj when X Marks the Spot is
@@ -82,4 +91,18 @@ public fun Player.clueScrollTransformObj(scrollObj: String): String? {
     }
     val tier = clueScrollTierForObj(scrollObj) ?: return null
     return clueScrollBoxObj(tier)
+}
+
+/** Returns true when any loaded persistent or temporary container owns this clue tier. */
+public fun Player.ownsClueScroll(tier: ClueScrollTier): Boolean {
+    for (inventory in invMap.values) {
+        for (obj in inventory) {
+            if (obj == null) continue
+            val internal = ServerCacheManager.getItem(obj.id)?.internalName ?: continue
+            if (clueScrollTierForObj(internal) == tier) {
+                return true
+            }
+        }
+    }
+    return false
 }

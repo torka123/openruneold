@@ -7,8 +7,7 @@ package org.rsmod.game.entity
 public object PlayerPersistenceHints {
     private val activePlayer = ThreadLocal<Player?>()
 
-    @Volatile
-    private var listener: ((Player) -> Unit)? = null
+    @Volatile private var listener: ((Player) -> Unit)? = null
 
     public fun bind(listener: (Player) -> Unit) {
         this.listener = listener

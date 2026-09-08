@@ -10,6 +10,7 @@ import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.api.npc.events.NpcHitEvents
 import org.rsmod.api.npc.headbar.InternalNpcHeadbars
 import org.rsmod.api.npc.hit.NpcDamageContributor
+import org.rsmod.api.player.cheat.adminOneHit
 import org.rsmod.api.player.ironman.shouldBlockNpcCombatXp
 import org.rsmod.api.player.output.soundSynth
 import org.rsmod.events.EventBus
@@ -26,48 +27,63 @@ constructor(
     private val damageContributors: Set<NpcDamageContributor>,
 ) : NpcHitProcessor {
     override fun StandardNpcAccess.process(hit: Hit) {
+        if (!hit.isValidNow()) return
+        val source = if (hit.isFromPlayer) hit.resolvePlayerSource(playerList) else null
+        val processedHit =
+            if (
+                shouldApplyAdminOneHit(
+                    enabled = source?.adminOneHit == true,
+                    incomingDamage = hit.damage,
+                    hitpoints = npc.hitpoints,
+                    ignoresCombat = npc.ignoreCombatInteractions,
+                    scriptedDamageGate = npc.scriptedDamageGate,
+                )
+            ) {
+                hit.copy(hitmark = hit.hitmark.copy(damage = npc.hitpoints))
+            } else {
+                hit
+            }
         var changedDamage: Int? = null
-        if (hit.damage > npc.hitpoints) {
+        if (processedHit.damage > npc.hitpoints) {
             changedDamage = npc.hitpoints
         }
 
         if (changedDamage == 0) {
             val zeroDamageHitmark = hitmark_groups.zero_damage
             val modifiedHitmark =
-                hit.hitmark.copy(
+                processedHit.hitmark.copy(
                     self = zeroDamageHitmark.lit.asRSCM(RSCMType.HITMARK),
                     source = zeroDamageHitmark.lit.asRSCM(RSCMType.HITMARK),
                     public =
-                        if (hit.hitmark.isPrivate) null
+                        if (processedHit.hitmark.isPrivate) null
                         else zeroDamageHitmark.tint?.asRSCM(RSCMType.HITMARK),
                     damage = changedDamage,
                 )
-            takeHit(hit.copy(hitmark = modifiedHitmark))
+            takeHit(processedHit.copy(hitmark = modifiedHitmark))
             return
         }
 
-        val source = if (hit.isFromPlayer) hit.resolvePlayerSource(playerList) else null
         if (source != null && source.shouldBlockNpcCombatXp(npc)) {
             val blocked = hitmark_groups.ironman_blocked
             val mark = blocked.lit.asRSCM(RSCMType.HITMARK)
             val modifiedHitmark =
-                hit.hitmark.copy(
+                processedHit.hitmark.copy(
                     self = mark,
                     source = mark,
-                    public = if (hit.hitmark.isPrivate) null else mark,
-                    damage = changedDamage ?: hit.damage,
+                    public = if (processedHit.hitmark.isPrivate) null else mark,
+                    damage = changedDamage ?: processedHit.damage,
                 )
-            takeHit(hit.copy(hitmark = modifiedHitmark))
+            takeHit(processedHit.copy(hitmark = modifiedHitmark))
             return
         }
 
         if (changedDamage != null) {
-            val modifiedHitmark = hit.hitmark.copy(damage = changedDamage)
-            takeHit(hit.copy(hitmark = modifiedHitmark))
+            val modifiedHitmark = processedHit.hitmark.copy(damage = changedDamage)
+            takeHit(processedHit.copy(hitmark = modifiedHitmark))
             return
         }
 
-        takeHit(hit)
+        takeHit(processedHit)
     }
 
     private fun StandardNpcAccess.takeHit(hit: Hit) {
@@ -78,12 +94,16 @@ constructor(
         // TODO(combat): Process recoils, retribution(?), etc.
         npc.hitpoints -= hit.damage
 
-        if (hit.damage > 0 && hit.isFromPlayer) {
-            hit.resolvePlayerSource(playerList)?.let { source ->
-                npc.recordDamage(source, hit.damage)
-                for (contributor in damageContributors) {
-                    contributor.onPlayerDamageNpc(npc, source, hit.damage)
+        if (hit.damage > 0) {
+            if (hit.isFromPlayer) {
+                hit.resolvePlayerSource(playerList)?.let { source ->
+                    npc.recordDamage(source, hit.damage)
+                    for (contributor in damageContributors) {
+                        contributor.onPlayerDamageNpc(npc, source, hit.damage)
+                    }
                 }
+            } else if (hit.isFromNpc) {
+                npc.recordFinalNonPlayerDamage(hit.damage)
             }
         }
 
@@ -96,11 +116,14 @@ constructor(
 
         npc.showHitmark(hit.hitmark)
 
-        val visHeadbar = npc.visHeadbar(params.headbar)
-        val headbar = hit.createHeadbar(npc.hitpoints, npc.baseHitpointsLvl, visHeadbar)
-        npc.showHeadbar(headbar)
+        if (shouldShowHitpointHeadbar(npc.suppressHitpointHeadbar)) {
+            val visHeadbar = npc.visHeadbar(params.headbar)
+            val headbar = hit.createHeadbar(npc.hitpoints, npc.baseHitpointsLvl, visHeadbar)
+            npc.showHeadbar(headbar)
+        }
 
         npc.publishHitEvent(hit)
+        hit.dispatchImpact(npc, hit.damage)
     }
 
     private fun StandardNpcAccess.playDefendSound(hit: Hit) {
@@ -120,3 +143,13 @@ constructor(
         eventBus.publish(event)
     }
 }
+
+internal fun shouldApplyAdminOneHit(
+    enabled: Boolean,
+    incomingDamage: Int,
+    hitpoints: Int,
+    ignoresCombat: Boolean,
+    scriptedDamageGate: Boolean,
+): Boolean = enabled && incomingDamage > 0 && hitpoints > 0 && !ignoresCombat && !scriptedDamageGate
+
+internal fun shouldShowHitpointHeadbar(suppressed: Boolean): Boolean = !suppressed

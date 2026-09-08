@@ -12,18 +12,24 @@ sealed interface Item {
 
     companion object {
         operator fun invoke(itemId: String, amount: Int = 1): Item = ConcreteItem(itemId, amount)
-        operator fun invoke(itemId: String, min: Int, max: Int): Item = RandAmtItem(itemId, min, max)
-        operator fun invoke(itemId: String, range: RandomIntRange): Item = RandAmtItem(itemId, range.start, range.endInclusive)
-        operator fun invoke(itemId: String, range: IntRange): Item = Item(itemId, range.toRandomIntRange())
 
+        operator fun invoke(itemId: String, min: Int, max: Int): Item =
+            RandAmtItem(itemId, min, max)
+
+        operator fun invoke(itemId: String, range: RandomIntRange): Item =
+            RandAmtItem(itemId, range.start, range.endInclusive)
+
+        operator fun invoke(itemId: String, range: IntRange): Item =
+            Item(itemId, range.toRandomIntRange())
     }
 
-    fun copyItem() = if (this is ConcreteItem) {
-        copy()
-    } else {
-        this as RandAmtItem
-        copy()
-    }
+    fun copyItem() =
+        if (this is ConcreteItem) {
+            copy()
+        } else {
+            this as RandAmtItem
+            copy()
+        }
 }
 
 fun Item.concrete(): Item = ConcreteItem(itemId, itemAmount)
@@ -32,26 +38,27 @@ data class RandAmtItem(
     override val itemId: String,
     internal val minAmount: Int,
     internal val maxAmount: Int,
-): Item {
+) : Item {
 
-    internal val range = (minAmount ..< maxAmount).toRandomIntRange()
+    internal val range = (minAmount..<maxAmount).toRandomIntRange()
 
-    override val itemAmount: Int get() = range.random()
+    override val itemAmount: Int
+        get() = range.random()
 }
 
-data class ConcreteItem(
-    override val itemId: String,
-    override val itemAmount: Int = 1
-): Item
+data class ConcreteItem(override val itemId: String, override val itemAmount: Int = 1) : Item
 
 enum class Gender {
-    PlatelegEnjoyer, PlateskirtEnthusiast;
+    PlatelegEnjoyer,
+    PlateskirtEnthusiast,
 }
 
- sealed interface QuestStatus {
-     data object NotStarted : QuestStatus
-     data class InProgress(val progressFlags: Long) : QuestStatus
-     data object Completed : QuestStatus
+sealed interface QuestStatus {
+    data object NotStarted : QuestStatus
+
+    data class InProgress(val progressFlags: Long) : QuestStatus
+
+    data object Completed : QuestStatus
 }
 
 val xmts_quest = "x_marks_the_spot"
@@ -107,25 +114,25 @@ data class Player(
     val bank: MutableCollection<Item> = mutableListOf(),
     val inventory: MutableCollection<Item> = mutableListOf(),
     val equipment: MutableCollection<Item> = mutableListOf(),
-    val quests: MutableMap<String, QuestStatus> = mutableMapOf(xmts_quest to QuestStatus.NotStarted),
-    val scrollCapIncreases: MutableMap<ClueTier, Int> = buildMap {
-        ClueTier.entries.forEach { put(it, 0) }
-    }.toMutableMap(),
+    val quests: MutableMap<String, QuestStatus> =
+        mutableMapOf(xmts_quest to QuestStatus.NotStarted),
+    val scrollCapIncreases: MutableMap<ClueTier, Int> =
+        buildMap { ClueTier.entries.forEach { put(it, 0) } }.toMutableMap(),
     var questPoints: Int = 0,
     var currentWorld: Int = 1,
     var gender: Gender = Gender.PlateskirtEnthusiast,
-    val hasScrollCompleted: MutableMap<ChampionType, Boolean> = buildMap {
-        ChampionType.entries.forEach { put(it, false) }
-    }.toMutableMap(),
+    val hasScrollCompleted: MutableMap<ChampionType, Boolean> =
+        buildMap { ChampionType.entries.forEach { put(it, false) } }.toMutableMap(),
     val moonsTempProgress: MoonsProgress = MoonsProgress(),
-    val moonsProtection: MoonProtection = MoonProtection()
+    val moonsProtection: MoonProtection = MoonProtection(),
 ) {
 
     fun isWearing(item: String): Boolean = equipment.any { it.itemId == item }
 
     fun isWearing(item: Item): Boolean = isWearing(item.itemId)
 
-    fun posesses(item: String): Boolean = inventory.any { it.itemId == item } || bank.any { it.itemId == item } || isWearing(item)
+    fun posesses(item: String): Boolean =
+        inventory.any { it.itemId == item } || bank.any { it.itemId == item } || isWearing(item)
 
     fun posesses(item: Item): Boolean = posesses(item.itemId)
 
@@ -160,6 +167,5 @@ fun Player.sendMessage(message: String) {
         println("[to: $username]: $message")
     }
 }
-
 
 val examplePlayer = Player("player")

@@ -1,9 +1,12 @@
 package org.rsmod.api.combat.commons
 
+import org.rsmod.api.config.refs.params
 import org.rsmod.api.mechanics.toxins.impl.PlayerPoison
 import org.rsmod.api.player.output.ChatType
 import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.stat.statSub
+import org.rsmod.game.entity.Npc
+import org.rsmod.game.entity.PathingEntity
 import org.rsmod.game.entity.Player
 
 public object CombatEffects {
@@ -14,19 +17,48 @@ public object CombatEffects {
 
     private const val FREEZE_IMMUNITY_TICKS = 5
 
+    /**
+     * Applies a non-stacking binding effect to a player or NPC.
+     *
+     * Player freezes retain their existing message, timer, and immunity behavior through [freeze].
+     * NPC binds are represented by the same clock-backed state and are enforced by the NPC movement
+     * processor.
+     */
+    public fun bind(target: PathingEntity, ticks: Int): Boolean {
+        if (target.isBound) {
+            return false
+        }
+        val effectiveTicks =
+            if (target is Npc) {
+                val resistance = target.visType.paramOrNull(params.freeze_resistance) ?: 0
+                (ticks * (100 - resistance.coerceIn(0, 100)) / 100).coerceAtLeast(1)
+            } else ticks
+        target.applyBind(effectiveTicks)
+        return true
+    }
+
+    /** Removes a binding effect and returns its remaining active duration. */
+    public fun breakBind(target: PathingEntity): Int {
+        val remaining = target.removeBind()
+        if (target is Player) {
+            target.frozen = false
+            target.clearTimer("timer.combat_freeze")
+        }
+        return remaining
+    }
+
     public fun freeze(target: Player, ticks: Int) {
-        if (target.isFrozen) return
-        if (target.freezeImmune) return
+        if (target.freezeImmune || !bind(target, ticks)) {
+            return
+        }
         target.frozen = true
-        target.routeDestination.clear()
         target.timer("timer.combat_freeze", ticks)
         target.mes("You have been frozen!", ChatType.Spam)
     }
 
     public fun unfreeze(target: Player) {
-        target.frozen = false
+        breakBind(target)
         target.freezeImmune = true
-        target.clearTimer("timer.combat_freeze")
         target.timer("timer.combat_freeze_immunity", FREEZE_IMMUNITY_TICKS)
     }
 

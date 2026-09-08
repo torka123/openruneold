@@ -5,10 +5,12 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 
-/** Loads repo gamevals into [dev.openrune.definition.constants.ConstantProvider] for [dev.openrune.rscm.RSCM]. */
+/**
+ * Loads repo gamevals into [dev.openrune.definition.constants.ConstantProvider] for
+ * [dev.openrune.rscm.RSCM].
+ */
 object GameValLoader {
-    @Volatile
-    private var loaded = false
+    @Volatile private var loaded = false
 
     private val lock = Any()
 
@@ -32,7 +34,8 @@ object GameValLoader {
         return if (path.endsWith(separator)) path else path + separator
     }
 
-    fun resolveRootOrNull(rootDir: String? = null): Path? = runCatching { resolveRoot(rootDir) }.getOrNull()
+    fun resolveRootOrNull(rootDir: String? = null): Path? =
+        runCatching { resolveRoot(rootDir) }.getOrNull()
 
     fun resolveRoot(rootDir: String? = null): Path {
         if (!rootDir.isNullOrBlank()) {
@@ -44,7 +47,9 @@ object GameValLoader {
             val parent = Path.of(logDir).toAbsolutePath().normalize().parent
             if (
                 parent != null &&
-                Files.isRegularFile(parent.resolve(".data").resolve("gamevals-binary").resolve("gamevals.dat"))
+                    Files.isRegularFile(
+                        parent.resolve(".data").resolve("gamevals-binary").resolve("gamevals.dat")
+                    )
             ) {
                 return parent
             }
@@ -53,13 +58,18 @@ object GameValLoader {
         val envRoot = System.getenv("RSPS_ROOT")?.takeIf { it.isNotBlank() }
         if (envRoot != null) {
             val envPath = Path.of(envRoot).toAbsolutePath().normalize()
-            if (Files.isRegularFile(envPath.resolve(".data").resolve("gamevals-binary").resolve("gamevals.dat"))) {
+            if (
+                Files.isRegularFile(
+                    envPath.resolve(".data").resolve("gamevals-binary").resolve("gamevals.dat")
+                )
+            ) {
                 return envPath
             }
         }
 
         for (candidateRoot in guessRootsFromClasspath()) {
-            val candidate = candidateRoot.resolve(".data").resolve("gamevals-binary").resolve("gamevals.dat")
+            val candidate =
+                candidateRoot.resolve(".data").resolve("gamevals-binary").resolve("gamevals.dat")
             if (Files.isRegularFile(candidate)) {
                 return candidateRoot
             }
@@ -67,7 +77,8 @@ object GameValLoader {
 
         var cursor: Path? = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize()
         while (cursor != null) {
-            val candidate = cursor.resolve(".data").resolve("gamevals-binary").resolve("gamevals.dat")
+            val candidate =
+                cursor.resolve(".data").resolve("gamevals-binary").resolve("gamevals.dat")
             if (Files.isRegularFile(candidate)) {
                 return cursor
             }
@@ -76,7 +87,7 @@ object GameValLoader {
 
         throw IllegalStateException(
             "Unable to locate repository root containing '.data/gamevals-binary/gamevals.dat'. " +
-                "Set RSPS_ROOT or pass 'rootDir'.",
+                "Set RSPS_ROOT or pass 'rootDir'."
         )
     }
 
@@ -89,7 +100,8 @@ object GameValLoader {
 
         val roots = linkedSetOf<Path>()
         for (entry in classpath.split(separator)) {
-            val path = runCatching { Path.of(entry).toAbsolutePath().normalize() }.getOrNull() ?: continue
+            val path =
+                runCatching { Path.of(entry).toAbsolutePath().normalize() }.getOrNull() ?: continue
             if (!Files.exists(path)) {
                 continue
             }

@@ -1,8 +1,5 @@
 package org.rsmod.api.player.output
 
-import dev.openrune.ServerCacheManager
-import dev.openrune.rscm.RSCM.asRSCM
-import dev.openrune.rscm.RSCMType
 import dev.openrune.types.ItemServerType
 import net.rsprot.protocol.game.outgoing.misc.player.MessageGame
 import org.rsmod.api.config.refs.params
@@ -88,6 +85,4 @@ public enum class ChatType(public val id: Int) {
     NpcSay(116),
     DidYouKnow(117),
     LevelUpMessage(118),
-
-
 }

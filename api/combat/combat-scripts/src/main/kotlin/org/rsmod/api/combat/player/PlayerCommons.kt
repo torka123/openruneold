@@ -26,12 +26,18 @@ import org.rsmod.game.entity.Player
 import org.rsmod.game.inv.InvObj
 import org.rsmod.game.type.getInvObj
 
-internal fun ProtectedAccess.attackRange(style: AttackStyle?): Int =
-    if (autocastEnabled && autocastSpell > 0) {
-        MAGIC_ATTACK_RANGE
-    } else {
-        weaponAttackRange(style)
-    }
+internal fun ProtectedAccess.attackRange(
+    style: AttackStyle?,
+    forceMagicRange: Boolean = false,
+): Int {
+    val base =
+        if (forceMagicRange || (autocastEnabled && autocastSpell > 0)) {
+            MAGIC_ATTACK_RANGE
+        } else {
+            weaponAttackRange(style)
+        }
+    return PlayerAttackRangeModifierState.apply(player, base)
+}
 
 internal fun ProtectedAccess.weaponAttackRange(style: AttackStyle?): Int {
     var attackRange = 1
@@ -55,8 +61,14 @@ internal fun ProtectedAccess.resolveCombatAttack(
     type: AttackType?,
     style: AttackStyle?,
     spell: MagicSpell?,
+    forceMagicStaffAttack: Boolean = false,
 ): CombatAttack.PlayerAttack =
     when {
+        forceMagicStaffAttack -> {
+            checkNotNull(weapon) { "Expected a weapon when forcing a magic-staff special attack." }
+            CombatAttack.Staff(weapon, MagicAttackStyle.from(style))
+        }
+
         spell != null -> {
             CombatAttack.Spell(weapon, spell, defensiveCasting)
         }
@@ -153,7 +165,7 @@ internal suspend fun ProtectedAccess.activateMeleeSpecial(
     // interaction will either be canceled entirely or proceed with the delay.
 
     val reduceEnergy = special.attack(this, target, attack)
-    if (reduceEnergy) {
+    if (reduceEnergy && !specializedEnergy) {
         energy.takeSpecialEnergy(player, special.energyInHundreds)
     }
     return true
@@ -184,7 +196,7 @@ internal suspend fun ProtectedAccess.activateRangedSpecial(
     // interaction will either be canceled entirely or proceed with the delay.
 
     val reduceEnergy = special.attack(this, target, attack)
-    if (reduceEnergy) {
+    if (reduceEnergy && !specializedEnergyReq) {
         energy.takeSpecialEnergy(player, special.energyInHundreds)
     }
     return true
@@ -215,7 +227,7 @@ internal suspend fun ProtectedAccess.activateMagicSpecial(
     // interaction will either be canceled entirely or proceed with the delay.
 
     val reduceEnergy = special.attack(this, target, attack)
-    if (reduceEnergy) {
+    if (reduceEnergy && !specializedEnergyReq) {
         energy.takeSpecialEnergy(player, special.energyInHundreds)
     }
     return true

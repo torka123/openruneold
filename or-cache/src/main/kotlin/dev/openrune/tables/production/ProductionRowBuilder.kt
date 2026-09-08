@@ -73,16 +73,17 @@ class ProductionRowBuilder(
         row.column(ProductionColumns.COL_INPUT_AMOUNT, *inputs.map { it.amount }.toTypedArray())
 
         val statReqValues =
-            statReqs.flatMap { (stat, level) ->
-                listOf(ConstantProvider.getMapping(stat), level)
-            }
+            statReqs.flatMap { (stat, level) -> listOf(ConstantProvider.getMapping(stat), level) }
         row.column(ProductionColumns.COL_STAT_REQ, *statReqValues.toTypedArray())
 
         row.column(ProductionColumns.COL_XP, xpValue!!)
 
         if (outputs.isNotEmpty()) {
             row.columnRSCM(ProductionColumns.COL_OUTPUT, *outputs.map { it.id }.toTypedArray())
-            row.column(ProductionColumns.COL_OUTPUT_AMOUNT, *outputs.map { it.amount }.toTypedArray())
+            row.column(
+                ProductionColumns.COL_OUTPUT_AMOUNT,
+                *outputs.map { it.amount }.toTypedArray(),
+            )
         }
 
         val category = categoryValue ?: defaultCategory

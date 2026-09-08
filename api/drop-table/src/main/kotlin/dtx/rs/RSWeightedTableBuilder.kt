@@ -51,13 +51,15 @@ public class RSWeightedTableBuilder<T, R> :
         return this@RSWeightedTableBuilder
     }
 
-    public infix fun SeparateRollAccess.separate(rollable: Rollable<T, R>): RSWeightedTableBuilder<T, R> {
+    public infix fun SeparateRollAccess.separate(
+        rollable: Rollable<T, R>
+    ): RSWeightedTableBuilder<T, R> {
         captureSeparateRoll(numerator, denominator, rollable)
         return this@RSWeightedTableBuilder
     }
 
     public infix fun SeparateRollAccess.separate(
-        block: RSWeightedTableBuilder<T, R>.() -> Unit,
+        block: RSWeightedTableBuilder<T, R>.() -> Unit
     ): RSWeightedTableBuilder<T, R> {
         val nested = RSWeightedTableBuilder<T, R>()
         nested.apply(block)

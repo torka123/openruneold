@@ -3,14 +3,13 @@ package org.rsmod.tools.wiki.dumping
 import kotlin.system.measureTimeMillis
 
 /** Structured console output for the drop-table dumper. */
-class DropDumpLog(
-    private val quiet: Boolean = false,
-    private val verbose: Boolean = false,
-) {
+class DropDumpLog(private val quiet: Boolean = false, private val verbose: Boolean = false) {
     var wikiFetches: Int = 0
         private set
+
     var itemLookups: Int = 0
         private set
+
     var itemCacheHits: Int = 0
         private set
 
@@ -64,7 +63,7 @@ class DropDumpLog(
         }
         info(
             "done — $pages page(s) in ${elapsedMs}ms " +
-                "(wiki=$wikiFetches, items=$itemLookups, item-cache=$itemCacheHits)",
+                "(wiki=$wikiFetches, items=$itemLookups, item-cache=$itemCacheHits)"
         )
     }
 }

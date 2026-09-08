@@ -22,7 +22,7 @@ public class NvNMagicAccuracy {
         targetType: NpcServerType,
     ): Int {
         val attackRoll = computeAttackRoll(source, sourceType)
-        val defenceRoll = computeDefenceRoll(targetType, target.defenceLvl, target.magicLvl)
+        val defenceRoll = computeDefenceRoll(targetType, target.defenceLvl, target.magicDefenceLvl)
         return AccuracyOperations.calculateHitChance(attackRoll, defenceRoll)
     }
 

@@ -20,9 +20,7 @@ public object GameDatabaseModule : ExtendedModule() {
     @Singleton
     private class DatabaseConfigProvider
     @Inject
-    constructor(
-        private val serverConfig: ServerConfig,
-    ) : Provider<DatabaseConfig> {
+    constructor(private val serverConfig: ServerConfig) : Provider<DatabaseConfig> {
         override fun get(): DatabaseConfig = DatabaseConfig.create(serverConfig)
     }
 }

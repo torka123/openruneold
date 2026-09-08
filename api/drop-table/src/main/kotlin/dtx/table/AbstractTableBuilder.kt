@@ -5,7 +5,7 @@ import dtx.core.Rollable
 
 /**
  * Abstract builder for Table objects.
- * 
+ *
  * @param T the type of the target
  * @param R the type of the result
  * @param TableType the type of the Table being built
@@ -17,21 +17,23 @@ import dtx.core.Rollable
 public abstract class AbstractTableBuilder<
     T,
     R,
-    RollableType: Rollable<T, R>,
-    TableType: Table<T, R>,
-    HookType: TableHooks<T, R>,
-    HookBuilder: AbstractTableHooksBuilder<T, R, HookType, HookBuilder>,
-    BuilderType: AbstractTableBuilder<T, R, RollableType, TableType, HookType, HookBuilder, BuilderType>
->(
-    createHookBuilder: () -> HookBuilder
-): AbstractRollableBuilder<
+    RollableType : Rollable<T, R>,
+    TableType : Table<T, R>,
+    HookType : TableHooks<T, R>,
+    HookBuilder : AbstractTableHooksBuilder<T, R, HookType, HookBuilder>,
+    BuilderType : AbstractTableBuilder<
         T,
         R,
+        RollableType,
         TableType,
         HookType,
         HookBuilder,
-        BuilderType
->(createHookBuilder = createHookBuilder) {
+        BuilderType,
+    >,
+>(createHookBuilder: () -> HookBuilder) :
+    AbstractRollableBuilder<T, R, TableType, HookType, HookBuilder, BuilderType>(
+        createHookBuilder = createHookBuilder
+    ) {
 
     public var tableIdentifier: String = "Unnamed Table"
     protected abstract val entries: MutableCollection<RollableType>
@@ -65,17 +67,13 @@ public abstract class AbstractTableBuilder<
     }
 }
 
-public abstract class DefaultTableBuilder<
-    T,
-    R,
-    RT: Rollable<T, R>,
-    TableType: Table<T, R>
-> : AbstractTableBuilder<
+public abstract class DefaultTableBuilder<T, R, RT : Rollable<T, R>, TableType : Table<T, R>> :
+    AbstractTableBuilder<
         T,
         R,
         RT,
         TableType,
         TableHooks<T, R>,
         DefaultTableHooksBuilder<T, R>,
-        DefaultTableBuilder<T, R, RT, TableType>
->({ DefaultTableHooksBuilder() })
+        DefaultTableBuilder<T, R, RT, TableType>,
+    >({ DefaultTableHooksBuilder() })

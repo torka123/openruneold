@@ -18,7 +18,8 @@ object SlayerNpcTipLoader {
         val blocks = mapper.decodeRuneScapeBlocks(file.toPath())
         for (block in blocks) {
             if (block.name != "npc_tip") continue
-            val entry = mapper.decodeRuneScape(typeOf<SlayerNpcTip>(), block.map.properties) as SlayerNpcTip
+            val entry =
+                mapper.decodeRuneScape(typeOf<SlayerNpcTip>(), block.map.properties) as SlayerNpcTip
             val tip = entry.tip.takeIf { it.isNotBlank() } ?: continue
             for (npcRef in entry.targets) {
                 npcToTip[npcRef] = tip

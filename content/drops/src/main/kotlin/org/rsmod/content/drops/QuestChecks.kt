@@ -6,5 +6,4 @@ import org.rsmod.game.entity.Player
 public fun Player.hasCompletedQuest(quest: String): Boolean =
     QuestRequirements.hasCompleted(this, quest)
 
-public fun Player.isOnQuest(quest: String): Boolean =
-    QuestRequirements.isOnQuest(this, quest)
+public fun Player.isOnQuest(quest: String): Boolean = QuestRequirements.isOnQuest(this, quest)

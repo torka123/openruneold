@@ -3,8 +3,7 @@ package org.rsmod.tools.wiki.dumping.wiki
 import dev.openrune.wiki.WikiDumpStore
 
 internal object WikiDumpStorePages {
-    private val itemSpawnLineTag =
-        Regex("""\{\{ItemSpawnLine\b""", RegexOption.IGNORE_CASE)
+    private val itemSpawnLineTag = Regex("""\{\{ItemSpawnLine\b""", RegexOption.IGNORE_CASE)
 
     fun listShopInfoboxTitles(store: WikiDumpStore): List<String> =
         store
@@ -28,14 +27,11 @@ internal object WikiDumpStorePages {
             .sorted()
             .toList()
 
-    private val locLineTag =
-        Regex("""\{\{LocLine\b""", RegexOption.IGNORE_CASE)
+    private val locLineTag = Regex("""\{\{LocLine\b""", RegexOption.IGNORE_CASE)
 
-    private val infoboxNpcTag =
-        Regex("""\{\{Infobox NPC\b""", RegexOption.IGNORE_CASE)
+    private val infoboxNpcTag = Regex("""\{\{Infobox NPC\b""", RegexOption.IGNORE_CASE)
 
-    private val infoboxMapTag =
-        Regex("""\|\s*map\s*=\s*\{\{Map\b""", RegexOption.IGNORE_CASE)
+    private val infoboxMapTag = Regex("""\|\s*map\s*=\s*\{\{Map\b""", RegexOption.IGNORE_CASE)
 
     fun listLocLineTitles(store: WikiDumpStore): List<String> =
         store

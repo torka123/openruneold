@@ -23,6 +23,15 @@ object SlayerBossTasks {
         setOf("corporeal", "yama", "nightmare", "nex")
 
     private val entriesByTaskId = SlayerTaskSublistRow.all().associateBy { it.task.id }
+    private val IMPLEMENTED_ENCOUNTER_NAME_FRAGMENTS =
+        setOf(
+            "barrows",
+            "commander zilyana",
+            "general graardor",
+            "king black dragon",
+            "kree'arra",
+            "k'ril tsutsaroth",
+        )
     private val entriesBySubtableId = SlayerTaskSublistRow.all().groupBy { it.subtableId }
 
     fun hasLikeABoss(access: ProtectedAccess): Boolean {
@@ -34,6 +43,11 @@ object SlayerBossTasks {
 
     fun isBossTask(taskId: Int): Boolean =
         taskId in entriesByTaskId
+
+    fun isEncounterSupported(task: SlayerTaskRow): Boolean {
+        val taskName = normalizeBossName(task.nameLowercase)
+        return IMPLEMENTED_ENCOUNTER_NAME_FRAGMENTS.any { taskName.contains(normalizeBossName(it)) }
+    }
 
     fun isExcludedBoss(task: SlayerTaskRow): Boolean =
         EXCLUDED_BOSS_NAME_FRAGMENTS.any(task.nameLowercase::contains)
@@ -49,6 +63,7 @@ object SlayerBossTasks {
             val task = masterTask.task
 
             isBossTask(task.id) &&
+                isEncounterSupported(task) &&
                 !isExcludedBoss(task) &&
                 meetsBossRequirements(player, task) &&
                 meetsMasterBossRules(master, masterTask)
@@ -120,4 +135,7 @@ object SlayerBossTasks {
 
         return masterTask.areas.any(KonarSlayerAreas::isWildernessSlayerArea)
     }
+
+    private fun normalizeBossName(value: String): String =
+        value.lowercase().replace(Regex("[^a-z0-9]+"), " ").trim()
 }

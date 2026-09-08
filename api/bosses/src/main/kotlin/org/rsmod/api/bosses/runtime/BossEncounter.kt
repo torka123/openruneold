@@ -1,14 +1,20 @@
 package org.rsmod.api.bosses.runtime
 
+import kotlin.random.Random
 import org.rsmod.api.bosses.spec.*
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
-import kotlin.random.Random
 
-class BossEncounter(
-    val npc: Npc,
-    val spec: BossSpec,
-) {
+data class BossAttackTrace(
+    val ability: String,
+    val commitTick: Int,
+    val expectedRate: Int,
+    var style: HitType? = null,
+    var expectedImpactTick: Int? = null,
+    var actualImpactTick: Int? = null,
+)
+
+class BossEncounter(val npc: Npc, val spec: BossSpec) {
     var currentPhaseName: String = spec.phases.keys.firstOrNull() ?: ""
     var phaseEnteredTick: Int = 0
     var lastAbilityTick: Int = 0
@@ -22,7 +28,16 @@ class BossEncounter(
     private val cooldowns = mutableMapOf<String, Int>()
     private var rotationCursor = 0
     private var basicAttackCount = 0
+    var lastRotationIndex: Int = -1
+        private set
+
     private var forceAttackThreshold = -1
+    private val externalMarks = mutableSetOf<String>()
+    private val ownedNpcs = mutableSetOf<Npc>()
+    private val attackTraces = ArrayDeque<BossAttackTrace>()
+    private var forcedAbility: String? = null
+    private val cleanupActions = mutableListOf<() -> Unit>()
+    private val encounterState = mutableMapOf<String, Any>()
 
     init {
         npc.movementLocked = currentPhase?.lockMovement == true
@@ -31,11 +46,85 @@ class BossEncounter(
     val currentPhase: PhaseSpec?
         get() = spec.phases[currentPhaseName]
 
+    /** Returns true exactly once for an encounter-scoped external mechanic marker. */
+    fun fireOnce(marker: String): Boolean = externalMarks.add(marker)
+
+    fun own(npc: Npc) {
+        ownedNpcs += npc
+    }
+
+    fun drainOwnedNpcs(): Set<Npc> = ownedNpcs.toSet().also { ownedNpcs.clear() }
+
+    fun owned(): List<Npc> = ownedNpcs.toList()
+
+    /** Registers encounter-owned world state (locs, hazards, etc.) for deterministic cleanup. */
+    fun onCleanup(action: () -> Unit) {
+        cleanupActions += action
+    }
+
+    fun runCleanupActions() {
+        cleanupActions.toList().forEach { it() }
+        cleanupActions.clear()
+        encounterState.clear()
+    }
+
+    /** Stores mechanic state on this encounter instead of in a plugin-global combat singleton. */
+    @Suppress("UNCHECKED_CAST")
+    fun <T : Any> state(key: String, create: () -> T): T {
+        val existing = encounterState[key]
+        if (existing != null) return existing as T
+        return create().also { encounterState[key] = it }
+    }
+
+    fun forceNextAbility(name: String): Boolean {
+        if (name !in spec.abilities) return false
+        forcedAbility = name
+        return true
+    }
+
+    fun consumeForcedAbility(): String? = forcedAbility.also { forcedAbility = null }
+
+    fun recordAbilityCommit(tick: Int, ability: String, expectedRate: Int) {
+        lastAbilityTick = tick
+        lastAbilityName = ability
+        attackTraces +=
+            BossAttackTrace(ability = ability, commitTick = tick, expectedRate = expectedRate)
+        while (attackTraces.size > 100) {
+            attackTraces.removeFirst()
+        }
+    }
+
+    fun recentAbilityCommitTicks(limit: Int = 20): List<Int> =
+        attackTraces.takeLast(limit.coerceAtLeast(0)).map { it.commitTick }
+
+    fun recordScheduledImpact(style: HitType, expectedTick: Int) {
+        val trace = attackTraces.lastOrNull() ?: return
+        if (trace.expectedImpactTick == null) {
+            trace.style = style
+            trace.expectedImpactTick = expectedTick
+        }
+    }
+
+    fun recordActualImpact(expectedTick: Int, actualTick: Int) {
+        attackTraces
+            .lastOrNull { it.expectedImpactTick == expectedTick && it.actualImpactTick == null }
+            ?.actualImpactTick = actualTick
+    }
+
+    fun recentAttackTraces(limit: Int = 20): List<BossAttackTrace> =
+        attackTraces.takeLast(limit.coerceAtLeast(0)).map { it.copy() }
+
+    fun attackTracesAfter(tick: Int): List<BossAttackTrace> =
+        attackTraces.filter { it.commitTick > tick }.map { it.copy() }
+
+    fun expectedAttackRate(): Int = currentPhase?.attackRate ?: spec.stats.attackRate
+
     fun transitionTo(phaseName: String, tick: Int) {
         val from = currentPhaseName
         currentPhaseName = phaseName
         phaseEnteredTick = tick
         rotationCursor = 0
+        lastRotationIndex = -1
         cooldowns.clear()
         basicAttackCount = 0
         forceAttackThreshold = -1
@@ -73,11 +162,16 @@ class BossEncounter(
             }
         }
 
-        val selected = when (selector) {
-            is Selector.WeightedRandom -> selectWeightedRandom(selector, tick, target)
-            is Selector.Rotation -> selectRotation(selector)
-            is Selector.Conditional -> null
-        }
+        val selected =
+            when (selector) {
+                is Selector.WeightedRandom -> selectWeightedRandom(selector, tick, target)
+                is Selector.Rotation -> selectRotation(selector)
+                is Selector.MeleeOverrideRotation -> selectMeleeOverrideRotation(selector, target)
+                is Selector.Conditional ->
+                    selector.branches
+                        .firstOrNull { (condition, _) -> evaluate(condition, target) }
+                        ?.second ?: selector.fallback
+            }
         if (selected != null && attackForced != null) {
             basicAttackCount++
         }
@@ -90,11 +184,16 @@ class BossEncounter(
         return if (max == min) min else Random.nextInt(min, max + 1)
     }
 
-    private fun selectWeightedRandom(selector: Selector.WeightedRandom, tick: Int, target: Player? = null): String? {
-        val available = selector.entries.filter { ref ->
-            val onCooldown = cooldowns[ref.ability]?.let { tick - it < ref.cooldown } ?: false
-            !onCooldown && evaluate(ref.requires, target)
-        }
+    private fun selectWeightedRandom(
+        selector: Selector.WeightedRandom,
+        tick: Int,
+        target: Player? = null,
+    ): String? {
+        val available =
+            selector.entries.filter { ref ->
+                val onCooldown = cooldowns[ref.ability]?.let { tick - it < ref.cooldown } ?: false
+                !onCooldown && evaluate(ref.requires, target)
+            }
 
         if (available.isEmpty()) return null
 
@@ -115,9 +214,29 @@ class BossEncounter(
 
     private fun selectRotation(selector: Selector.Rotation): String? {
         if (selector.sequence.isEmpty()) return null
-        val ability = selector.sequence[rotationCursor % selector.sequence.size]
+        val index = rotationCursor % selector.sequence.size
+        lastRotationIndex = index
+        val ability = selector.sequence[index]
         rotationCursor++
         return ability
+    }
+
+    private fun selectMeleeOverrideRotation(
+        selector: Selector.MeleeOverrideRotation,
+        target: Player?,
+    ): String? {
+        if (selector.sequence.isEmpty()) return null
+        val index = rotationCursor % selector.sequence.size
+        lastRotationIndex = index
+        rotationCursor++
+        // Melee is a positional replacement for this attack opportunity. It must not pause the
+        // underlying rotation: phase switches, movement, and specials remain tied to the same
+        // deterministic opportunity index even when a player steps next to a large boss.
+        return if (target != null && npc.isWithinDistance(target, 1)) {
+            selector.meleeAbility
+        } else {
+            selector.sequence[index]
+        }
     }
 
     fun evaluate(condition: Condition, target: Player? = null): Boolean {
@@ -141,7 +260,14 @@ class BossEncounter(
             is Condition.OnPhaseTick -> false
             is Condition.IncomingHitDamageAtLeast -> false
             is Condition.PlayerEnterRange -> false
-            is Condition.TargetPraying -> false
+            is Condition.TargetPraying ->
+                target != null &&
+                    when (condition.type) {
+                        HitType.Melee -> target.vars["varbit.prayer_protectfrommelee"] == 1
+                        HitType.Ranged -> target.vars["varbit.prayer_protectfrommissiles"] == 1
+                        HitType.Magic -> target.vars["varbit.prayer_protectfrommagic"] == 1
+                        else -> false
+                    }
         }
     }
 }

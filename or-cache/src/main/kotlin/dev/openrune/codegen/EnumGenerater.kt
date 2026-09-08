@@ -3,9 +3,9 @@ package dev.openrune.codegen
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.KModifier
+import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeSpec
-import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.buildCodeBlock
 import dev.openrune.definition.type.EnumType
 import java.io.File
@@ -171,10 +171,12 @@ private fun clearGeneratedEnumSources(root: File) {
         return
     }
     check(root.isDirectory) { "Enum output path is not a directory: ${root.absolutePath}" }
-    root.walkBottomUp()
+    root
+        .walkBottomUp()
         .filter { it.isFile && it.extension.equals("kt", ignoreCase = true) }
         .forEach { it.delete() }
-    root.walkBottomUp()
+    root
+        .walkBottomUp()
         .filter { it.isDirectory && it != root && it.listFiles().isNullOrEmpty() }
         .forEach { it.delete() }
 }
@@ -191,10 +193,12 @@ private fun clusterKeyForSlug(slug: String, allSlugs: Set<String>): String {
     if (n.length > 2 && n.endsWith('s') && !n.endsWith("ss")) {
         val stem = n.dropLast(1)
         val pref = "${stem}_"
-        if (allSlugs.any { other ->
+        if (
+            allSlugs.any { other ->
                 val o = normalizedSlugForCluster(other)
                 o != n && o.startsWith(pref)
-            }) {
+            }
+        ) {
             return stem
         }
     }
@@ -213,7 +217,9 @@ private fun clusterKeyForSlug(slug: String, allSlugs: Set<String>): String {
     return n
 }
 
-/** When ≥2 slugs share the same final `_` segment (e.g. `axes`), use that segment as cluster key. */
+/**
+ * When ≥2 slugs share the same final `_` segment (e.g. `axes`), use that segment as cluster key.
+ */
 private fun clusterKeyBySharedLastSegment(parts: List<String>, allSlugs: Set<String>): String? {
     if (parts.isEmpty()) {
         return null

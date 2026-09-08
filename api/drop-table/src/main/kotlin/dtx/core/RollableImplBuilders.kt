@@ -1,25 +1,21 @@
 package dtx.core
 
-public open class SingleRollableBuilder<T, R>: AbstractRollableBuilder<
-    T,
-    R,
-    Rollable<T, R>,
-    RollableHooks<T, R>,
-    DefaultRollableHooksBuilder<T, R>,
-    SingleRollableBuilder<T, R>>(
-        { DefaultRollableHooksBuilder() }
-    ) {
+public open class SingleRollableBuilder<T, R> :
+    AbstractRollableBuilder<
+        T,
+        R,
+        Rollable<T, R>,
+        RollableHooks<T, R>,
+        DefaultRollableHooksBuilder<T, R>,
+        SingleRollableBuilder<T, R>,
+    >({ DefaultRollableHooksBuilder() }) {
 
     init {
-        construct { hooks: RollableHooks<T, R> ->
-            SingleByFun<T, R>(selectResultFunc!!, hooks)
-        }
+        construct { hooks: RollableHooks<T, R> -> SingleByFun<T, R>(selectResultFunc!!, hooks) }
     }
 
     public override fun result(result: R): SingleRollableBuilder<T, R> {
-        return selectResult { target, otherArgs ->
-            RollResult.Single(result)
-        }
+        return selectResult { target, otherArgs -> RollResult.Single(result) }
     }
 }
 
@@ -31,7 +27,7 @@ public fun <T, R> singleRollable(block: SingleRollableBuilder<T, R>.() -> Unit):
     return builder.build()
 }
 
-public open class CollectionRollableBuilder<T, R>: SingleRollableBuilder<T, R>() {
+public open class CollectionRollableBuilder<T, R> : SingleRollableBuilder<T, R>() {
 
     init {
         construct { hooks: RollableHooks<T, R> ->
@@ -46,7 +42,8 @@ public open class CollectionRollableBuilder<T, R>: SingleRollableBuilder<T, R>()
     protected val collection: MutableList<Rollable<T, R>> = mutableListOf()
 
     public enum class RollableType {
-        Any, All;
+        Any,
+        All,
     }
 
     public lateinit var rollableType: RollableType

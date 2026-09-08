@@ -5,8 +5,13 @@ import com.google.inject.Scopes
 import com.google.inject.TypeLiteral
 import jakarta.inject.Inject
 import net.rsprot.protocol.api.NetworkService
+import org.rsmod.api.collectionlog.CollectionLogRecordHook
+import org.rsmod.api.death.PlayerDeathNoticeHook
 import org.rsmod.api.net.central.embed.CentralEmbeddedLifecycle
 import org.rsmod.api.net.central.logging.CentralActivityLogWriter
+import org.rsmod.api.net.social.ClanCollectionLogBroadcastHook
+import org.rsmod.api.net.social.ClanHardcoreStatusBroadcastHook
+import org.rsmod.api.net.social.ClanPlayerDeathBroadcastHook
 import org.rsmod.game.entity.Player
 import org.rsmod.plugin.module.PluginModule
 import org.rsmod.server.services.Service
@@ -15,6 +20,9 @@ class NetworkModule : PluginModule() {
     override fun bind() {
         bindInstance<CentralEmbeddedLifecycle>()
         bindInstance<CentralActivityLogWriter>()
+        addSetBinding<CollectionLogRecordHook>(ClanCollectionLogBroadcastHook::class.java)
+        addSetBinding<PlayerDeathNoticeHook>(ClanPlayerDeathBroadcastHook::class.java)
+        addSetBinding<PlayerDeathNoticeHook>(ClanHardcoreStatusBroadcastHook::class.java)
         bind(object : TypeLiteral<NetworkService<Player>>() {})
             .toProvider(NetworkServiceProvider::class.java)
             .`in`(Scopes.SINGLETON)

@@ -10,6 +10,8 @@ import net.rsprot.protocol.game.outgoing.social.FriendListLoaded
 import net.rsprot.protocol.game.outgoing.social.MessagePrivate
 import net.rsprot.protocol.game.outgoing.social.UpdateFriendList
 import net.rsprot.protocol.game.outgoing.social.UpdateIgnoreList
+import org.rsmod.api.net.social.SocialIdentity
+import org.rsmod.api.net.social.SocialNameNormalizer
 import org.rsmod.api.server.config.ServerConfig
 import org.rsmod.game.entity.Player
 
@@ -39,22 +41,30 @@ private fun nextPrivateMessageCounter(worldId: Int): Int {
  * Packet order matches the original OpenRune-Central integration (commit bbf8e6a31):
  * [FriendListLoaded] first, then private chat filter, then bulk friend/ignore lists.
  */
-fun Player.writeCentralSocialSnapshot(snapshot: WorldLinkFrameSpecs.CentralSocialSnapshot) {
+fun Player.writeCentralSocialSnapshot(
+    snapshot: WorldLinkFrameSpecs.CentralSocialSnapshot,
+    ranksByName: Map<String, Int> = emptyMap(),
+    serverConfig: ServerConfig? = null,
+) {
     client.write(FriendListLoaded)
     client.write(ChatFilterSettingsPrivateChat(snapshot.privateChat))
 
     val friendEntries =
         snapshot.friends.map { friend ->
+            val rank =
+                ranksByName[SocialNameNormalizer.normalize(friend.displayName)]
+                    ?: ranksByName[SocialNameNormalizer.normalize(friend.previousDisplayName ?: "")]
+                    ?: 0
             if (friend.worldId > 0) {
                 UpdateFriendList.OnlineFriend(
                     added = false,
                     name = friend.displayName,
                     previousName = friend.previousDisplayName,
                     worldId = friend.worldId,
-                    rank = 0,
+                    rank = rank,
                     properties = 0,
                     notes = "",
-                    worldName = "OpenRune",
+                    worldName = formatWorldName(friend.worldId, serverConfig),
                     platform = OSRS_PLATFORM,
                     worldFlags = 0,
                 )
@@ -63,7 +73,7 @@ fun Player.writeCentralSocialSnapshot(snapshot: WorldLinkFrameSpecs.CentralSocia
                     added = false,
                     name = friend.displayName,
                     previousName = friend.previousDisplayName,
-                    rank = 0,
+                    rank = rank,
                     properties = 0,
                     notes = "",
                 )
@@ -95,6 +105,7 @@ fun Player.writeCentralSocialSnapshotEmpty() {
 fun Player.writeCentralFriendPresence(
     push: ServerFriendPresencePayload,
     serverConfig: ServerConfig,
+    rank: Int = 0,
 ) {
     val friend =
         if (push.friendWorldId > 0) {
@@ -103,7 +114,7 @@ fun Player.writeCentralFriendPresence(
                 name = push.friendDisplayName,
                 previousName = push.friendPreviousDisplayName,
                 worldId = push.friendWorldId,
-                rank = 0,
+                rank = rank,
                 properties = 0,
                 notes = "",
                 worldName = formatWorldName(push.friendWorldId, serverConfig),
@@ -115,12 +126,45 @@ fun Player.writeCentralFriendPresence(
                 added = false,
                 name = push.friendDisplayName,
                 previousName = push.friendPreviousDisplayName,
-                rank = 0,
+                rank = rank,
                 properties = 0,
                 notes = "",
             )
         }
     client.write(UpdateFriendList(listOf(friend)))
+}
+
+fun Player.writeFriendRankUpdate(
+    identity: SocialIdentity,
+    rank: Int,
+    onlinePlayer: Player?,
+    serverConfig: ServerConfig,
+) {
+    val entry =
+        if (onlinePlayer != null) {
+            UpdateFriendList.OnlineFriend(
+                added = false,
+                name = identity.displayName,
+                previousName = identity.previousDisplayName,
+                worldId = serverConfig.world,
+                rank = rank,
+                properties = 0,
+                notes = "",
+                worldName = formatWorldName(serverConfig.world, serverConfig),
+                platform = OSRS_PLATFORM,
+                worldFlags = 0,
+            )
+        } else {
+            UpdateFriendList.OfflineFriend(
+                added = false,
+                name = identity.displayName,
+                previousName = identity.previousDisplayName,
+                rank = rank,
+                properties = 0,
+                notes = "",
+            )
+        }
+    client.write(UpdateFriendList(listOf(entry)))
 }
 
 fun Player.writeCentralPrivateMessage(
@@ -146,14 +190,11 @@ fun Player.writeCentralPrivateMessage(
             worldMessageCounter = counter,
             chatCrownType = push.senderCrown,
             message = push.message,
-        ),
+        )
     )
 }
 
-private fun formatWorldName(
-    worldId: Int,
-    serverConfig: ServerConfig? = null,
-): String {
+private fun formatWorldName(worldId: Int, serverConfig: ServerConfig? = null): String {
     val label = if (worldId > 300) worldId - 300 else worldId
     val prefix = serverConfig?.name ?: "OpenRune"
     return "$prefix $label"

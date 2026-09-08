@@ -44,6 +44,19 @@ public value class ZoneLocMap(private val entries: Int2ObjectMap<Byte2IntOpenHas
 
     public fun locCount(): Int = entries.values.sumOf { it.size }
 
+    /**
+     * Returns every allocated static-map zone key without exposing the mutable backing map.
+     *
+     * This is primarily intended for cache audit tooling that must inspect the authoritative
+     * decoded map instead of relying on a hand-maintained coordinate list.
+     */
+    public fun zoneKeys(): Sequence<ZoneKey> = sequence {
+        val iterator = entries.keys.iterator()
+        while (iterator.hasNext()) {
+            yield(ZoneKey(iterator.nextInt()))
+        }
+    }
+
     public fun build(key: ZoneKey, build: ZoneBuilder.() -> Unit) {
         val zone = entries.computeIfAbsent(key.packed) { Byte2IntOpenHashMap() }
         val builder = ZoneBuilder(zone)

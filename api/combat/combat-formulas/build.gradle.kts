@@ -22,4 +22,11 @@ dependencies {
     implementation(projects.engine.map)
     implementation(projects.engine.module)
     implementation(projects.engine.plugin)
+    testImplementation(kotlin("test"))
+    testImplementation(projects.engine.annotations)
+}
+
+tasks.test {
+    workingDir = rootProject.projectDir
+    systemProperty("junit.jupiter.execution.parallel.enabled", "false")
 }

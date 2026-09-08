@@ -50,39 +50,36 @@ object PluginGamevalMerger {
                     rscmFile
                         .readLines()
                         .filter { it.isNotBlank() && !it.startsWith("#") }
-                        .mapNotNull { line -> line.substringBefore("=").trim().takeIf { it.isNotEmpty() } }
+                        .mapNotNull { line ->
+                            line.substringBefore("=").trim().takeIf { it.isNotEmpty() }
+                        }
                         .toSet()
                 } else {
                     emptySet()
                 }
 
-            val appended =
-                buildString {
-                    tableValues.forEach { (k, v) ->
-                        val key = k.toString()
-                        if (key in existingKeys) {
-                            return@forEach
+            val appended = buildString {
+                tableValues.forEach { (k, v) ->
+                    val key = k.toString()
+                    if (key in existingKeys) {
+                        return@forEach
+                    }
+
+                    val value =
+                        when (v) {
+                            is Number -> v.toInt()
+                            is String -> v.toIntOrNull() ?: return@forEach
+                            else -> return@forEach
                         }
 
-                        val value =
-                            when (v) {
-                                is Number -> v.toInt()
-                                is String -> v.toIntOrNull() ?: return@forEach
-                                else -> return@forEach
-                            }
-
-                        appendLine("$key=$value")
-                    }
+                    appendLine("$key=$value")
                 }
+            }
 
             if (appended.isNotEmpty()) {
                 if (rscmFile.exists() && rscmFile.length() > 0L) {
                     val endsWithNewline =
-                        rscmFile
-                            .readBytes()
-                            .lastOrNull()
-                            ?.toInt()
-                            ?.toChar() == '\n'
+                        rscmFile.readBytes().lastOrNull()?.toInt()?.toChar() == '\n'
                     if (!endsWithNewline) {
                         rscmFile.appendText("\n")
                     }

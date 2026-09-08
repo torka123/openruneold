@@ -4,11 +4,14 @@ import dev.openrune.types.ItemServerType
 import java.util.EnumSet
 import kotlin.collections.plusAssign
 import org.rsmod.api.combat.commons.magic.MagicSpellChecks
+import org.rsmod.api.combat.commons.magic.ArceuusSpellState
+import org.rsmod.api.combat.commons.magic.TomeOfFireState
 import org.rsmod.api.combat.commons.magic.Spellbook
+import org.rsmod.api.combat.formulas.SlayerHelmCombatChecks.providesImbuedRangedMagicTaskBoost
+import org.rsmod.api.combat.formulas.attributes.AhrimPassiveState
 import org.rsmod.api.combat.formulas.attributes.CombatSpellAttributes
 import org.rsmod.api.combat.formulas.attributes.CombatStaffAttributes
 import org.rsmod.api.config.constants
-import org.rsmod.api.config.refs.BaseParams
 import org.rsmod.api.player.front
 import org.rsmod.api.player.hands
 import org.rsmod.api.player.hat
@@ -22,7 +25,6 @@ import org.rsmod.api.random.GameRandom
 import org.rsmod.game.entity.Player
 import org.rsmod.game.inv.isAnyType
 import org.rsmod.game.inv.isType
-import org.rsmod.game.type.getOrNull
 
 public class CombatMagicAttributeCollector {
     // `random` is an explicit parameter to indicate that this function relies on randomness
@@ -61,11 +63,12 @@ public class CombatMagicAttributeCollector {
         val weapon = player.righthand
         val amulet = player.front
 
-        val hasImprovedAhrimPassive =
+        val improvedAhrimTriggered =
             EquipmentChecks.isAhrimSet(helm, body, legs, weapon) &&
-                amulet.isType("obj.damned_amulet")
+                EquipmentChecks.isAmuletOfTheDamned(amulet) &&
+                AhrimPassiveState.triggered(player)
 
-        if (hasImprovedAhrimPassive && random.randomBoolean(4)) {
+        if (improvedAhrimTriggered) {
             attributes += CombatSpellAttributes.AhrimPassive
         }
 
@@ -74,7 +77,7 @@ public class CombatMagicAttributeCollector {
             attributes += CombatSpellAttributes.BrimstonePassive
         }
 
-        if (player.vars["varbit.buff_mark_of_darkness_disabled"] == 1) {
+        if (ArceuusSpellState.isMarked(player, player.currentMapClock)) {
             attributes += CombatSpellAttributes.MarkOfDarkness
         }
 
@@ -104,6 +107,10 @@ public class CombatMagicAttributeCollector {
             attributes += CombatSpellAttributes.SmokeStaff
         }
 
+        if (EquipmentChecks.isTwinflameStaff(weapon)) {
+            attributes += CombatSpellAttributes.TwinflameStaff
+        }
+
         if (player.skullIcon != null && constants.isForinthrySurgeSkull(player.skullIcon!!)) {
             attributes += CombatSpellAttributes.ForinthrySurge
         }
@@ -116,8 +123,7 @@ public class CombatMagicAttributeCollector {
             attributes += CombatSpellAttributes.SalveAmuletI
         }
 
-        val helmType = getOrNull(player.hat)
-        if (helmType != null && helmType.hasImbuedBlackMaskAttribute()) {
+        if (player.hat.providesImbuedRangedMagicTaskBoost()) {
             attributes += CombatSpellAttributes.BlackMaskI
         }
 
@@ -161,12 +167,16 @@ public class CombatMagicAttributeCollector {
             when {
                 shield.isType("obj.tome_of_water") -> CombatSpellAttributes.WaterTome
                 shield.isType("obj.tome_of_earth") -> CombatSpellAttributes.EarthTome
-                shield.isType("obj.tome_of_fire") -> CombatSpellAttributes.FireTome
+                TomeOfFireState.isActive(shield) -> CombatSpellAttributes.FireTome
                 else -> null
             }
 
         if (shieldAttribute != null) {
             attributes += shieldAttribute
+        }
+
+        if (TomeOfFireState.isSearing(shield)) {
+            attributes += CombatSpellAttributes.SearingPageTome
         }
 
         if (MagicSpellChecks.isFireSpell(spell) && usedSunfireRune) {
@@ -203,8 +213,7 @@ public class CombatMagicAttributeCollector {
             attributes += CombatStaffAttributes.SalveAmuletI
         }
 
-        val helmType = getOrNull(player.hat)
-        if (helmType != null && helmType.hasImbuedBlackMaskAttribute()) {
+        if (player.hat.providesImbuedRangedMagicTaskBoost()) {
             attributes += CombatStaffAttributes.BlackMaskI
         }
 
@@ -233,9 +242,5 @@ public class CombatMagicAttributeCollector {
         }
 
         return attributes
-    }
-
-    private fun ItemServerType.hasImbuedBlackMaskAttribute(): Boolean {
-        return param(BaseParams.blackmask_imbued) != 0 || param(BaseParams.slayer_helm_imbued) != 0
     }
 }

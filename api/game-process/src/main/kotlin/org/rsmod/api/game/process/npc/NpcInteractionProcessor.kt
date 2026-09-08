@@ -1,5 +1,7 @@
 package org.rsmod.api.game.process.npc
 
+import dev.openrune.ServerCacheManager
+import dev.openrune.types.hunt.HuntType
 import jakarta.inject.Inject
 import org.rsmod.api.npc.access.StandardNpcAccessLauncher
 import org.rsmod.api.npc.clearInteractionRoute
@@ -58,6 +60,7 @@ constructor(
     private val playerTInteractions: AiPlayerTInteractions,
     private val accessLauncher: StandardNpcAccessLauncher,
     private val movement: NpcMovementProcessor,
+    private val playerChaseValidateHooks: Set<NpcPlayerChaseValidateHook>,
 ) {
     public fun process(npc: Npc) {
         // Store the current interaction at this stage to ensure that if an interaction triggers
@@ -84,6 +87,7 @@ constructor(
             if (cancel) {
                 npc.clearInteractionRoute()
                 npc.defaultMode()
+                if (interaction is InteractionPlayer) npc.rearmBasePlayerHunt()
                 return
             }
             npc.preMovementInteraction(interaction)
@@ -97,6 +101,7 @@ constructor(
 
             if (npc.shouldCancelChase()) {
                 npc.defaultMode()
+                if (interaction is InteractionPlayer) npc.rearmBasePlayerHunt()
                 return
             }
 
@@ -411,6 +416,9 @@ constructor(
         if (!npc.isWithinMaxOpRange(target)) {
             return false
         }
+        if (playerChaseValidateHooks.any { !it.canChase(npc, target) }) {
+            return false
+        }
         return target.isValidTarget() && uid == target.uid
     }
 
@@ -418,18 +426,28 @@ constructor(
         if (level != target.level) {
             return false
         }
-        return spawnCoords.chebyshevDistance(target) <= type.maxRange
+        return spawnCoords.chebyshevDistance(target) <= maxOpRange
     }
 
     private fun Npc.isWithinMaxOpRange(target: PathingEntity): Boolean {
         if (level != target.level) {
             return false
         }
-        return spawnCoords.chebyshevDistance(target.coords) <= type.maxRange + type.attackRange
+        return spawnCoords.chebyshevDistance(target.coords) <= maxOpRange + type.attackRange
     }
 
     private fun Npc.shouldCancelChase(): Boolean {
         return hasMovedThisCycle && !visType.giveChase
+    }
+
+    /**
+     * One-shot hunt modes set their range to zero after acquiring a player. Restore only the NPC's
+     * own cache-backed player hunt after that interaction ends so it can reacquire later.
+     */
+    private fun Npc.rearmBasePlayerHunt() {
+        val modeId = type.huntMode ?: return
+        val mode = ServerCacheManager.getHunt(modeId) ?: return
+        if (mode.type == HuntType.Player) resetHunt()
     }
 
     /* Interaction event launch functions */

@@ -1,6 +1,6 @@
 package dtx.util
 
-internal fun <T, R: Comparable<R>> List<T>.isSortedBy(bySelector: (T) -> R): Boolean {
+internal fun <T, R : Comparable<R>> List<T>.isSortedBy(bySelector: (T) -> R): Boolean {
 
     for (i in 1 until size) {
 

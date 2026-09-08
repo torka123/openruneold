@@ -9,5 +9,3 @@ public fun ObjectServerType.hasOp(interactionOp: InteractionOp): Boolean {
     val invalid = text.isBlank() || text.equals("hidden", ignoreCase = true)
     return !invalid
 }
-
-

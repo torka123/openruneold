@@ -24,17 +24,17 @@ data class SlayerAssignmentRow(
 ) {
     /** Name used to match dump.dbrow slayer_task (e.g. "Monkeys" from Slayer task/Monkeys). */
     fun wikiTaskName(): String {
-        WikiLinks
-            .extractPageTitles(monsterCell)
+        WikiLinks.extractPageTitles(monsterCell)
             .firstOrNull { it.startsWith("Slayer task/", ignoreCase = true) }
             ?.substringAfter('/')
             ?.trim()
             ?.takeIf { it.isNotEmpty() }
-            ?.let { return it }
+            ?.let {
+                return it
+            }
 
         val stripped =
-            WikiText
-                .stripTemplates(monsterCell)
+            WikiText.stripTemplates(monsterCell)
                 .replace(Regex("""\[\[([^\]|#]+)(?:\|[^\]]*)?\]\]"""), "$1")
                 .trim()
         if (stripped.isNotEmpty()) {
@@ -81,7 +81,8 @@ object WikiTables {
                     cells.size >= 8 -> cells[1]
                     else ->
                         cells.firstOrNull { cell ->
-                            WikiLinks.extractPageTitles(cell).isNotEmpty() && !WikiLinks.isNaCell(cell)
+                            WikiLinks.extractPageTitles(cell).isNotEmpty() &&
+                                !WikiLinks.isNaCell(cell)
                         }
                 } ?: continue
 
@@ -90,7 +91,8 @@ object WikiTables {
             if (superiorInRow.isNotBlank()) {
                 carriedSuperior = superiorInRow
                 carriedWilderness = WikiTemplates.parseYesNo(cells[7]) ?: carriedWilderness
-                carriedUniqueMechanics = WikiTemplates.parseYesNo(cells[6]) ?: carriedUniqueMechanics
+                carriedUniqueMechanics =
+                    WikiTemplates.parseYesNo(cells[6]) ?: carriedUniqueMechanics
             }
 
             if (normalCell.isBlank() || WikiLinks.isNaCell(superiorCell)) continue
@@ -139,11 +141,14 @@ object WikiTables {
                     alternativesCell = cells[7],
                     label = label,
                 )
-            }.mapIndexed { index, row -> row.copy(rowIndex = index + 1) }
+            }
+            .mapIndexed { index, row -> row.copy(rowIndex = index + 1) }
     }
 
     fun extractMonsterVariantLinks(taskPageSource: String): List<String> {
-        val section = WikiText.extractSectionByHeading(taskPageSource, monsterVariantsHeading) ?: taskPageSource
+        val section =
+            WikiText.extractSectionByHeading(taskPageSource, monsterVariantsHeading)
+                ?: taskPageSource
         return extractWikitableColumnLinks(section, linkColumnIndex = 0)
     }
 
@@ -158,12 +163,7 @@ object WikiTables {
     }
 
     fun extractProsePrimaryMonsterLink(source: String): String? =
-        proseTaskMonster
-            .find(source.take(4_000))
-            ?.groupValues
-            ?.get(1)
-            ?.trim()
-            ?.replace('_', ' ')
+        proseTaskMonster.find(source.take(4_000))?.groupValues?.get(1)?.trim()?.replace('_', ' ')
 
     private fun extractWikitableColumnLinks(
         section: String,
@@ -175,8 +175,13 @@ object WikiTables {
             .split(rowSplit)
             .drop(1)
             .flatMap { rowBlock ->
-                monsterLinksFromRow(cellsFromRowForMonsterTables(rowBlock), linkColumnIndex, fallbackColumnIndex)
-            }.distinct()
+                monsterLinksFromRow(
+                    cellsFromRowForMonsterTables(rowBlock),
+                    linkColumnIndex,
+                    fallbackColumnIndex,
+                )
+            }
+            .distinct()
     }
 
     private fun monsterLinksFromRow(
@@ -198,7 +203,9 @@ object WikiTables {
         if (cells.size <= index) {
             return emptyList()
         }
-        return WikiLinks.extractPageTitles(cells[index]).filter { !it.startsWith("File:", ignoreCase = true) }
+        return WikiLinks.extractPageTitles(cells[index]).filter {
+            !it.startsWith("File:", ignoreCase = true)
+        }
     }
 
     internal fun extractSection(wikitext: String, heading: String): String? {
@@ -206,7 +213,8 @@ object WikiTables {
         val pattern = Regex("(?im)^==\\s*${Regex.escape(normalized)}\\s*==")
         val match = pattern.find(wikitext) ?: return null
         val afterHeading = wikitext.substring(match.range.last + 1)
-        val nextHeading = Regex("""(?m)^==[^=].*==""").find(afterHeading)?.range?.first ?: afterHeading.length
+        val nextHeading =
+            Regex("""(?m)^==[^=].*==""").find(afterHeading)?.range?.first ?: afterHeading.length
         return afterHeading.substring(0, nextHeading)
     }
 
@@ -222,14 +230,19 @@ object WikiTables {
         return section.substring(start, end + 2)
     }
 
-    internal fun cellsFromRow(rowBlock: String): List<String> = cellsFromRowInternal(rowBlock, stripTemplates = false)
+    internal fun cellsFromRow(rowBlock: String): List<String> =
+        cellsFromRowInternal(rowBlock, stripTemplates = false)
 
     private fun cellsFromRowForMonsterTables(rowBlock: String): List<String> =
         cellsFromRowInternal(rowBlock, stripTemplates = true)
 
     private fun cellsFromRowInternal(rowBlock: String, stripTemplates: Boolean): List<String> {
         val text = if (stripTemplates) WikiText.stripTemplates(rowBlock) else rowBlock
-        return dataCellLine.findAll(text).map { it.groupValues[1].trim() }.filter { it != "}" }.toList()
+        return dataCellLine
+            .findAll(text)
+            .map { it.groupValues[1].trim() }
+            .filter { it != "}" }
+            .toList()
     }
 }
 
@@ -239,16 +252,12 @@ object WikiTables {
 
 object WikiText {
     private val redirect = Regex("""#REDIRECT\s*\[\[([^|\]#]+)""", RegexOption.IGNORE_CASE)
-    private val npcInfoboxStart = Regex("""\{\{Infobox\s+(Monster|NPC)\b""", RegexOption.IGNORE_CASE)
+    private val npcInfoboxStart =
+        Regex("""\{\{Infobox\s+(Monster|NPC)\b""", RegexOption.IGNORE_CASE)
     private val slayerInfoboxStart = Regex("""\{\{Infobox\s+Slayer\b""", RegexOption.IGNORE_CASE)
 
     fun resolveRedirectTarget(source: String): String? =
-        redirect
-            .find(source.trim())
-            ?.groupValues
-            ?.get(1)
-            ?.trim()
-            ?.replace('_', ' ')
+        redirect.find(source.trim())?.groupValues?.get(1)?.trim()?.replace('_', ' ')
 
     fun stripTemplates(text: String): String {
         val out = StringBuilder(text.length)
@@ -282,7 +291,9 @@ object WikiText {
     fun extractSectionByHeading(wikitext: String, headingPattern: Regex): String? {
         val match = headingPattern.find(wikitext) ?: return null
         val afterHeading = wikitext.substring(match.range.last + 1)
-        val nextHeading = Regex("""(?m)^={2,3}[^=].*={2,3}""").find(afterHeading)?.range?.first ?: afterHeading.length
+        val nextHeading =
+            Regex("""(?m)^={2,3}[^=].*={2,3}""").find(afterHeading)?.range?.first
+                ?: afterHeading.length
         return afterHeading.substring(0, nextHeading)
     }
 
@@ -294,14 +305,18 @@ object WikiText {
                 Regex("(?im)^==\\s*${Regex.escape(normalized)}\\s*=="),
             )
         for (pattern in headingPatterns) {
-            extractSectionByHeading(wikitext, pattern)?.let { return it }
+            extractSectionByHeading(wikitext, pattern)?.let {
+                return it
+            }
         }
         return null
     }
 
-    fun extractNpcInfoboxSources(wikitext: String): String = extractInfoboxSources(wikitext, npcInfoboxStart)
+    fun extractNpcInfoboxSources(wikitext: String): String =
+        extractInfoboxSources(wikitext, npcInfoboxStart)
 
-    fun extractSlayerInfoboxSources(wikitext: String): String = extractInfoboxSources(wikitext, slayerInfoboxStart)
+    fun extractSlayerInfoboxSources(wikitext: String): String =
+        extractInfoboxSources(wikitext, slayerInfoboxStart)
 
     private fun extractInfoboxSources(wikitext: String, startPattern: Regex): String {
         val blocks = mutableListOf<String>()
@@ -348,11 +363,7 @@ object WikiTemplates {
     private val yesNo = Regex("""\{\{\s*(Yes|No)\s*\}\}""", RegexOption.IGNORE_CASE)
 
     fun parseYesNo(cell: String): Boolean? =
-        yesNo
-            .find(cell.trim())
-            ?.groupValues
-            ?.get(1)
-            ?.equals("yes", ignoreCase = true)
+        yesNo.find(cell.trim())?.groupValues?.get(1)?.equals("yes", ignoreCase = true)
 }
 
 object WikiLinks {
@@ -376,13 +387,17 @@ object WikiLinks {
             .toList()
     }
 
-    fun isSlayerTaskPage(title: String): Boolean = title.startsWith("Slayer task/", ignoreCase = true)
+    fun isSlayerTaskPage(title: String): Boolean =
+        title.startsWith("Slayer task/", ignoreCase = true)
 
     fun isRevenantPage(title: String): Boolean =
         title.equals("Revenant", ignoreCase = true) || title.equals("Revenants", ignoreCase = true)
 
     fun isMetalDragonsPage(title: String, redirectAnchor: String?): Boolean {
-        if (title.equals("Metal dragons", ignoreCase = true) || title.equals("Metal dragon", ignoreCase = true)) {
+        if (
+            title.equals("Metal dragons", ignoreCase = true) ||
+                title.equals("Metal dragon", ignoreCase = true)
+        ) {
             return true
         }
         val anchor = redirectAnchor?.replace('_', ' ') ?: return false
@@ -413,16 +428,23 @@ object WikiLinks {
 
 object WikiInfoboxIds {
     private val versionedIds =
-        Regex("""\|\s*id(\d+)\s*=\s*([\d,\s]+)""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE))
-    private val bareId = Regex("""\|\s*id\s*=\s*([\d,\s]+)""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE))
-    private val infoboxIdField =
-        Regex("""(?im)^\s*\|id(\d*)\s*=\s*(.+?)\s*$""")
+        Regex(
+            """\|\s*id(\d+)\s*=\s*([\d,\s]+)""",
+            setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE),
+        )
+    private val bareId =
+        Regex("""\|\s*id\s*=\s*([\d,\s]+)""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE))
+    private val infoboxIdField = Regex("""(?im)^\s*\|id(\d*)\s*=\s*(.+?)\s*$""")
 
     fun allNpcIds(source: String): List<Int> = parseIds(WikiText.extractNpcInfoboxSources(source))
 
-    fun allSlayerTaskIds(source: String): List<Int> = parseIds(WikiText.extractSlayerInfoboxSources(source))
+    fun allSlayerTaskIds(source: String): List<Int> =
+        parseIds(WikiText.extractSlayerInfoboxSources(source))
 
-    /** True when the infobox lists id fields but none are numeric (`removed`, `hist309`, `unreleased`, etc.). */
+    /**
+     * True when the infobox lists id fields but none are numeric (`removed`, `hist309`,
+     * `unreleased`, etc.).
+     */
     fun hasNonNumericNpcId(source: String): Boolean {
         val infobox = WikiText.extractNpcInfoboxSources(source)
         if (infobox.isBlank()) {
@@ -433,8 +455,9 @@ object WikiInfoboxIds {
             return false
         }
         val tokens =
-            values
-                .flatMap { value -> value.split(',').map { it.trim() }.filter { it.isNotEmpty() } }
+            values.flatMap { value ->
+                value.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+            }
         if (tokens.isEmpty()) {
             return false
         }
@@ -446,10 +469,7 @@ object WikiInfoboxIds {
             return emptyList()
         }
         val versioned =
-            versionedIds
-                .findAll(infoboxSource)
-                .flatMap { parseIdList(it.groupValues[2]) }
-                .toList()
+            versionedIds.findAll(infoboxSource).flatMap { parseIdList(it.groupValues[2]) }.toList()
         if (versioned.isNotEmpty()) {
             return versioned.distinct().sorted()
         }
@@ -474,7 +494,8 @@ class WikiNpcResolver(
     private val npcIdCache = mutableMapOf<String, List<Int>>()
     private val fetchedTitles = mutableSetOf<String>()
 
-    val pagesFetched: Int get() = fetchedTitles.size
+    val pagesFetched: Int
+        get() = fetchedTitles.size
 
     suspend fun resolveDirectMonsterTitle(
         title: String,
@@ -509,7 +530,9 @@ class WikiNpcResolver(
 
     sealed interface DirectResolveResult {
         data class Ok(val npcIds: List<Int>) : DirectResolveResult
+
         data object Empty : DirectResolveResult
+
         data object Error : DirectResolveResult
     }
 
@@ -519,9 +542,10 @@ class WikiNpcResolver(
     ): List<Int> {
         val titles =
             buildList {
-                addAll(WikiLinks.extractPageTitles(row.monsterCell))
-                addAll(WikiLinks.extractPageTitles(row.alternativesCell))
-            }.distinct()
+                    addAll(WikiLinks.extractPageTitles(row.monsterCell))
+                    addAll(WikiLinks.extractPageTitles(row.alternativesCell))
+                }
+                .distinct()
 
         val ids = linkedSetOf<Int>()
         for (title in titles) {
@@ -583,13 +607,15 @@ class WikiNpcResolver(
             when (val nested = resolveTitle(proseLink)) {
                 is ResolveResult.Ok -> return ResolveResult.Ok(nested.npcIds)
                 is ResolveResult.Empty ->
-                    return ResolveResult.Empty("Prose link '$proseLink' on '$taskTitle' has no Infobox Monster ids")
+                    return ResolveResult.Empty(
+                        "Prose link '$proseLink' on '$taskTitle' has no Infobox Monster ids"
+                    )
                 is ResolveResult.Error -> return nested
             }
         }
 
         return ResolveResult.Empty(
-            "Slayer task '$taskTitle' has no Monster variants, Infobox Slayer ids, or prose monster link",
+            "Slayer task '$taskTitle' has no Monster variants, Infobox Slayer ids, or prose monster link"
         )
     }
 
@@ -611,7 +637,8 @@ class WikiNpcResolver(
         }
 
         val scoped =
-            redirectAnchorByTitle[title]?.let { WikiText.extractSectionForAnchor(source, it) } ?: source
+            redirectAnchorByTitle[title]?.let { WikiText.extractSectionForAnchor(source, it) }
+                ?: source
         val ids = WikiInfoboxIds.allNpcIds(scoped)
         if (ids.isNotEmpty()) {
             return ResolveResult.Ok(ids)
@@ -638,7 +665,9 @@ class WikiNpcResolver(
     }
 
     private suspend fun fetchSource(title: String, depth: Int = 0): String {
-        pageSourceCache[title]?.let { return it }
+        pageSourceCache[title]?.let {
+            return it
+        }
         if (depth > 5) {
             throw IllegalStateException("Too many redirects resolving '$title'")
         }

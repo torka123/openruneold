@@ -32,7 +32,7 @@ constructor(
             SHARED_TABLES[name]
                 ?: error(
                     "Unknown shared drop table '$name'. " +
-                        "Expected one of: ${SHARED_TABLES.keys.sorted().joinToString()}",
+                        "Expected one of: ${SHARED_TABLES.keys.sorted().joinToString()}"
                 )
         return table
     }
@@ -46,36 +46,47 @@ constructor(
 
     override fun applyHooks(config: PendingDropItemConfig, hooks: TomlDropHooks) {
         if (hooks.shouldDropLootingBag) {
-            config.condition = andCondition(config.condition) { player -> player.shouldDropLootingBag() }
+            config.condition =
+                andCondition(config.condition) { player -> player.shouldDropLootingBag() }
         } else if (hooks.quest != null) {
             val quest = hooks.quest!!
             val questCondition: (Player) -> Boolean =
                 when (hooks.questMode?.lowercase()) {
                     "completed" -> { player ->
-                        questRequirements.satisfies(player, quest, QuestRequirement.Completed)
-                    }
+                            questRequirements.satisfies(player, quest, QuestRequirement.Completed)
+                        }
                     "not_completed" -> { player ->
-                        questRequirements.satisfies(player, quest, QuestRequirement.NotCompleted)
-                    }
-                    "during", null -> { player ->
-                        questRequirements.satisfies(player, quest, QuestRequirement.InProgress)
-                    }
+                            questRequirements.satisfies(
+                                player,
+                                quest,
+                                QuestRequirement.NotCompleted,
+                            )
+                        }
+                    "during",
+                    null -> { player ->
+                            questRequirements.satisfies(player, quest, QuestRequirement.InProgress)
+                        }
                     else ->
                         error(
                             "Invalid quest_mode '${hooks.questMode}' for quest '$quest'. " +
-                                "Use 'during', 'completed', or 'not_completed'.",
+                                "Use 'during', 'completed', or 'not_completed'."
                         )
                 }
             config.condition = andCondition(config.condition, questCondition)
         }
         if (hooks.requireRingOfWealth) {
-            config.condition = andCondition(config.condition) { player -> player.wearingRingOfWealth() }
+            config.condition =
+                andCondition(config.condition) { player -> player.wearingRingOfWealth() }
         }
         if (hooks.excludeRingOfWealth) {
-            config.condition = andCondition(config.condition) { player -> !player.wearingRingOfWealth() }
+            config.condition =
+                andCondition(config.condition) { player -> !player.wearingRingOfWealth() }
         }
         if (hooks.requireWilderness) {
-            config.condition = andCondition(config.condition) { player -> player.coords.isInWilderness(areaChecker) }
+            config.condition =
+                andCondition(config.condition) { player ->
+                    player.coords.isInWilderness(areaChecker)
+                }
         }
         if (hooks.shouldDropBrimstoneKey) {
             config.killCondition = { player, npc, areaChecker ->

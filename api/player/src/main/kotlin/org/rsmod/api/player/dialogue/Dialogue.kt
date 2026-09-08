@@ -22,7 +22,8 @@ public class Dialogue(
     public val vars: VarPlayerIntMapDelegate by access::vars
 
     public fun mesanim(internal: String): MesAnimType {
-        val type = ServerCacheManager.getMesAnim(internal.asRSCM()) ?: error("Error Loading MesAnim")
+        val type =
+            ServerCacheManager.getMesAnim(internal.asRSCM()) ?: error("Error Loading MesAnim")
         return type
     }
 
@@ -149,13 +150,7 @@ public class Dialogue(
     }
 
     /** @see [ProtectedAccess.doubleobjboxNp] */
-    public fun doubleobjboxNp(
-        obj1: String,
-        zoom1: Int,
-        obj2: String,
-        zoom2: Int,
-        text: String,
-    ) {
+    public fun doubleobjboxNp(obj1: String, zoom1: Int, obj2: String, zoom2: Int, text: String) {
         access.doubleobjboxNp(obj1, zoom1, obj2, zoom2, text)
     }
 
@@ -221,12 +216,7 @@ public class Dialogue(
     }
 
     /** @see [ProtectedAccess.chatNpcSpecificNp] */
-    public fun chatNpcSpecificNp(
-        title: String,
-        type: String,
-        mesanim: MesAnimType,
-        text: String,
-    ) {
+    public fun chatNpcSpecificNp(title: String, type: String, mesanim: MesAnimType, text: String) {
         access.chatNpcSpecificNp(title, type, mesanim, text)
     }
 
@@ -330,14 +320,14 @@ public class Dialogue(
     public suspend fun delay(cycles: Int = 1): Unit = access.delay(cycles)
 
     /** @see [ProtectedAccess.invContentTotal] */
-    public fun invTotal(inv: Inventory, content: String): Int =
-        access.invContentTotal(inv, content)
+    public fun invTotal(inv: Inventory, content: String): Int = access.invContentTotal(inv, content)
 
     /** @see [ProtectedAccess.invContains] */
     public operator fun Inventory.contains(content: String): Boolean =
         access.invContains(this, content)
 
-    public fun playerContainsContent(content: String): Boolean = access.playerContainsContent(content)
+    public fun playerContainsContent(content: String): Boolean =
+        access.playerContainsContent(content)
 
     public fun playerContainsObj(obj: String): Boolean = access.playerContainsObj(obj)
 

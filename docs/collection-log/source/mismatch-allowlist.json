@@ -1,0 +1,25 @@
+{
+  "cacheRevision": 240,
+  "entries": [
+    {
+      "kind": "WIKI_SECTION_MISMATCH",
+      "message": "Item 33663 (Venator tooth) is in cache section Slayer but Wiki tabs are [Venators]",
+      "reason": "Revision 240 has no Venators section; its cache enum places this item in Other > Slayer. The cache is authoritative for this client revision."
+    },
+    {
+      "kind": "WIKI_SECTION_MISMATCH",
+      "message": "Item 33661 (Venator fang) is in cache section Slayer but Wiki tabs are [Venators]",
+      "reason": "Revision 240 has no Venators section; its cache enum places this item in Other > Slayer. The cache is authoritative for this client revision."
+    },
+    {
+      "kind": "WIKI_SECTION_MISSING_FROM_CACHE",
+      "message": "Wiki section 'Venators' for item 33663 does not exist in revision-240",
+      "reason": "The Wiki snapshot is newer than the revision-240 section layout. Adding a server-only section would break the native interface enum/struct contract."
+    },
+    {
+      "kind": "WIKI_SECTION_MISSING_FROM_CACHE",
+      "message": "Wiki section 'Venators' for item 33661 does not exist in revision-240",
+      "reason": "The Wiki snapshot is newer than the revision-240 section layout. Adding a server-only section would break the native interface enum/struct contract."
+    }
+  ]
+}

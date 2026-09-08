@@ -1,12 +1,12 @@
 package org.rsmod.api.combat.scripts
 
 import jakarta.inject.Inject
-import org.rsmod.api.death.NpcAttackValidateHook
-import org.rsmod.api.death.NpcAttackValidateResult
 import org.rsmod.api.combat.ACTIVE_COMBAT_DELAY
 import org.rsmod.api.combat.PvNCombat
+import org.rsmod.api.combat.commons.CombatAttack
 import org.rsmod.api.combat.commons.magic.MagicSpell
 import org.rsmod.api.combat.commons.styles.AttackStyle
+import org.rsmod.api.combat.commons.types.AttackType
 import org.rsmod.api.combat.manager.MagicRuneManager
 import org.rsmod.api.combat.npc.aggressivePlayer
 import org.rsmod.api.combat.npc.lastCombat
@@ -14,13 +14,18 @@ import org.rsmod.api.combat.player.aggressiveNpc
 import org.rsmod.api.combat.player.attackRange
 import org.rsmod.api.combat.player.resolveAutocastSpell
 import org.rsmod.api.combat.player.resolveCombatAttack
+import org.rsmod.api.combat.player.specialAttackType
 import org.rsmod.api.combat.weapon.styles.AttackStyles
 import org.rsmod.api.combat.weapon.types.AttackTypes
+import org.rsmod.api.death.NpcAttackValidateHook
+import org.rsmod.api.death.NpcAttackValidateResult
 import org.rsmod.api.player.protect.ProtectedAccess
 import org.rsmod.api.player.righthand
 import org.rsmod.api.script.advanced.onDefaultApNpc2
 import org.rsmod.api.script.advanced.onDefaultOpNpc2
 import org.rsmod.api.script.onApNpcT
+import org.rsmod.api.specials.SpecialAttackRegistry
+import org.rsmod.api.specials.SpecialAttackType
 import org.rsmod.api.spells.MagicSpellRegistry
 import org.rsmod.api.spells.autocast.AutocastWeapons
 import org.rsmod.game.entity.Npc
@@ -37,7 +42,9 @@ constructor(
     private val spells: MagicSpellRegistry,
     private val runes: MagicRuneManager,
     private val autocast: AutocastWeapons,
+    private val specials: SpecialAttackRegistry,
     private val attackValidateHooks: Set<NpcAttackValidateHook>,
+    private val meleeApRangeHooks: Set<@JvmSuppressWildcards NpcMeleeApRangeHook>,
 ) : PluginScript() {
     override fun ScriptContext.startup() {
         onDefaultApNpc2 { attemptCombatAp(it.npc) }
@@ -47,16 +54,41 @@ constructor(
         }
     }
 
+    private fun ProtectedAccess.hasSelectedMagicSpecial(): Boolean =
+        specialAttackType == SpecialAttackType.Weapon && specials.isMagicSpecial(player.righthand)
+
+    private fun ProtectedAccess.resolveDefaultCombatAttack(
+        type: AttackType?,
+        style: AttackStyle?,
+        magicSpecialSelected: Boolean = hasSelectedMagicSpecial(),
+    ): CombatAttack.PlayerAttack {
+        val spell =
+            if (magicSpecialSelected) {
+                null
+            } else {
+                resolveAutocastSpell(spells, runes, autocast)
+            }
+        return resolveCombatAttack(
+            player.righthand,
+            type,
+            style,
+            spell,
+            forceMagicStaffAttack = magicSpecialSelected,
+        )
+    }
+
     private suspend fun ProtectedAccess.attemptCombatAp(target: Npc) {
         val type = types.get(player)
         val style = styles.get(player)
-        val attackRange = attackRange(style)
+        val magicSpecialSelected = hasSelectedMagicSpecial()
+        val attackRange = attackRange(style, forceMagicRange = magicSpecialSelected)
         val canAttack = canAttack(target)
 
         // Weapons such as salamanders have an attack range of `1` but can attack with both ranged
         // and magic. These attacks should be treated as ap range, not op.
         val isMeleeAttackType = type == null || type.isMelee
-        if (attackRange == 1 && isMeleeAttackType) {
+        val meleeApRange = meleeApRangeHooks.firstNotNullOfOrNull { it.range(player, target) }
+        if (attackRange == 1 && isMeleeAttackType && meleeApRange == null) {
             apRange(-1)
             return
         }
@@ -65,13 +97,13 @@ constructor(
             return
         }
 
-        if (!isWithinDistance(target, attackRange)) {
-            apRange(attackRange)
+        val effectiveAttackRange = meleeApRange ?: attackRange
+        if (!isWithinDistance(target, effectiveAttackRange)) {
+            apRange(effectiveAttackRange)
             return
         }
 
-        val spell = resolveAutocastSpell(spells, runes, autocast)
-        val attack = resolveCombatAttack(player.righthand, type, style, spell)
+        val attack = resolveDefaultCombatAttack(type, style, magicSpecialSelected)
         combat.attack(this, target, attack)
     }
 
@@ -82,8 +114,7 @@ constructor(
         val type = types.get(player)
         val style = styles.get(player)
 
-        val spell = resolveAutocastSpell(spells, runes, autocast)
-        val attack = resolveCombatAttack(player.righthand, type, style, spell)
+        val attack = resolveDefaultCombatAttack(type, style)
         combat.attack(this, target, attack)
     }
 
@@ -138,7 +169,7 @@ constructor(
         }
 
         // TODO(combat): Add singles plus support.
-        val singleCombat = !mapMultiway()
+        val singleCombat = !mapNpcMultiway()
         if (singleCombat && !bypassSingleWayPvn) {
             if (isInPvpCombat()) {
                 spam("I'm already under attack.")

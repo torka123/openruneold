@@ -7,11 +7,7 @@ import org.rsmod.game.entity.Player
 public class PlayerTeleportValidator
 @Inject
 constructor(private val hooks: Set<@JvmSuppressWildcards PlayerTeleportValidateHook>) {
-    public fun validate(
-        player: Player,
-        type: TeleportType,
-        areaChecker: AreaChecker,
-    ): String? {
+    public fun validate(player: Player, type: TeleportType, areaChecker: AreaChecker): String? {
         if (type == TeleportType.Exempt) {
             return null
         }

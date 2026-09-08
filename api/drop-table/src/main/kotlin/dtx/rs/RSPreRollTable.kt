@@ -12,11 +12,9 @@ public class RSPreRollTable<T, R>(
     tableIdentifier: String,
     tableEntries: List<ChanceRollable<T, R>>,
     tableHooks: TableHooks<T, R> = TableHooks.Default(),
-) : RSTable<T, R>, MultiChanceTable<T, R> by MultiChanceTableImpl(
-    tableIdentifier,
-    tableEntries,
-    tableHooks,
-) {
+) :
+    RSTable<T, R>,
+    MultiChanceTable<T, R> by MultiChanceTableImpl(tableIdentifier, tableEntries, tableHooks) {
     public companion object {
         private val EmptyTable = RSPreRollTable<Any?, Any?>("", emptyList())
 
@@ -27,7 +25,8 @@ public class RSPreRollTable<T, R>(
 
 public class RSPrerollTableBuilder<T, R> : MultiChanceTableBuilder<T, R>() {
 
-    public infix fun Int.outOf(other: Int): Percent = Percent((toDouble() / other.toDouble()) * 100.0)
+    public infix fun Int.outOf(other: Int): Percent =
+        Percent((toDouble() / other.toDouble()) * 100.0)
 
     public infix fun Percent.rolls(rollable: Rollable<T, R>): RSPrerollTableBuilder<T, R> {
         chance(rollable)
@@ -40,22 +39,20 @@ public class RSPrerollTableBuilder<T, R> : MultiChanceTableBuilder<T, R>() {
     }
 
     init {
-        construct {
-            RSPreRollTable(
-                tableIdentifier,
-                entries,
-                hooks.build(),
-            )
-        }
+        construct { RSPreRollTable(tableIdentifier, entries, hooks.build()) }
     }
 }
 
-public fun <T, R> rsPrerollTable(block: RSPrerollTableBuilder<T, R>.() -> Unit): RSPreRollTable<T, R> {
+public fun <T, R> rsPrerollTable(
+    block: RSPrerollTableBuilder<T, R>.() -> Unit
+): RSPreRollTable<T, R> {
     val builder = RSPrerollTableBuilder<T, R>()
     builder.apply(block)
     return builder.build() as RSPreRollTable<T, R>
 }
 
-public fun <T, R> rsTertiaryTable(block: RSPrerollTableBuilder<T, R>.() -> Unit): RSPreRollTable<T, R> {
+public fun <T, R> rsTertiaryTable(
+    block: RSPrerollTableBuilder<T, R>.() -> Unit
+): RSPreRollTable<T, R> {
     return rsPrerollTable(block)
 }

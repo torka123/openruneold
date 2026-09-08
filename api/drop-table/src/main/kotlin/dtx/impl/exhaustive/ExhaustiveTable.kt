@@ -5,20 +5,20 @@ import dtx.core.RollResult
 import dtx.core.Rollable
 import dtx.table.Table
 
-public interface ExhaustiveTable<T, R>: Table<T, R>, ExhaustiveRollable<T, R> {
+public interface ExhaustiveTable<T, R> : Table<T, R>, ExhaustiveRollable<T, R> {
 
     override val tableEntries: Collection<ExhaustiveRollable<T, R>>
 
     override var rolls: Int
         get() = tableEntries.sumOf(ExhaustiveRollable<T, R>::rolls)
-        set(value) { }
+        set(value) {}
 }
 
 public open class ExhaustiveTableImpl<T, R>(
     public override val tableIdentifier: String,
     public override val tableEntries: MutableCollection<ExhaustiveRollable<T, R>>,
-    hooks: ExhaustiveTableHooks<T, R>
-): ExhaustiveTable<T, R>, ExhaustiveTableHooks<T, R> by hooks {
+    hooks: ExhaustiveTableHooks<T, R>,
+) : ExhaustiveTable<T, R>, ExhaustiveTableHooks<T, R> by hooks {
 
     public override val rollable: Rollable<T, R> = this
 
@@ -50,6 +50,5 @@ public open class ExhaustiveTableImpl<T, R>(
 
     override var rolls: Int
         get() = tableEntries.sumOf { it.rolls }
-        set(value) { }
-
+        set(value) {}
 }

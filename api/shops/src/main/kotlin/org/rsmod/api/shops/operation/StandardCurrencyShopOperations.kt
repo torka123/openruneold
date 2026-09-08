@@ -29,6 +29,7 @@ public open class StandardCurrencyShopOperations(
     private val restockProcess: ShopRestockProcess,
     private val marketPrices: MarketPrices,
     private val costOf: (ItemServerType) -> Int = { it.cost },
+    private val onPurchase: (Player, ItemServerType, Int) -> Unit = { _, _, _ -> },
 ) : StandardShopOperations {
     override fun examineShopValue(player: Player, shop: Shop, slot: Int) {
         val obj = shop.inv[slot] ?: return
@@ -136,6 +137,7 @@ public open class StandardCurrencyShopOperations(
                 currency.deduct(player, finalPurchaseCost)
             }
             restockProcess += shopInv
+            onPurchase(player, objType, finalPurchaseCount)
         }
 
         if (shopInv[slot] == null) {

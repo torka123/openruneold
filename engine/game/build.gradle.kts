@@ -17,4 +17,5 @@ dependencies {
     implementation(projects.engine.routefinder)
     implementation(projects.engine.utilsBits)
     implementation(projects.engine.utilsSorting)
+    testImplementation(kotlin("test"))
 }

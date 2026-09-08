@@ -19,7 +19,7 @@ class CommanderZilyana @Inject constructor(deps: BossDeps) : BossPluginScript(de
     private val avatarId by lazy { AVATAR.asRSCM(RSCMType.NPC) }
 
     override fun ScriptContext.startup() {
-        BossCombat.register(this, spec, deps)
+        BossCombat.register(this, spec, deps, ownerSlug = "commander-zilyana")
 
         onEvent<NpcStateEvents.Respawn> { if (npc.id == avatarId) respawnDeadBodyguards(npc) }
     }

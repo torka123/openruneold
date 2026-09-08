@@ -24,10 +24,17 @@ public data class PlayerDeathContext(
     val gamemode: Int,
     val killer: Player?,
 ) {
-    val isUIM: Boolean get() = gamemode == PlayerGamemode.ULTIMATE_IRONMAN
-    val isHardcoreIronman: Boolean get() = gamemode == PlayerGamemode.HARDCORE_IRONMAN
-    val isIronman: Boolean get() = gamemode != PlayerGamemode.NORMAL
-    val isPvpDeath: Boolean get() = killer != null || recentPvpDamage
+    val isUIM: Boolean
+        get() = gamemode == PlayerGamemode.ULTIMATE_IRONMAN
+
+    val isHardcoreIronman: Boolean
+        get() = gamemode == PlayerGamemode.HARDCORE_IRONMAN
+
+    val isIronman: Boolean
+        get() = gamemode != PlayerGamemode.NORMAL
+
+    val isPvpDeath: Boolean
+        get() = killer != null || recentPvpDamage
 }
 
 public data class PlayerDeathHandling(
@@ -46,7 +53,19 @@ public enum class UntradeableHandling {
     KEEP,
 }
 
+/**
+ * Allows item-retrieval services to atomically retain the selected lost items before the normal
+ * ground-drop application runs. Returning true consumes every non-kept part of [result].
+ */
+public fun interface PlayerDeathStorageHook {
+    public fun store(context: PlayerDeathContext, result: PlayerDeathDrops.DeathDropResult): Boolean
+}
+
 public const val RECENT_PVP_HIT_TICKS: Int = 600
+
+public fun interface PlayerDeathNoticeHook {
+    public fun onDeath(context: PlayerDeathContext)
+}
 
 public interface PlayerDeathHook {
     public fun handleDeath(context: PlayerDeathContext): PlayerDeathHandling?

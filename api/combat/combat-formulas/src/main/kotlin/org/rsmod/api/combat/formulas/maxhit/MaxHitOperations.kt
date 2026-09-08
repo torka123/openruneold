@@ -5,8 +5,8 @@ import kotlin.math.max
 import org.rsmod.api.combat.formulas.attributes.DamageReductionAttributes
 import org.rsmod.api.combat.formulas.scale
 
-internal object MaxHitOperations {
-    fun applyDamageReductions(
+public object MaxHitOperations {
+    public fun applyDamageReductions(
         startDamage: Int,
         activeDefenceBonus: Int?,
         reductionAttributes: EnumSet<DamageReductionAttributes>,

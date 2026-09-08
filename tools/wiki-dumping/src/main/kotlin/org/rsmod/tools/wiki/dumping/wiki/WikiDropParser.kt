@@ -36,21 +36,17 @@ object WikiDropParser {
     /** Maps wiki drop-table section names (e.g. `Drop table 1`) to npc ids from the infobox. */
     fun parseNpcIdsByDropTable(wikitext: String): Map<String, List<Int>> {
         val versions =
-            dropVersionPattern
-                .findAll(wikitext)
-                .associate { match ->
-                    match.groupValues[1].toInt() to match.groupValues[2].trim()
-                }
+            dropVersionPattern.findAll(wikitext).associate { match ->
+                match.groupValues[1].toInt() to match.groupValues[2].trim()
+            }
         if (versions.isEmpty()) {
             return emptyMap()
         }
 
         val idsByIndex =
-            npcIdPattern
-                .findAll(wikitext)
-                .associate { match ->
-                    match.groupValues[1].toInt() to parseIdList(match.groupValues[2])
-                }
+            npcIdPattern.findAll(wikitext).associate { match ->
+                match.groupValues[1].toInt() to parseIdList(match.groupValues[2])
+            }
 
         val grouped = mutableMapOf<String, MutableList<Int>>()
         for ((index, tableName) in versions) {
@@ -99,7 +95,10 @@ object WikiDropParser {
         }
     }
 
-    /** Splits `==Drops==` on infobox drop-version headings (e.g. `===Wilderness Slayer Cave===`), not item subsections. */
+    /**
+     * Splits `==Drops==` on infobox drop-version headings (e.g. `===Wilderness Slayer Cave===`),
+     * not item subsections.
+     */
     fun parseDropVariants(dropsSectionBody: String, wikitext: String): List<Pair<String, String>> {
         val dropVersions = parseDropVersionNames(wikitext)
         if (dropVersions.isEmpty()) {
@@ -167,7 +166,9 @@ object WikiDropParser {
             normalized.contains("100%") || normalized.contains("always") -> true
             normalized.contains("weapon") && normalized.contains("armour") -> true
             normalized.contains("rune") && normalized.contains("ammunition") -> true
-            normalized == "herbs" || normalized.endsWith(" herb") || normalized.endsWith(" herbs") -> true
+            normalized == "herbs" ||
+                normalized.endsWith(" herb") ||
+                normalized.endsWith(" herbs") -> true
             normalized.contains("herb drop") -> true
             normalized == "materials" || normalized == "coins" || normalized == "other" -> true
             normalized.contains("tertiary") -> true
@@ -177,7 +178,10 @@ object WikiDropParser {
         }
     }
 
-    /** Resolves infobox `dropversion` npc ids for a wiki variant heading such as `Wilderness Slayer Cave`. */
+    /**
+     * Resolves infobox `dropversion` npc ids for a wiki variant heading such as `Wilderness Slayer
+     * Cave`.
+     */
     fun npcIdsForDropVariant(
         wikitext: String,
         variantName: String,
@@ -237,10 +241,15 @@ object WikiDropParser {
             }
         }
 
-        if (parsed.none { it.tableKey == SubtableKey.HERB || it.tableKey == SubtableKey.HERB_MULTI }) {
+        if (
+            parsed.none { it.tableKey == SubtableKey.HERB || it.tableKey == SubtableKey.HERB_MULTI }
+        ) {
             for (content in WikiTemplateParser.extractTemplates(body, "HerbDropLines")) {
                 val params = WikiTemplateParser.parseParams(content)
-                val chance = params["_0"]?.trim().orEmpty().ifBlank { content.split('|').firstOrNull()?.trim().orEmpty() }
+                val chance =
+                    params["_0"]?.trim().orEmpty().ifBlank {
+                        content.split('|').firstOrNull()?.trim().orEmpty()
+                    }
                 HerbDropTableParser.parseMainAccess(chance)?.let { (numerator, denominator) ->
                     val quantity = params["_1"]?.trim().orEmpty()
                     val variants =
@@ -338,8 +347,9 @@ object WikiDropParser {
             }
 
             params["_1"]?.let(::parseAccessChance)?.let { (numerator, denominator) ->
-                if (existing.none { it.tableKey == SubtableKey.GEM } &&
-                    parsed.none { it.tableKey == SubtableKey.GEM }
+                if (
+                    existing.none { it.tableKey == SubtableKey.GEM } &&
+                        parsed.none { it.tableKey == SubtableKey.GEM }
                 ) {
                     parsed +=
                         ParsedSubtableAccess(
@@ -439,7 +449,11 @@ object WikiDropParser {
         val parsed = mutableListOf<ParsedSubtableAccess>()
         val prosePatterns =
             listOf(
-                SubtableKey.HERB to Regex("""(\d+)\s*/\s*(\d+)\s+chance of rolling the herb drop table""", RegexOption.IGNORE_CASE),
+                SubtableKey.HERB to
+                    Regex(
+                        """(\d+)\s*/\s*(\d+)\s+chance of rolling the herb drop table""",
+                        RegexOption.IGNORE_CASE,
+                    ),
                 SubtableKey.USEFUL_HERB to
                     Regex(
                         """(\d+)\s*/\s*(\d+)\s+chance of rolling the useful herb drop table""",
@@ -450,7 +464,11 @@ object WikiDropParser {
                         """(\d+)\s*/\s*(\d+)\s+chance of rolling the combat herb drop table""",
                         RegexOption.IGNORE_CASE,
                     ),
-                SubtableKey.GEM to Regex("""(\d+)\s*/\s*(\d+)\s+chance of rolling the gem drop table""", RegexOption.IGNORE_CASE),
+                SubtableKey.GEM to
+                    Regex(
+                        """(\d+)\s*/\s*(\d+)\s+chance of rolling the gem drop table""",
+                        RegexOption.IGNORE_CASE,
+                    ),
                 SubtableKey.SEED to
                     Regex(
                         """(\d+)\s*/\s*(\d+)\s+chance of rolling the general seed drop table""",
@@ -534,7 +552,8 @@ object WikiDropParser {
     private fun classifySection(heading: String): WikiDropSection {
         val normalized = heading.lowercase()
         return when {
-            normalized.contains("100%") || normalized.contains("always") -> WikiDropSection.Guaranteed
+            normalized.contains("100%") || normalized.contains("always") ->
+                WikiDropSection.Guaranteed
             normalized.contains("tertiary") -> WikiDropSection.Tertiary
             else -> WikiDropSection.Main
         }
@@ -615,17 +634,17 @@ object WikiDropParser {
 
         val nameNotes = params["namenotes"].orEmpty()
         val rarityNotes = params["raritynotes"].orEmpty()
-        val attachedNotes =
-            buildList {
-                addAll(parseInlineNoteFields(nameNotes, rarityNotes))
-                addAll(resolveNamedGroupDRefLinks(nameNotes, rarityNotes, namedRefs))
-            }
+        val attachedNotes = buildList {
+            addAll(parseInlineNoteFields(nameNotes, rarityNotes))
+            addAll(resolveNamedGroupDRefLinks(nameNotes, rarityNotes, namedRefs))
+        }
         if (WikiDropNoteClassifier.shouldSkipF2pOnlyDrop(params, attachedNotes)) {
             return null
         }
 
         if (name.equals("Nothing", ignoreCase = true)) {
-            val rarity = params["rarity"]?.trim().orEmpty().ifBlank { params["raritynotes"].orEmpty() }
+            val rarity =
+                params["rarity"]?.trim().orEmpty().ifBlank { params["raritynotes"].orEmpty() }
             if (rarity.isBlank()) {
                 return null
             }
@@ -657,7 +676,10 @@ object WikiDropParser {
             quantity = quantity,
             rarity = rarity,
             section =
-                if (rarity.equals("Always", ignoreCase = true) && section != WikiDropSection.Tertiary) {
+                if (
+                    rarity.equals("Always", ignoreCase = true) &&
+                        section != WikiDropSection.Tertiary
+                ) {
                     WikiDropSection.Guaranteed
                 } else {
                     section
@@ -692,10 +714,7 @@ object WikiDropParser {
         }
 
         val tagRefPattern =
-            Regex(
-                """\{\{#tag:ref\|([^|}]+)\|[^}]*group\s*=\s*d""",
-                RegexOption.IGNORE_CASE,
-            )
+            Regex("""\{\{#tag:ref\|([^|}]+)\|[^}]*group\s*=\s*d""", RegexOption.IGNORE_CASE)
         for (match in tagRefPattern.findAll(sectionBody)) {
             cleanWikiNotes(match.groupValues[1]).ifBlank { null }?.let(notes::add)
         }
@@ -716,8 +735,9 @@ object WikiDropParser {
     ): List<String> {
         val inline = parseInlineNoteFields(nameNotes, rarityNotes)
         val named =
-            resolveNamedGroupDRefLinks(nameNotes, rarityNotes, namedRefs)
-                .filter { WikiDropNoteClassifier.relevantToDrop(dropName, it) }
+            resolveNamedGroupDRefLinks(nameNotes, rarityNotes, namedRefs).filter {
+                WikiDropNoteClassifier.relevantToDrop(dropName, it)
+            }
         return (inline + named).distinct()
     }
 
@@ -766,7 +786,10 @@ object WikiDropParser {
             )
         for (match in reversedRefPattern.findAll(sectionBody)) {
             val attrs = match.groupValues[1]
-            if (!attrs.contains("group", ignoreCase = true) || !attrs.contains("d", ignoreCase = true)) {
+            if (
+                !attrs.contains("group", ignoreCase = true) ||
+                    !attrs.contains("d", ignoreCase = true)
+            ) {
                 continue
             }
             val name = extractRefName(attrs) ?: continue
@@ -788,21 +811,21 @@ object WikiDropParser {
             return emptyList()
         }
         val combined = "$nameNotes $rarityNotes"
-        val selfClosing =
-            Regex(
-                """<ref\s+([^>]*?)/>""",
-                RegexOption.IGNORE_CASE,
-            )
+        val selfClosing = Regex("""<ref\s+([^>]*?)/>""", RegexOption.IGNORE_CASE)
         return selfClosing
             .findAll(combined)
             .mapNotNull { match ->
                 val attrs = match.groupValues[1]
-                if (!attrs.contains("group", ignoreCase = true) || !attrs.contains("d", ignoreCase = true)) {
+                if (
+                    !attrs.contains("group", ignoreCase = true) ||
+                        !attrs.contains("d", ignoreCase = true)
+                ) {
                     return@mapNotNull null
                 }
                 val name = extractRefName(attrs) ?: return@mapNotNull null
                 namedRefs[name]
-            }.toList()
+            }
+            .toList()
     }
 
     private fun extractRefName(attrs: String): String? {
@@ -836,11 +859,7 @@ object WikiDropParser {
         if (group != null && !group.equals("d", ignoreCase = true)) {
             return null
         }
-        val text =
-            params["_0"]
-                ?: params["note"]
-                ?: params["1"]
-                ?: return null
+        val text = params["_0"] ?: params["note"] ?: params["1"] ?: return null
         return cleanWikiNotes(text).ifBlank { null }
     }
 
@@ -879,9 +898,7 @@ object WikiDropParser {
         text = text.replace(Regex("""\{\{[^}]*}}"""), " ")
         text = text.replace(Regex("""<[^>]+>"""), " ")
         text =
-            text.replace(Regex("""\[\[([^|\]]+)\|([^\]]+)]]""")) { match ->
-                match.groupValues[2]
-            }
+            text.replace(Regex("""\[\[([^|\]]+)\|([^\]]+)]]""")) { match -> match.groupValues[2] }
         text = text.replace(Regex("""\[\[([^\]]+)]]""")) { match -> match.groupValues[1] }
         text = text.replace(Regex("""\[\[([^\]]+)$""")) { match -> match.groupValues[1] }
         text = text.replace("[[", "").replace("]]", "")
@@ -889,7 +906,10 @@ object WikiDropParser {
         return text
     }
 
-    /** Resolves general seed table access from wiki templates (e.g. `{{GeneralSeedDropTableInfo|18/128}}`). */
+    /**
+     * Resolves general seed table access from wiki templates (e.g.
+     * `{{GeneralSeedDropTableInfo|18/128}}`).
+     */
     internal fun parseGeneralSeedAccess(body: String): ParsedSubtableAccess? {
         for (template in
             listOf(
@@ -949,7 +969,9 @@ object WikiDropParser {
         val params = WikiTemplateParser.parseParams(content)
         val positional = params["_0"]?.trim().orEmpty()
         if (positional.isNotBlank()) {
-            parseAccessChance(positional)?.let { return it }
+            parseAccessChance(positional)?.let {
+                return it
+            }
         }
         val firstSegment = content.split('|').firstOrNull()?.trim().orEmpty()
         return parseAccessChance(firstSegment) ?: parseAccessChance(content)

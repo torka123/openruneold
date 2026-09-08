@@ -5,6 +5,7 @@ import jakarta.inject.Inject
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.Semaphore
 import java.util.concurrent.ThreadFactory
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.min
@@ -15,6 +16,7 @@ import org.rsmod.api.account.character.CharacterDataStage
 import org.rsmod.api.account.character.main.CharacterAccountRepository
 import org.rsmod.api.account.saver.request.AccountSaveRequest
 import org.rsmod.api.account.saver.request.AccountSaveResponse
+import org.rsmod.api.db.DatabaseConnection
 import org.rsmod.api.db.jdbc.GameDatabase
 import org.rsmod.api.server.config.ServerConfig
 import org.rsmod.server.services.concurrent.ScheduledService
@@ -35,6 +37,73 @@ constructor(
 
     private val pendingBatch = ArrayList<AccountSaveRequest>(REQUESTS_PER_BATCH)
     private var consecutiveFailureCount = AtomicInteger(0)
+    private val saveGate = Semaphore(1, true)
+
+    /**
+     * Runs a game-thread mutation without allowing an account save to observe only half of it.
+     * Callers must keep [action] short and queue an account save before returning when the mutation
+     * changes persistent player state.
+     */
+    public fun <T> withExclusiveSave(action: () -> T): T {
+        saveGate.acquireUninterruptibly()
+        return try {
+            action()
+        } finally {
+            saveGate.release()
+        }
+    }
+
+    /**
+     * Commits one in-memory player mutation and the complete resulting account snapshot in the same
+     * serialized save boundary. A successful return means the mutation is durable; a process
+     * restart can therefore observe only the pre-mutation or post-mutation state.
+     *
+     * [rollback] must restore every in-memory value changed by [mutation]. It runs before the save
+     * gate is released if either the mutation or database transaction fails.
+     */
+    public fun commitPlayerMutationBlocking(
+        player: org.rsmod.game.entity.Player,
+        mutation: () -> Boolean,
+        rollback: () -> Unit,
+    ): Boolean = withExclusiveSave {
+        try {
+            if (!mutation()) return@withExclusiveSave false
+            database.withTransactionBlocking { connection ->
+                repository.save(
+                    connection,
+                    player,
+                    player.accountId,
+                    player.characterId,
+                    serverConfig.world,
+                )
+                for (pipeline in pipelines) {
+                    pipeline.save(connection, player, player.characterId)
+                }
+            }
+            true
+        } catch (cause: Throwable) {
+            try {
+                rollback()
+            } catch (rollbackFailure: Throwable) {
+                cause.addSuppressed(rollbackFailure)
+            }
+            throw cause
+        }
+    }
+
+    /**
+     * Executes a small persistence mutation on the same serialized gate as full account saves.
+     * [afterCommit] runs while the gate is still held, so an online player's in-memory mirror can
+     * be updated before any later autosave is allowed to replace the committed rows.
+     */
+    public fun <T> withTransactionBlockingAndThen(
+        block: (DatabaseConnection) -> T,
+        afterCommit: (T) -> Unit,
+    ): T = withExclusiveSave {
+        val result = database.withTransactionBlocking(block)
+        afterCommit(result)
+        result
+    }
 
     public fun queue(request: AccountSaveRequest) {
         pendingRequests.add(request)
@@ -94,17 +163,22 @@ constructor(
     }
 
     private suspend fun saveSegments(request: AccountSaveRequest) {
-        database.withTransaction { connection ->
-            repository.save(
-                connection,
-                request.player,
-                request.accountId,
-                request.characterId,
-                serverConfig.world,
-            )
-            for (pipeline in pipelines) {
-                pipeline.save(connection, request.player, request.characterId)
+        saveGate.acquire()
+        try {
+            database.withTransaction { connection ->
+                repository.save(
+                    connection,
+                    request.player,
+                    request.accountId,
+                    request.characterId,
+                    serverConfig.world,
+                )
+                for (pipeline in pipelines) {
+                    pipeline.save(connection, request.player, request.characterId)
+                }
             }
+        } finally {
+            saveGate.release()
         }
     }
 

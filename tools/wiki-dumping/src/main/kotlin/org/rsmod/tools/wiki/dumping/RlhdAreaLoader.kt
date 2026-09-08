@@ -16,26 +16,22 @@ internal object RlhdAreaLoader {
         log.info("loading RLHD areas from $url")
         val json =
             runCatching {
-                runBlocking {
-                    HttpClient(CIO).use { client ->
-                        client.get(url).bodyAsText()
-                    }
+                    runBlocking { HttpClient(CIO).use { client -> client.get(url).bodyAsText() } }
                 }
-            }.getOrElse { error ->
-                log.warn("failed to fetch RLHD areas from $url: ${error.message}")
-                return emptyList()
-            }
+                .getOrElse { error ->
+                    log.warn("failed to fetch RLHD areas from $url: ${error.message}")
+                    return emptyList()
+                }
         return parse(json, log)
     }
 
     private fun parse(json: String, log: DropDumpLog): List<WikiAreaRegion> {
         val root =
-            runCatching {
-                jacksonObjectMapper().readTree(sanitizeJsonArray(json))
-            }.getOrElse { error ->
-                log.warn("failed to parse RLHD areas JSON: ${error.message}")
-                return emptyList()
-            }
+            runCatching { jacksonObjectMapper().readTree(sanitizeJsonArray(json)) }
+                .getOrElse { error ->
+                    log.warn("failed to parse RLHD areas JSON: ${error.message}")
+                    return emptyList()
+                }
         if (!root.isArray) {
             log.warn("RLHD areas JSON is not an array")
             return emptyList()
@@ -85,10 +81,7 @@ internal object RlhdAreaLoader {
         )
     }
 
-    private data class ParsedAabbs(
-        val intArrays: List<IntArray>,
-        val stringRefs: List<String>,
-    )
+    private data class ParsedAabbs(val intArrays: List<IntArray>, val stringRefs: List<String>)
 
     private fun parseAabbNode(node: JsonNode): ParsedAabbs {
         if (!node.isArray) {
@@ -99,7 +92,10 @@ internal object RlhdAreaLoader {
         for (entry in node) {
             when {
                 entry.isArray -> {
-                    val values = entry.mapNotNull { value -> value.takeIf { it.isNumber }?.asInt() }.toIntArray()
+                    val values =
+                        entry
+                            .mapNotNull { value -> value.takeIf { it.isNumber }?.asInt() }
+                            .toIntArray()
                     if (values.isNotEmpty()) {
                         intArrays += values
                     }
@@ -127,7 +123,9 @@ internal object RlhdAreaLoader {
         if (!node.isArray) {
             return emptyList()
         }
-        return node.mapNotNull { value -> value.takeIf { it.isTextual }?.asText()?.trim()?.takeIf { it.isNotEmpty() } }
+        return node.mapNotNull { value ->
+            value.takeIf { it.isTextual }?.asText()?.trim()?.takeIf { it.isNotEmpty() }
+        }
     }
 
     private fun parseIntArray(node: JsonNode): List<Int> {
@@ -145,7 +143,10 @@ internal object RlhdAreaLoader {
             if (!entry.isArray) {
                 return@mapNotNull null
             }
-            entry.mapNotNull { value -> value.takeIf { it.isNumber }?.asInt() }.toIntArray().takeIf { it.isNotEmpty() }
+            entry
+                .mapNotNull { value -> value.takeIf { it.isNumber }?.asInt() }
+                .toIntArray()
+                .takeIf { it.isNotEmpty() }
         }
     }
 
@@ -209,11 +210,7 @@ internal object RlhdAreaLoader {
     }
 
     private fun slugifyRlhd(name: String): String =
-        name
-            .lowercase()
-            .replace("'", "")
-            .replace(Regex("""[^a-z0-9]+"""), "_")
-            .trim('_')
+        name.lowercase().replace("'", "").replace(Regex("""[^a-z0-9]+"""), "_").trim('_')
 
     private data class RlhdRawEntry(
         val name: String,

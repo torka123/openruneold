@@ -1,4 +1,5 @@
 ## Frozen Waste Plateau
+## Keep a 32-tile radius around the public Wilderness Nex spawn clear of other NPCs.
 
 [[spawn]]
 npc = "npc.fris_ice_chunk_one"
@@ -10,35 +11,7 @@ coords = "0_46_61_15_13"
 
 [[spawn]]
 npc = "npc.ice_spider"
-coords = "0_46_61_16_21"
-
-[[spawn]]
-npc = "npc.ice_spider"
-coords = "0_46_61_17_16"
-
-[[spawn]]
-npc = "npc.ice_spider"
 coords = "0_46_61_18_11"
-
-[[spawn]]
-npc = "npc.ice_spider"
-coords = "0_46_61_18_29"
-
-[[spawn]]
-npc = "npc.ice_spider"
-coords = "0_46_61_19_19"
-
-[[spawn]]
-npc = "npc.ice_spider"
-coords = "0_46_61_19_25"
-
-[[spawn]]
-npc = "npc.ice_spider"
-coords = "0_46_61_21_23"
-
-[[spawn]]
-npc = "npc.ice_spider"
-coords = "0_46_61_21_27"
 
 [[spawn]]
 npc = "npc.icegiant"
@@ -49,20 +22,8 @@ npc = "npc.icegiant"
 coords = "0_46_60_9_49"
 
 [[spawn]]
-npc = "npc.icegiant"
-coords = "0_46_61_3_17"
-
-[[spawn]]
 npc = "npc.icegiant2"
 coords = "0_46_60_10_54"
-
-[[spawn]]
-npc = "npc.icegiant2"
-coords = "0_46_61_11_41"
-
-[[spawn]]
-npc = "npc.icegiant2"
-coords = "0_46_61_6_28"
 
 [[spawn]]
 npc = "npc.icegiant3"
@@ -71,10 +32,6 @@ coords = "0_46_60_14_58"
 [[spawn]]
 npc = "npc.icegiant3"
 coords = "0_46_60_3_55"
-
-[[spawn]]
-npc = "npc.icegiant3"
-coords = "0_46_61_34_52"
 
 [[spawn]]
 npc = "npc.icewarrior"
@@ -130,75 +87,11 @@ coords = "0_46_60_9_18"
 
 [[spawn]]
 npc = "npc.icewarrior"
-coords = "0_46_61_10_17"
-
-[[spawn]]
-npc = "npc.icewarrior"
-coords = "0_46_61_12_26"
-
-[[spawn]]
-npc = "npc.icewarrior"
-coords = "0_46_61_20_40"
-
-[[spawn]]
-npc = "npc.icewarrior"
-coords = "0_46_61_26_43"
-
-[[spawn]]
-npc = "npc.icewarrior"
-coords = "0_46_61_27_34"
-
-[[spawn]]
-npc = "npc.icewarrior"
-coords = "0_46_61_33_49"
-
-[[spawn]]
-npc = "npc.icewarrior"
-coords = "0_46_61_34_38"
-
-[[spawn]]
-npc = "npc.icewarrior"
-coords = "0_46_61_3_30"
-
-[[spawn]]
-npc = "npc.icewarrior"
-coords = "0_46_61_40_29"
-
-[[spawn]]
-npc = "npc.icewarrior"
 coords = "0_46_61_4_13"
 
 [[spawn]]
 npc = "npc.icewarrior"
-coords = "0_46_61_5_22"
-
-[[spawn]]
-npc = "npc.icewarrior"
-coords = "0_46_61_8_32"
-
-[[spawn]]
-npc = "npc.icewarrior"
 coords = "0_46_61_8_9"
-
-[[spawn]]
-npc = "npc.skeleton_armed"
-coords = "0_46_61_48_38"
-
-[[spawn]]
-npc = "npc.skeleton_armed3"
-coords = "0_46_61_45_40"
-
-[[spawn]]
-npc = "npc.skeleton_armed5"
-coords = "0_46_61_38_43"
-
-[[spawn]]
-npc = "npc.whitewolf"
-coords = "0_46_61_44_17"
-
-[[spawn]]
-npc = "npc.whitewolf"
-coords = "0_46_61_47_20"
 
 [[spawn]]
 npc = "npc.whitewolf"
@@ -206,23 +99,7 @@ coords = "0_46_61_48_13"
 
 [[spawn]]
 npc = "npc.whitewolf"
-coords = "0_46_61_50_17"
-
-[[spawn]]
-npc = "npc.whitewolf"
-coords = "0_46_61_58_20"
-
-[[spawn]]
-npc = "npc.whitewolf"
 coords = "0_46_61_60_13"
-
-[[spawn]]
-npc = "npc.whitewolf"
-coords = "0_46_61_61_22"
-
-[[spawn]]
-npc = "npc.whitewolf"
-coords = "0_46_61_62_17"
 
 ## Mage Arena
 
@@ -991,14 +868,6 @@ coords = "0_48_57_48_5"
 [[spawn]]
 npc = "npc.brownbear"
 coords = "0_48_57_53_45"
-
-[[spawn]]
-npc = "npc.callisto"
-coords = "0_51_60_27_9"
-
-[[spawn]]
-npc = "npc.callisto_singles"
-coords = "0_48_57_44_29"
 
 [[spawn]]
 npc = "npc.canoeing_marten"
@@ -2165,10 +2034,6 @@ npc = "npc.thug"
 coords = "0_49_55_48_60"
 
 [[spawn]]
-npc = "npc.venenatis"
-coords = "0_51_59_55_22"
-
-[[spawn]]
 npc = "npc.wbr_poisonspider"
 coords = "0_51_59_10_36"
 
@@ -2797,18 +2662,6 @@ npc = "npc.wildy_bear_hunter"
 coords = "0_49_56_14_60"
 
 [[spawn]]
-npc = "npc.wildy_hub_acolyte1"
-coords = "0_48_56_63_48"
-
-[[spawn]]
-npc = "npc.wildy_hub_acolyte2"
-coords = "0_48_56_55_44"
-
-[[spawn]]
-npc = "npc.wildy_hub_acolyte3"
-coords = "0_48_56_63_52"
-
-[[spawn]]
 npc = "npc.wildy_hub_banker"
 coords = "0_48_56_62_45"
 
@@ -2981,43 +2834,43 @@ coords = "0_49_61_47_41"
 ## Wilderness Slayer Cave
 
 [[spawn]]
-npc = "npc.wild_cave_ankou"
+npc = "npc.mm2_demon_gorilla_1_melee"
 coords = "0_52_157_20_27"
 
 [[spawn]]
-npc = "npc.wild_cave_ankou"
+npc = "npc.mm2_demon_gorilla_1_melee"
 coords = "0_52_157_23_36"
 
 [[spawn]]
-npc = "npc.wild_cave_ankou"
+npc = "npc.mm2_demon_gorilla_1_melee"
 coords = "0_52_157_25_32"
 
 [[spawn]]
-npc = "npc.wild_cave_ankou"
+npc = "npc.mm2_demon_gorilla_1_melee"
 coords = "0_52_157_29_28"
 
 [[spawn]]
-npc = "npc.wild_cave_ankou"
+npc = "npc.mm2_demon_gorilla_1_melee"
 coords = "0_52_157_32_33"
 
 [[spawn]]
-npc = "npc.wild_cave_ankou"
+npc = "npc.mm2_demon_gorilla_1_melee"
 coords = "0_52_157_36_26"
 
 [[spawn]]
-npc = "npc.wild_cave_ankou"
+npc = "npc.mm2_demon_gorilla_1_melee"
 coords = "0_52_157_36_31"
 
 [[spawn]]
-npc = "npc.wild_cave_ankou"
+npc = "npc.mm2_demon_gorilla_1_melee"
 coords = "0_52_157_41_20"
 
 [[spawn]]
-npc = "npc.wild_cave_ankou"
+npc = "npc.mm2_demon_gorilla_1_melee"
 coords = "0_52_157_42_16"
 
 [[spawn]]
-npc = "npc.wild_cave_ankou"
+npc = "npc.mm2_demon_gorilla_1_melee"
 coords = "0_52_157_44_18"
 
 [[spawn]]
@@ -3057,55 +2910,19 @@ npc = "npc.wild_cave_dustdevil"
 coords = "0_53_158_56_11"
 
 [[spawn]]
-npc = "npc.wild_cave_greater_demon"
-coords = "0_53_158_29_41"
+npc = "npc.mad_angel"
+coords = "0_53_158_36_38"
 
 [[spawn]]
-npc = "npc.wild_cave_greater_demon"
-coords = "0_53_158_34_31"
-
-[[spawn]]
-npc = "npc.wild_cave_greater_demon"
-coords = "0_53_158_36_39"
-
-[[spawn]]
-npc = "npc.wild_cave_greater_demon"
-coords = "0_53_158_40_36"
-
-[[spawn]]
-npc = "npc.wild_cave_greater_demon"
-coords = "0_53_158_40_40"
-
-[[spawn]]
-npc = "npc.wild_cave_greater_demon2"
-coords = "0_53_158_29_47"
-
-[[spawn]]
-npc = "npc.wild_cave_greater_demon2"
-coords = "0_53_158_32_36"
-
-[[spawn]]
-npc = "npc.wild_cave_greater_demon2"
-coords = "0_53_158_41_27"
-
-[[spawn]]
-npc = "npc.wild_cave_greater_demon3"
-coords = "0_53_158_33_44"
-
-[[spawn]]
-npc = "npc.wild_cave_greater_demon3"
-coords = "0_53_158_42_32"
-
-[[spawn]]
-npc = "npc.wild_cave_green_dragon"
+npc = "npc.slayer_gargoyle_1"
 coords = "0_53_158_4_7"
 
 [[spawn]]
-npc = "npc.wild_cave_green_dragon2"
+npc = "npc.slayer_gargoyle_1"
 coords = "0_53_158_10_7"
 
 [[spawn]]
-npc = "npc.wild_cave_green_dragon3"
+npc = "npc.slayer_gargoyle_1"
 coords = "0_53_158_5_12"
 
 [[spawn]]
@@ -3381,4 +3198,3 @@ npc = "npc.wilderness_chaos_druid"
 coords = "0_50_56_49_27"
 
 ## Wilderness areas with lava in them End
-

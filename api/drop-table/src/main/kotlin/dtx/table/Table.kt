@@ -3,7 +3,7 @@ package dtx.table
 import dtx.core.ArgMap
 import dtx.core.Rollable
 
-public interface Table<T, R>: Rollable<T, R> {
+public interface Table<T, R> : Rollable<T, R> {
 
     public val tableIdentifier: String
 

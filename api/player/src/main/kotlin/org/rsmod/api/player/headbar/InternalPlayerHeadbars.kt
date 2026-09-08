@@ -3,17 +3,11 @@ package org.rsmod.api.player.headbar
 import dev.openrune.ServerCacheManager
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
-import dev.openrune.types.HealthBarServerType
 import org.rsmod.game.headbar.Headbar
 import org.rsmod.game.hit.Hitmark
 
 internal object InternalPlayerHeadbars {
-    fun createFromHitmark(
-        hitmark: Hitmark,
-        currHp: Int,
-        maxHp: Int,
-        headbar: String,
-    ): Headbar {
+    fun createFromHitmark(hitmark: Hitmark, currHp: Int, maxHp: Int, headbar: String): Headbar {
         return when {
             hitmark.isNpcSource ->
                 createNpcSource(
@@ -52,8 +46,9 @@ internal object InternalPlayerHeadbars {
         clientDelay: Int,
     ): Headbar {
 
-        val headbar = ServerCacheManager.getHealthBar(internal.asRSCM(RSCMType.HEADBAR))
-            ?: error("No headbar found for $internal")
+        val headbar =
+            ServerCacheManager.getHealthBar(internal.asRSCM(RSCMType.HEADBAR))
+                ?: error("No headbar found for $internal")
 
         val fill = calculateFill(headbar.segments, currHp, maxHp)
         return Headbar.fromNpcSource(
@@ -75,8 +70,9 @@ internal object InternalPlayerHeadbars {
         clientDelay: Int,
         specific: Boolean,
     ): Headbar {
-        val headbar = ServerCacheManager.getHealthBar(internal.asRSCM(RSCMType.HEADBAR))
-            ?: error("No headbar found for $internal")
+        val headbar =
+            ServerCacheManager.getHealthBar(internal.asRSCM(RSCMType.HEADBAR))
+                ?: error("No headbar found for $internal")
 
         val fill = calculateFill(headbar.segments, currHp, maxHp)
         return Headbar.fromPlayerSource(
@@ -97,8 +93,9 @@ internal object InternalPlayerHeadbars {
         clientDelay: Int,
     ): Headbar {
 
-        val headbar = ServerCacheManager.getHealthBar(internal.asRSCM(RSCMType.HEADBAR))
-            ?: error("No headbar found for $internal")
+        val headbar =
+            ServerCacheManager.getHealthBar(internal.asRSCM(RSCMType.HEADBAR))
+                ?: error("No headbar found for $internal")
 
         val fill = calculateFill(headbar.segments, currHp, maxHp)
         return Headbar.fromNoSource(

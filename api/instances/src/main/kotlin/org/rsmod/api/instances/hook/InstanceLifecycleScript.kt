@@ -2,24 +2,30 @@ package org.rsmod.api.instances.hook
 
 import jakarta.inject.Inject
 import org.rsmod.api.instances.InstanceManager
-import org.rsmod.api.script.onPlayerLogin
+import org.rsmod.api.player.forceDisconnect
+import org.rsmod.api.player.hook.PlayerPostTickHook
+import org.rsmod.api.script.onPlayerCoordsChanged
 import org.rsmod.api.script.onPlayerLogout
 import org.rsmod.game.MapClock
-import org.rsmod.game.entity.util.PathingEntityCommon
+import org.rsmod.game.entity.Player
 import org.rsmod.plugin.scripts.PluginScript
 import org.rsmod.plugin.scripts.ScriptContext
-import org.rsmod.routefinder.collision.CollisionFlagMap
 
 internal class InstanceLifecycleScript
 @Inject
-constructor(
-    private val manager: InstanceManager,
-    private val worldClock: MapClock,
-    private val collision: CollisionFlagMap,
-) : PluginScript() {
+constructor(private val manager: InstanceManager, private val worldClock: MapClock) :
+    PluginScript(), PlayerPostTickHook {
     override fun ScriptContext.startup() {
-        onPlayerLogout {
-            manager.handleLogout(player, worldClock.cycle)
+        onPlayerCoordsChanged {
+            manager.leaveForExternalTeleport(player, player.coords, worldClock.cycle)
+        }
+        onPlayerLogout { manager.handleLogout(player, worldClock.cycle) }
+    }
+
+    override fun onPostTick(player: Player) {
+        if (!player.clientDisconnected.get()) return
+        if (manager.handleDisconnect(player, worldClock.cycle)) {
+            player.forceDisconnect()
         }
     }
 }

@@ -2,7 +2,6 @@ package org.rsmod.tools.wiki.dumping
 
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
-import kotlin.io.path.deleteIfExists
 import kotlin.io.path.writeText
 import org.rsmod.tools.wiki.dumping.wiki.WikiClient
 import org.rsmod.tools.wiki.dumping.wiki.WikiDropParser
@@ -35,10 +34,7 @@ enum class MonsterSkipReason {
     ALTERNATE_ENCOUNTER,
 }
 
-data class SkippedMonsterPage(
-    val wikiPage: String,
-    val reason: MonsterSkipReason,
-)
+data class SkippedMonsterPage(val wikiPage: String, val reason: MonsterSkipReason)
 
 class MonsterCategoryDropDumper(
     private val dumper: NpcDropTableWikiDumper,
@@ -84,7 +80,11 @@ class MonsterCategoryDropDumper(
                 break
             }
 
-            val batch = wiki.fetchMonsterPageBatch(continueToken = continueToken, batchSize = CATEGORY_BATCH_SIZE)
+            val batch =
+                wiki.fetchMonsterPageBatch(
+                    continueToken = continueToken,
+                    batchSize = CATEGORY_BATCH_SIZE,
+                )
             continueToken = batch.continueToken
 
             if (batch.titles.isEmpty()) {
@@ -104,7 +104,9 @@ class MonsterCategoryDropDumper(
                 if (isAlternateEncounterWikiPage(wikiPage)) {
                     skippedAlternateEncounter++
                     skipped += SkippedMonsterPage(wikiPage, MonsterSkipReason.ALTERNATE_ENCOUNTER)
-                    log.verbose("  skip — alternate encounter (Echo) shares npc with canonical page")
+                    log.verbose(
+                        "  skip — alternate encounter (Echo) shares npc with canonical page"
+                    )
                     continue
                 }
 
@@ -175,13 +177,15 @@ class MonsterCategoryDropDumper(
                             )
                         log.verbose(
                             "  exact duplicate of ${existing.wikiPage} " +
-                                "→ ${existing.specs.first().tableVarName}",
+                                "→ ${existing.specs.first().tableVarName}"
                         )
                         continue
                     }
 
                     if (results.size > 1) {
-                        log.warn("$wikiPage has ${results.size} drop tables — dedup uses first table only")
+                        log.warn(
+                            "$wikiPage has ${results.size} drop tables — dedup uses first table only"
+                        )
                     }
 
                     canonicalByCode[codeBody] =
@@ -204,13 +208,13 @@ class MonsterCategoryDropDumper(
         val skippedPages = skippedNoDropSection + skippedNoResolvedDrops + skippedAlternateEncounter
         log.info(
             "scanned $scannedPages Infobox Monster page(s)" +
-                if (limit != null) " (--limit=$limit)" else " (all)",
+                if (limit != null) " (--limit=$limit)" else " (all)"
         )
         if (skippedPages > 0) {
             log.info(
                 "skipped $skippedPages — $skippedNoDropSection without ==Drops==, " +
                     "$skippedNoResolvedDrops with no resolved drops, " +
-                    "$skippedAlternateEncounter alternate encounter (Echo)",
+                    "$skippedAlternateEncounter alternate encounter (Echo)"
             )
         }
 
@@ -270,10 +274,12 @@ class MonsterCategoryDropDumper(
             skippedNoDropSection = skippedNoDropSection,
             skippedNoResolvedDrops = skippedNoResolvedDrops,
             failedPages = failedPages,
-            writtenFiles = writtenPaths.map { outputDir.relativize(it).toString().replace('\\', '/') },
+            writtenFiles =
+                writtenPaths.map { outputDir.relativize(it).toString().replace('\\', '/') },
             duplicates = duplicates,
             skipped = skipped,
-            unknownDropRates = unknownDropRates.distinctBy { Triple(it.wikiPage, it.itemName, it.rarity) },
+            unknownDropRates =
+                unknownDropRates.distinctBy { Triple(it.wikiPage, it.itemName, it.rarity) },
         )
     }
 
@@ -287,16 +293,17 @@ class MonsterCategoryDropDumper(
         for (entry in canonical) {
             for (result in entry.results) {
                 val table =
-                    DropTableJsonExporter.exportTable(
-                        result = result,
-                        wikiPage = entry.wikiPage,
-                    )
+                    DropTableJsonExporter.exportTable(result = result, wikiPage = entry.wikiPage)
                 DropTableJsonExporter.writeTable(config.jsonRoot, result.spec.tableVarName, table)
                 val relative =
                     config.jsonRoot
                         .relativize(
-                            DropTableJsonOutputLayout.resolveTableFile(config.jsonRoot, result.spec.tableVarName),
-                        ).toString()
+                            DropTableJsonOutputLayout.resolveTableFile(
+                                config.jsonRoot,
+                                result.spec.tableVarName,
+                            )
+                        )
+                        .toString()
                         .replace('\\', '/')
                 log.info("wrote json $relative ← ${entry.wikiPage}")
             }
@@ -310,7 +317,7 @@ class MonsterCategoryDropDumper(
             )
         DropTableJsonExporter.writeManifest(config.jsonRoot, manifest)
         log.info(
-            "wrote json manifest (${manifest.size} npc entries) → ${DropTableJsonOutputLayout.MANIFEST_FILE}",
+            "wrote json manifest (${manifest.size} npc entries) → ${DropTableJsonOutputLayout.MANIFEST_FILE}"
         )
     }
 
@@ -320,17 +327,18 @@ class MonsterCategoryDropDumper(
         }
 
         val manifest = outputDir.resolve(DropTableOutputLayout.DUPLICATE_DROP_TABLES_MANIFEST)
-        val lines =
-            buildList {
-                add("# Exact duplicate drop tables — identical generated code including npc ids")
-                add("# wikiPage -> canonicalWikiPage (tableVarName)")
-                add("")
-                for (dup in duplicates.sortedBy { it.wikiPage }) {
-                    add("${dup.wikiPage} -> ${dup.canonicalWikiPage} (${dup.tableVarName})")
-                }
+        val lines = buildList {
+            add("# Exact duplicate drop tables — identical generated code including npc ids")
+            add("# wikiPage -> canonicalWikiPage (tableVarName)")
+            add("")
+            for (dup in duplicates.sortedBy { it.wikiPage }) {
+                add("${dup.wikiPage} -> ${dup.canonicalWikiPage} (${dup.tableVarName})")
             }
+        }
         manifest.writeText(lines.joinToString("\n") + "\n")
-        log.info("wrote duplicate manifest (${duplicates.size} exact duplicates) → ${manifest.fileName}")
+        log.info(
+            "wrote duplicate manifest (${duplicates.size} exact duplicates) → ${manifest.fileName}"
+        )
     }
 
     private fun writeSkippedManifest(outputDir: Path, skipped: List<SkippedMonsterPage>) {
@@ -339,28 +347,32 @@ class MonsterCategoryDropDumper(
         }
 
         val manifest = outputDir.resolve(DropTableOutputLayout.SKIPPED_MONSTERS_MANIFEST)
-        val lines =
-            buildList {
-                add("# Skipped Infobox Monster pages")
-                add("# no_drop_section — no ==Drops== wikitable, or npc id is non-numeric (removed/hist/unreleased)")
-                add("# no_resolved_drops — drops section present but nothing mapped to objs")
-                add("# (remains-only pages with bones/ashes/param_46 are not listed)")
-                add("")
-                for (entry in skipped.sortedBy { it.wikiPage }) {
-                    val reason =
-                        when (entry.reason) {
-                            MonsterSkipReason.NO_DROP_SECTION -> "no_drop_section"
-                            MonsterSkipReason.NO_RESOLVED_DROPS -> "no_resolved_drops"
-                            MonsterSkipReason.ALTERNATE_ENCOUNTER -> "alternate_encounter"
-                        }
-                    add("${entry.wikiPage}\t$reason")
-                }
+        val lines = buildList {
+            add("# Skipped Infobox Monster pages")
+            add(
+                "# no_drop_section — no ==Drops== wikitable, or npc id is non-numeric (removed/hist/unreleased)"
+            )
+            add("# no_resolved_drops — drops section present but nothing mapped to objs")
+            add("# (remains-only pages with bones/ashes/param_46 are not listed)")
+            add("")
+            for (entry in skipped.sortedBy { it.wikiPage }) {
+                val reason =
+                    when (entry.reason) {
+                        MonsterSkipReason.NO_DROP_SECTION -> "no_drop_section"
+                        MonsterSkipReason.NO_RESOLVED_DROPS -> "no_resolved_drops"
+                        MonsterSkipReason.ALTERNATE_ENCOUNTER -> "alternate_encounter"
+                    }
+                add("${entry.wikiPage}\t$reason")
             }
+        }
         manifest.writeText(lines.joinToString("\n") + "\n")
         log.info("wrote skip manifest (${skipped.size} entries) → ${manifest.fileName}")
     }
 
-    private fun writeUnknownDropRatesManifest(outputDir: Path, unknownDropRates: List<UnknownDropRateEntry>) {
+    private fun writeUnknownDropRatesManifest(
+        outputDir: Path,
+        unknownDropRates: List<UnknownDropRateEntry>,
+    ) {
         if (unknownDropRates.isEmpty()) {
             return
         }
@@ -371,17 +383,18 @@ class MonsterCategoryDropDumper(
                 .sortedWith(compareBy({ it.wikiPage }, { it.itemName }, { it.rarity }))
 
         val manifest = outputDir.resolve(DropTableOutputLayout.UNKNOWN_DROP_RATES_MANIFEST)
-        val lines =
-            buildList {
-                add("# Wiki drops with text rarity — exact rate needs data collection")
-                add("# Any non-numeric rarity (Common, Rare, Random, Varies, etc.)")
-                add("# wikiPage\titem\tsection\tsubsection\trarity")
-                add("")
-                for (entry in distinct) {
-                    add(entry.manifestLine())
-                }
+        val lines = buildList {
+            add("# Wiki drops with text rarity — exact rate needs data collection")
+            add("# Any non-numeric rarity (Common, Rare, Random, Varies, etc.)")
+            add("# wikiPage\titem\tsection\tsubsection\trarity")
+            add("")
+            for (entry in distinct) {
+                add(entry.manifestLine())
             }
+        }
         manifest.writeText(lines.joinToString("\n") + "\n")
-        log.info("wrote unknown drop rates manifest (${distinct.size} entries) → ${manifest.fileName}")
+        log.info(
+            "wrote unknown drop rates manifest (${distinct.size} entries) → ${manifest.fileName}"
+        )
     }
 }

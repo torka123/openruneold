@@ -11,6 +11,7 @@ import org.rsmod.plugin.module.PluginModule
 class SlayerModule : PluginModule() {
     override fun bind() {
         addSetBinding<NpcDeathKillHook>(SlayerNpcKillHook::class.java)
+        addSetBinding<NpcAttackValidateHook>(SlayerRequirementAttackHook::class.java)
         addSetBinding<NpcAttackValidateHook>(SlayerSuperiorAttackHook::class.java)
         addSetBinding<PlayerPostTickHook>(SlayerSuperiorEvents::class.java)
     }

@@ -26,10 +26,11 @@ public value class VarNpcIntMap(public val backing: Int2IntMap = Int2IntOpenHash
     public operator fun get(key: VarnType): Int = backing.getOrDefault(key.id, 0)
 
     public operator fun set(key: String, value: Int?) {
-        val varnType = ServerCacheManager.getVarn(key.asRSCM(RSCMType.VARN)) ?: error("Unable to find varn: $key")
+        val varnType =
+            ServerCacheManager.getVarn(key.asRSCM(RSCMType.VARN))
+                ?: error("Unable to find varn: $key")
         set(varnType, value)
     }
-
 
     public operator fun set(key: VarnType, value: Int?) {
         if (value == null) {

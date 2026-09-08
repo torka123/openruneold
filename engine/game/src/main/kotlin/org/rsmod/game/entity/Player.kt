@@ -4,11 +4,11 @@ import dev.openrune.rscm.RSCM
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
 import dev.openrune.types.BasType
-import dev.or2.central.account.Rights
-import dev.or2.central.account.TwoFactorAuthData
-import dev.or2.central.account.TrustedDeviceData
 import dev.openrune.types.NpcServerType
 import dev.openrune.types.StatType
+import dev.or2.central.account.Rights
+import dev.or2.central.account.TrustedDeviceData
+import dev.or2.central.account.TwoFactorAuthData
 import it.unimi.dsi.fastutil.ints.IntArrayList
 import it.unimi.dsi.fastutil.ints.IntArraySet
 import it.unimi.dsi.fastutil.ints.IntList
@@ -25,12 +25,13 @@ import org.rsmod.game.client.Client
 import org.rsmod.game.client.ClientCycle
 import org.rsmod.game.client.NoopClient
 import org.rsmod.game.client.NoopClientCycle
+import org.rsmod.game.damage.DamageContributions
 import org.rsmod.game.entity.player.Appearance
+import org.rsmod.game.entity.player.PlayerTint
 import org.rsmod.game.entity.player.PlayerUid
 import org.rsmod.game.entity.player.PublicMessage
 import org.rsmod.game.entity.util.EntityFaceAngle
 import org.rsmod.game.entity.util.PathingEntityCommon
-import org.rsmod.game.damage.DamageContributions
 import org.rsmod.game.headbar.Headbar
 import org.rsmod.game.hero.HeroPoints
 import org.rsmod.game.hit.Hitmark
@@ -39,6 +40,7 @@ import org.rsmod.game.inv.InventoryMap
 import org.rsmod.game.movement.MoveSpeed
 import org.rsmod.game.queue.EngineQueueList
 import org.rsmod.game.queue.EngineQueueType
+import org.rsmod.game.queue.StatXpMilestone
 import org.rsmod.game.queue.PlayerQueueList
 import org.rsmod.game.queue.QueueCategory
 import org.rsmod.game.seq.EntitySeq
@@ -88,7 +90,8 @@ public class Player(
 
     /**
      * Opaque session token from OpenRune Central world-link when `OPENRUNE_CENTRAL_HOST` is set.
-     * The game server notifies central on logout so the session ends and the account can log in again.
+     * The game server notifies central on logout so the session ends and the account can log in
+     * again.
      */
     public var openRuneCentralSessionToken: ByteArray? = null
 
@@ -179,9 +182,18 @@ public class Player(
     public var displayNameChangedAtMillis: Long? = null
     public var discordId: Long? = null
     public var createdAt: LocalDateTime? = null
+    public var mutedUntil: LocalDateTime? = null
     public var followCoord: CoordGrid = CoordGrid.NULL
     public var buildArea: CoordGrid = CoordGrid.NULL
     public val visibleZoneKeys: IntList = IntArrayList()
+
+    /**
+     * The root-world view zone most recently processed for this player. This normally matches
+     * the player's zone; aboard a world entity it follows the entity's projected root position.
+     * Real zone occupancy remains tracked separately by `lastProcessedZone`.
+     */
+    public var lastProcessedViewZone: ZoneKey = ZoneKey.NULL
+
     public var lastMapBuildComplete: Int = Int.MIN_VALUE
 
     public val activeAreas: ShortArraySet = ShortArraySet()
@@ -189,6 +201,19 @@ public class Player(
     public var lastProcessedAreaCoord: CoordGrid = CoordGrid.NULL
 
     public var runEnergy: Int = 1000
+
+    /** Temporary multiplier used by movement-affecting combat effects while the player runs. */
+    public var runEnergyDrainMultiplier: Int = 1
+
+    /** Map-clock cycle at which [runEnergyDrainMultiplier] stops applying. */
+    public var runEnergyDrainMultiplierUntil: Int = Int.MIN_VALUE
+
+    /** Map-clock cycle at which the Staff of the Dead family's Power of Death effect expires. */
+    public var powerOfDeathUntil: Int = Int.MIN_VALUE
+
+    /** Map-clock cycle at which Vesta's spear's temporary melee immunity expires. */
+    public var vestaSpearMeleeImmuneUntil: Int = Int.MIN_VALUE
+
     public var runWeight: Int = 0
 
     public var modLevel: Rights = Rights.NONE
@@ -203,6 +228,9 @@ public class Player(
     public val pendingStatUpdates: BitSet = BitSet()
     public val activeHitmarks: LongArrayList = LongArrayList()
     public val activeHeadbars: LongArrayList = LongArrayList()
+
+    /** Tint update to send during the current client synchronization cycle. */
+    public var pendingTint: PlayerTint? = null
 
     public var regionUid: Int? = null
 
@@ -301,7 +329,7 @@ public class Player(
         get() = !loggingOut
 
     public val isDelayed: Boolean
-        get() = delay > processedMapClock && !pendingShutdown
+        get() = (delay > processedMapClock || isShoveStunned) && !pendingShutdown
 
     public val isNotDelayed: Boolean
         get() = !isDelayed
@@ -377,7 +405,7 @@ public class Player(
         softTimerMap.remove(timerType)
     }
 
-        public fun weakQueue(queue: String, cycles: Int, args: Any? = null) {
+    public fun weakQueue(queue: String, cycles: Int, args: Any? = null) {
         require(cycles > 0) { "`cycles` must be greater than 0. (cycles=$cycles)" }
         weakQueueList.add(queue, QueueCategory.Weak, cycles, args)
     }
@@ -426,6 +454,12 @@ public class Player(
     }
 
     @InternalApi
+    public fun engineQueueStatXpMilestone(stat: StatType, previousXp: Int, currentXp: Int) {
+        val milestone = StatXpMilestone(stat, previousXp, currentXp)
+        engineQueueList.add(EngineQueueType.StatXpMilestone, args = milestone, label = stat.id)
+    }
+
+    @InternalApi
     public fun engineQueueMapzone(square: MapSquareKey) {
         engineQueueList.add(EngineQueueType.Mapzone, args = square, label = square.id)
     }
@@ -466,12 +500,20 @@ public class Player(
         PathingEntityCommon.anim(this, seq, delay, priority)
     }
 
+    override fun anim(seq: Int, delay: Int, priority: Int) {
+        PathingEntityCommon.anim(this, seq, delay, priority)
+    }
+
     override fun resetAnim() {
         pendingSequence = EntitySeq.ZERO
     }
 
     override fun spotanim(spot: String, delay: Int, height: Int, slot: Int) {
         PathingEntityCommon.spotanim(this, spot.asRSCM(RSCMType.SPOTANIM), delay, height, slot)
+    }
+
+    override fun spotanim(spot: Int, delay: Int, height: Int, slot: Int) {
+        PathingEntityCommon.spotanim(this, spot, delay, height, slot)
     }
 
     public fun resetSpotanim(height: Int = 0, slot: Int = 0) {
@@ -489,6 +531,16 @@ public class Player(
 
     public fun say(text: String) {
         pendingSay = text
+    }
+
+    /** Queues a client-side tint for this player. */
+    public fun tint(tint: PlayerTint) {
+        pendingTint = tint
+    }
+
+    /** Queues the client-side no-tint sentinel, cancelling any active encounter tint. */
+    public fun clearTint() {
+        pendingTint = PlayerTint.CLEAR
     }
 
     public fun showHeadbar(headbar: Headbar) {

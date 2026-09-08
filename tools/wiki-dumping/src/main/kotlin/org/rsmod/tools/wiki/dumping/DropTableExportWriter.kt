@@ -12,10 +12,7 @@ object DropTableExportWriter {
         val kotlin: List<GeneratedDropTableSpec>,
     )
 
-    fun splitSpecs(
-        specs: List<GeneratedDropTableSpec>,
-        tomlExport: TomlExportConfig?,
-    ): SplitSpecs {
+    fun splitSpecs(specs: List<GeneratedDropTableSpec>, tomlExport: TomlExportConfig?): SplitSpecs {
         if (tomlExport == null) {
             return SplitSpecs(toml = emptyList(), kotlin = specs)
         }
@@ -24,10 +21,7 @@ object DropTableExportWriter {
         return SplitSpecs(toml = toml, kotlin = kotlin)
     }
 
-    data class PageExportResult(
-        val kotlinFile: Path?,
-        val tomlFiles: Set<Path>,
-    )
+    data class PageExportResult(val kotlinFile: Path?, val tomlFiles: Set<Path>)
 
     fun exportPage(
         wikiPage: String,
@@ -80,7 +74,9 @@ object DropTableExportWriter {
             val tomlPath =
                 DropTableTomlOutputLayout.resolveTableFile(tomlExport.tomlRoot, spec.tableVarName)
             written.add(tomlPath)
-            log.info("wrote toml ${tomlExport.tomlRoot.relativize(tomlPath)} → ${tomlPath.toAbsolutePath()}")
+            log.info(
+                "wrote toml ${tomlExport.tomlRoot.relativize(tomlPath)} → ${tomlPath.toAbsolutePath()}"
+            )
         }
         return written
     }
@@ -102,7 +98,7 @@ object DropTableExportWriter {
             DropTableCodeGenerator.generateFile(
                 specs,
                 packageName = DropTableOutputLayout.MONSTERS_PACKAGE,
-            ),
+            )
         )
         onWritten?.invoke(output)
         log.info("wrote ${output.fileName} → ${output.toAbsolutePath()}")

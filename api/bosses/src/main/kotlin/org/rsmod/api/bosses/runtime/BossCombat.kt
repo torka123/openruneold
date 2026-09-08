@@ -6,11 +6,14 @@ import dev.openrune.rscm.RSCMType
 import org.rsmod.api.bosses.spec.BossSpec
 import org.rsmod.api.bosses.validation.SpecValidator
 import org.rsmod.api.npc.access.StandardNpcAccess
+import org.rsmod.api.npc.events.NpcHitEvents
+import org.rsmod.api.npc.heal
+import org.rsmod.api.npc.owner.hasSpawnOwner
+import org.rsmod.api.npc.owner.isSpawnOwnedBy
 import org.rsmod.api.script.onAiApPlayer2
 import org.rsmod.api.script.onAiOpPlayer2
 import org.rsmod.api.script.onEvent
 import org.rsmod.api.script.onModifyNpcHit
-import org.rsmod.api.npc.events.NpcHitEvents
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.npc.NpcStateEvents
@@ -22,8 +25,11 @@ object BossCombat {
         ctx: ScriptContext,
         spec: BossSpec,
         deps: BossDeps,
+        ownerSlug: String = spec.npcTypes.first().removePrefix("npc.").replace('_', '-'),
         onLethal: ((Npc) -> Unit)? = null,
+        beforeModifyHit: (NpcHitEvents.Modify.() -> Unit)? = null,
         onModifyHit: (NpcHitEvents.Modify.() -> Unit)? = null,
+        onAbilityCommitted: (suspend (Npc, Player, BossEncounter) -> Unit)? = null,
     ) {
         val errors = SpecValidator.validate(spec)
         if (errors.isNotEmpty()) {
@@ -38,15 +44,16 @@ object BossCombat {
             }
 
         for (npcType in npcTypes) {
-            deps.encounterRegistry.register(npcType.id, spec)
+            deps.encounterRegistry.register(npcType.id, spec, ownerSlug)
         }
 
         with(ctx) {
             for (npcType in npcTypes) {
-                onAiOpPlayer2(npcType) { runCombatTick(it.target, spec, deps) }
-                onAiApPlayer2(npcType) { runCombatTick(it.target, spec, deps) }
+                onAiOpPlayer2(npcType) { runCombatTick(it.target, spec, deps, onAbilityCommitted) }
+                onAiApPlayer2(npcType) { runCombatTick(it.target, spec, deps, onAbilityCommitted) }
                 onModifyNpcHit(npcType) {
                     val encounter = deps.encounterRegistry.of(npc)
+                    beforeModifyHit?.invoke(this)
                     hit.damage =
                         if (encounter.invulnerable) 0
                         else (hit.damage * encounter.damageScale).toInt()
@@ -64,22 +71,18 @@ object BossCombat {
 
             val bossIds = npcTypes.map { it.id }.toSet()
             // Ensures phases and other states are reset
-            onEvent<NpcStateEvents.Respawn> {
-                if (npc.type.id in bossIds) resetBoss(npc, deps)
-            }
-            onEvent<NpcStateEvents.Delete> {
-                if (npc.type.id in bossIds) deps.encounterRegistry.remove(npc)
-            }
+            onEvent<NpcStateEvents.Respawn> { if (npc.type.id in bossIds) resetBoss(npc, deps) }
+            onEvent<NpcStateEvents.Delete> { if (npc.type.id in bossIds) clearEncounter(npc, deps) }
         }
     }
 
     /**
-     * Clears the boss's encounter and any scripted-control overrides left on the npc from the previous
-     * fight, so a respawned boss starts clean in its first phase. The fresh [BossEncounter] is created
-     * lazily on the next combat tick.
+     * Clears the boss's encounter and any scripted-control overrides left on the npc from the
+     * previous fight, so a respawned boss starts clean in its first phase. The fresh
+     * [BossEncounter] is created lazily on the next combat tick.
      */
     private fun resetBoss(npc: Npc, deps: BossDeps) {
-        deps.encounterRegistry.remove(npc)
+        clearEncounter(npc, deps)
         npc.movementLocked = false
         npc.apRangeOverride = null
         npc.apRequiresLineOfSight = true
@@ -87,13 +90,33 @@ object BossCombat {
         npc.ignoreCombatInteractions = false
         npc.clearFacingLock()
         npc.clearIdleAnim()
+        npc.resetTransmog()
+    }
+
+    fun resetEncounter(npc: Npc, deps: BossDeps) {
+        resetBoss(npc, deps)
+        npc.heal(npc.baseHitpointsLvl)
+    }
+
+    private fun clearEncounter(npc: Npc, deps: BossDeps) {
+        deps.encounterRegistry.existing(npc)?.let { encounter ->
+            encounter.drainOwnedNpcs().forEach { owned ->
+                if (owned.isSlotAssigned) {
+                    deps.npcRepo.del(owned, Int.MAX_VALUE)
+                }
+            }
+            encounter.runCleanupActions()
+        }
+        deps.encounterRegistry.remove(npc)
     }
 
     private suspend fun StandardNpcAccess.runCombatTick(
         target: Player,
         spec: BossSpec,
         deps: BossDeps,
+        onAbilityCommitted: (suspend (Npc, Player, BossEncounter) -> Unit)?,
     ) {
+        if (npc.hasSpawnOwner && !npc.isSpawnOwnedBy(target)) return
         val encounter = deps.encounterRegistry.of(npc)
         if (encounter.currentPhase == null) return
         val tick = deps.mapClock.cycle
@@ -102,16 +125,21 @@ object BossCombat {
         checkTriggers(this, target, spec, deps, encounter)
 
         val ticksSinceLastAttack = tick - encounter.lastAbilityTick
-        if (ticksSinceLastAttack < spec.stats.attackRate) return
+        val attackRate = encounter.currentPhase?.attackRate ?: spec.stats.attackRate
+        if (ticksSinceLastAttack < attackRate) return
 
         val phase = encounter.currentPhase ?: return
-        val abilityName = encounter.selectAbility(phase.selector, tick, target) ?: return
+        val abilityName =
+            encounter.consumeForcedAbility()
+                ?: encounter.selectAbility(phase.selector, tick, target)
+                ?: return
         val effect = spec.abilities[abilityName] ?: return
 
-        encounter.lastAbilityTick = tick
+        encounter.recordAbilityCommit(tick, abilityName, attackRate)
 
         val interpreter = EffectInterpreter(npc, target, spec, encounter, deps)
         interpreter.run(this, effect)
+        onAbilityCommitted?.invoke(npc, target, encounter)
     }
 
     private suspend fun checkTriggers(

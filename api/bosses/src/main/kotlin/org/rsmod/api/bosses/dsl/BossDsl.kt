@@ -3,6 +3,7 @@ package org.rsmod.api.bosses.dsl
 import dev.openrune.types.NpcMode
 import org.rsmod.api.bosses.spec.*
 import org.rsmod.api.bosses.validation.SpecValidator
+import org.rsmod.api.combat.commons.types.MeleeAttackType
 
 @DslMarker annotation class BossDsl
 
@@ -44,6 +45,7 @@ class BossSpecBuilder(private val npcTypes: List<String>) {
         entryHp: Double? = null,
         transmog: String? = null,
         lockMovement: Boolean = false,
+        attackRate: Int? = null,
         exitAfter: Int? = null,
         nextPhase: String? = null,
         idleAnim: String? = null,
@@ -58,6 +60,7 @@ class BossSpecBuilder(private val npcTypes: List<String>) {
                 lockMovement = lockMovement,
                 exitAfter = exitAfter,
                 nextPhase = nextPhase,
+                attackRate = attackRate,
                 idleAnim = idleAnim,
                 entry = builder.entry,
                 exit = builder.exit,
@@ -95,6 +98,10 @@ class HitBuilder internal constructor() {
     var delay: Int = 0
     private var spotanimSpot: String? = null
     private var spotanimHeight: Int = 0
+    var accuracy: AccuracyMode = AccuracyMode.Standard
+    var meleeType: MeleeAttackType? = null
+    var protectionPrayer: ProtectionPrayer = ProtectionPrayer.Standard
+    private val impactEffects = mutableListOf<ImpactEffect>()
 
     fun damage(expr: DamageExpr) {
         damageExpr = expr
@@ -113,6 +120,35 @@ class HitBuilder internal constructor() {
         spotanimHeight = height
     }
 
+    fun poisonOnImpact(
+        damage: Int,
+        chance: Int = 1,
+        outOf: Int = 1,
+        protection: ImpactProtection = ImpactProtection.None,
+    ) {
+        impactEffects += ImpactEffect.Poison(damage, chance, outOf, protection)
+    }
+
+    fun freezeOnImpact(
+        ticks: Int,
+        chance: Int = 1,
+        outOf: Int = 1,
+        protection: ImpactProtection = ImpactProtection.None,
+    ) {
+        impactEffects += ImpactEffect.Freeze(ticks, chance, outOf, protection)
+    }
+
+    fun statDrainOnImpact(
+        vararg stats: String,
+        amount: Int,
+        chance: Int = 1,
+        outOf: Int = 1,
+        protection: ImpactProtection = ImpactProtection.None,
+    ) {
+        require(stats.isNotEmpty()) { "statDrainOnImpact requires at least one stat." }
+        impactEffects += ImpactEffect.StatDrain(stats.toList(), amount, chance, outOf, protection)
+    }
+
     internal fun commitDamage(expr: DamageExpr) {
         damageExpr = expr
     }
@@ -128,6 +164,10 @@ class HitBuilder internal constructor() {
             delay = delay,
             spotanim = spotanimSpot,
             spotanimHeight = spotanimHeight,
+            accuracy = accuracy,
+            meleeType = meleeType,
+            protectionPrayer = protectionPrayer,
+            impactEffects = impactEffects.toList(),
         )
 }
 
@@ -150,6 +190,10 @@ class AbilityBuilder {
 
     fun anim(seq: String, delay: Int = 0) {
         effects += Effect.Anim(seq, delay)
+    }
+
+    fun npcAttackAnim() {
+        effects += Effect.NpcAttackAnim
     }
 
     /** Plays [spot] on the caster (the boss npc itself), not on the target. */
@@ -322,9 +366,9 @@ class AbilityBuilder {
 
     /**
      * Telegraphed, dodgeable area attack (falling rocks/debris). See [Effect.Debris]. A [telegraph]
-     * spotanim marks each tile, then after [windup] ticks players still standing on a marked tile take
-     * [damage]. Tiles target every player within [targetRadius] of the boss plus random scatter within
-     * [scatterRadius], totaling a value drawn from [count].
+     * spotanim marks each tile, then after [windup] ticks players still standing on a marked tile
+     * take [damage]. Tiles target every player within [targetRadius] of the boss plus random
+     * scatter within [scatterRadius], totaling a value drawn from [count].
      */
     fun debris(
         telegraph: String,
@@ -370,11 +414,13 @@ class PhaseBuilder(private val name: String) {
     }
 
     fun forceEveryAttacks(min: Int, max: Int, ability: String) {
-        forceAbilities += ForcedAbility(period = 0, ability = ability, attackMin = min, attackMax = max)
+        forceAbilities +=
+            ForcedAbility(period = 0, ability = ability, attackMin = min, attackMax = max)
     }
 
     fun forceEveryAttacks(min: Int, max: Int, ability: AbilityRef) {
-        forceAbilities += ForcedAbility(period = 0, ability = ability.name, attackMin = min, attackMax = max)
+        forceAbilities +=
+            ForcedAbility(period = 0, ability = ability.name, attackMin = min, attackMax = max)
     }
 
     fun weightedSelectorRandom(
@@ -386,6 +432,10 @@ class PhaseBuilder(private val name: String) {
 
     fun rotationSelector(block: RotationBuilder.() -> Unit) {
         selector = rotation(block)
+    }
+
+    fun meleeOverrideRotationSelector(melee: AbilityRef, block: RotationBuilder.() -> Unit) {
+        selector = Selector.MeleeOverrideRotation(melee.name, rotation(block).sequence)
     }
 }
 

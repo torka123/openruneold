@@ -13,11 +13,20 @@ data class WikiDropNotes(
     val brimstoneKonarTask: Boolean = false,
     val questRequirements: List<WikiQuestDropRequirement> = emptyList(),
 ) {
-    val hasQuestRequirement: Boolean get() = questRequirements.isNotEmpty()
-    val hasCondition: Boolean get() = condition.isNotEmpty()
-    val hasTransformItem: Boolean get() = transformItem.isNotEmpty()
-    val hasTransformRate: Boolean get() = transformRate.isNotEmpty()
-    val hasCompanionDrops: Boolean get() = companionDrops.isNotEmpty()
+    val hasQuestRequirement: Boolean
+        get() = questRequirements.isNotEmpty()
+
+    val hasCondition: Boolean
+        get() = condition.isNotEmpty()
+
+    val hasTransformItem: Boolean
+        get() = transformItem.isNotEmpty()
+
+    val hasTransformRate: Boolean
+        get() = transformRate.isNotEmpty()
+
+    val hasCompanionDrops: Boolean
+        get() = companionDrops.isNotEmpty()
 
     fun merge(other: WikiDropNotes): WikiDropNotes =
         WikiDropNotes(
@@ -42,7 +51,10 @@ object WikiDropNoteClassifier {
     private val transformItemPattern =
         Regex("""scroll\s*box|x\s*marks\s*the\s*spot|replaced\s*by""", RegexOption.IGNORE_CASE)
     private val transformRatePattern =
-        Regex("""drop\s*rate|increases\s*to|decreases\s*to|\d+\s*/\s*\d+""", RegexOption.IGNORE_CASE)
+        Regex(
+            """drop\s*rate|increases\s*to|decreases\s*to|\d+\s*/\s*\d+""",
+            RegexOption.IGNORE_CASE,
+        )
     private val lootingBagWildernessPattern =
         Regex("""looting\s*bags?\s*are\s*only\s*dropped.*wilderness""", RegexOption.IGNORE_CASE)
     private val brimstoneKonarTaskPattern =
@@ -62,8 +74,9 @@ object WikiDropNoteClassifier {
         if (lootingBagWildernessPattern.containsMatchIn(cleaned)) {
             return WikiDropNotes(lootingBagWilderness = true)
         }
-        if (dropName.contains("looting bag", ignoreCase = true) &&
-            Regex("""wilderness""", RegexOption.IGNORE_CASE).containsMatchIn(cleaned)
+        if (
+            dropName.contains("looting bag", ignoreCase = true) &&
+                Regex("""wilderness""", RegexOption.IGNORE_CASE).containsMatchIn(cleaned)
         ) {
             return WikiDropNotes(lootingBagWilderness = true)
         }
@@ -95,7 +108,9 @@ object WikiDropNoteClassifier {
     }
 
     fun classifyAll(notes: List<String>, dropName: String): WikiDropNotes =
-        notes.filterNot(::shouldIgnore).fold(WikiDropNotes()) { acc, note -> acc.merge(classify(note, dropName)) }
+        notes.filterNot(::shouldIgnore).fold(WikiDropNotes()) { acc, note ->
+            acc.merge(classify(note, dropName))
+        }
 
     fun namesMatchForCompanion(dropName: String, candidate: String): Boolean {
         val dropNorm = normalizeCompanionItemName(dropName)
@@ -124,7 +139,10 @@ object WikiDropNoteClassifier {
         if (includeF2pWorldNotes) {
             return false
         }
-        if (params["f2p"].equals("yes", ignoreCase = true) || params["leaguef2p"].equals("yes", ignoreCase = true)) {
+        if (
+            params["f2p"].equals("yes", ignoreCase = true) ||
+                params["leaguef2p"].equals("yes", ignoreCase = true)
+        ) {
             return true
         }
         val nameNotes = params["namenotes"].orEmpty()
@@ -148,7 +166,10 @@ object WikiDropNoteClassifier {
         if (text.contains("key") && text.contains("medium")) {
             return name.contains("key")
         }
-        if (transformItemPattern.containsMatchIn(text) || (text.contains("clue") && text.contains("scroll"))) {
+        if (
+            transformItemPattern.containsMatchIn(text) ||
+                (text.contains("clue") && text.contains("scroll"))
+        ) {
             return name.contains("clue scroll")
         }
         if (transformRatePattern.containsMatchIn(text) && text.contains("easy")) {
@@ -212,17 +233,22 @@ data class WikiCompanionDropSpec(
 
 sealed class WikiCompanionParseResult {
     data class Primary(val specs: List<WikiCompanionDropSpec>) : WikiCompanionParseResult()
+
     data object CompanionOnlyRow : WikiCompanionParseResult()
 }
 
 object WikiCompanionDropParser {
     private val togetherWithPattern =
-        Regex("""receive\s+(.+?)\s+together with(?:\s+an extra drop of)?\s+(.+)""", RegexOption.IGNORE_CASE)
+        Regex(
+            """receive\s+(.+?)\s+together with(?:\s+an extra drop of)?\s+(.+)""",
+            RegexOption.IGNORE_CASE,
+        )
     private val droppedTogetherPattern =
         Regex("""(?i)(.+?)\s+and\s+(.+?)\s+are\s+(?:always\s+)?dropped\s+together""")
     private val topAndBottomTogetherPattern =
         Regex("""(?i)(.+?)\s+top\s+and\s+bottom\s+are\s+(?:always\s+)?dropped\s+together""")
-    private val countPrefixPattern = Regex("""^(one|two|three|four|five|\d+)\s+""", RegexOption.IGNORE_CASE)
+    private val countPrefixPattern =
+        Regex("""^(one|two|three|four|five|\d+)\s+""", RegexOption.IGNORE_CASE)
     private val topSuffix = Regex("""top$""", RegexOption.IGNORE_CASE)
     private val bottomSuffix = Regex("""bottom$""", RegexOption.IGNORE_CASE)
     private val orSplit = Regex("""\s+or\s+""", RegexOption.IGNORE_CASE)
@@ -230,7 +256,9 @@ object WikiCompanionDropParser {
 
     fun parse(note: String, dropName: String): WikiCompanionParseResult? {
         val cleaned = note.trim().trimEnd('.')
-        parseDroppedTogether(cleaned, dropName)?.let { return it }
+        parseDroppedTogether(cleaned, dropName)?.let {
+            return it
+        }
         if (!cleaned.contains("together with", ignoreCase = true)) {
             return null
         }
@@ -238,15 +266,18 @@ object WikiCompanionDropParser {
         val match = togetherWithPattern.find(cleaned) ?: return null
         val primaryNames = extractWikiItemNames(match.groupValues[1])
         val companionNames = extractWikiItemNames(match.groupValues[2])
-        val isPrimary = primaryNames.any { WikiDropNoteClassifier.namesMatchForCompanion(dropName, it) }
-        val isCompanion = companionNames.any { WikiDropNoteClassifier.namesMatchForCompanion(dropName, it) }
+        val isPrimary =
+            primaryNames.any { WikiDropNoteClassifier.namesMatchForCompanion(dropName, it) }
+        val isCompanion =
+            companionNames.any { WikiDropNoteClassifier.namesMatchForCompanion(dropName, it) }
 
         return when {
             !isPrimary && isCompanion -> WikiCompanionParseResult.CompanionOnlyRow
             !isPrimary -> null
-            else -> parseCompanionText(match.groupValues[2].trim().trimEnd('.'))
-                .takeIf { it.isNotEmpty() }
-                ?.let { WikiCompanionParseResult.Primary(it) }
+            else ->
+                parseCompanionText(match.groupValues[2].trim().trimEnd('.'))
+                    .takeIf { it.isNotEmpty() }
+                    ?.let { WikiCompanionParseResult.Primary(it) }
         }
     }
 
@@ -258,14 +289,18 @@ object WikiCompanionDropParser {
         droppedTogether: Boolean,
     ): String? {
         for (candidate in resolutionCandidates(companionName, primaryDropName, droppedTogether)) {
-            objLookup.resolveWikiItem(itemLookup, candidate)?.let { return it }
+            objLookup.resolveWikiItem(itemLookup, candidate)?.let {
+                return it
+            }
         }
         return null
     }
 
     private fun parseDroppedTogether(note: String, dropName: String): WikiCompanionParseResult? {
         if (topAndBottomTogetherPattern.containsMatchIn(note)) {
-            parseTopBottomTogether(dropName)?.let { return it }
+            parseTopBottomTogether(dropName)?.let {
+                return it
+            }
             topAndBottomTogetherPattern.find(note)?.let { match ->
                 val base = match.groupValues[1].trim()
                 return droppedTogetherResult(dropName, "$base top", "$base bottom")
@@ -298,17 +333,26 @@ object WikiCompanionDropParser {
         return when {
             isPrimary && !isCompanion ->
                 WikiCompanionParseResult.Primary(
-                    companionNames.map { WikiCompanionDropSpec(wikiNames = listOf(it), droppedTogether = true) },
+                    companionNames.map {
+                        WikiCompanionDropSpec(wikiNames = listOf(it), droppedTogether = true)
+                    }
                 )
             isCompanion && !isPrimary -> WikiCompanionParseResult.CompanionOnlyRow
             isPrimary && isCompanion -> {
                 val companions =
-                    companionNames.filterNot { WikiDropNoteClassifier.namesMatchForCompanion(dropName, it) }
+                    companionNames.filterNot {
+                        WikiDropNoteClassifier.namesMatchForCompanion(dropName, it)
+                    }
                 companions
                     .takeIf { it.isNotEmpty() }
                     ?.let { names ->
                         WikiCompanionParseResult.Primary(
-                            names.map { WikiCompanionDropSpec(wikiNames = listOf(it), droppedTogether = true) },
+                            names.map {
+                                WikiCompanionDropSpec(
+                                    wikiNames = listOf(it),
+                                    droppedTogether = true,
+                                )
+                            }
                         )
                     }
             }
@@ -325,8 +369,8 @@ object WikiCompanionDropParser {
                         WikiCompanionDropSpec(
                             wikiNames = listOf(topSuffix.replace(trimmed, "bottom")),
                             droppedTogether = true,
-                        ),
-                    ),
+                        )
+                    )
                 )
             bottomSuffix.containsMatchIn(trimmed) -> WikiCompanionParseResult.CompanionOnlyRow
             else -> null
@@ -347,7 +391,8 @@ object WikiCompanionDropParser {
                 ?: Regex("""\((\d+)\)""").find(companionName)?.groupValues?.get(1)
                 ?: "3"
         val singular = companionName.trim().trimEnd('.').removeSuffix("s").trim()
-        val withoutPotions = singular.replace(Regex("""\s+potions?""", RegexOption.IGNORE_CASE), "").trim()
+        val withoutPotions =
+            singular.replace(Regex("""\s+potions?""", RegexOption.IGNORE_CASE), "").trim()
 
         val candidates = linkedSetOf<String>()
         if (withoutPotions.isNotBlank()) {
@@ -374,16 +419,25 @@ object WikiCompanionDropParser {
         if (orSplit.containsMatchIn(remaining)) {
             val names = remaining.split(orSplit).flatMap(::extractWikiItemNames)
             if (names.size >= 2 && isGenderLegSkirtPair(names)) {
-                return listOf(WikiCompanionDropSpec(wikiNames = names, genderSplit = true, count = count))
+                return listOf(
+                    WikiCompanionDropSpec(wikiNames = names, genderSplit = true, count = count)
+                )
             }
         }
 
-        return extractWikiItemNames(remaining).map { WikiCompanionDropSpec(wikiNames = listOf(it), count = count) }
+        return extractWikiItemNames(remaining).map {
+            WikiCompanionDropSpec(wikiNames = listOf(it), count = count)
+        }
     }
 
     private fun extractWikiItemNames(text: String): List<String> {
-        val fromLinks = wikiLinkPattern.findAll(text).map { it.groupValues[1].trim() }.filter { it.isNotBlank() }
-        return if (fromLinks.any()) fromLinks.toList() else listOf(text.trim()).filter { it.isNotBlank() }
+        val fromLinks =
+            wikiLinkPattern
+                .findAll(text)
+                .map { it.groupValues[1].trim() }
+                .filter { it.isNotBlank() }
+        return if (fromLinks.any()) fromLinks.toList()
+        else listOf(text.trim()).filter { it.isNotBlank() }
     }
 
     private fun isGenderLegSkirtPair(names: List<String>): Boolean {
@@ -425,17 +479,22 @@ object WikiQuestDropParser {
     private val WIKI_LINK = Regex("""\[\[([^|\]#]+)""")
     private val notCompletedPattern =
         Regex(
-            """(?i)(?:only\s+)?(?:dropped\s+)?(?:if\s+)?(?:[\w\s']+\s+)?(?:isn't|is\s+not|aren't|are\s+not|haven't|has\s+not(?:\s+been)?)\s+completed""",
+            """(?i)(?:only\s+)?(?:dropped\s+)?(?:if\s+)?(?:[\w\s']+\s+)?(?:isn't|is\s+not|aren't|are\s+not|haven't|has\s+not(?:\s+been)?)\s+completed"""
         )
     private val notCompletedQuestPattern =
-        Regex("""(?i)if\s+(.+?)\s+(?:isn't|is\s+not|aren't|are\s+not|haven't|has\s+not(?:\s+been)?)\s+completed""")
+        Regex(
+            """(?i)if\s+(.+?)\s+(?:isn't|is\s+not|aren't|are\s+not|haven't|has\s+not(?:\s+been)?)\s+completed"""
+        )
     private val afterCompletionPattern =
-        Regex("""(?i)(?:only\s+)?(?:dropped\s+)?(?:after\s+completion\s+of|after\s+completing|upon\s+completion\s+of)""")
+        Regex(
+            """(?i)(?:only\s+)?(?:dropped\s+)?(?:after\s+completion\s+of|after\s+completing|upon\s+completion\s+of)"""
+        )
     private val duringPattern =
-        Regex("""(?i)(?:only\s+)?(?:dropped\s+)?(?:when\s+fought\s+)?during(?:\s+the)?(?:\s+quest)?\s+""")
+        Regex(
+            """(?i)(?:only\s+)?(?:dropped\s+)?(?:when\s+fought\s+)?during(?:\s+the)?(?:\s+quest)?\s+"""
+        )
     private val onlyDuringPattern = Regex("""(?i)only\s+during\s+""")
-    private val nonQuestPattern =
-        Regex("""(?i)\bdiary\b|quest variant|unowned during""")
+    private val nonQuestPattern = Regex("""(?i)\bdiary\b|quest variant|unowned during""")
 
     fun parse(note: String): WikiQuestDropRequirement? {
         val cleaned = note.trim()
@@ -445,15 +504,20 @@ object WikiQuestDropParser {
 
         val mode =
             when {
-                notCompletedPattern.containsMatchIn(cleaned) -> WikiQuestDropMode.RequiresNotCompleted
-                afterCompletionPattern.containsMatchIn(cleaned) -> WikiQuestDropMode.RequiresCompleted
-                duringPattern.containsMatchIn(cleaned) || onlyDuringPattern.containsMatchIn(cleaned) ->
-                    WikiQuestDropMode.RequiresDuring
+                notCompletedPattern.containsMatchIn(cleaned) ->
+                    WikiQuestDropMode.RequiresNotCompleted
+                afterCompletionPattern.containsMatchIn(cleaned) ->
+                    WikiQuestDropMode.RequiresCompleted
+                duringPattern.containsMatchIn(cleaned) ||
+                    onlyDuringPattern.containsMatchIn(cleaned) -> WikiQuestDropMode.RequiresDuring
                 else -> return null
             }
 
         val questName = extractQuestName(cleaned, mode) ?: return null
-        return WikiQuestDropRequirement(questKey = WikiQuestNameLookup.toQuestKey(questName), mode = mode)
+        return WikiQuestDropRequirement(
+            questKey = WikiQuestNameLookup.toQuestKey(questName),
+            mode = mode,
+        )
     }
 
     private fun extractQuestName(note: String, mode: WikiQuestDropMode): String? {
@@ -469,13 +533,21 @@ object WikiQuestDropParser {
                 WikiQuestDropMode.RequiresNotCompleted ->
                     notCompletedQuestPattern.find(note)?.groupValues?.get(1)?.trim()
                 WikiQuestDropMode.RequiresCompleted ->
-                    afterCompletionPattern.find(note)?.range?.last?.plus(1)?.let { note.substring(it).trim() }
+                    afterCompletionPattern.find(note)?.range?.last?.plus(1)?.let {
+                        note.substring(it).trim()
+                    }
                 WikiQuestDropMode.RequiresDuring ->
-                    duringPattern.find(note)?.range?.last?.plus(1)?.let { note.substring(it).trim() }
-                        ?: onlyDuringPattern.find(note)?.range?.last?.plus(1)?.let { note.substring(it).trim() }
+                    duringPattern.find(note)?.range?.last?.plus(1)?.let {
+                        note.substring(it).trim()
+                    }
+                        ?: onlyDuringPattern.find(note)?.range?.last?.plus(1)?.let {
+                            note.substring(it).trim()
+                        }
             } ?: return null
 
-        return cleanQuestTitle(raw.substringBefore('.').substringBefore(',').substringBefore(" if ").trim())
+        return cleanQuestTitle(
+                raw.substringBefore('.').substringBefore(',').substringBefore(" if ").trim()
+            )
             .takeIf { it.length >= 3 && !it.equals("quest", ignoreCase = true) }
     }
 
@@ -515,7 +587,9 @@ object WikiQuestNameLookup {
 
     fun toQuestKey(wikiName: String): String {
         val cleaned = wikiName.trim().removeSuffix(".").trim()
-        byNormalizedName[normalize(cleaned)]?.let { return it }
+        byNormalizedName[normalize(cleaned)]?.let {
+            return it
+        }
         val slug = cleaned.lowercase().replace(Regex("""[^a-z0-9']+"""), "").replace("'", "")
         return "quest_$slug"
     }

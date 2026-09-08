@@ -19,6 +19,8 @@ public class ShopOperationMap(
     private val logger = InlineLogger()
     private val costOfOverrides = ConcurrentHashMap<String, (ItemServerType) -> Int>()
     private val syncOverrides = ConcurrentHashMap<String, (Player) -> Unit>()
+    private val purchaseOverrides =
+        ConcurrentHashMap<String, (Player, ItemServerType, Int) -> Unit>()
 
     public fun register(key: String, value: ShopOperations) {
         val id = key.asRSCM(RSCMType.CURRENCY)
@@ -40,6 +42,7 @@ public class ShopOperationMap(
         restockProcess: ShopRestockProcess,
         marketPrices: MarketPrices,
         costOf: (ItemServerType) -> Int = { it.cost },
+        onPurchase: (Player, ItemServerType, Int) -> Unit = { _, _, _ -> },
     ) {
         register(
             key,
@@ -48,6 +51,7 @@ public class ShopOperationMap(
                 restockProcess = restockProcess,
                 marketPrices = marketPrices,
                 costOf = costOf,
+                onPurchase = onPurchase,
             ),
         )
     }
@@ -55,8 +59,8 @@ public class ShopOperationMap(
     /**
      * Registers every row in `dbtable.shop_currency`.
      *
-     * Optional Kotlin hooks: [costOf] / [sync] for currencies that need custom pricing or varbit
-     * client sync.
+     * Optional Kotlin hooks: [costOf], [sync], and [onPurchase] for currencies that need custom
+     * pricing, varbit client sync, or post-transaction award handling.
      */
     public fun registerCurrenciesFromDb(
         restockProcess: ShopRestockProcess,
@@ -81,6 +85,10 @@ public class ShopOperationMap(
         syncOverrides[key] = sync
     }
 
+    public fun onPurchase(key: String, onPurchase: (Player, ItemServerType, Int) -> Unit) {
+        purchaseOverrides[key] = onPurchase
+    }
+
     private fun registerCurrencyRow(
         row: ShopCurrencyRow,
         restockProcess: ShopRestockProcess,
@@ -95,6 +103,9 @@ public class ShopOperationMap(
             restockProcess = restockProcess,
             marketPrices = marketPrices,
             costOf = { type -> costOfOverrides[key]?.invoke(type) ?: type.cost },
+            onPurchase = { player, type, count ->
+                purchaseOverrides[key]?.invoke(player, type, count)
+            },
         )
     }
 

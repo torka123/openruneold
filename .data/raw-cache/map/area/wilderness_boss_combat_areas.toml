@@ -1,0 +1,51 @@
+# Revision-240 Wilderness boss rooms. Each record uses the room's actual plane so paired
+# singles/multi bosses cannot inherit one another's combat classification.
+
+[[area]]
+name = "Hunter's End singles-plus"
+area_id = "area.singles_plus"
+levels = [0]
+[[area.polygons]]
+vertices = [[1744, 11524], [1775, 11524], [1775, 11560], [1744, 11560]]
+
+[[area]]
+name = "Web Chasm singles-plus"
+area_id = "area.singles_plus"
+levels = [2]
+[[area.polygons]]
+vertices = [[1616, 11524], [1647, 11524], [1647, 11558], [1616, 11558]]
+
+[[area]]
+name = "Skeletal Tomb singles-plus"
+area_id = "area.singles_plus"
+levels = [1]
+[[area.polygons]]
+vertices = [[1872, 11524], [1903, 11524], [1903, 11564], [1872, 11564]]
+
+[[area]]
+name = "Vet'ion's Rest multiway"
+area_id = "area.multiway"
+levels = [1]
+[[area.polygons]]
+vertices = [[3272, 10192], [3312, 10192], [3312, 10228], [3272, 10228]]
+
+[[area]]
+name = "Silk Chasm multiway"
+area_id = "area.multiway"
+levels = [2]
+[[area.polygons]]
+vertices = [[3408, 10184], [3448, 10184], [3448, 10224], [3408, 10224]]
+
+[[area]]
+name = "Callisto's Den multiway"
+area_id = "area.multiway"
+levels = [0]
+[[area.polygons]]
+vertices = [[3344, 10316], [3376, 10316], [3376, 10344], [3344, 10344]]
+
+[[area]]
+name = "Wilderness Escape Caves multiway"
+area_id = "area.multiway"
+levels = [0]
+[[area.polygons]]
+vertices = [[3328, 10240], [3391, 10240], [3391, 10303], [3328, 10303]]

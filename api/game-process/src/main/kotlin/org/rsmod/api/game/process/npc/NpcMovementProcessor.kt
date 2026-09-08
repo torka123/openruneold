@@ -24,7 +24,10 @@ constructor(
     private val eventBus: EventBus,
 ) {
     public fun process(npc: Npc) {
-        if (npc.movementLocked) {
+        // A removed NPC can remain in the current cycle's iterator with slot=-1. Clearing its
+        // pending route here is defense-in-depth; NpcMainProcess is the authoritative guard.
+        if (npc.discardLateRouteIfRemoved()) return
+        if (npc.movementLocked || npc.isBound) {
             npc.routeRequest = null
             npc.routeDestination.clear()
             return
@@ -137,7 +140,7 @@ constructor(
                         targetWidth = destination.size,
                         targetLength = destination.size,
                     )
-                    .toCoordGrid()
+                    .toCoordGrid(source.coords.level)
             is RouteRequestLoc -> destination
         }
 
@@ -149,6 +152,13 @@ constructor(
     }
 
     private companion object {
-        private fun RouteCoordinates.toCoordGrid() = CoordGrid(x, z, level)
+        private fun RouteCoordinates.toCoordGrid(sourceLevel: Int) = CoordGrid(x, z, sourceLevel)
     }
+}
+
+internal fun Npc.discardLateRouteIfRemoved(): Boolean {
+    if (isSlotAssigned) return false
+    routeRequest = null
+    routeDestination.clear()
+    return true
 }

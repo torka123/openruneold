@@ -1,15 +1,20 @@
 package dtx.core
 
 public abstract class AbstractRollableBuilder<
+    T,
+    R,
+    RollableType : Rollable<T, R>,
+    HookType : RollableHooks<T, R>,
+    HookBuilder : AbstractRollableHooksBuilder<T, R, HookType, HookBuilder>,
+    RollableBuilder : AbstractRollableBuilder<
         T,
         R,
-        RollableType: Rollable<T, R>,
-        HookType: RollableHooks<T, R>,
-        HookBuilder: AbstractRollableHooksBuilder<T, R, HookType, HookBuilder>,
-        RollableBuilder: AbstractRollableBuilder<T, R, RollableType, HookType, HookBuilder, RollableBuilder>
->(
-    createHookBuilder: () -> HookBuilder
-) {
+        RollableType,
+        HookType,
+        HookBuilder,
+        RollableBuilder,
+    >,
+>(createHookBuilder: () -> HookBuilder) {
 
     protected val hooks: HookBuilder = createHookBuilder()
     public open var selectResultFunc: (RollableType.(T, ArgMap) -> RollResult<R>)? = null
@@ -60,7 +65,9 @@ public abstract class AbstractRollableBuilder<
         return this as RollableBuilder
     }
 
-    public open fun selectResult(block: RollableType.(T, ArgMap) -> RollResult<R>): RollableBuilder {
+    public open fun selectResult(
+        block: RollableType.(T, ArgMap) -> RollResult<R>
+    ): RollableBuilder {
 
         selectResultFunc = block
 
@@ -68,7 +75,7 @@ public abstract class AbstractRollableBuilder<
     }
 
     public open fun selectResult(result: R): RollableBuilder {
-        return selectResult {_, _ -> RollResult.Single(result) }
+        return selectResult { _, _ -> RollResult.Single(result) }
     }
 
     public open fun result(result: R): RollableBuilder {

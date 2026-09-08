@@ -1,15 +1,18 @@
 package org.rsmod.content.quest.manager
 
 import dev.openrune.definition.type.widget.IfEvent
+import jakarta.inject.Inject
+import org.rsmod.api.net.social.ClanChatService
 import org.rsmod.api.player.ui.ifSetEvents
 import org.rsmod.api.player.vars.intVarBit
+import org.rsmod.api.script.onEvent
 import org.rsmod.api.script.onPlayerLogin
 import org.rsmod.api.table.QuestRow
 import org.rsmod.game.entity.Player
 import org.rsmod.plugin.scripts.PluginScript
 import org.rsmod.plugin.scripts.ScriptContext
 
-class QuestEvents : PluginScript() {
+class QuestEvents @Inject constructor(private val clans: ClanChatService) : PluginScript() {
 
     private var Player.questTotalCount by intVarBit("varbit.quests_total_count")
     private var Player.questPointMax by intVarBit("varbit.qp_max")
@@ -18,6 +21,9 @@ class QuestEvents : PluginScript() {
     private var questPointCap: Int = 0
 
     override fun ScriptContext.startup() {
+        onEvent<QuestCompletionEvent> {
+            clans.publishQuestBroadcast(player, questKey, questName)
+        }
         val rows = QuestRow.all()
         questCount = rows.size
         questPointCap = rows.sumOf { it.questpoints }

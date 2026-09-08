@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-16T14:04:41.408123800Z",
+  "status": "COMPLETE",
+  "source": {
+    "path": "C:\\tmp\\reason231-cox-donor-20260816\\osrs server\\server reasonps\\data\\cache",
+    "revision": 229,
+    "cacheManifestSha256": "329A181D20769BE47E2A95B7081853D53E23F5EF74AB01F7B455240EEA16350E",
+    "definitionCounts": {
+      "NPC": 14832,
+      "LOC": 57658,
+      "OBJ": 31175,
+      "SEQUENCE": 12519,
+      "SPOTANIM": 3467,
+      "VARBIT": 17796,
+      "VARP": 4829,
+      "ENUM": 5728,
+      "STRUCT": 5885,
+      "DBROW": 5487,
+      "DBTABLE": 110
+    },
+    "maximumIds": {
+      "NPC": 30005,
+      "LOC": 60000,
+      "OBJ": 59530,
+      "SEQUENCE": 14000,
+      "SPOTANIM": 4238,
+      "VARBIT": 17795,
+      "VARP": 4828,
+      "ENUM": 5731,
+      "STRUCT": 6244,
+      "DBROW": 5486,
+      "DBTABLE": 109
+    }
+  },
+  "stock229": {
+    "path": "C:\\tmp\\openrs2-cache-2048\\cache",
+    "revision": 229,
+    "cacheManifestSha256": "350439322D2C9A601BEFAD09A7471733EBD91BFB55CAA840D1A7689B48C18364",
+    "definitionCounts": {
+      "NPC": 14163,
+      "LOC": 56088,
+      "OBJ": 30650,
+      "SEQUENCE": 12026,
+      "SPOTANIM": 3230,
+      "VARBIT": 17264,
+      "VARP": 4661,
+      "ENUM": 5717,
+      "STRUCT": 5843,
+      "DBROW": 4326,
+      "DBTABLE": 87
+    },
+    "maximumIds": {
+      "NPC": 14171,
+      "LOC": 56087,
+      "OBJ": 30649,
+      "SEQUENCE": 12026,
+      "SPOTANIM": 3229,
+      "VARBIT": 17604,
+      "VARP": 4660,
+      "ENUM": 5731,
+      "STRUCT": 6244,
+      "DBROW": 4325,
+      "DBTABLE": 86
+    }
+  },
+  "destination": {
+    "path": "<repo-root>\\.data\\cache\\LIVE",
+    "revision": 240,
+    "cacheManifestSha256": "AE11D3BADFBFC1F717E5C2B1FB299C15EF08E5C2389689835A12971C79B9D5FC",
+    "definitionCounts": {
+      "NPC": 16345,
+      "LOC": 62426,
+      "OBJ": 33978,
+      "SEQUENCE": 14490,
+      "SPOTANIM": 4018,
+      "VARBIT": 19087,
+      "VARP": 5725,
+      "ENUM": 5874,
+      "STRUCT": 3987,
+      "DBROW": 16806,
+      "DBTABLE": 248
+    },
+    "maximumIds": {
+      "NPC": 16344,
+      "LOC": 62425,
+      "OBJ": 65534,
+      "SEQUENCE": 14496,
+      "SPOTANIM": 4017,
+      "VARBIT": 20410,
+      "VARP": 5724,
+      "ENUM": 5994,
+      "STRUCT": 6499,
+      "DBROW": 16939,
+      "DBTABLE": 258
+    }
+  },
+  "sourceCode": {
+    "javaFiles": 47,
+    "rawReferences": 138
+  },
+  "mappingCount": 305,
+  "classificationCounts": {
+    "NATIVE_240_REPLACEMENT": 80,
+    "NATIVE_240_SAME_ID": 225
+  },
+  "cacheArchivesChanged": []
+}

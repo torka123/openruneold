@@ -4,17 +4,24 @@ import dtx.core.Rollable
 import dtx.core.SingleRollableBuilder
 import dtx.core.singleRollable
 
-
 public open class ChainRollableBuilder<T, R, TT : ChainRollable<T, R>>(
-    private val impl: (base: Int, rollChance: Int, next: ChainRollable<T, R>, rollable: Rollable<T, R>, hooks: ChainRollableHooks<T, R>) -> TT
-) : dtx.core.AbstractRollableBuilder<
+    private val impl:
+        (
+            base: Int,
+            rollChance: Int,
+            next: ChainRollable<T, R>,
+            rollable: Rollable<T, R>,
+            hooks: ChainRollableHooks<T, R>,
+        ) -> TT
+) :
+    dtx.core.AbstractRollableBuilder<
         T,
         R,
         TT,
         ChainRollableHooks<T, R>,
         ChainRollableHooksBuilder<T, R>,
-        ChainRollableBuilder<T, R, TT>
-        >(createHookBuilder = ChainRollableHooksBuilder.new()) {
+        ChainRollableBuilder<T, R, TT>,
+    >(createHookBuilder = ChainRollableHooksBuilder.new()) {
 
     public var baseChance: Int = 1
     public var rollChance: Int = 100
@@ -46,9 +53,7 @@ public open class ChainRollableBuilder<T, R, TT : ChainRollable<T, R>>(
     }
 
     init {
-        construct { hooks ->
-            impl(baseChance, rollChance, ChainEnd(), rollable, hooks)
-        }
+        construct { hooks -> impl(baseChance, rollChance, ChainEnd(), rollable, hooks) }
     }
 }
 
@@ -56,11 +61,12 @@ public fun <T, R> chainRollable(
     baseChance: Int = 1,
     rollChance: Int = 100,
     rollable: Rollable<T, R> = Rollable.Empty(),
-    block: ChainRollableBuilder<T, R, ChainRollable<T, R>>.() -> Unit = {}
+    block: ChainRollableBuilder<T, R, ChainRollable<T, R>>.() -> Unit = {},
 ): ChainRollable<T, R> {
-    val builder = ChainRollableBuilder<T, R, ChainRollable<T, R>> { base, max, next, roll, hooks ->
-        ChainRollableImpl(base, max, next, roll, hooks)
-    }
+    val builder =
+        ChainRollableBuilder<T, R, ChainRollable<T, R>> { base, max, next, roll, hooks ->
+            ChainRollableImpl(base, max, next, roll, hooks)
+        }
     builder.baseChance = baseChance
     builder.rollChance = rollChance
     builder.rollable = rollable

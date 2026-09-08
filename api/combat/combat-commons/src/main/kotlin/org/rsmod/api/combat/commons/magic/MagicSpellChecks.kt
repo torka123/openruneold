@@ -1,5 +1,7 @@
 package org.rsmod.api.combat.commons.magic
 
+import dev.openrune.rscm.RSCM.asRSCM
+import dev.openrune.rscm.RSCMType
 import dev.openrune.types.ItemServerType
 
 public object MagicSpellChecks {
@@ -19,14 +21,27 @@ public object MagicSpellChecks {
         )
 
     public fun isDemonbaneSpell(spell: ItemServerType): Boolean =
-        spell.isAnyType(
-            "obj.br_mithril_scimitar",
-            "obj.br_willow_bow",
-            "obj.br_adamant_scimitar",
-        )
+        spell.isAnyType("obj.br_mithril_scimitar", "obj.br_willow_bow", "obj.br_adamant_scimitar")
 
     public fun isBindSpell(spell: ItemServerType): Boolean =
         spell.isAnyType("obj.20_bind", "obj.50_snare", "obj.79_entangle")
+
+    public fun isIceSpell(spell: ItemServerType): Boolean = iceBindTicks(spell) != null
+
+    /** Exact revision-240 Ancient Ice spell mapping; display names are not protocol identity. */
+    public fun iceBindTicks(spell: ItemServerType): Int? =
+        when (spell.id) {
+            "obj.58_ice_rush".asRSCM(RSCMType.OBJ) -> 8
+            "obj.70_ice_burst".asRSCM(RSCMType.OBJ) -> 16
+            "obj.82_ice_blitz".asRSCM(RSCMType.OBJ) -> 24
+            "obj.94_ice_barrage".asRSCM(RSCMType.OBJ) -> 32
+            else -> null
+        }
+
+    public fun isGraspSpell(spell: ItemServerType): Boolean =
+        spell.name.equals("Ghostly Grasp", ignoreCase = true) ||
+            spell.name.equals("Skeletal Grasp", ignoreCase = true) ||
+            spell.name.equals("Undead Grasp", ignoreCase = true)
 
     public fun isWindSpell(spell: ItemServerType): Boolean =
         spell.isAnyType(
@@ -62,5 +77,6 @@ public object MagicSpellChecks {
             "obj.59_fire_blast",
             "obj.75_fire_wave",
             "obj.95_fire_surge",
+            "obj.fang_of_the_hound_fire",
         )
 }

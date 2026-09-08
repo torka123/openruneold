@@ -9,7 +9,7 @@ public data class HitmarkTypeGroup(
     val max: String? = null,
 ) {
     public fun isAssociatedWith(other: HitmarkTypeGroup): Boolean =
-        lit.asRSCM(RSCMType.HITMARK) == other.lit.asRSCM(RSCMType.HITMARK)
-            && tint?.asRSCM(RSCMType.HITMARK) == other.tint?.asRSCM(RSCMType.HITMARK)
-            && max?.asRSCM(RSCMType.HITMARK) == other.max?.asRSCM(RSCMType.HITMARK)
+        lit.asRSCM(RSCMType.HITMARK) == other.lit.asRSCM(RSCMType.HITMARK) &&
+            tint?.asRSCM(RSCMType.HITMARK) == other.tint?.asRSCM(RSCMType.HITMARK) &&
+            max?.asRSCM(RSCMType.HITMARK) == other.max?.asRSCM(RSCMType.HITMARK)
 }

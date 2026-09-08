@@ -6,6 +6,8 @@ import org.rsmod.api.db.gateway.GameDbManager
 import org.rsmod.api.db.gateway.model.fold
 import org.rsmod.api.net.central.CentralSocialResult
 import org.rsmod.api.net.central.CentralSocialService
+import org.rsmod.api.net.social.FriendChatService
+import org.rsmod.api.net.social.SocialRuntimeService
 import org.rsmod.api.social.writeSocialMessage
 import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
@@ -16,6 +18,8 @@ constructor(
     private val playerList: PlayerList,
     private val db: GameDbManager,
     private val social: CentralSocialService,
+    private val runtime: SocialRuntimeService,
+    private val friendChat: FriendChatService,
 ) : MessageHandler<FriendListAdd> {
     override fun handle(player: Player, message: FriendListAdd) {
         val uid = player.uid
@@ -28,19 +32,21 @@ constructor(
         }
 
         db.request(
-            request = {
-                social.addFriend(
-                    characterId = characterId,
-                    name = requestedName,
-                )
+            request = { connection ->
+                social.addFriend(connection, characterId = characterId, name = requestedName)
             },
             response = { result ->
                 val current = uid.resolve(playerList) ?: return@request
 
                 result.fold(
-                    onOk = { socialResult ->
-                        when (socialResult) {
-                            CentralSocialResult.Ok -> Unit
+                    onOk = { mutation ->
+                        when (val socialResult = mutation.result) {
+                            CentralSocialResult.Ok -> {
+                                mutation.identity?.let {
+                                    runtime.addFriend(characterId, it)
+                                    friendChat.onFriendRelationshipChanged(characterId, it, 0)
+                                }
+                            }
 
                             CentralSocialResult.Ignored -> Unit
 
@@ -49,9 +55,7 @@ constructor(
                             }
                         }
                     },
-                    onErr = {
-                        current.writeSocialMessage("Unable to add player right now.")
-                    },
+                    onErr = { current.writeSocialMessage("Unable to add player right now.") },
                 )
             },
         )

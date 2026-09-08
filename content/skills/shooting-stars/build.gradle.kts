@@ -4,6 +4,7 @@ plugins {
 
 dependencies {
     implementation(projects.api.pluginCommons)
+    implementation(projects.api.collectionLog)
     implementation(projects.api.attr)
     implementation(projects.api.shops)
     implementation(projects.content.skills.mining)

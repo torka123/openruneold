@@ -12,4 +12,3 @@ public inline fun <reified K : Any, reified V : Any> enum(id: Int): EnumTypeMap<
     val raw = ServerCacheManager.getEnum(id) ?: error("Error finding enum")
     return EnumTypeMap(raw)
 }
-

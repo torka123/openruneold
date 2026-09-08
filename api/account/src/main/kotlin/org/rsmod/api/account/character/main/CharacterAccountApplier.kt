@@ -36,6 +36,7 @@ public class CharacterAccountApplier @Inject constructor() :
         player.discordId = d.discordId
         player.coords = CoordGrid(c.coordX, c.coordZ, c.coordLevel)
         player.createdAt = c.createdAt
+        player.mutedUntil = c.mutedUntil
         player.runEnergy = c.runEnergy
         player.xpRate = c.xpRate
         player.lastLogin = LocalDateTime.now()

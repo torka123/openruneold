@@ -10,12 +10,10 @@ public class ArgMap private constructor(private val locked: Boolean = false) {
 
     public constructor(
         vararg args: ArgPair<*>,
-        otherMap: ArgMap = ArgMap.Empty
-    ): this(locked = false) {
+        otherMap: ArgMap = ArgMap.Empty,
+    ) : this(locked = false) {
 
-        args.forEach { argPair ->
-            setWildcard(argPair)
-        }
+        args.forEach { argPair -> setWildcard(argPair) }
 
         otherMap.map.forEach { pair -> setWildcard(pair.key, pair.value) }
     }
@@ -46,7 +44,8 @@ public class ArgMap private constructor(private val locked: Boolean = false) {
 
     public companion object {
 
-        public val Empty: ArgMap get() = ArgMap(locked = false)
+        public val Empty: ArgMap
+            get() = ArgMap(locked = false)
 
         public val EmptyLocked: ArgMap = ArgMap(locked = true)
     }

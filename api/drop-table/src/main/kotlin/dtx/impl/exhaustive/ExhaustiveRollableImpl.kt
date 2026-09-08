@@ -8,8 +8,8 @@ public class ExhaustiveRollableImpl<T, R>(
     public override val rollable: Rollable<T, R>,
     public val hooks: ExhaustiveRollableHooks<T, R>,
     public override val initialRolls: Int,
-    public override var rolls: Int = initialRolls
-): ExhaustiveRollable<T, R>, ExhaustiveRollableHooks<T, R> by hooks {
+    public override var rolls: Int = initialRolls,
+) : ExhaustiveRollable<T, R>, ExhaustiveRollableHooks<T, R> by hooks {
 
     override fun selectResult(target: T, otherArgs: ArgMap): RollResult<R> {
         return rollable.roll(target, otherArgs)

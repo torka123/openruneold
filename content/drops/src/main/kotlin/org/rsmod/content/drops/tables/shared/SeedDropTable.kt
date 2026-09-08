@@ -5,7 +5,6 @@ import dtx.rs.rsWeightedTable
 import org.rsmod.api.droptable.DropRollItem
 import org.rsmod.game.entity.Player
 
-
 public val allotmentSeedDropTable: RSWeightedTable<Player, DropRollItem> = rsWeightedTable {
     name("Allotment seed drop table")
     47 weight DropRollItem("obj.potato_seed", 4)

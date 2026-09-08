@@ -109,6 +109,11 @@ object SlayerMasterProfiles {
                     nearContactMessage =
                         "You could just talk to me, you know - I am standing right here.",
                 ),
+            SlayerMasters.Npc.krystilia to
+                SlayerMasterProfile(
+                    npcId = SlayerMasters.Npc.krystilia,
+                    activeTaskStyle = ActiveTaskMessageStyle.WithComebackSemicolon,
+                ),
             SlayerMasters.Npc.konar to
                 SlayerMasterProfile(
                     npcId = SlayerMasters.Npc.konar,

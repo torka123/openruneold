@@ -34,7 +34,7 @@ public class WeaponRepository @Inject constructor(private val registry: WeaponRe
     private fun loadMappedContentGroups(): Map<Int, List<ItemServerType>> {
         val categorized =
             ServerCacheManager.getItems().values.filter {
-                it.contentGroup != -1 && it.weaponCategory?.id != 0
+                it.contentGroup != -1 && it.resolvedWeaponCategory.id != 0
             }
         return categorized.groupBy { it.contentGroup }
     }

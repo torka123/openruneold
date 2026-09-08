@@ -1,0 +1,7 @@
+capture,event,tick,asset,detail
+rsprox-3386-rev235,meteor_launch,246,14182,"target snapshot at 1495:10082; Fire message; run option forced off"
+rsprox-3386-rev235,meteor_impact,250,3272,"four server ticks after launch; Fire glyph absorbs; run option restored"
+rsprox-3347-rev235,voidflare_spawn,1349,14179,"four flares at local 23:33, 26:25, 35:25, 38:33"
+rsprox-3347-rev235,voidflare_deadline,1352,75,"attackable three ticks after spawn; yellow headbar 0 to 30, endtime 600"
+rsprox-3386-rev235,voidflare_lifecycle,2808,12134,"spawn at 2783; attackable at 2786; explosion animation at 2808; delete at 2810"
+rsprox-3340-rev235,voidflare_deadline,observed,75,"lower-priority League capture uses endtime 360; normal-world 3347 value 600 takes precedence"

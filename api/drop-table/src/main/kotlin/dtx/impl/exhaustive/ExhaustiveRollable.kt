@@ -4,7 +4,7 @@ import dtx.core.ArgMap
 import dtx.core.RollResult
 import dtx.impl.weighted.WeightedRollable
 
-public interface ExhaustiveRollable<T, R>: WeightedRollable<T, R>, ExhaustiveRollableHooks<T, R> {
+public interface ExhaustiveRollable<T, R> : WeightedRollable<T, R>, ExhaustiveRollableHooks<T, R> {
 
     public val initialRolls: Int
 

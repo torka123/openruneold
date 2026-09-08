@@ -18,6 +18,7 @@ import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
 import org.rsmod.game.hit.Hit
 import org.rsmod.game.hit.HitBuilder
+import org.rsmod.game.hit.HitImpactHandler
 import org.rsmod.game.hit.HitType
 
 /* Standard hit functions. */
@@ -68,6 +69,8 @@ public fun Player.queueHit(
     sourceWeapon: ItemServerType? = null,
     sourceSecondary: ItemServerType? = null,
     modifier: PlayerHitModifier = StandardPlayerHitModifier,
+    impactHandler: HitImpactHandler? = null,
+    validity: org.rsmod.game.hit.HitValidity? = null,
 ): Hit {
     val cappedDamage = min(hitpoints, damage)
     val builder =
@@ -81,6 +84,8 @@ public fun Player.queueHit(
             clientDelay = 0,
             specific = specific,
         )
+    builder.impactHandler = impactHandler
+    builder.validity = validity
     return modifyAndStrongQueueHit(delay, builder, modifier)
 }
 
@@ -126,6 +131,7 @@ public fun Player.queueHit(
     hitmark: HitmarkTypeGroup = hitmark_groups.regular_damage,
     sourceSecondary: ItemServerType? = null,
     modifier: PlayerHitModifier = StandardPlayerHitModifier,
+    impactHandler: HitImpactHandler? = null,
 ): Hit {
     val builder =
         InternalPlayerHits.createBuilder(
@@ -138,6 +144,7 @@ public fun Player.queueHit(
             clientDelay = 0,
             specific = false,
         )
+    builder.impactHandler = impactHandler
     return modifyAndStrongQueueHit(delay, builder, modifier)
 }
 
@@ -182,6 +189,7 @@ public fun Player.queueHit(
     specific: Boolean = false,
     modifier: PlayerHitModifier = StandardPlayerHitModifier,
     strongQueue: Boolean = true,
+    impactHandler: HitImpactHandler? = null,
 ): Hit {
     val builder =
         InternalPlayerHits.createBuilder(
@@ -193,6 +201,7 @@ public fun Player.queueHit(
             clientDelay = 0,
             specific = specific,
         )
+    builder.impactHandler = impactHandler
     return if (strongQueue) {
         modifyAndStrongQueueHit(delay, builder, modifier)
     } else {
@@ -249,6 +258,7 @@ public fun Player.takeInstantHit(
     hitmark: HitmarkTypeGroup = hitmark_groups.regular_damage,
     specific: Boolean = false,
     modifier: PlayerHitModifier = NoopPlayerHitModifier,
+    impactHandler: HitImpactHandler? = null,
 ): Hit {
     val builder =
         InternalPlayerHits.createBuilder(
@@ -260,6 +270,7 @@ public fun Player.takeInstantHit(
             clientDelay = 0,
             specific = specific,
         )
+    builder.impactHandler = impactHandler
 
     modifier.modify(builder, this)
 
@@ -316,6 +327,8 @@ public fun Player.queueImpactHit(
     sourceWeapon: ItemServerType? = null,
     sourceSecondary: ItemServerType? = null,
     modifier: PlayerHitModifier = StandardPlayerHitModifier,
+    impactHandler: HitImpactHandler? = null,
+    validity: org.rsmod.game.hit.HitValidity? = null,
 ) {
     val builder =
         InternalPlayerHits.createBuilder(
@@ -328,6 +341,8 @@ public fun Player.queueImpactHit(
             clientDelay = 0,
             specific = specific,
         )
+    builder.impactHandler = impactHandler
+    builder.validity = validity
     strongQueueImpactHit(delay, builder, modifier)
 }
 
@@ -374,6 +389,7 @@ public fun Player.queueImpactHit(
     hitmark: HitmarkTypeGroup = hitmark_groups.regular_damage,
     sourceSecondary: ItemServerType? = null,
     modifier: PlayerHitModifier = StandardPlayerHitModifier,
+    impactHandler: HitImpactHandler? = null,
 ) {
     val builder =
         InternalPlayerHits.createBuilder(
@@ -386,6 +402,7 @@ public fun Player.queueImpactHit(
             clientDelay = 0,
             specific = false,
         )
+    builder.impactHandler = impactHandler
     strongQueueImpactHit(delay, builder, modifier)
 }
 
@@ -428,6 +445,7 @@ public fun Player.queueImpactHit(
     specific: Boolean = false,
     modifier: PlayerHitModifier = StandardPlayerHitModifier,
     strongQueue: Boolean = true,
+    impactHandler: HitImpactHandler? = null,
 ) {
     val builder =
         InternalPlayerHits.createBuilder(
@@ -439,6 +457,7 @@ public fun Player.queueImpactHit(
             clientDelay = 0,
             specific = specific,
         )
+    builder.impactHandler = impactHandler
     if (strongQueue) {
         strongQueueImpactHit(delay, builder, modifier)
     } else {

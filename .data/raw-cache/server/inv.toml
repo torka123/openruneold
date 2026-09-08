@@ -41,3 +41,9 @@ id = "inv.skill_guide_hunting_tracking"
 inherit = "inv.skill_guide_hunting_tracking"
 stack = "Never"
 
+[[inventory]]
+isServerOnly = true
+id = "inv.looting_bag"
+inherit = "inv.looting_bag"
+scope = "Perm"
+protect = true

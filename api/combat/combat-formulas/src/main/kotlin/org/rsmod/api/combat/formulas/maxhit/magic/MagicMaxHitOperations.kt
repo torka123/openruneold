@@ -56,7 +56,10 @@ public object MagicMaxHitOperations {
 
         var modifiedMagicDmgBonus = sourceBaseMagicDmgBonus
 
-        if (SpellAttr.SmokeStaff in spellAttributes && SpellAttr.StandardBook in spellAttributes) {
+        if (
+            SpellAttr.StandardBook in spellAttributes &&
+                (SpellAttr.SmokeStaff in spellAttributes || SpellAttr.TwinflameStaff in spellAttributes)
+        ) {
             modifiedMagicDmgBonus += 100
         }
 
@@ -131,7 +134,10 @@ public object MagicMaxHitOperations {
 
         var modifiedMagicDmgBonus = sourceBaseMagicDmgBonus
 
-        if (SpellAttr.SmokeStaff in spellAttributes && SpellAttr.StandardBook in spellAttributes) {
+        if (
+            SpellAttr.StandardBook in spellAttributes &&
+                (SpellAttr.SmokeStaff in spellAttributes || SpellAttr.TwinflameStaff in spellAttributes)
+        ) {
             modifiedMagicDmgBonus += 100
         }
 
@@ -171,14 +177,19 @@ public object MagicMaxHitOperations {
             modifiedMax += additive
         }
 
-        if (SpellAttr.SunfireRunePassive in spellAttributes) {
+        if (
+            SpellAttr.SunfireRunePassive in spellAttributes ||
+                SpellAttr.StandardBook in spellAttributes && SpellAttr.FireSpell in spellAttributes &&
+                    SpellAttr.SearingPageTome in spellAttributes
+        ) {
             modifiedMin = modifiedMax / 10
         }
 
         val applyTomeMod =
-            SpellAttr.EarthTome in spellAttributes && SpellAttr.EarthSpell in spellAttributes ||
-                SpellAttr.WaterTome in spellAttributes && SpellAttr.WaterSpell in spellAttributes ||
-                SpellAttr.FireTome in spellAttributes && SpellAttr.FireSpell in spellAttributes
+            SpellAttr.StandardBook in spellAttributes &&
+                (SpellAttr.EarthTome in spellAttributes && SpellAttr.EarthSpell in spellAttributes ||
+                    SpellAttr.WaterTome in spellAttributes && SpellAttr.WaterSpell in spellAttributes ||
+                    SpellAttr.FireTome in spellAttributes && SpellAttr.FireSpell in spellAttributes)
 
         if (applyTomeMod) {
             modifiedMax = scale(modifiedMax, multiplier = 11, divisor = 10)
@@ -212,17 +223,25 @@ public object MagicMaxHitOperations {
         var modifiedMin = 0
         var modifiedMax = modifiedDamage
 
-        if (SpellAttr.SunfireRunePassive in spellAttributes) {
+        if (
+            SpellAttr.SunfireRunePassive in spellAttributes ||
+                SpellAttr.StandardBook in spellAttributes && SpellAttr.FireSpell in spellAttributes &&
+                    SpellAttr.SearingPageTome in spellAttributes
+        ) {
             modifiedMin = modifiedMax / 10
         }
 
-        val applyTomeMod =
-            SpellAttr.EarthTome in spellAttributes && SpellAttr.EarthSpell in spellAttributes ||
-                SpellAttr.WaterTome in spellAttributes && SpellAttr.WaterSpell in spellAttributes ||
-                SpellAttr.FireTome in spellAttributes && SpellAttr.FireSpell in spellAttributes
-
-        if (applyTomeMod) {
-            modifiedMax = scale(modifiedMax, multiplier = 12, divisor = 10)
+        if (SpellAttr.StandardBook in spellAttributes) {
+            modifiedMax =
+                when {
+                    SpellAttr.FireTome in spellAttributes && SpellAttr.FireSpell in spellAttributes ->
+                        scale(modifiedMax, multiplier = 3, divisor = 2)
+                    SpellAttr.WaterTome in spellAttributes && SpellAttr.WaterSpell in spellAttributes ->
+                        scale(modifiedMax, multiplier = 6, divisor = 5)
+                    SpellAttr.EarthTome in spellAttributes && SpellAttr.EarthSpell in spellAttributes ->
+                        scale(modifiedMax, multiplier = 11, divisor = 10)
+                    else -> modifiedMax
+                }
         }
 
         if (SpellAttr.AhrimPassive in spellAttributes) {

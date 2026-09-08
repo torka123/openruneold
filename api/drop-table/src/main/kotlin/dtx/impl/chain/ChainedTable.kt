@@ -2,10 +2,8 @@ package dtx.impl.chain
 
 import dtx.core.ArgMap
 import dtx.core.RollResult
-import dtx.core.Rollable
 import dtx.table.Table
 import kotlin.random.Random
-
 
 public interface ChainedTable<T, R> : Table<T, R>, ChainedTableHooks<T, R> {
     override val tableEntries: Collection<ChainRollable<T, R>>
@@ -16,7 +14,7 @@ public interface ChainedTable<T, R> : Table<T, R>, ChainedTableHooks<T, R> {
 public open class ChainedTableImpl<T, R>(
     public override val tableIdentifier: String,
     public override val head: ChainRollable<T, R>,
-    private val hooks: ChainedTableHooks<T, R> = ChainedTableHooks.Default()
+    private val hooks: ChainedTableHooks<T, R> = ChainedTableHooks.Default(),
 ) : ChainedTable<T, R>, ChainedTableHooks<T, R> by hooks {
 
     override val tableEntries: Collection<ChainRollable<T, R>> = head.collect()
@@ -29,22 +27,24 @@ public open class ChainedTableImpl<T, R>(
 
         while (link !== ChainEnd) {
 
-            val chainHooks: ChainRollableHooks<T, R> = when (link) {
-                is ChainRollableImpl<T, R> -> link.hooks
-                is ChainEnd -> ChainRollableHooks.Default()
-                else -> link as ChainRollableHooks<T, R>
-            }
+            val chainHooks: ChainRollableHooks<T, R> =
+                when (link) {
+                    is ChainRollableImpl<T, R> -> link.hooks
+                    is ChainEnd -> ChainRollableHooks.Default()
+                    else -> link as ChainRollableHooks<T, R>
+                }
 
             if (chainHooks.skipLink(target)) {
                 link = chainHooks.nextOverride(target, link.next)
                 continue
             }
 
-            val (adjustedBase, adjustedRollChance) = chainHooks.adjustChance(
-                target = target,
-                base = link.base,
-                rollChance = link.rollChance
-            )
+            val (adjustedBase, adjustedRollChance) =
+                chainHooks.adjustChance(
+                    target = target,
+                    base = link.base,
+                    rollChance = link.rollChance,
+                )
 
             if (adjustedRollChance <= 0) {
                 link = chainHooks.nextOverride(target, link.next)
@@ -59,10 +59,11 @@ public open class ChainedTableImpl<T, R>(
             chainHooks.onLinkEvaluated(target, rolled, threshold, passed)
 
             if (passed) {
-                val result = when (link) {
-                    is ChainRollableImpl<T, R> -> link.rollable.roll(target, otherArgs)
-                    else -> link.roll(target, otherArgs)
-                }
+                val result =
+                    when (link) {
+                        is ChainRollableImpl<T, R> -> link.rollable.roll(target, otherArgs)
+                        else -> link.roll(target, otherArgs)
+                    }
                 onChainEnd(target, result)
                 return result
             } else {

@@ -49,12 +49,14 @@ constructor(
         // despawn entry in [addDurations] when the new [locReg.add] returned [NormalMapLoc], so the
         // stale timer could never remove the visible loc and no new timer was scheduled.
         clearTimedDespawnAt(loc.coords, loc.layer)
+        // Explicitly restoring a map loc must cancel its pending automatic respawn. This is used by
+        // gates and doors that players can close before their normal auto-close timer expires.
+        delDurations.removeExisting(loc)
 
         if (add.shouldDespawn() && duration != Int.MAX_VALUE) {
             val revertCycle = mapClock + duration
             val validator = add.regionValidator()
             val locDuration = LocCycleDuration(loc, revertCycle, validator, onDespawn)
-            delDurations.removeExisting(loc)
             addDurations.add(locDuration)
         }
 
@@ -102,12 +104,15 @@ constructor(
             return false
         }
 
+        // Explicitly removing a timed spawn must cancel its old despawn entry. Otherwise a later
+        // spawn at the same tile can be deleted by the stale timer from an earlier gate state.
+        addDurations.removeExisting(loc)
+        delDurations.removeExisting(loc)
+
         if (delete.canRespawn() && duration != Int.MAX_VALUE) {
             val revertCycle = mapClock + duration
             val validator = delete.regionValidator()
             val locDuration = LocCycleDuration(loc, revertCycle, validator)
-            addDurations.removeExisting(loc)
-            delDurations.removeExisting(loc)
             delDurations.add(locDuration)
         }
 

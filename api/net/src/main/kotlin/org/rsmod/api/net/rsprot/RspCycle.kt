@@ -1,9 +1,11 @@
 package org.rsmod.api.net.rsprot
 
+import dev.openrune.CrimsonKisten
 import dev.openrune.ServerCacheManager
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.util.Wearpos
 import net.rsprot.protocol.api.Session
+import net.rsprot.protocol.common.client.OldSchoolClientType
 import net.rsprot.protocol.game.outgoing.info.Infos
 import net.rsprot.protocol.game.outgoing.info.npcinfo.NpcInfoPacket
 import net.rsprot.protocol.game.outgoing.info.playerinfo.PlayerAvatarExtendedInfo
@@ -15,15 +17,26 @@ import net.rsprot.protocol.game.outgoing.info.util.safeReleaseOrThrow
 import net.rsprot.protocol.game.outgoing.map.RebuildLoginV2
 import net.rsprot.protocol.game.outgoing.map.RebuildNormalV2
 import net.rsprot.protocol.game.outgoing.map.RebuildRegionV2
+import net.rsprot.protocol.game.outgoing.map.RebuildWorldEntityV4
 import net.rsprot.protocol.game.outgoing.map.util.RebuildRegionZone
 import net.rsprot.protocol.game.outgoing.map.util.ReferenceZone
+import net.rsprot.protocol.game.outgoing.zone.header.UpdateZoneFullFollows
+import net.rsprot.protocol.game.outgoing.zone.header.UpdateZonePartialEnclosed
 import net.rsprot.protocol.message.OutgoingGameMessage
+import net.rsprot.protocol.message.ZoneProt
 import org.rsmod.api.config.refs.params
 import org.rsmod.api.net.rsprot.ext.setFaceTarget
 import org.rsmod.api.player.righthand
+import org.rsmod.api.registry.loc.LocRegistry
+import org.rsmod.api.registry.obj.ObjRegistry
 import org.rsmod.api.registry.region.RegionRegistry
+import org.rsmod.api.registry.zone.ZoneUpdateMap
+import org.rsmod.api.registry.zone.ZoneUpdateTransformer
+import org.rsmod.api.utils.zone.SharedZoneEnclosedBuffers
 import org.rsmod.game.client.ClientCycle
 import org.rsmod.game.entity.Player
+import org.rsmod.game.entity.WorldEntity
+import org.rsmod.game.entity.WorldEntityList
 import org.rsmod.game.entity.util.EntityFaceAngle
 import org.rsmod.game.headbar.Headbar
 import org.rsmod.game.hit.Hitmark
@@ -40,6 +53,11 @@ class RspCycle(
     private val session: Session<Player>,
     private val infos: Infos,
     private val regions: RegionRegistry,
+    private val worldEntities: WorldEntityList,
+    private val zoneUpdates: ZoneUpdateMap,
+    private val locReg: LocRegistry,
+    private val objReg: ObjRegistry,
+    private val enclosedBuffers: SharedZoneEnclosedBuffers,
 ) : ClientCycle {
     private var knownCoords: CoordGrid = CoordGrid.ZERO
 
@@ -82,6 +100,7 @@ class RspCycle(
         player.applyFaceAngle()
         player.applyAnim()
         player.applySpotanims()
+        player.applyTint()
         player.applySay()
         player.applyHeadbars()
         player.applyHitmarks()
@@ -101,10 +120,130 @@ class RspCycle(
         for (world in infoPackets.activeWorlds) {
             session.queue(world.activeWorld)
             session.queue(world.npcUpdateOrigin)
+            if (world.added) {
+                queueRebuildWorldEntity(world.worldId)
+            }
             session.queueNpcInfoPacket(world.npcInfo)
+            queueWorldEntityZoneUpdates(player, world.worldId, world.added)
         }
 
         session.queue(rootPackets.activeWorld)
+    }
+
+    private fun queueRebuildWorldEntity(worldId: Int) {
+        val entity = worldEntities[worldId] ?: return
+        val rebuild =
+            RebuildWorldEntityV4(
+                baseX = entity.southWestZoneX shl 3,
+                baseZ = entity.southWestZoneZ shl 3,
+                sizeX = entity.sizeX,
+                sizeZ = entity.sizeZ,
+                zoneProvider = createWorldEntityZoneProvider(entity),
+            )
+        session.queue(rebuild)
+    }
+
+    /**
+     * Queues zone updates for the deck zones of world entity [worldId]. The caller queues these
+     * inside the world's flush section (after its npc info), so they are framed under the per-world
+     * active-world context. On the cycle the world is [added] to this player's high resolution, the
+     * rebuild restored template state - reset each deck zone and replay its persistent deltas
+     * (spawned locs, ground objs). On subsequent cycles, forward this tick's transient updates.
+     * Zone headers are relative to the entity world's build-area base (the rebuild baseX/baseZ),
+     * with no view-radius shift.
+     */
+    private fun queueWorldEntityZoneUpdates(player: Player, worldId: Int, added: Boolean) {
+        val entity = worldEntities[worldId] ?: return
+        val baseX = entity.southWestZoneX shl 3
+        val baseZ = entity.southWestZoneZ shl 3
+        for (level in entity.minLevel..entity.maxLevel) {
+            for (zoneX in 0 until entity.sizeX) {
+                for (zoneZ in 0 until entity.sizeZ) {
+                    val zone =
+                        ZoneKey(entity.southWestZoneX + zoneX, entity.southWestZoneZ + zoneZ, level)
+                    val zoneBase = zone.toCoords()
+                    val deltaX = zoneBase.x - baseX
+                    val deltaZ = zoneBase.z - baseZ
+                    if (added) {
+                        session.queue(UpdateZoneFullFollows(deltaX, deltaZ, level))
+                        queuePersistentZoneState(player, zone, deltaX, deltaZ, level)
+                    } else {
+                        queueTransientZoneUpdates(player, zone, deltaX, deltaZ, level)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun queuePersistentZoneState(
+        player: Player,
+        zone: ZoneKey,
+        deltaX: Int,
+        deltaZ: Int,
+        level: Int,
+    ) {
+        for (loc in locReg.findAllSpawned(zone)) {
+            session.queue(ZoneUpdateTransformer.toPersistentLocChange(loc))
+        }
+        val objProts = ArrayList<ZoneProt>()
+        for (obj in objReg.findAll(zone)) {
+            val prot =
+                ZoneUpdateTransformer.toPersistentObjAdd(obj, player.observerUUID) ?: continue
+            objProts += prot
+        }
+        queueEnclosed(deltaX, deltaZ, level, objProts)
+    }
+
+    private fun queueTransientZoneUpdates(
+        player: Player,
+        zone: ZoneKey,
+        deltaX: Int,
+        deltaZ: Int,
+        level: Int,
+    ) {
+        val shared = enclosedBuffers[zone]?.get(OldSchoolClientType.DESKTOP)
+        if (shared != null) {
+            session.queue(UpdateZonePartialEnclosed(deltaX, deltaZ, level, shared))
+        }
+        val updates = zoneUpdates[zone] ?: return
+        val playerSpecific =
+            ZoneUpdateTransformer.toObserverEnclosedProtList(updates, player.observerUUID)
+        queueEnclosed(deltaX, deltaZ, level, playerSpecific)
+    }
+
+    private fun queueEnclosed(deltaX: Int, deltaZ: Int, level: Int, prots: List<ZoneProt>) {
+        if (prots.isEmpty()) {
+            return
+        }
+        val buffer = enclosedBuffers.computeBufferForClient(OldSchoolClientType.DESKTOP, prots)
+        session.queue(UpdateZonePartialEnclosed(deltaX, deltaZ, level, buffer))
+    }
+
+    private fun createWorldEntityZoneProvider(
+        entity: WorldEntity
+    ): RebuildWorldEntityV4.RebuildWorldEntityZoneProvider {
+        val region =
+            entity.region
+                ?: return RebuildWorldEntityV4.RebuildWorldEntityZoneProvider { _, _, _ -> null }
+        val regionZones = region.toZoneList()
+        val rebuildZones =
+            regionZones.associateWith { zone ->
+                val copyZone = regions[zone]
+                if (copyZone == RegionZoneCopy.NULL) {
+                    return@associateWith null
+                }
+                ReferenceZone(copyZone.packed)
+            }
+        return RebuildWorldEntityV4.RebuildWorldEntityZoneProvider { zoneX, zoneZ, level ->
+            rebuildZones[ZoneKey(zoneX, zoneZ, level)]?.let { ref ->
+                RebuildRegionZone(
+                    zoneX = ref.zoneX,
+                    zoneZ = ref.zoneZ,
+                    level = ref.level,
+                    rotation = ref.rotation,
+                )
+            }
+        }
     }
 
     override fun release() {
@@ -152,7 +291,14 @@ class RspCycle(
             knownCachedSpeed = cachedMoveSpeed
         }
         val moveSpeed = resolvePendingMoveSpeed()
-        if (moveSpeed != cachedMoveSpeed && coords != knownCoords) {
+        if (
+            shouldTransmitTempMoveSpeed(
+                moveSpeed,
+                cachedMoveSpeed,
+                pendingTelejump,
+                coords != knownCoords,
+            )
+        ) {
             val extendedInfo = playerInfo.avatar.extendedInfo
             extendedInfo.setTempMoveSpeed(moveSpeed.steps)
         }
@@ -190,6 +336,21 @@ class RspCycle(
             return
         }
 
+        // Aboard a world entity: the root map recentres on the entity's root-world coords
+        // via RebuildNormal (mid-sail recentre). Never RebuildRegion here - the deck region
+        // is loaded through RebuildWorldEntity, and the player's own instance-land coords
+        // must not drive the root map (regionUid points at the deck region while aboard).
+        val worldEntity = worldEntities.findAt(coords)
+        if (worldEntity != null) {
+            val entityCoords = worldEntity.coords
+            val rebuild = RebuildNormalV2(entityCoords.x shr 3, entityCoords.z shr 3, worldId)
+            knownBuildArea = buildArea
+            knownRegionUid = null
+            cachedRegionZoneProvider = null
+            session.queue(rebuild)
+            return
+        }
+
         if (regionUid == null) {
             val rebuild = RebuildNormalV2(x shr 3, z shr 3, worldId)
             knownBuildArea = buildArea
@@ -221,20 +382,29 @@ class RspCycle(
         session.queue(rebuild)
     }
 
-    private fun createRegionZoneProvider(region: Region): RebuildRegionV2.RebuildRegionZoneProvider {
+    private fun createRegionZoneProvider(
+        region: Region
+    ): RebuildRegionV2.RebuildRegionZoneProvider {
         val regionZones = region.toZoneList()
-        val rebuildZones = regionZones.associateWith { zone ->
-            val copyZone = regions[zone]
-            if (copyZone == RegionZoneCopy.NULL) {
-                return@associateWith null
+        val rebuildZones =
+            regionZones.associateWith { zone ->
+                val copyZone = regions[zone]
+                if (copyZone == RegionZoneCopy.NULL) {
+                    return@associateWith null
+                }
+                ReferenceZone(copyZone.packed)
             }
-            ReferenceZone(copyZone.packed)
-        }
-        val zoneProvider = RebuildRegionV2.RebuildRegionZoneProvider { zoneX, zoneZ, level ->
-            rebuildZones[ZoneKey(zoneX, zoneZ, level)]?.let { ref ->
-                RebuildRegionZone(zoneX = ref.zoneX, zoneZ = ref.zoneZ, level = ref.level, rotation = ref.rotation)
+        val zoneProvider =
+            RebuildRegionV2.RebuildRegionZoneProvider { zoneX, zoneZ, level ->
+                rebuildZones[ZoneKey(zoneX, zoneZ, level)]?.let { ref ->
+                    RebuildRegionZone(
+                        zoneX = ref.zoneX,
+                        zoneZ = ref.zoneZ,
+                        level = ref.level,
+                        rotation = ref.rotation,
+                    )
+                }
             }
-        }
         return zoneProvider
     }
 
@@ -280,6 +450,18 @@ class RspCycle(
             val (id, delay, height, slot) = EntitySpotanim(packed)
             playerExtendedInfo.setSpotAnim(slot, id, delay, height)
         }
+    }
+
+    private fun Player.applyTint() {
+        val tint = pendingTint ?: return
+        playerExtendedInfo.setTinting(
+            startTime = tint.startTime,
+            endTime = tint.endTime,
+            hue = tint.hue,
+            saturation = tint.saturation,
+            lightness = tint.lightness,
+            weight = tint.weight,
+        )
     }
 
     private fun Player.applySay() {
@@ -389,13 +571,19 @@ class RspCycle(
             runningAnim = transmog.runSequence
         } else if (weapon != null) {
             val type = getInvObj(weapon)
-            readyAnim = type.param(params.bas_readyanim).id
+            readyAnim =
+                if (weapon.id == CrimsonKisten.ITEM) CrimsonKisten.READY
+                else type.param(params.bas_readyanim).id
             turnOnSpotAnim = type.param(params.bas_turnonspot).id
-            walkForwardAnim = type.param(params.bas_walk_f).id
+            walkForwardAnim =
+                if (weapon.id == CrimsonKisten.ITEM) CrimsonKisten.WALK
+                else type.param(params.bas_walk_f).id
             walkBackAnim = type.param(params.bas_walk_b).id
             walkLeftAnim = type.param(params.bas_walk_l).id
             walkRightAnim = type.param(params.bas_walk_r).id
-            runningAnim = type.param(params.bas_running).id
+            runningAnim =
+                if (weapon.id == CrimsonKisten.ITEM) CrimsonKisten.RUN
+                else type.param(params.bas_running).id
         } else {
             val default =
                 ServerCacheManager.getBas("bas.human_default".asRSCM())
@@ -431,3 +619,10 @@ class RspCycle(
         }
     }
 }
+
+internal fun shouldTransmitTempMoveSpeed(
+    pendingMoveSpeed: MoveSpeed,
+    cachedMoveSpeed: MoveSpeed,
+    pendingTelejump: Boolean,
+    coordinatesChanged: Boolean,
+): Boolean = coordinatesChanged && (pendingMoveSpeed != cachedMoveSpeed || pendingTelejump)

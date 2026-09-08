@@ -1,0 +1,5 @@
+# Persistent public fixtures for the Edgeville Dungeon milestone remodel.
+
+[[spawn]]
+npc = "npc.rat_boss_normal"
+coords = "0_51_154_35_11"

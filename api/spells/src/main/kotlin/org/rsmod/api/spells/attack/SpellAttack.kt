@@ -6,6 +6,9 @@ import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
 
 public interface SpellAttack {
+    /** Explicit opt-in for utility attacks such as Dark Lure on a non-combat impling. */
+    public fun canTargetNonCombatNpc(target: Npc): Boolean = false
+
     public suspend fun ProtectedAccess.attack(target: Npc, attack: CombatAttack.Spell)
 
     public suspend fun ProtectedAccess.attack(target: Player, attack: CombatAttack.Spell)

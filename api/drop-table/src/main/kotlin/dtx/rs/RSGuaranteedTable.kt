@@ -15,11 +15,13 @@ public class RSGuaranteedTable<T, R>(
     tableIdentifier: String,
     tableEntries: Collection<Rollable<T, R>>,
     tableHooks: TableHooks<T, R> = TableHooks.Default(),
-) : RSTable<T, R>, MultiChanceTable<T, R> by MultiChanceTableImpl(
-    tableIdentifier,
-    tableEntries.map { ChanceRollableImpl(100.0, it) },
-    tableHooks,
-) {
+) :
+    RSTable<T, R>,
+    MultiChanceTable<T, R> by MultiChanceTableImpl(
+        tableIdentifier,
+        tableEntries.map { ChanceRollableImpl(100.0, it) },
+        tableHooks,
+    ) {
     public companion object {
         private val EmptyTable = RSGuaranteedTable<Any?, Any?>("", emptyList())
 
@@ -37,7 +39,7 @@ public class RSGuaranteedTableBuilder<T, R> :
         TableHooks<T, R>,
         DefaultTableHooksBuilder<T, R>,
         RSGuaranteedTableBuilder<T, R>,
-        >(DefaultTableHooksBuilder.new()) {
+    >(DefaultTableHooksBuilder.new()) {
 
     override val entries: MutableCollection<Rollable<T, R>> = mutableListOf()
 
@@ -58,13 +60,13 @@ public class RSGuaranteedTableBuilder<T, R> :
     }
 
     init {
-        construct {
-            RSGuaranteedTable(tableIdentifier, entries, hooks.build())
-        }
+        construct { RSGuaranteedTable(tableIdentifier, entries, hooks.build()) }
     }
 }
 
-public fun <T, R> rsGuaranteedTable(block: RSGuaranteedTableBuilder<T, R>.() -> Unit): RSGuaranteedTable<T, R> {
+public fun <T, R> rsGuaranteedTable(
+    block: RSGuaranteedTableBuilder<T, R>.() -> Unit
+): RSGuaranteedTable<T, R> {
     val builder = RSGuaranteedTableBuilder<T, R>()
     builder.apply(block)
     return builder.build()

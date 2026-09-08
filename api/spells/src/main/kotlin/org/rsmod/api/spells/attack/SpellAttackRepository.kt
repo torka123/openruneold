@@ -1,6 +1,5 @@
 package org.rsmod.api.spells.attack
 
-import dev.openrune.types.ItemServerType
 import jakarta.inject.Inject
 
 public class SpellAttackRepository @Inject constructor(private val registry: SpellAttackRegistry) {

@@ -1,7 +1,5 @@
 package org.rsmod.api.controller.vars
 
-import dev.openrune.types.VarConBitType
-import dev.openrune.types.VarConType
 import kotlin.reflect.KProperty
 import org.rsmod.game.entity.Controller
 

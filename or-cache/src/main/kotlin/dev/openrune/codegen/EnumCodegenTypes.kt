@@ -8,8 +8,8 @@ import dev.openrune.definition.util.VarType
 import dev.openrune.rscm.RSCM
 
 /**
- * When several row/column enum ids map to definitions, require a single (keyType, valueType)
- * shape (or fall back to [templateId]'s definition).
+ * When several row/column enum ids map to definitions, require a single (keyType, valueType) shape
+ * (or fall back to [templateId]'s definition).
  */
 internal fun unifiedEnumKeyValueTypes(
     enumIds: List<Int>,
@@ -25,9 +25,9 @@ internal fun unifiedEnumKeyValueTypes(
 }
 
 /**
- * Kotlin [TypeName] pair for [EnumType] map entries, including nested
- * `EnumTypeMap<…, EnumTypeMap<…, …>>` when key or value slot is [VarType.ENUM] (references another
- * enum by id / `enum.*` RSCM string in [EnumType.values]).
+ * Kotlin [TypeName] pair for [EnumType] map entries, including nested `EnumTypeMap<…,
+ * EnumTypeMap<…, …>>` when key or value slot is [VarType.ENUM] (references another enum by id /
+ * `enum.*` RSCM string in [EnumType.values]).
  */
 internal fun kotlinTypePairForEnumDefinition(
     enumDef: EnumType,
@@ -35,7 +35,8 @@ internal fun kotlinTypePairForEnumDefinition(
     enumTypeMapClass: ClassName,
 ): Pair<TypeName, TypeName> {
     val k = kotlinTypeForEnumSlot(enumDef.keyType, enumDef, enums, enumTypeMapClass, keySide = true)
-    val v = kotlinTypeForEnumSlot(enumDef.valueType, enumDef, enums, enumTypeMapClass, keySide = false)
+    val v =
+        kotlinTypeForEnumSlot(enumDef.valueType, enumDef, enums, enumTypeMapClass, keySide = false)
     return k to v
 }
 
@@ -53,8 +54,11 @@ private fun kotlinTypeForEnumSlot(
     if (innerIds.isEmpty()) {
         return kotlinTypeForVarType(VarType.INT, false)
     }
-    unifiedEnumKeyValueTypes(innerIds, enums, innerIds.firstOrNull()) ?: return kotlinTypeForVarType(VarType.INT, false)
-    val repInnerId = innerIds.firstOrNull { enums.containsKey(it) } ?: return kotlinTypeForVarType(VarType.INT, false)
+    unifiedEnumKeyValueTypes(innerIds, enums, innerIds.firstOrNull())
+        ?: return kotlinTypeForVarType(VarType.INT, false)
+    val repInnerId =
+        innerIds.firstOrNull { enums.containsKey(it) }
+            ?: return kotlinTypeForVarType(VarType.INT, false)
     val innerDef = enums.getValue(repInnerId)
     val (ik, iv) = kotlinTypePairForEnumDefinition(innerDef, enums, enumTypeMapClass)
     return enumTypeMapClass.parameterizedBy(ik, iv)
@@ -78,7 +82,8 @@ private fun rawSlotToInnerEnumId(raw: Any?): Int? =
         is String -> {
             val t = raw.trim()
             when {
-                t.startsWith("enum.") -> runCatching { RSCM.getRSCM(t) }.getOrNull()?.takeIf { it > 0 }
+                t.startsWith("enum.") ->
+                    runCatching { RSCM.getRSCM(t) }.getOrNull()?.takeIf { it > 0 }
                 else -> t.toIntOrNull()?.takeIf { it > 0 }
             }
         }

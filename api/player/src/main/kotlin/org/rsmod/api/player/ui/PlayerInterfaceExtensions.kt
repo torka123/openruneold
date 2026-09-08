@@ -6,8 +6,6 @@ import dev.openrune.definition.type.widget.ComponentType
 import dev.openrune.definition.type.widget.IfEvent
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
-import dev.openrune.types.ItemServerType
-import dev.openrune.types.NpcServerType
 import dev.openrune.types.SequenceServerType
 import dev.openrune.types.aconverted.interf.IfSubType
 import java.awt.Color
@@ -23,6 +21,7 @@ import net.rsprot.protocol.game.outgoing.interfaces.IfSetNpcHead
 import net.rsprot.protocol.game.outgoing.interfaces.IfSetNpcHeadActive
 import net.rsprot.protocol.game.outgoing.interfaces.IfSetObject
 import net.rsprot.protocol.game.outgoing.interfaces.IfSetPlayerHead
+import net.rsprot.protocol.game.outgoing.interfaces.IfSetPosition
 import net.rsprot.protocol.game.outgoing.interfaces.IfSetText
 import net.rsprot.protocol.game.outgoing.misc.player.TriggerOnDialogAbort
 import org.rsmod.annotations.InternalApi
@@ -63,7 +62,9 @@ private typealias MoveSub = org.rsmod.api.player.ui.IfMoveSub
 private var Player.chatModalUnclamp: Int by intVarBit("varbit.chatmodal_unclamp")
 
 public fun Player.ifSetObj(target: String, obj: String, zoomOrCount: Int) {
-    client.write(IfSetObject(target.asRSCM(RSCMType.COMPONENT), obj.asRSCM(RSCMType.OBJ), zoomOrCount))
+    client.write(
+        IfSetObject(target.asRSCM(RSCMType.COMPONENT), obj.asRSCM(RSCMType.OBJ), zoomOrCount)
+    )
 }
 
 public fun Player.ifSetObj(target: String, obj: InvObj, zoomOrCount: Int) {
@@ -106,6 +107,30 @@ public fun Player.ifOpenMainModal(
     ifOpenMain(interf, eventBus)
 }
 
+/** Opens a verified stock-cache main modal without creating a custom gameval override. */
+public fun Player.ifOpenMainModal(
+    interf: Int,
+    eventBus: EventBus,
+    colour: Int = -1,
+    transparency: Int = -1,
+) {
+    topLevelMainModalOpen(this, colour, transparency)
+    val target =
+        ServerCacheManager.fromComponent(
+            "component.toplevel_osrs_stretch:mainmodal".asRSCM(RSCMType.COMPONENT)
+        )
+    val idComponent = target.toIdComponent()
+    val idInterface =
+        ServerCacheManager.getInterface(interf)?.toIdInterface()
+            ?: error("Could not find interface $interf")
+    triggerCloseSubs(idComponent, eventBus)
+    ui.removeQueuedCloseSub(target)
+    ui.modals[idComponent] = idInterface
+    val translated = ui.translate(idComponent)
+    client.write(IfOpenSub(translated.parent, translated.child, interf, IfSubType.Modal.id))
+    eventBus.publish(OpenSub(this, idInterface, idComponent, IfSubType.Modal))
+}
+
 public fun Player.ifOpenMain(interf: String, eventBus: EventBus) {
     openModal(interf, "component.toplevel_osrs_stretch:mainmodal", eventBus)
 }
@@ -122,11 +147,57 @@ public fun Player.ifOpenMainSidePair(
     openModal(side, "component.toplevel_osrs_stretch:sidemodal", eventBus)
 }
 
+/** Opens a pair of verified stock-cache interfaces which have no named gameval mappings. */
+public fun Player.ifOpenMainSidePair(
+    main: Int,
+    side: Int,
+    colour: Int,
+    transparency: Int,
+    eventBus: EventBus,
+) {
+    topLevelMainModalBackground(this, colour, transparency)
+    openStockModal(main, "component.toplevel_osrs_stretch:mainmodal", eventBus)
+    openStockModal(side, "component.toplevel_osrs_stretch:sidemodal", eventBus)
+}
+
+private fun Player.openStockModal(interf: Int, targetName: String, eventBus: EventBus) {
+    val target = ServerCacheManager.fromComponent(targetName.asRSCM(RSCMType.COMPONENT))
+    val idComponent = target.toIdComponent()
+    val idInterface =
+        ServerCacheManager.getInterface(interf)?.toIdInterface()
+            ?: error("Could not find interface $interf")
+    triggerCloseSubs(idComponent, eventBus)
+    ui.removeQueuedCloseSub(target)
+    ui.modals[idComponent] = idInterface
+    val translated = ui.translate(idComponent)
+    client.write(IfOpenSub(translated.parent, translated.child, interf, IfSubType.Modal.id))
+    eventBus.publish(OpenSub(this, idInterface, idComponent, IfSubType.Modal))
+}
+
 public fun Player.ifOpenOverlay(interf: String, target: String, eventBus: EventBus) {
     ifOpenSub(interf, target, IfSubType.Overlay, eventBus)
 }
 
 public fun Player.ifOpenOverlay(interf: String, eventBus: EventBus) {
+    ifOpenOverlay(interf, "component.toplevel_osrs_stretch:floater", eventBus)
+}
+
+/** Opens a verified stock-cache interface without creating a custom gameval override. */
+public fun Player.ifOpenOverlay(interf: Int, targetComponent: String, eventBus: EventBus) {
+    val target = ServerCacheManager.fromComponent(targetComponent.asRSCM(RSCMType.COMPONENT))
+    val idComponent = target.toIdComponent()
+    val idInterface =
+        ServerCacheManager.getInterface(interf)?.toIdInterface()
+            ?: error("Could not find interface $interf")
+    triggerCloseSubs(idComponent, eventBus)
+    ui.removeQueuedCloseSub(target)
+    ui.overlays[idComponent] = idInterface
+    val translated = ui.translate(idComponent)
+    client.write(IfOpenSub(translated.parent, translated.child, interf, IfSubType.Overlay.id))
+    eventBus.publish(OpenSub(this, idInterface, idComponent, IfSubType.Overlay))
+}
+
+public fun Player.ifOpenOverlay(interf: Int, eventBus: EventBus) {
     ifOpenOverlay(interf, "component.toplevel_osrs_stretch:floater", eventBus)
 }
 
@@ -216,10 +287,14 @@ public fun Player.ifCloseModals(eventBus: EventBus) {
 }
 
 public fun Player.ifSetEvents(internal: String, range: IntRange, vararg event: IfEvent) {
-    val packed = event.fold(0L) { sum, element -> sum or element.bitmask }
-    ui.events.add(internal, range, packed)
-
     val target = ServerCacheManager.fromComponent(internal.asRSCM(RSCMType.COMPONENT))
+    ifSetEvents(target, range, *event)
+}
+
+/** Enables events for stock-cache components which do not have a named gameval mapping. */
+public fun Player.ifSetEvents(target: ComponentType, range: IntRange, vararg event: IfEvent) {
+    val packed = event.fold(0L) { sum, element -> sum or element.bitmask }
+    ui.events.add(target, range, packed)
 
     val packedHigh = (packed shr 32).toInt()
     val packedLow = packed.toInt()
@@ -240,9 +315,24 @@ public fun Player.ifSetText(internal: String, text: String) {
     client.write(IfSetText(target.interfaceId, target.component, text))
 }
 
+/** Sets text on a verified stock-cache component without requiring a custom gameval mapping. */
+public fun Player.ifSetText(interfaceId: Int, component: Int, text: String) {
+    client.write(IfSetText(interfaceId, component, text))
+}
+
+/** Repositions a verified stock-cache component without requiring a custom gameval mapping. */
+public fun Player.ifSetPosition(interfaceId: Int, component: Int, x: Int, y: Int) {
+    client.write(IfSetPosition(interfaceId, component, x, y))
+}
+
 public fun Player.ifSetHide(internal: String, hide: Boolean) {
     val target = ServerCacheManager.fromComponent(internal.asRSCM(RSCMType.COMPONENT))
     client.write(IfSetHide(target.interfaceId, target.component, hide))
+}
+
+/** Hides a verified stock-cache component without requiring a custom gameval mapping. */
+public fun Player.ifSetHide(interfaceId: Int, component: Int, hide: Boolean) {
+    client.write(IfSetHide(interfaceId, component, hide))
 }
 
 public fun Player.ifOpenTop(topLevel: String) {
@@ -257,8 +347,9 @@ public fun Player.ifMoveTop(dest: String, eventBus: EventBus) {
         "This function can only be used after `ifOpenTop` has been called. " +
             "Use `ifOpenTop` instead."
     }
-    val destInterface = ServerCacheManager.getInterface(dest.asRSCM(RSCMType.INTERFACE))
-        ?: error("Could not find interface $dest")
+    val destInterface =
+        ServerCacheManager.getInterface(dest.asRSCM(RSCMType.INTERFACE))
+            ?: error("Could not find interface $dest")
     eventBus.publish(IfMoveTop(this, destInterface))
 }
 
@@ -286,6 +377,15 @@ public fun Player.ifCloseOverlay(interf: String, eventBus: EventBus) {
     closeOverlay(interf, eventBus)
 }
 
+/** Closes a verified stock-cache interface opened through its numeric cache ID. */
+public fun Player.ifCloseOverlay(interf: Int, eventBus: EventBus) {
+    val idInterface =
+        ServerCacheManager.getInterface(interf)?.toIdInterface()
+            ?: error("Could not find interface $interf")
+    val target = ui.overlays.getComponent(idInterface)
+    if (target != null) closeOverlay(idInterface, target, eventBus)
+}
+
 private fun Player.openModal(interf: String, internal: String, eventBus: EventBus) {
     val target = ServerCacheManager.fromComponent(internal.asRSCM(RSCMType.COMPONENT))
     val idComponent = target.toIdComponent()
@@ -306,7 +406,12 @@ private fun Player.openModal(interf: String, internal: String, eventBus: EventBu
 }
 
 public fun Player.setColour(component: String, colour: Color) {
-    client.write(IfSetColour(component.asRSCM(),colour.red, colour.green, colour.blue))
+    client.write(IfSetColour(component.asRSCM(), colour.red, colour.green, colour.blue))
+}
+
+/** Colours a verified stock-cache component without requiring a custom gameval mapping. */
+public fun Player.setColour(interfaceId: Int, component: Int, colour: Color) {
+    client.write(IfSetColour(interfaceId, component, colour))
 }
 
 private fun Player.openOverlay(interf: String, internal: String, eventBus: EventBus) {

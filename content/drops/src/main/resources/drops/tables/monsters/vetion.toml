@@ -171,44 +171,36 @@ weight = 3
 obj = "obj.tablet_wildycrabs"
 count = 4
 
+# OSRS first decides whether the single unique table was hit, then selects one item from it.
+# These exact integer weights preserve every published per-kill rate while making the outcomes
+# mutually exclusive: 5,760/1,128,960 = 1/196, 4,410/1,128,960 = 1/256,
+# 3,136/1,128,960 = 1/360, and 2,205/1,128,960 = 1/512.
 [[main.separate_rolls]]
-numerator = 1
-denominator = 196
+numerator = 19921
+denominator = 1128960
 
 [[main.separate_rolls.entries]]
-weight = 1
+weight = 5760
 obj = "obj.wbr_vetion_skull"
 count = 1
 
-[[main.separate_rolls]]
-numerator = 1
-denominator = 256
-
 [[main.separate_rolls.entries]]
-weight = 1
+weight = 4410
 obj = "obj.dragon_2h_sword"
 count = 1
 
 [[main.separate_rolls.entries]]
-weight = 1
+weight = 4410
 obj = "obj.dragon_pickaxe"
 count = 1
 
-[[main.separate_rolls]]
-numerator = 1
-denominator = 360
-
 [[main.separate_rolls.entries]]
-weight = 1
+weight = 3136
 obj = "obj.wbr_voidwaker_blade"
 count = 1
 
-[[main.separate_rolls]]
-numerator = 1
-denominator = 512
-
 [[main.separate_rolls.entries]]
-weight = 1
+weight = 2205
 obj = "obj.rotg"
 count = 1
 

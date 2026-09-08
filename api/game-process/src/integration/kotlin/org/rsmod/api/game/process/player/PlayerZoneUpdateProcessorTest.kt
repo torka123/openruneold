@@ -5,6 +5,7 @@ import dev.openrune.types.loc.LocTypeList
 import net.rsprot.protocol.api.util.ZonePartialEnclosedCacheBuffer
 import net.rsprot.protocol.game.outgoing.zone.header.UpdateZoneFullFollows
 import net.rsprot.protocol.game.outgoing.zone.payload.LocAddChangeV2
+import net.rsprot.protocol.game.outgoing.zone.payload.LocDel
 import net.rsprot.protocol.game.outgoing.zone.payload.ObjAdd
 import net.rsprot.protocol.game.outgoing.zone.payload.ObjCount
 import net.rsprot.protocol.game.outgoing.zone.payload.ObjDel
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.Test
 import org.rsmod.api.game.process.player.PlayerZoneUpdateProcessor.Companion.ZONE_VIEW_RADIUS
 import org.rsmod.api.registry.loc.LocRegistry
 import org.rsmod.api.registry.loc.LocRegistryNormal
+import org.rsmod.game.entity.WorldEntityList
 import org.rsmod.api.registry.obj.ObjRegistry
 import org.rsmod.api.registry.zone.ZoneUpdateMap
 import org.rsmod.api.testing.GameTestState
@@ -47,7 +49,7 @@ class PlayerZoneUpdateProcessorTest {
     @Test
     fun GameTestState.`process zones in a new build area`() = runAdvancedGameTest {
         val parameters = createZoneProcess()
-        val buildProcessor = PlayerBuildAreaProcessor()
+        val buildProcessor = PlayerBuildAreaProcessor(WorldEntityList())
         val zoneProcessor = parameters.zoneProcessor
         val locZones = parameters.locZones
         val locRegistry = parameters.normalLocReg
@@ -148,7 +150,7 @@ class PlayerZoneUpdateProcessorTest {
     @Test
     fun GameTestState.`only send private obj to receiver`() = runAdvancedGameTest {
         val parameters = createZoneProcess()
-        val buildProcessor = PlayerBuildAreaProcessor()
+        val buildProcessor = PlayerBuildAreaProcessor(WorldEntityList())
         val zoneProcessor = parameters.zoneProcessor
         val zoneUpdateMap = parameters.zoneUpdateMap
         val objRegistry = parameters.objRegistry
@@ -256,6 +258,67 @@ class PlayerZoneUpdateProcessorTest {
         endCycle()
     }
 
+    @Test
+    fun GameTestState.`only send private loc to receiver`() = runAdvancedGameTest {
+        val parameters = createZoneProcess()
+        val buildProcessor = PlayerBuildAreaProcessor(WorldEntityList())
+        val zoneProcessor = parameters.zoneProcessor
+        val zoneUpdateMap = parameters.zoneUpdateMap
+        val standardLoc = parameters.locTypes.smallBlockWalk().id
+        val startCoords = CoordGrid(0, 1, 1, 32, 32)
+
+        val player1 =
+            playerFactory.create(startCoords) {
+                uuid = 1
+                observerUUID = 1
+            }
+        val player2 =
+            playerFactory.create(startCoords) {
+                uuid = 2
+                observerUUID = 2
+            }
+        val client1 = player1.attachClientCapture()
+        val client2 = player2.attachClientCapture()
+
+        fun process() {
+            buildProcessor.process(player1)
+            buildProcessor.process(player2)
+            zoneProcessor.process(player1)
+            zoneProcessor.process(player2)
+        }
+
+        fun endCycle() {
+            zoneProcessor.clearPendingZoneUpdates()
+            client1.clearOutgoing()
+            client2.clearOutgoing()
+        }
+
+        process()
+        endCycle()
+
+        val loc =
+            LocInfo(
+                layer = 0,
+                coords = startCoords.translate(1, 0),
+                entity = LocEntity(standardLoc, 3, 0),
+            )
+        val receiver = checkNotNull(player2.observerUUID)
+        zoneUpdateMap.locAddPrivate(loc, receiver)
+        process()
+
+        assertEquals(0, client1.count())
+        assertEquals(1, client2.countOf<LocAddChangeV2>())
+        assertEquals(standardLoc, client2.singleMapOf(LocAddChangeV2::id))
+
+        endCycle()
+        zoneUpdateMap.locDelPrivate(loc, receiver)
+        process()
+
+        assertEquals(0, client1.count())
+        assertEquals(1, client2.countOf<LocDel>())
+        endCycle()
+    }
+
     private fun BasicGameTestScope.createZoneProcess(): ZoneProcessParams {
         val zoneUpdates = ZoneUpdateMap()
         val locZones = LocZoneStorage()
@@ -277,7 +340,13 @@ class PlayerZoneUpdateProcessorTest {
         val sharedEnclosed = SharedZoneEnclosedBuffers(zoneUpdates, enclosedCache)
         val locRegistry = LocRegistry(locZones, normalLocReg, regionLocReg)
         val processor =
-            PlayerZoneUpdateProcessor(zoneUpdates, locRegistry, objRegistry, sharedEnclosed)
+            PlayerZoneUpdateProcessor(
+                zoneUpdates,
+                locRegistry,
+                objRegistry,
+                sharedEnclosed,
+                WorldEntityList(),
+            )
         return ZoneProcessParams(
             collision,
             locZones,

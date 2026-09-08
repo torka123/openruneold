@@ -11,7 +11,8 @@ public typealias mesanims = BaseMesAnims
 public object BaseMesAnims {
 
     public fun mesanim(internal: String): MesAnimType {
-        val type = ServerCacheManager.getMesAnim(internal.asRSCM()) ?: error("Error Loading MesAnim")
+        val type =
+            ServerCacheManager.getMesAnim(internal.asRSCM()) ?: error("Error Loading MesAnim")
         return type
     }
 
@@ -62,5 +63,4 @@ public object BaseMesAnims {
 
     public val angry: MesAnimType
         get() = mesanim("mesanim.angry")
-
 }

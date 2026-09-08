@@ -6,36 +6,42 @@ import dev.openrune.definition.opcode.OpcodeList
 import dev.openrune.definition.opcode.OpcodeType
 import dev.openrune.definition.opcode.OpcodeType.BOOLEAN.enumType
 import dev.openrune.definition.opcode.impl.DefinitionOpcodeEntityOps
-import dev.openrune.definition.opcode.impl.DefinitionOpcodeParams
 import dev.openrune.definition.opcode.impl.DefinitionOpcodeTransforms
 import dev.openrune.definition.type.NpcType
-import dev.openrune.revision
 import dev.openrune.rscm.RSCM.asRSCM
+import dev.openrune.tools.SlayerSuperiorMonsterLoader
 import dev.openrune.types.MoveRestrict
 import dev.openrune.types.NpcMode
 import dev.openrune.types.NpcServerType
 import dev.openrune.util.BlockWalk
 import dev.openrune.util.Coord
 import dev.openrune.util.DefinitionOpcodeParamMap
-import dev.openrune.tools.SlayerSuperiorMonsterLoader
 import dev.openrune.util.NpcPatrol
 import dev.openrune.util.NpcPatrolWaypoint
 import org.rsmod.game.map.Direction
 
 class NpcServerCodec(
-    val rev : Int,
+    val rev: Int,
     val npcs: Map<Int, NpcType>? = null,
     val custom: Map<Int, NpcServerType>? = emptyMap(),
     val examines: Map<Int, String> = emptyMap(),
-    val slayerTaskByNpcId: Map<Int, Int> = emptyMap(),
+    val slayerTaskIdsByNpcId: Map<Int, IntArray> = emptyMap(),
     val slayerTaskTipByNpcId: Map<Int, String> = emptyMap(),
     val slayerSuperiorByNpcId: Map<Int, SlayerSuperiorMonsterLoader.SuperiorNpcParam> = emptyMap(),
+    val slayerDefendAnimationsByNpcId: Map<Int, Int> = emptyMap(),
+    val npcAttackAnimationsByNpcId: Map<Int, Int> = emptyMap(),
+    val npcDeathAnimationsByNpcId: Map<Int, Int> = emptyMap(),
+    val slayerMasterMovementAnimationsByNpcId: Map<Int, dev.openrune.tools.NpcMovementAnimations> =
+        emptyMap(),
 ) : OpcodeDefinitionCodec<NpcServerType>() {
 
     private val slayerTaskParamId = "param.slayer_task_id".asRSCM()
     private val slayerTaskTipParamId = "param.slayer_task_tip".asRSCM()
     private val slayerSuperiorParamId = "param.slayer_superior".asRSCM()
     private val slayerSuperiorWildernessOnlyParamId = "param.available_in_wilderness".asRSCM()
+    private val defendAnimationParamId = "param.defend_anim".asRSCM()
+    private val attackAnimationParamId = "param.attack_anim".asRSCM()
+    private val deathAnimationParamId = "param.death_anim".asRSCM()
 
     override val definitionCodec =
         OpcodeList<NpcServerType>().apply {
@@ -120,6 +126,28 @@ class NpcServerCodec(
                     shouldEncode = { def -> def.waypoints.isNotEmpty() },
                 )
             )
+            add(
+                DefinitionOpcode(
+                    52,
+                    decode = { buf, def, _ ->
+                        val count = buf.readUnsignedByte().toInt()
+                        def.slayerTaskIds = IntArray(count) { buf.readUnsignedShort().toInt() }
+                    },
+                    encode = { buf, def ->
+                        require(def.slayerTaskIds.size <= MAX_SLAYER_TASK_IDS) {
+                            "NPC ${def.id} has too many Slayer task IDs: ${def.slayerTaskIds.size}"
+                        }
+                        buf.writeByte(def.slayerTaskIds.size)
+                        for (taskId in def.slayerTaskIds) {
+                            require(taskId in 0..USHORT_MAX) {
+                                "Invalid Slayer task ID $taskId on NPC ${def.id}"
+                            }
+                            buf.writeShort(taskId)
+                        }
+                    },
+                    shouldEncode = { def -> def.slayerTaskIds.isNotEmpty() },
+                )
+            )
         }
 
     override fun NpcServerType.createData() {
@@ -155,6 +183,23 @@ class NpcServerCodec(
         crawlRightSequence = obj.crawlRightSequence
         crawlLeftSequence = obj.crawlLeftSequence
         height = obj.height
+        slayerMasterMovementAnimationsByNpcId[id]?.let { movement ->
+            standAnim = movement.stand
+            rotateLeftAnim = movement.rotateLeft
+            rotateRightAnim = movement.rotateRight
+            walkAnim = movement.walk
+            rotateBackAnim = movement.rotateBack
+            walkLeftAnim = movement.walkLeft
+            walkRightAnim = movement.walkRight
+            runSequence = movement.run
+            runBackSequence = movement.runBack
+            runRightSequence = movement.runRight
+            runLeftSequence = movement.runLeft
+            crawlSequence = movement.crawl
+            crawlBackSequence = movement.crawlBack
+            crawlRightSequence = movement.crawlRight
+            crawlLeftSequence = movement.crawlLeft
+        }
         attack = obj.attack
         defence = obj.defence
         strength = obj.strength
@@ -168,6 +213,22 @@ class NpcServerCodec(
         if (customData != null) {
             customData.paramsRaw?.forEach { (paramId, value) -> paramsRaw?.set(paramId, value) }
 
+            if (customData.standAnim != -1) standAnim = customData.standAnim
+            if (customData.rotateLeftAnim != -1) rotateLeftAnim = customData.rotateLeftAnim
+            if (customData.rotateRightAnim != -1) rotateRightAnim = customData.rotateRightAnim
+            if (customData.walkAnim != -1) walkAnim = customData.walkAnim
+            if (customData.rotateBackAnim != -1) rotateBackAnim = customData.rotateBackAnim
+            if (customData.walkLeftAnim != -1) walkLeftAnim = customData.walkLeftAnim
+            if (customData.walkRightAnim != -1) walkRightAnim = customData.walkRightAnim
+            if (customData.runSequence != -1) runSequence = customData.runSequence
+            if (customData.runBackSequence != -1) runBackSequence = customData.runBackSequence
+            if (customData.runRightSequence != -1) runRightSequence = customData.runRightSequence
+            if (customData.runLeftSequence != -1) runLeftSequence = customData.runLeftSequence
+            if (customData.crawlSequence != -1) crawlSequence = customData.crawlSequence
+            if (customData.crawlBackSequence != -1) crawlBackSequence = customData.crawlBackSequence
+            if (customData.crawlRightSequence != -1)
+                crawlRightSequence = customData.crawlRightSequence
+            if (customData.crawlLeftSequence != -1) crawlLeftSequence = customData.crawlLeftSequence
             if (customData.category != -1) category = customData.category
             timer = customData.timer
             respawnDir = customData.respawnDir
@@ -189,7 +250,22 @@ class NpcServerCodec(
             waypoints = customData.waypoints
         }
 
-        slayerTaskByNpcId[id]?.let { taskId -> paramsRaw?.set(slayerTaskParamId, taskId) }
+        slayerDefendAnimationsByNpcId[id]?.let { animation ->
+            paramsRaw?.putIfAbsent(defendAnimationParamId, animation)
+        }
+        npcAttackAnimationsByNpcId[id]?.let { animation ->
+            paramsRaw?.putIfAbsent(attackAnimationParamId, animation)
+        }
+        npcDeathAnimationsByNpcId[id]?.let { animation ->
+            paramsRaw?.putIfAbsent(deathAnimationParamId, animation)
+        }
+        slayerTaskIdsByNpcId[id]?.let { taskIds ->
+            slayerTaskIds = taskIds
+            respawnRate = dev.openrune.tools.SlayerNpcRespawnPolicy.halve(respawnRate)
+            // Retain the former single-value parameter for compatibility with older consumers.
+            // Runtime Slayer checks use [slayerTaskIds] and therefore preserve every assignment.
+            taskIds.lastOrNull()?.let { taskId -> paramsRaw?.set(slayerTaskParamId, taskId) }
+        }
         slayerTaskTipByNpcId[id]?.let { tip -> paramsRaw?.set(slayerTaskTipParamId, tip) }
         slayerSuperiorByNpcId[id]?.let { superior ->
             paramsRaw?.set(slayerSuperiorParamId, superior.superiorNpcId)
@@ -200,4 +276,9 @@ class NpcServerCodec(
     }
 
     override fun createDefinition(): NpcServerType = NpcServerType()
+
+    private companion object {
+        private const val MAX_SLAYER_TASK_IDS = 255
+        private const val USHORT_MAX = 0xFFFF
+    }
 }

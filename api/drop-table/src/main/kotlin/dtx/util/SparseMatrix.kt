@@ -128,9 +128,7 @@ public class SparseMatrix<T : Any>(
         return elements.iterator()
     }
 
-
     public fun nonDefaultString(): String = buildString {
-
         append("nondefaults (row, col, value):\n")
 
         nonDefaults().forEach { triple ->
@@ -138,9 +136,7 @@ public class SparseMatrix<T : Any>(
         }
     }
 
-
     override fun toString(): String = buildString {
-
         append("Matrix: \n")
 
         for (rowIndex in 0 until rows) {

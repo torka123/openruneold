@@ -1,7 +1,8 @@
 package org.rsmod.tools.wiki.dumping
 
 /** Preloaded lookups shared across all wiki pages in one dumper run. */
-class DropDumpResources private constructor(
+class DropDumpResources
+private constructor(
     val objLookup: ObjRscmLookup,
     val npcLookup: NpcRscmLookup,
     val remainsLookup: NpcDumpRemainsLookup,
@@ -13,9 +14,7 @@ class DropDumpResources private constructor(
             log: DropDumpLog,
             fetchDumpNpc: Boolean = false,
         ): DropDumpResources {
-            log.phase("load GameValProvider") {
-                GameValLoader.ensureLoaded(rootDir)
-            }
+            log.phase("load GameValProvider") { GameValLoader.ensureLoaded(rootDir) }
 
             val objLookup = ObjRscmLookup()
 
@@ -32,7 +31,7 @@ class DropDumpResources private constructor(
                 dumpIndex = NpcDumpIndex.parse(dump.text, objLookup)
                 log.verbose(
                     "dump.npc index: ${dumpIndex.namesById.size} names, " +
-                        "${dumpIndex.remainsByNpcId.size} explicit remains",
+                        "${dumpIndex.remainsByNpcId.size} explicit remains"
                 )
             }
 

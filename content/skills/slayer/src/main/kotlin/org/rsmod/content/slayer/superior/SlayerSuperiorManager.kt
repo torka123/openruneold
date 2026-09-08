@@ -12,7 +12,7 @@ import org.rsmod.api.config.refs.BaseParams
 import org.rsmod.api.npc.owner.assignSpawnOwner
 import org.rsmod.api.npc.owner.clearSpawnOwner
 import org.rsmod.api.npc.owner.isSpawnOwnedBy
-import org.rsmod.api.player.mapMultiway
+import org.rsmod.api.player.mapNpcMultiway
 import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.vars.VarPlayerIntMapSetter
 import org.rsmod.api.repo.npc.NpcRepository
@@ -42,17 +42,22 @@ constructor(
         if (!isSuperiorEnabled(player)) return
         if (player.vars["varp.slayer_target"] == 0) return
 
-        if (!SlayerTaskManager.isTaskNpc(killed, player.vars["varp.slayer_target"])) return
+        if (!SlayerTaskManager.countsAsCurrentTaskKill(player, killed)) return
 
         val killedType = killed.visType
         if (!killedType.hasParam(BaseParams.slayer_superior)) return
-        if (killed.coords.isInWilderness(areaChecker) && !killedType.isAvailableInWilderness()) return
+        if (killed.coords.isInWilderness(areaChecker) && !killedType.isAvailableInWilderness())
+            return
         if (!canSpawnAnother(player)) return
 
-        val superiorType = killedType.paramOrNull(BaseParams.slayer_superior)?.let { ServerCacheManager.getNpc(it.id) } ?: return
+        val superiorType =
+            killedType.paramOrNull(BaseParams.slayer_superior)?.let {
+                ServerCacheManager.getNpc(it.id)
+            } ?: return
         if (!rollSpawn(player)) return
 
-        val coords = SlayerSuperiorSpawnTiles.resolve(player, killed, superiorType, collision) ?: return
+        val coords =
+            SlayerSuperiorSpawnTiles.resolve(player, killed, superiorType, collision) ?: return
         spawnSuperior(player, coords, superiorType, npcRepo)
     }
 
@@ -84,9 +89,10 @@ constructor(
         ownedSuperiorsByPlayer.getOrPut(player.uid) { mutableSetOf() }
 
     private fun canSpawnAnother(player: Player): Boolean =
-        player.mapMultiway(areaChecker) || !hasSuperiorActive(player)
+        player.mapNpcMultiway(areaChecker) || !hasSuperiorActive(player)
 
-    private fun hasSuperiorActive(player: Player): Boolean = player.vars[VARBIT_SUPERIOR_ACTIVE] != 0
+    private fun hasSuperiorActive(player: Player): Boolean =
+        player.vars[VARBIT_SUPERIOR_ACTIVE] != 0
 
     private fun setSuperiorActive(player: Player, active: Boolean) {
         VarPlayerIntMapSetter.set(player, VARBIT_SUPERIOR_ACTIVE, if (active) 1 else 0)
@@ -105,12 +111,16 @@ constructor(
     private fun rollSpawn(player: Player): Boolean = Random.nextInt(spawnDenominator(player)) == 0
 
     private fun spawnDenominator(player: Player): Int {
-        val onWildernessTask = SlayerTaskManager.getCurrentAssignedMaster(player)?.let(SlayerTaskManager::isWildernessMaster) == true
+        val onWildernessTask =
+            SlayerTaskManager.getCurrentAssignedMaster(player)
+                ?.let(SlayerTaskManager::isWildernessMaster) == true
 
         if (!onWildernessTask) {
-            return if (hasEliteCombatAchievements(player)) SPAWN_CHANCE_ELITE_CA else SPAWN_CHANCE_BASE
+            return if (hasEliteCombatAchievements(player)) SPAWN_CHANCE_ELITE_CA
+            else SPAWN_CHANCE_BASE
         }
-        return if (hasEliteCombatAchievements(player)) SPAWN_CHANCE_WILDERNESS_ELITE_CA else SPAWN_CHANCE_WILDERNESS
+        return if (hasEliteCombatAchievements(player)) SPAWN_CHANCE_WILDERNESS_ELITE_CA
+        else SPAWN_CHANCE_WILDERNESS
     }
 
     private fun NpcServerType.isAvailableInWilderness(): Boolean =

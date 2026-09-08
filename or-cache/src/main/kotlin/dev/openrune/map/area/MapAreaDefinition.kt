@@ -35,9 +35,7 @@ public data class MapAreaDefinition(
                 var index = bitset.nextSetBit(0)
                 while (index != -1) {
                     val zoneKey = index.toByte()
-                    val areaSet = flippedZoneAreas.getOrPut(zoneKey) {
-                        ShortArraySet()
-                    }
+                    val areaSet = flippedZoneAreas.getOrPut(zoneKey) { ShortArraySet() }
                     areaSet.add(area)
                     index = bitset.nextSetBit(index + 1)
                 }
@@ -47,9 +45,7 @@ public data class MapAreaDefinition(
             for ((area, bitset) in coordAreas) {
                 var index = bitset.nextSetBit(0)
                 while (index != -1) {
-                    val areaSet = flippedCoordAreas.getOrPut(index.toShort()) {
-                        ShortArraySet()
-                    }
+                    val areaSet = flippedCoordAreas.getOrPut(index.toShort()) { ShortArraySet() }
                     areaSet.add(area)
                     index = bitset.nextSetBit(index + 1)
                 }
@@ -76,76 +72,57 @@ public data class MapAreaDefinition(
             )
         }
 
-        public fun merge(
-            edit: MapAreaDefinition,
-            base: MapAreaDefinition,
-        ): MapAreaDefinition {
+        public fun merge(edit: MapAreaDefinition, base: MapAreaDefinition): MapAreaDefinition {
             val mergedMapSquares =
                 ShortArraySet(base.mapSquareAreas.size + edit.mapSquareAreas.size)
             mergedMapSquares.addAll(base.mapSquareAreas)
             mergedMapSquares.addAll(edit.mapSquareAreas)
 
             val mergedZoneAreas =
-                Byte2ObjectOpenHashMap<ShortSet>(
-                    base.zoneAreas.size + edit.zoneAreas.size
-                )
+                Byte2ObjectOpenHashMap<ShortSet>(base.zoneAreas.size + edit.zoneAreas.size)
 
             for ((zone, areas) in base.zoneAreas) {
                 mergedZoneAreas[zone] = ShortArraySet(areas)
             }
 
             for ((zone, areas) in edit.zoneAreas) {
-                val merged = mergedZoneAreas.getOrPut(zone) {
-                    ShortArraySet()
-                }
+                val merged = mergedZoneAreas.getOrPut(zone) { ShortArraySet() }
                 merged.addAll(areas)
             }
 
             val mergedCoordAreas =
-                Short2ObjectOpenHashMap<ShortSet>(
-                    base.coordAreas.size + edit.coordAreas.size
-                )
+                Short2ObjectOpenHashMap<ShortSet>(base.coordAreas.size + edit.coordAreas.size)
 
             for ((coord, areas) in base.coordAreas) {
                 mergedCoordAreas[coord] = ShortArraySet(areas)
             }
 
             for ((coord, areas) in edit.coordAreas) {
-                val merged = mergedCoordAreas.getOrPut(coord) {
-                    ShortArraySet()
-                }
+                val merged = mergedCoordAreas.getOrPut(coord) { ShortArraySet() }
                 merged.addAll(areas)
             }
 
             val mergedIncludes =
-                Short2ObjectOpenHashMap<ShortSet>(
-                    base.includes.size + edit.includes.size
-                )
+                Short2ObjectOpenHashMap<ShortSet>(base.includes.size + edit.includes.size)
 
             for ((area, refs) in base.includes) {
                 mergedIncludes[area] = ShortArraySet(refs)
             }
 
             for ((area, refs) in edit.includes) {
-                val merged = mergedIncludes.getOrPut(area) {
-                    ShortArraySet()
-                }
+                val merged = mergedIncludes.getOrPut(area) { ShortArraySet() }
                 merged.addAll(refs)
             }
 
             val mergedExcludes =
-                Short2ObjectOpenHashMap<ShortSet>(
-                    base.excludes.size + edit.excludes.size
-                )
+                Short2ObjectOpenHashMap<ShortSet>(base.excludes.size + edit.excludes.size)
 
             for ((area, refs) in base.excludes) {
                 mergedExcludes[area] = ShortArraySet(refs)
             }
 
             for ((area, refs) in edit.excludes) {
-                val merged = mergedExcludes.getOrPut(area) {
-                    ShortArraySet()
-                }
+                val merged = mergedExcludes.getOrPut(area) { ShortArraySet() }
                 merged.addAll(refs)
             }
 

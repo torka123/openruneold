@@ -51,10 +51,15 @@ constructor(private val eventBus: EventBus, private val protectedAccess: Protect
         val opEnabled =
             InterfaceEvents.isEnabled(player.ui, componentType, comsub, buttonOp.toIfEvent())
         if (!opEnabled) {
+            logger.debug {
+                "[Gated] If3Button: $message (component=$componentType, comsub=$comsub, op=$buttonOp)"
+            }
             return
         }
 
         if (player.ui.containsOverlay(interfaceType) || player.ui.containsTopLevel(interfaceType)) {
+            // Check before launchLenient replaces the active action and runs its cancellation cleanup.
+            if (player.ui.ignoredOverlayButton == message.asComponent) return
             val event =
                 IfOverlayButton(
                     componentType,

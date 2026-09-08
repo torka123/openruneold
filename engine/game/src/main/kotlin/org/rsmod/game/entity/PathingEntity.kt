@@ -3,16 +3,14 @@ package org.rsmod.game.entity
 import dev.openrune.ServerCacheManager
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
-import dev.openrune.types.SequenceServerType
 import dev.openrune.types.WalkTriggerType
-import dev.openrune.types.aconverted.SpotanimType
 import it.unimi.dsi.fastutil.longs.LongArrayList
 import kotlin.coroutines.startCoroutine
 import org.rsmod.annotations.InternalApi
 import org.rsmod.coroutine.GameCoroutine
 import org.rsmod.coroutine.suspension.GameCoroutineSimpleCompletion
-import org.rsmod.game.entity.player.ProtectedAccessLostException
 import org.rsmod.game.damage.DamageContributions
+import org.rsmod.game.entity.player.ProtectedAccessLostException
 import org.rsmod.game.entity.util.EntityExactMove
 import org.rsmod.game.entity.util.EntityFaceAngle
 import org.rsmod.game.entity.util.EntityFaceTarget
@@ -131,6 +129,90 @@ public sealed class PathingEntity {
     public val pendingSpotanims: LongArrayList = LongArrayList()
 
     public var interaction: Interaction? = null
+
+    /**
+     * The map-clock cycle at which the Dragon/Zamorakian spear Shove stun expires.
+     *
+     * This is deliberately clock based rather than timer based: a stunned player is access
+     * protected, so a player timer would not be able to clear the effect while the stun is active.
+     */
+    public var shoveStunUntil: Int = Int.MIN_VALUE
+        private set
+
+    /** The post-stun map-clock cycle until which another Shove cannot be applied. */
+    public var shoveStunImmuneUntil: Int = Int.MIN_VALUE
+        private set
+
+    public val isShoveStunned: Boolean
+        get() = currentMapClock < shoveStunUntil
+
+    public val isShoveStunImmune: Boolean
+        get() = currentMapClock < shoveStunImmuneUntil
+
+    /**
+     * Applies a non-stackable Shove stun and clears work which must not resume after the stun.
+     *
+     * [postStunImmunityCycles] is used only for player targets: OSRS grants players one extra cycle
+     * in which they cannot be Shoved again after the five-cycle stun ends.
+     */
+    public fun applyShoveStun(stunCycles: Int, postStunImmunityCycles: Int = 0) {
+        require(stunCycles > 0) { "`stunCycles` must be greater than 0. (stunCycles=$stunCycles)" }
+        require(postStunImmunityCycles >= 0) {
+            "`postStunImmunityCycles` must not be negative. " +
+                "(postStunImmunityCycles=$postStunImmunityCycles)"
+        }
+        shoveStunUntil = currentMapClock + stunCycles
+        shoveStunImmuneUntil = shoveStunUntil + postStunImmunityCycles
+        cancelActiveCoroutine()
+        abortRoute()
+        clearInteraction()
+    }
+
+    /**
+     * The map-clock cycle at which this entity's current binding effect expires.
+     *
+     * Unlike the legacy player-only freeze flag, this state is shared by players and NPCs so
+     * effects which explicitly remove bindings can work against either target type.
+     */
+    public var bindUntil: Int = Int.MIN_VALUE
+        private set
+
+    /** Whether this entity is currently prevented from moving by a binding effect. */
+    public val isBound: Boolean
+        get() = currentMapClock < bindUntil
+
+    /** The number of map-clock cycles left on the current binding effect. */
+    public val bindCyclesRemaining: Int
+        get() = (bindUntil - currentMapClock).coerceAtLeast(0)
+
+    /**
+     * Applies a binding effect and clears any path that must not resume while the entity is rooted.
+     *
+     * Calling this again never shortens an existing binding effect.
+     */
+    public fun applyBind(bindCycles: Int) {
+        require(bindCycles > 0) { "bindCycles must be greater than 0. (bindCycles=$bindCycles)" }
+        bindUntil = maxOf(bindUntil, currentMapClock + bindCycles)
+        abortRoute()
+    }
+
+    /**
+     * Removes the current binding effect and returns the number of active cycles that were left.
+     */
+    public fun removeBind(): Int {
+        val remaining = bindCyclesRemaining
+        bindUntil = Int.MIN_VALUE
+        abortRoute()
+        return remaining
+    }
+
+    /**
+     * The UUID of the player that most recently inflicted positive final damage on this entity.
+     *
+     * A null value means either no final damage has been recorded for this combat life or the
+     * latest positive damage came from a non-player source.
+     */
+    public var lastDamagingPlayerUuid: Long? = null
 
     /**
      * The currently active [WalkTriggerType].
@@ -257,12 +339,25 @@ public sealed class PathingEntity {
     }
 
     public abstract fun anim(
-        seq: String, delay: Int = 0, priority: Int = ServerCacheManager.getAnim(seq.asRSCM(RSCMType.SEQ))!!.priority
+        seq: String,
+        delay: Int = 0,
+        priority: Int = ServerCacheManager.getAnim(seq.asRSCM(RSCMType.SEQ))!!.priority,
+    )
+
+    /** Plays a cache-native sequence whose canonical ID has no RSCM alias. */
+    public abstract fun anim(
+        seq: Int,
+        delay: Int = 0,
+        priority: Int =
+            ServerCacheManager.getAnim(seq)?.priority ?: error("Invalid sequence ID: $seq"),
     )
 
     public abstract fun resetAnim()
 
     public abstract fun spotanim(spot: String, delay: Int = 0, height: Int = 0, slot: Int = 0)
+
+    /** Plays a cache-native spot animation whose canonical ID has no RSCM alias. */
+    public abstract fun spotanim(spot: Int, delay: Int = 0, height: Int = 0, slot: Int = 0)
 
     /**
      * Sets the [pendingFaceSquare] for [target] to face as soon as this [PathingEntity] is not
@@ -451,8 +546,9 @@ public sealed class PathingEntity {
      */
     public fun walkTrigger(trigger: String): Boolean {
 
-        val triggerType = ServerCacheManager.getWalkTrigger(trigger.asRSCM(RSCMType.WALKTRIGGER))
-            ?: error("Invalid walk trigger: $trigger")
+        val triggerType =
+            ServerCacheManager.getWalkTrigger(trigger.asRSCM(RSCMType.WALKTRIGGER))
+                ?: error("Invalid walk trigger: $trigger")
 
         val previous = walkTrigger?.priority
         if (!triggerType.priority.canOverwrite(previous)) {
@@ -474,10 +570,25 @@ public sealed class PathingEntity {
         heroPoints.add(uuid, points)
     }
 
+    /** Updates only the most recent positive final-damage source; no contribution state changes. */
+    public fun recordFinalPlayerDamage(source: Player, damage: Int) {
+        if (damage > 0) {
+            lastDamagingPlayerUuid = source.uuid
+        }
+    }
+
+    /** Updates only the most recent positive final-damage source; no contribution state changes. */
+    public fun recordFinalNonPlayerDamage(damage: Int) {
+        if (damage > 0) {
+            lastDamagingPlayerUuid = null
+        }
+    }
+
     public fun recordDamage(source: Player, damage: Int) {
         if (damage <= 0) {
             return
         }
+        recordFinalPlayerDamage(source, damage)
         damageContributions.record(source, damage)
         heroPoints(source, damage)
     }
@@ -486,6 +597,7 @@ public sealed class PathingEntity {
         if (damage <= 0) {
             return
         }
+        recordFinalNonPlayerDamage(damage)
         damageContributions.record(source, damage)
     }
 
@@ -505,6 +617,7 @@ public sealed class PathingEntity {
     public fun clearHeroPoints() {
         heroPoints.clear()
         damageContributions.clear()
+        lastDamagingPlayerUuid = null
     }
 
     @InternalApi

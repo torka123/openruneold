@@ -10,11 +10,10 @@ public fun Player.shouldDropBrimstoneKey(npc: Npc, areaChecker: AreaChecker): Bo
     if (vars["varbit.slayer_master"] != SlayerMasters.TASK_KONAR) {
         return false
     }
-    val taskId = vars["varp.slayer_target"]
-    if (taskId == 0 || vars["varp.slayer_count"] <= 0) {
+    if (vars["varp.slayer_target"] == 0 || vars["varp.slayer_count"] <= 0) {
         return false
     }
-    if (!SlayerTaskManager.countsAsTaskKill(npc, taskId)) {
+    if (!SlayerTaskManager.countsAsCurrentTaskKill(this, npc)) {
         return false
     }
     return SlayerTaskManager.countsKillTowardTask(this, npc, areaChecker)

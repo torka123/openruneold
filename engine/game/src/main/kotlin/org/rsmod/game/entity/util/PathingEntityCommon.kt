@@ -2,7 +2,6 @@ package org.rsmod.game.entity.util
 
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
-import dev.openrune.types.SequenceServerType
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.PathingEntity
 import org.rsmod.game.entity.Player
@@ -76,6 +75,38 @@ public object PathingEntityCommon {
         entity.addBlockWalkCollision(this, to)
     }
 
+    /**
+     * Moves [entity] by one adjacent tile and encodes the change as a normal walk update while
+     * intentionally bypassing route collision validation.
+     *
+     * This is for cache-authored scripted movement that deliberately crosses blocked scenery (for
+     * example, a boss emerging through the edge of a pool). It still transfers entity collision to
+     * the destination and therefore must not be used as a general pathfinding replacement.
+     */
+    public fun forceWalkStep(entity: PathingEntity, collision: CollisionFlagMap, dest: CoordGrid) {
+        check(collision.isZoneValid(dest)) {
+            "Entity cannot be walked to an invalid zone: entity=$entity, dest=$dest"
+        }
+        val start = entity.coords
+        val deltaX = dest.x - start.x
+        val deltaZ = dest.z - start.z
+        require(dest.level == start.level && (deltaX != 0 || deltaZ != 0)) {
+            "Forced walk destination must be a different tile on the same level: start=$start, dest=$dest"
+        }
+        require(deltaX in -1..1 && deltaZ in -1..1) {
+            "Forced walk must be exactly one adjacent step: start=$start, dest=$dest"
+        }
+        entity.abortRoute()
+        entity.clearInteraction()
+        collision.move(entity, start, dest)
+        entity.previousCoords = start
+        entity.lastProcessedCoord = start
+        entity.coords = dest
+        entity.pendingStepCount = 1
+        entity.moveSpeed = MoveSpeed.Walk
+        entity.lastMovement = entity.currentMapClock
+    }
+
     public fun exactMove(
         entity: PathingEntity,
         start: CoordGrid,
@@ -115,12 +146,10 @@ public object PathingEntityCommon {
         entity.faceEntity = EntityFaceTarget.NULL
     }
 
-    public fun anim(
-        entity: PathingEntity,
-        seq: String,
-        delay: Int,
-        priority: Int,
-    ): Boolean {
+    public fun anim(entity: PathingEntity, seq: String, delay: Int, priority: Int): Boolean =
+        anim(entity, seq.asRSCM(RSCMType.SEQ), delay, priority)
+
+    public fun anim(entity: PathingEntity, seq: Int, delay: Int, priority: Int): Boolean {
         require(delay in 0..254) { "`delay` must be within range [0..254]." }
         require(priority in 0..254) { "`priority` must be within range [0..254]." }
 
@@ -133,7 +162,7 @@ public object PathingEntityCommon {
             return false
         }
 
-        entity.pendingSequence = EntitySeq(seq.asRSCM(RSCMType.SEQ), delay, priority)
+        entity.pendingSequence = EntitySeq(seq, delay, priority)
         return true
     }
 

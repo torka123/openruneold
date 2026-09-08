@@ -64,7 +64,10 @@ public class AutocastWeapons @Inject constructor(private val spells: AutocastSpe
     }
 
     public fun canAutocastSpellbook(weapon: ItemServerType, spellbook: Spellbook?): Boolean {
-        val category = WeaponCategory.getOrUnarmed(weapon.weaponCategory.id)
+        if (weapon.internalName == "obj.twinflame_staff") {
+            return spellbook == Spellbook.Standard
+        }
+        val category = WeaponCategory.getOrUnarmed(weapon.resolvedWeaponCategory.id)
         if (getVarBits(category) == null) {
             return false
         }
@@ -84,7 +87,8 @@ public class AutocastWeapons @Inject constructor(private val spells: AutocastSpe
             else -> "You can't autocast that spell with this staff."
         }
 
-    private fun ItemServerType.spellbook(): Spellbook? = Spellbook[param(BaseParams.spell_spellbook)]
+    private fun ItemServerType.spellbook(): Spellbook? =
+        Spellbook[param(BaseParams.spell_spellbook)]
 
     private fun ItemServerType.additionalAutocastSpells(): Set<ItemServerType> {
         val additional1 = paramOrNull(autocast_params.additional_spell_autocast1)
@@ -104,8 +108,7 @@ public class AutocastWeapons @Inject constructor(private val spells: AutocastSpe
     }
 
     public fun reset(player: Player, weapon: ItemServerType) {
-        val category = WeaponCategory.getOrUnarmed(weapon.weaponCategory.id)
-        val varbits = getVarBits(category) ?: return
+        val varbits = getVarBits(weapon) ?: return
         reset(player, varbits)
     }
 
@@ -128,10 +131,16 @@ public class AutocastWeapons @Inject constructor(private val spells: AutocastSpe
             else -> null
         }
 
-    public data class StaffVarBits(
-        public val autocastId: String,
-        public val defensiveCast: String,
-    )
+    /** Resolves saved-autocast vars for a weapon, including cache-new staves absent from old enums. */
+    public fun getVarBits(weapon: ItemServerType?): StaffVarBits? {
+        if (weapon?.internalName == "obj.twinflame_staff") {
+            return getVarBits(WeaponCategory.Staff)
+        }
+        val category = WeaponCategory.getOrUnarmed(weapon?.resolvedWeaponCategory?.id)
+        return getVarBits(category)
+    }
+
+    public data class StaffVarBits(public val autocastId: String, public val defensiveCast: String)
 
     private companion object {
         val AncientAutocastWeapons =

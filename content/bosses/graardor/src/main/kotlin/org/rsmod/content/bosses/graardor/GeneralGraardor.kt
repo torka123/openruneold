@@ -19,7 +19,7 @@ class GeneralGraardor @Inject constructor(deps: BossDeps) : BossPluginScript(dep
     private val generalId by lazy { GENERAL.asRSCM(RSCMType.NPC) }
 
     override fun ScriptContext.startup() {
-        BossCombat.register(this, spec, deps)
+        BossCombat.register(this, spec, deps, ownerSlug = "general-graardor")
 
         onEvent<NpcStateEvents.Respawn> { if (npc.id == generalId) respawnDeadBodyguards(npc) }
     }

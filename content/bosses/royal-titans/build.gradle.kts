@@ -1,0 +1,26 @@
+plugins { id("base-conventions") }
+
+dependencies {
+    implementation(libs.guice)
+    implementation(project(":api:boss-hp-bar-plugin"))
+    implementation(projects.api.combat.combatCommons)
+    implementation(projects.api.combat.combatScripts)
+    implementation(projects.api.death)
+    implementation(projects.api.dropTable)
+    implementation(projects.api.dropTablePlugin)
+    implementation(projects.api.instances)
+    implementation(projects.api.npc)
+    implementation(projects.api.player)
+    implementation(projects.api.playerOutput)
+    implementation(projects.api.pluginCommons)
+    implementation(projects.api.random)
+    implementation(projects.api.repo)
+    implementation(projects.api.script)
+    implementation(projects.api.utils.utilsLogging)
+    implementation(projects.content.drops)
+    implementation(projects.engine.game)
+    implementation(projects.engine.map)
+    implementation(projects.engine.plugin)
+    implementation(projects.engine.routefinder)
+    testImplementation(kotlin("test"))
+}

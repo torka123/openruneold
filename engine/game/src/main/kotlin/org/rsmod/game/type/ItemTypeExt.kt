@@ -11,7 +11,6 @@ import org.rsmod.game.interact.InteractionOp
 import org.rsmod.game.inv.InvObj
 import org.rsmod.game.obj.Obj
 
-
 public fun ItemServerType.hasOp(interactionOp: InteractionOp): Boolean {
     return hasOp(interactionOp.slot)
 }
@@ -49,7 +48,7 @@ public fun cert(obj: InvObj): InvObj {
         return obj
     }
     val link = type.certlink
-    val certType = RSCM.getReverseMapping(RSCMType.OBJ,link)
+    val certType = RSCM.getReverseMapping(RSCMType.OBJ, link)
     return InvObj(certType, obj.count)
 }
 
@@ -66,12 +65,14 @@ public fun uncert(obj: InvObj): InvObj {
     }
 
     val link = type.certlink
-    val uncertType = RSCM.getReverseMapping(RSCMType.OBJ,link)
+    val uncertType = RSCM.getReverseMapping(RSCMType.OBJ, link)
     return InvObj(uncertType, obj.count)
 }
 
 public fun cert(internal: String): ItemServerType {
-    val type = ServerCacheManager.getItem(internal.asRSCM(RSCMType.OBJ))?: error("Could not find type: $internal")
+    val type =
+        ServerCacheManager.getItem(internal.asRSCM(RSCMType.OBJ))
+            ?: error("Could not find type: $internal")
     if (!type.canCert) {
         return type
     }
@@ -88,7 +89,6 @@ public fun uncert(type: ItemServerType): ItemServerType {
     return ServerCacheManager.getItem(link)
         ?: throw NoSuchElementException("Type is missing in the map: $link.")
 }
-
 
 public fun placeholder(type: ItemServerType): ItemServerType {
     if (!type.hasPlaceholder) {

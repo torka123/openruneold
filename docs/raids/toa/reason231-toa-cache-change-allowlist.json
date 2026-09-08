@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "policy": "No cache archive may be changed unless the exact raid-only asset and every recursive dependency are listed here first.",
+  "allowedChanges": [],
+  "decision": "NO_CACHE_CHANGES_APPROVED_NATIVE_240_ASSETS_PREFERRED"
+}

@@ -3,7 +3,12 @@ package org.rsmod.content.areas.wilderness.locs
 import dtx.core.ArgMap
 import dtx.core.RollResult
 import dtx.core.flatten
+import dev.openrune.rscm.RSCM.asRSCM
+import dev.openrune.rscm.RSCMType
 import jakarta.inject.Inject
+import org.rsmod.api.collectionlog.CollectionLogAwardKind
+import org.rsmod.api.collectionlog.CollectionLogAwardSource
+import org.rsmod.api.collectionlog.CollectionLogService
 import org.rsmod.api.droptable.DropRollItem
 import org.rsmod.api.droptable.DropTableRegistry
 import org.rsmod.api.droptable.rollCount
@@ -27,16 +32,19 @@ private const val VARP_KC_BIG = "varp.kc_larrans_big_chest"
 
 private const val VARBIT_CHEST = "varbit.brimstone_opening_konar_chest"
 
-class LarransChestScript @Inject constructor(
+class LarransChestScript
+@Inject
+constructor(
     private val locRepo: LocRepository,
     private val objRepo: ObjRepository,
     private val dropRegistry: DropTableRegistry,
+    private val collectionLog: CollectionLogService,
 ) : PluginScript() {
 
     override fun ScriptContext.startup() {
         onOpLoc1(SMALL_CHEST_CLOSED) { openChest(it.loc, SMALL_CHEST_CLOSED, VARP_KC_SMALL) }
         onOpLoc2(SMALL_CHEST_CLOSED) { checkCount(VARP_KC_SMALL, "Larran's small chest") }
-        onOpLoc1(BIG_CHEST_CLOSED) { openChest(it.loc, BIG_CHEST_CLOSED,  VARP_KC_BIG) }
+        onOpLoc1(BIG_CHEST_CLOSED) { openChest(it.loc, BIG_CHEST_CLOSED, VARP_KC_BIG) }
         onOpLoc2(BIG_CHEST_CLOSED) { checkCount(VARP_KC_BIG, "Larran's big chest") }
     }
 
@@ -57,13 +65,17 @@ class LarransChestScript @Inject constructor(
         VarPlayerIntMapSetter.toggle(player, VARBIT_CHEST)
         mes("You unlock the chest with your key.")
 
-        VarPlayerIntMapSetter.set(player, kcVarp, player.vars[kcVarp] + 1)
+        val chestCount = player.vars[kcVarp] + 1
+        VarPlayerIntMapSetter.set(player, kcVarp, chestCount)
 
         val table = dropRegistry.forLoc(closedLocName) ?: return
         when (val result = table.roll(player, ArgMap()).flatten()) {
             is RollResult.Nothing -> Unit
-            is RollResult.Single -> giveDrop(result.result)
-            is RollResult.ListOf -> result.results.forEach { giveDrop(it) }
+            is RollResult.Single -> giveDrop(result.result, closedLocName, chestCount, 0)
+            is RollResult.ListOf ->
+                result.results.forEachIndexed { index, drop ->
+                    giveDrop(drop, closedLocName, chestCount, index)
+                }
         }
 
         delay(1)
@@ -75,9 +87,26 @@ class LarransChestScript @Inject constructor(
         mes("You have opened $chestName $count ${if (count == 1) "time" else "times"}.")
     }
 
-    private fun ProtectedAccess.giveDrop(drop: DropRollItem) {
+    private fun ProtectedAccess.giveDrop(
+        drop: DropRollItem,
+        closedLocName: String,
+        chestCount: Int,
+        awardIndex: Int,
+    ) {
         if (drop.isNothing || !drop.condition(player)) return
         val obj = drop.transformObj(player) ?: drop.obj
-        invAddOrDrop(objRepo, obj, drop.rollCount(random))
+        val amount = drop.rollCount(random)
+        invAddOrDrop(objRepo, obj, amount)
+        collectionLog.record(
+            player = player,
+            itemId = obj.asRSCM(RSCMType.OBJ),
+            amount = amount,
+            source =
+                CollectionLogAwardSource(
+                    CollectionLogAwardKind.SpecialContainer,
+                    closedLocName.removePrefix("loc.").replace('_', '-'),
+                ),
+            eventId = "${player.uid}:$chestCount:$awardIndex",
+        )
     }
 }

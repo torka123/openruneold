@@ -126,10 +126,16 @@ public class Transaction<T>(
 
         override fun result(): TransactionResult {
             val inv = into ?: return TransactionResult.Exception("`into` is required.")
-            val obj = obj ?: return TransactionResult.Exception("`obj` is required.")
+            var obj = obj ?: return TransactionResult.Exception("`obj` is required.")
             val count = preferredCount ?: strictCount
             if (count < 1) {
                 return TransactionResult.InvalidCountRequest
+            }
+            inv.normalizeIncoming?.let { normalize ->
+                val normalized = normalize(TransactionObj(obj, count, vars))
+                check(normalized.count == count) { "An insertion policy must preserve item count." }
+                obj = normalized.id
+                vars = normalized.vars
             }
             val capacity = capacity ?: inv.image.size
             if (capacity > inv.image.size) {

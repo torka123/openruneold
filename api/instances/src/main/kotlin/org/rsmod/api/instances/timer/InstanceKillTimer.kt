@@ -27,7 +27,8 @@ internal object InstanceKillTimer {
         }
     }
 
-    fun reportKillTime(player: Player, instanceKey: String, elapsedTicks: Int) {
+    /** Reports the kill time and returns true only when a new personal best was recorded. */
+    fun reportKillTime(player: Player, instanceKey: String, elapsedTicks: Int): Boolean {
         val duration = formatDuration(elapsedTicks)
 
         if (elapsedTicks > INSTANCE_KILL_TIMER_MAX_TICKS) {
@@ -35,30 +36,33 @@ internal object InstanceKillTimer {
                 "<col=ff0000>Your kill time of $duration was too long to record a personal best.</col>",
                 ChatType.Engine,
             )
-            return
+            return false
         }
 
         val improved = player.recordInstanceKillBest(instanceKey, elapsedTicks)
         val best = player.instanceKillBest(instanceKey)?.let(::formatDuration)
 
-        when {
-            improved ->
+        return when {
+            improved -> {
                 player.mes(
                     "<col=008000>Kill time: $duration — a new personal best of ${best ?: duration}!</col>",
                     ChatType.Engine,
                 )
+                true
+            }
 
-            best != null ->
+            best != null -> {
                 player.mes(
                     "Kill time: $duration. Your personal best remains $best.",
                     ChatType.Engine,
                 )
+                false
+            }
 
-            else ->
-                player.mes(
-                    "Kill time: $duration.",
-                    ChatType.Engine,
-                )
+            else -> {
+                player.mes("Kill time: $duration.", ChatType.Engine)
+                false
+            }
         }
     }
 }

@@ -16,10 +16,12 @@ class GameBootstrap @Inject constructor(
     private val openRuneCentral: OpenRuneCentralWorldLink,
 ) {
     private val serviceManager = ServiceManager.create(services)
+    private val processLock = OpenRuneServerProcessLock()
 
     suspend fun startupUntilReady(): Thread {
-        EmbeddedSameInstancePostgres.ensureStarted(serverConfig)
+        processLock.acquire()
         try {
+            EmbeddedSameInstancePostgres.ensureStarted(serverConfig)
             centralEmbedded.startIfConfigured()
             openRuneCentral.startInboundWatch()
             val startupResult = serviceManager.awaitStartup()
@@ -32,6 +34,7 @@ class GameBootstrap @Inject constructor(
         } catch (t: Throwable) {
             runCatching { centralEmbedded.stopIfRunning() }
             EmbeddedSameInstancePostgres.stop()
+            processLock.close()
             throw t
         }
     }
@@ -85,6 +88,7 @@ class GameBootstrap @Inject constructor(
         } catch (_: Throwable) {
             EmbeddedSameInstancePostgres.forceStopNow()
         } finally {
+            processLock.close()
             completed.set(true)
         }
     }

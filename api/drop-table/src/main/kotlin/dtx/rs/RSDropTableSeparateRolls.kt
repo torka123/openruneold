@@ -14,26 +14,24 @@ internal fun <T, R> mergeInlineSeparateRolls(
     }
 
     val explicitEntries = (explicit as? MultiChanceTable<T, R>)?.tableEntries.orEmpty()
-    val mergedEntries =
-        buildList {
-            addAll(explicitEntries)
-            addAll(
-                inline.map { roll ->
-                    ChanceRollableImpl(
-                        chance = roll.numerator.toDouble() / roll.denominator.toDouble() * 100.0,
-                        rollable = roll.rollable,
-                    )
-                },
-            )
-        }
+    val mergedEntries = buildList {
+        addAll(explicitEntries)
+        addAll(
+            inline.map { roll ->
+                ChanceRollableImpl(
+                    chance = roll.numerator.toDouble() / roll.denominator.toDouble() * 100.0,
+                    rollable = roll.rollable,
+                )
+            }
+        )
+    }
 
     if (mergedEntries.isEmpty()) {
         return RSPreRollTable.Empty()
     }
 
     val tableName =
-        (explicit as? Table<T, R>)?.tableIdentifier?.takeUnless { it.isBlank() }
-            ?: "Separate Rolls"
+        (explicit as? Table<T, R>)?.tableIdentifier?.takeUnless { it.isBlank() } ?: "Separate Rolls"
 
     return RSPreRollTable(tableName, mergedEntries)
 }

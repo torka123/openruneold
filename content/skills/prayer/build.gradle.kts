@@ -14,4 +14,5 @@ dependencies {
     implementation(projects.content.skills.utils)
     implementation(projects.engine.events)
     implementation(projects.engine.utilsBits)
+    testImplementation(kotlin("test"))
 }

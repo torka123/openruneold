@@ -26,28 +26,28 @@ import org.rsmod.game.ui.Component
 
 @OptIn(InternalApi::class)
 class IfSubOpHandler
-@Inject constructor(
-    private val eventBus: EventBus,
-    private val protectedAccess: ProtectedAccessLauncher,
-) : MessageHandler<IfSubOp> {
+@Inject
+constructor(private val eventBus: EventBus, private val protectedAccess: ProtectedAccessLauncher) :
+    MessageHandler<IfSubOp> {
 
     private val IfSubOp.asComponent: Component
         get() = Component(interfaceId, componentId)
 
     private val IfSubOp.buttonOp: IfButtonOp
-        get() = when (op) {
-            1 -> IfButtonOp.Op1
-            2 -> IfButtonOp.Op2
-            3 -> IfButtonOp.Op3
-            4 -> IfButtonOp.Op4
-            5 -> IfButtonOp.Op5
-            6 -> IfButtonOp.Op6
-            7 -> IfButtonOp.Op7
-            8 -> IfButtonOp.Op8
-            9 -> IfButtonOp.Op9
-            10 -> IfButtonOp.Op10
-            else -> throw NotImplementedError("Unhandled IfSubOp op: $this")
-        }
+        get() =
+            when (op) {
+                1 -> IfButtonOp.Op1
+                2 -> IfButtonOp.Op2
+                3 -> IfButtonOp.Op3
+                4 -> IfButtonOp.Op4
+                5 -> IfButtonOp.Op5
+                6 -> IfButtonOp.Op6
+                7 -> IfButtonOp.Op7
+                8 -> IfButtonOp.Op8
+                9 -> IfButtonOp.Op9
+                10 -> IfButtonOp.Op10
+                else -> throw NotImplementedError("Unhandled IfSubOp op: $this")
+            }
 
     override fun handle(player: Player, message: IfSubOp) {
         val componentType = ServerCacheManager.fromComponent(message.asComponent.packed)
@@ -56,7 +56,8 @@ class IfSubOpHandler
         val buttonOp = message.buttonOp
         val subop = message.subop
 
-        val opEnabled = InterfaceEvents.isEnabled(player.ui, componentType, comsub, buttonOp.toIfEvent())
+        val opEnabled =
+            InterfaceEvents.isEnabled(player.ui, componentType, comsub, buttonOp.toIfEvent())
         if (!opEnabled) {
             return
         }
@@ -72,23 +73,18 @@ class IfSubOpHandler
                 if (!verifyHeldSubOp(player, inventory, invObj, packetObjType, heldOp)) {
                     return
                 }
-                val launched = protectedAccess.launch(player) {
-                    clearPendingAction()
-                    val type = getInvObj(invObj)
-                    val event = HeldSubOpEvent(comsub, invObj, type, inventory, heldOp, subop)
-                    eventBus.publish(this, event)
-                }
+                val launched =
+                    protectedAccess.launch(player) {
+                        clearPendingAction()
+                        val type = getInvObj(invObj)
+                        val event = HeldSubOpEvent(comsub, invObj, type, inventory, heldOp, subop)
+                        eventBus.publish(this, event)
+                    }
                 if (launched) {
                     return
                 }
             }
-            val event = IfOverlaySubOpMenu(
-                componentType,
-                comsub,
-                packetObjType,
-                buttonOp,
-                subop,
-            )
+            val event = IfOverlaySubOpMenu(componentType, comsub, packetObjType, buttonOp, subop)
             protectedAccess.launchLenient(player) { eventBus.publish(this, event) }
             return
         }
@@ -108,7 +104,7 @@ class IfSubOpHandler
                     eventBus.publish(this, event)
                 }
             } else {
-                val event = IfModalSubOpMenu(componentType, comsub, packetObjType, buttonOp, subop,)
+                val event = IfModalSubOpMenu(componentType, comsub, packetObjType, buttonOp, subop)
                 protectedAccess.launchLenient(player) { eventBus.publish(this, event) }
             }
         }
@@ -137,47 +133,49 @@ class IfSubOpHandler
         return true
     }
 
-    private fun opToHeldOp(op: Int): HeldOp? = when (op) {
-        2 -> HeldOp.Op1
-        3 -> HeldOp.Op2
-        4 -> HeldOp.Op3
-        6 -> HeldOp.Op4
-        7 -> HeldOp.Op5
-        else -> null
-    }
+    private fun opToHeldOp(op: Int): HeldOp? =
+        when (op) {
+            2 -> HeldOp.Op1
+            3 -> HeldOp.Op2
+            4 -> HeldOp.Op3
+            6 -> HeldOp.Op4
+            7 -> HeldOp.Op5
+            else -> null
+        }
 
-    private fun IfButtonOp.toIfEvent(): IfEvent = when (this) {
-        IfButtonOp.Op1 -> IfEvent.Op1
-        IfButtonOp.Op2 -> IfEvent.Op2
-        IfButtonOp.Op3 -> IfEvent.Op3
-        IfButtonOp.Op4 -> IfEvent.Op4
-        IfButtonOp.Op5 -> IfEvent.Op5
-        IfButtonOp.Op6 -> IfEvent.Op6
-        IfButtonOp.Op7 -> IfEvent.Op7
-        IfButtonOp.Op8 -> IfEvent.Op8
-        IfButtonOp.Op9 -> IfEvent.Op9
-        IfButtonOp.Op10 -> IfEvent.Op10
-        IfButtonOp.Op11 -> IfEvent.Op11
-        IfButtonOp.Op12 -> IfEvent.Op12
-        IfButtonOp.Op13 -> IfEvent.Op13
-        IfButtonOp.Op14 -> IfEvent.Op14
-        IfButtonOp.Op15 -> IfEvent.Op15
-        IfButtonOp.Op16 -> IfEvent.Op16
-        IfButtonOp.Op17 -> IfEvent.Op17
-        IfButtonOp.Op18 -> IfEvent.Op18
-        IfButtonOp.Op19 -> IfEvent.Op19
-        IfButtonOp.Op20 -> IfEvent.Op20
-        IfButtonOp.Op21 -> IfEvent.Op21
-        IfButtonOp.Op22 -> IfEvent.Op22
-        IfButtonOp.Op23 -> IfEvent.Op23
-        IfButtonOp.Op24 -> IfEvent.Op24
-        IfButtonOp.Op25 -> IfEvent.Op25
-        IfButtonOp.Op26 -> IfEvent.Op26
-        IfButtonOp.Op27 -> IfEvent.Op27
-        IfButtonOp.Op28 -> IfEvent.Op28
-        IfButtonOp.Op29 -> IfEvent.Op29
-        IfButtonOp.Op30 -> IfEvent.Op30
-        IfButtonOp.Op31 -> IfEvent.Op31
-        IfButtonOp.Op32 -> IfEvent.Op32
-    }
+    private fun IfButtonOp.toIfEvent(): IfEvent =
+        when (this) {
+            IfButtonOp.Op1 -> IfEvent.Op1
+            IfButtonOp.Op2 -> IfEvent.Op2
+            IfButtonOp.Op3 -> IfEvent.Op3
+            IfButtonOp.Op4 -> IfEvent.Op4
+            IfButtonOp.Op5 -> IfEvent.Op5
+            IfButtonOp.Op6 -> IfEvent.Op6
+            IfButtonOp.Op7 -> IfEvent.Op7
+            IfButtonOp.Op8 -> IfEvent.Op8
+            IfButtonOp.Op9 -> IfEvent.Op9
+            IfButtonOp.Op10 -> IfEvent.Op10
+            IfButtonOp.Op11 -> IfEvent.Op11
+            IfButtonOp.Op12 -> IfEvent.Op12
+            IfButtonOp.Op13 -> IfEvent.Op13
+            IfButtonOp.Op14 -> IfEvent.Op14
+            IfButtonOp.Op15 -> IfEvent.Op15
+            IfButtonOp.Op16 -> IfEvent.Op16
+            IfButtonOp.Op17 -> IfEvent.Op17
+            IfButtonOp.Op18 -> IfEvent.Op18
+            IfButtonOp.Op19 -> IfEvent.Op19
+            IfButtonOp.Op20 -> IfEvent.Op20
+            IfButtonOp.Op21 -> IfEvent.Op21
+            IfButtonOp.Op22 -> IfEvent.Op22
+            IfButtonOp.Op23 -> IfEvent.Op23
+            IfButtonOp.Op24 -> IfEvent.Op24
+            IfButtonOp.Op25 -> IfEvent.Op25
+            IfButtonOp.Op26 -> IfEvent.Op26
+            IfButtonOp.Op27 -> IfEvent.Op27
+            IfButtonOp.Op28 -> IfEvent.Op28
+            IfButtonOp.Op29 -> IfEvent.Op29
+            IfButtonOp.Op30 -> IfEvent.Op30
+            IfButtonOp.Op31 -> IfEvent.Op31
+            IfButtonOp.Op32 -> IfEvent.Op32
+        }
 }

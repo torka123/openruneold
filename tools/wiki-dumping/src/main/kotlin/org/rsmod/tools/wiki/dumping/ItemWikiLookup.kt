@@ -63,7 +63,9 @@ class ItemWikiLookup(
         return parseInfoboxItemId(source, lookupName)
     }
 
-    private suspend fun fetchPageSourceFollowingRedirects(startTitle: String): Pair<String, String?>? {
+    private suspend fun fetchPageSourceFollowingRedirects(
+        startTitle: String
+    ): Pair<String, String?>? {
         var pageTitle = startTitle
         var inheritedAnchor: String? = null
         repeat(6) {
@@ -86,15 +88,9 @@ class ItemWikiLookup(
         val version: String? = null,
     )
 
-    private data class ParsedDisplayName(
-        val wikiName: String,
-        val hashAnchor: String? = null,
-    )
+    private data class ParsedDisplayName(val wikiName: String, val hashAnchor: String? = null)
 
-    private data class RedirectTarget(
-        val title: String,
-        val anchor: String? = null,
-    )
+    private data class RedirectTarget(val title: String, val anchor: String? = null)
 
     private companion object {
         private val simpleItemIdPattern = Regex("""(?im)\|id\s*=\s*(\d+)\s*$""")
@@ -122,33 +118,29 @@ class ItemWikiLookup(
             val baseName = parentheticalBase(trimmed)
             val doseQualifier = parentheticalDoseQualifier(trimmed)
             return buildList {
-                add(trimmed)
-                add(underscored)
-                if (baseName != null) {
-                    add(baseName)
-                    add(baseName.replace(' ', '_'))
-                    if (doseQualifier != null) {
-                        add("$baseName$doseQualifier")
-                        add("${baseName.replace(' ', '_')}$doseQualifier")
+                    add(trimmed)
+                    add(underscored)
+                    if (baseName != null) {
+                        add(baseName)
+                        add(baseName.replace(' ', '_'))
+                        if (doseQualifier != null) {
+                            add("$baseName$doseQualifier")
+                            add("${baseName.replace(' ', '_')}$doseQualifier")
+                        }
                     }
                 }
-            }.distinct()
+                .distinct()
         }
 
         private fun parseRedirectTarget(source: String): RedirectTarget? {
             val inner =
-                redirectTargetPattern
-                    .find(source.trim())
-                    ?.groupValues
-                    ?.get(1)
-                    ?.trim()
+                redirectTargetPattern.find(source.trim())?.groupValues?.get(1)?.trim()
                     ?: return null
             val linkTarget = inner.substringBefore('|').trim().replace('_', ' ')
             val anchor =
-                linkTarget
-                    .substringAfter('#', "")
-                    .trim()
-                    .takeIf { '#' in linkTarget && it.isNotBlank() }
+                linkTarget.substringAfter('#', "").trim().takeIf {
+                    '#' in linkTarget && it.isNotBlank()
+                }
             return RedirectTarget(title = linkTarget.substringBefore('#').trim(), anchor = anchor)
         }
 
@@ -157,11 +149,15 @@ class ItemWikiLookup(
 
         private fun parseInfoboxItemId(wikitext: String, displayName: String): Int? {
             val parsed = parseDisplayName(displayName)
-            parseNestedInfoboxItemId(wikitext, displayName)?.let { return it }
+            parseNestedInfoboxItemId(wikitext, displayName)?.let {
+                return it
+            }
 
             val variants = parseInfoboxVariants(wikitext)
             if (variants.isNotEmpty()) {
-                selectVariantId(variants, displayName)?.let { return it }
+                selectVariantId(variants, displayName)?.let {
+                    return it
+                }
                 if (parsed.hashAnchor != null) {
                     return null
                 }
@@ -188,12 +184,17 @@ class ItemWikiLookup(
                 val wrapped = "{{Infobox Item\n$content}}"
                 val variants = parseInfoboxVariants(wrapped)
                 if (variants.isNotEmpty()) {
-                    selectVariantId(variants, displayName)?.let { return it }
+                    selectVariantId(variants, displayName)?.let {
+                        return it
+                    }
                     continue
                 }
 
-                val name = simpleItemNamePattern.find(content)?.groupValues?.get(1)?.trim().orEmpty()
-                val id = simpleItemIdPattern.find(content)?.groupValues?.get(1)?.toIntOrNull() ?: continue
+                val name =
+                    simpleItemNamePattern.find(content)?.groupValues?.get(1)?.trim().orEmpty()
+                val id =
+                    simpleItemIdPattern.find(content)?.groupValues?.get(1)?.toIntOrNull()
+                        ?: continue
                 if (name.isBlank() || namesMatch(name, displayName)) {
                     return id
                 }
@@ -204,9 +205,9 @@ class ItemWikiLookup(
         private fun parseInfoboxVariants(wikitext: String): List<InfoboxVariant> {
             val baseName = infoboxBaseName(wikitext)
             val names =
-                numberedNamePattern
-                    .findAll(wikitext)
-                    .associate { match -> match.groupValues[1].toInt() to match.groupValues[2].trim() }
+                numberedNamePattern.findAll(wikitext).associate { match ->
+                    match.groupValues[1].toInt() to match.groupValues[2].trim()
+                }
             val ids =
                 numberedIdPattern
                     .findAll(wikitext)
@@ -214,11 +215,12 @@ class ItemWikiLookup(
                         val index = match.groupValues[1].toInt()
                         val id = parsePrimaryItemId(match.groupValues[2]) ?: return@mapNotNull null
                         index to id
-                    }.toMap()
+                    }
+                    .toMap()
             val versions =
-                versionPattern
-                    .findAll(wikitext)
-                    .associate { match -> match.groupValues[1].toInt() to match.groupValues[2].trim() }
+                versionPattern.findAll(wikitext).associate { match ->
+                    match.groupValues[1].toInt() to match.groupValues[2].trim()
+                }
 
             val fromNumberedNames =
                 names.mapNotNull { (index, name) ->
@@ -230,8 +232,7 @@ class ItemWikiLookup(
                 if (baseName.isNullOrBlank()) {
                     emptyList()
                 } else {
-                    ids
-                        .filterKeys { it !in names }
+                    ids.filterKeys { it !in names }
                         .map { (index, id) ->
                             InfoboxVariant(
                                 index = index,
@@ -246,12 +247,9 @@ class ItemWikiLookup(
         }
 
         private fun infoboxBaseName(wikitext: String): String? =
-            simpleItemNamePattern
-                .find(wikitext)
-                ?.groupValues
-                ?.get(1)
-                ?.trim()
-                ?.takeIf { it.isNotBlank() }
+            simpleItemNamePattern.find(wikitext)?.groupValues?.get(1)?.trim()?.takeIf {
+                it.isNotBlank()
+            }
 
         private fun selectVariantId(variants: List<InfoboxVariant>, displayName: String): Int? {
             val parsed = parseDisplayName(displayName)
@@ -260,7 +258,9 @@ class ItemWikiLookup(
             parsed.hashAnchor?.let { anchor ->
                 variants
                     .firstOrNull { it.version?.equals(anchor, ignoreCase = true) == true }
-                    ?.let { return it.id }
+                    ?.let {
+                        return it.id
+                    }
             }
 
             val normalized = wikiName.lowercase()
@@ -277,7 +277,9 @@ class ItemWikiLookup(
             parentheticalQualifier(wikiName)?.let { qualifier ->
                 variants
                     .firstOrNull { it.version?.equals(qualifier, ignoreCase = true) == true }
-                    ?.let { return it.id }
+                    ?.let {
+                        return it.id
+                    }
             }
 
             if (baseDisplay != null) {
@@ -289,7 +291,8 @@ class ItemWikiLookup(
 
             val infoboxBase = variants.firstOrNull()?.name?.trim()?.lowercase()
             if (infoboxBase != null && (normalized == infoboxBase || baseDisplay == infoboxBase)) {
-                val sharedNameMatches = variants.filter { it.name.trim().lowercase() == infoboxBase }
+                val sharedNameMatches =
+                    variants.filter { it.name.trim().lowercase() == infoboxBase }
                 if (sharedNameMatches.isNotEmpty()) {
                     return preferItemVersion(sharedNameMatches)?.id ?: sharedNameMatches.first().id
                 }

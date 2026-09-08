@@ -17,6 +17,17 @@ class RspNpcInfo(val rspAvatar: NpcAvatar) : NpcInfoProtocol {
         rspAvatar.extendedInfo.setSpotAnim(slot, spotanim, delay, height)
     }
 
+    override fun setTinting(
+        startTime: Int,
+        endTime: Int,
+        hue: Int,
+        saturation: Int,
+        lightness: Int,
+        weight: Int,
+    ) {
+        rspAvatar.extendedInfo.setTinting(startTime, endTime, hue, saturation, lightness, weight)
+    }
+
     override fun setSay(text: String) {
         rspAvatar.extendedInfo.setSay(text)
     }
@@ -67,6 +78,11 @@ class RspNpcInfo(val rspAvatar: NpcAvatar) : NpcInfoProtocol {
 
     override fun setHeadIcon(slot: Int, graphic: Int, index: Int) {
         rspAvatar.extendedInfo.setHeadIconChange(slot, graphic, index)
+    }
+
+    override fun setCombatLevel(level: Int) {
+        require(level >= 0) { "NPC combat level cannot be negative: $level" }
+        rspAvatar.extendedInfo.setCombatLevelChange(level)
     }
 
     override fun exactMove(
