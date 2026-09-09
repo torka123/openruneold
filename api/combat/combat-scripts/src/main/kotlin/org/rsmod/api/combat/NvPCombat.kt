@@ -41,6 +41,16 @@ public data class NpcProjectile(
     public val source: CoordGrid? = null,
 )
 
+/** Per-component values only: all components still use one native attack gate and hit pipeline. */
+public data class NpcHitParameters(
+    public val impactOffset: Int = 0,
+    public val modifier: PlayerHitModifier? = null,
+    /** Pure damage distribution using the native accuracy result, maximum and injected RNG. */
+    public val damageRoll: ((maximum: Int, accurate: Boolean, random: GameRandom) -> Int)? = null,
+) {
+    init { require(impactOffset >= 0) { "Impact offset must not be negative." } }
+}
+
 public data class NpcAttackOverride(
     public val attackAnimation: String? = null,
     public val maxHit: Int? = null,
@@ -64,9 +74,12 @@ public data class NpcAttackOverride(
     public val hitContext: HitContext? = null,
     /** Simultaneous independently rolled hits under one native attack gate; null means one. */
     public val hitCount: Int? = null,
+    /** Explicit heterogeneous components take precedence over the homogeneous count. */
+    public val hits: List<NpcHitParameters>? = null,
 ) {
     init {
         require(hitCount == null || hitCount > 0) { "Hit count must be positive." }
+        require(hits == null || hits.isNotEmpty()) { "Explicit hit list must not be empty." }
     }
 }
 

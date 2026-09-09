@@ -2,6 +2,7 @@ package org.rsmod.api.bosses.spec
 
 import dev.openrune.types.NpcMode
 import org.rsmod.api.combat.NpcProjectile
+import org.rsmod.api.combat.NpcHitParameters
 import org.rsmod.api.combat.commons.CombatAttack
 import org.rsmod.api.combat.commons.types.MeleeAttackType
 
@@ -64,9 +65,11 @@ sealed interface Effect {
         val parameters: String? = null,
         val parameterData: Any? = null,
         val hitCount: Int = 1,
+        val hits: List<NpcHitParameters>? = null,
     ) : Effect {
         init {
             require(hitCount > 0) { "Hit count must be positive." }
+            require(hits == null || hits.isNotEmpty()) { "Explicit hit list must not be empty." }
         }
     }
 

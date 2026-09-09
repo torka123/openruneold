@@ -26,6 +26,8 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
     var invulnerable: Boolean = false
     var damageScale: Double = 1.0
     var lethalHandled: Boolean = false
+    var phaseAbilityCount: Int = 0
+        private set
 
     /** Official upstream override; native attacks and ability readiness use the same cadence. */
     var attackRateOverride: Int? = null
@@ -369,6 +371,7 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
             }
             is Condition.HpExact -> npc.hitpoints == condition.hp
             is Condition.InPhase -> currentPhaseName == condition.phase
+            is Condition.AbilityCountModulo -> false
             is Condition.Not -> !evaluate(condition.c, target)
             is Condition.And -> evaluate(condition.a, target) && evaluate(condition.b, target)
             is Condition.Or -> evaluate(condition.a, target) || evaluate(condition.b, target)

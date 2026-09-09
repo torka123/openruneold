@@ -567,3 +567,14 @@ offsets 0/1, 80% launch-prayer reduction, fourth Dawn stone ball, third Dusk exp
 forms/HP gates, 12-tick lightning, five-tick hammer death, and the final ranged components' exact
 RNG usage (no roll for the fixed accurate first component; nested two rolls for the second; one
 zero-range draw for the missed second component). This is preserved draft behavior, not packet proof.
+
+Additional selector mapping before shared changes: Dusk's final style alternation counts committed
+abilities including prison, while the native rotation cursor intentionally excludes forced abilities.
+Local/upstream selector/condition searches find no phase-local committed-ability ordinal. Expose that
+count on BossEncounter, reset it on transition, and add a generic modulo condition for declarative
+effect selection. This avoids retaining Dusk's private normal attack counter. Tests cover forced and
+ordinary commits, phase reset and invalid modulo inputs. Also verify that explicitly forced abilities
+reset their existing periodic cadence when committed: currently only selection updates the periodic
+timestamp, so forceNextAbility may be followed immediately by the same time-based ability after a
+late start. Correct that generic bug in recordAbilityCommit, with regression tests. First prison can
+then use the existing one-shot forceNextAbility API; no separate prison scheduler is needed.
