@@ -161,6 +161,10 @@ object BossCombat {
 
         val interpreter = EffectInterpreter(npc, target, spec, encounter, deps)
         interpreter.run(this, effect)
+        if (deps.encounterRegistry.isCurrent(npc, encounter)) {
+            // NvPCombat must enter before this lock is armed; specials need the same native lock.
+            npc.actionDelay = maxOf(npc.actionDelay, tick + encounter.expectedAttackRate())
+        }
         onAbilityCommitted?.invoke(npc, target, encounter)
     }
 

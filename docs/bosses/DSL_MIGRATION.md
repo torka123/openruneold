@@ -595,3 +595,8 @@ BossCombat commit path to extend (never shorten) the native action lock to the d
 after interpreting the ability, while the encounter is still current. Do not arm it before
 NvPCombat, which would reject its own attack. A registered no-op/special ability regression and
 existing normal-attack tests must prove this reusable correction; no boss-specific action timer.
+
+`boss-native-special-lock-red.log` fails the new registered-ability test as expected.
+`boss-native-special-lock-green.log` passes 39 API tests and Hydra/Kraken/Vorkath/Corp regressions
+with scoped API check (47s, 184 tasks). The shared commit extends the native lock only after
+interpretation and only while that encounter is current; it does not introduce a second timer.
