@@ -50,6 +50,33 @@ import org.rsmod.routefinder.collision.CollisionFlagMap
 @OptIn(InternalApi::class)
 class BossRuntimeRegressionTest {
     @Test
+    fun `nested choice never consumes the phase forced attack counter`() {
+        val f = Fixture(PhaseSpec("main", forceAbilities = listOf(ForcedAbility(0, "special", 1, 1))))
+        val normal = Selector.Rotation(listOf("basic"))
+        assertEquals("basic", f.encounter.selectAbility(normal, 100, f.player))
+        val choice = Effect.Choose(Selector.Rotation(listOf("left", "right")),
+            mapOf("left" to Effect.Say("left"), "right" to Effect.Say("right")))
+        f.run(choice)
+        f.run(choice)
+        assertEquals(listOf(100 to "left", 100 to "right"), f.speech)
+        assertEquals("special", f.encounter.selectAbility(normal, 104, f.player))
+        assertEquals("basic", f.encounter.selectAbility(normal, 108, f.player))
+    }
+
+    @Test
+    fun `each nested choice owns its rotation and phase transition resets it`() {
+        val f = Fixture()
+        val first = Effect.Choose(Selector.Rotation(listOf("a", "b")), mapOf("a" to Effect.Say("a"), "b" to Effect.Say("b")))
+        val second = Effect.Choose(Selector.Rotation(listOf("x", "y")), mapOf("x" to Effect.Say("x"), "y" to Effect.Say("y")))
+        f.run(first); f.run(second); f.run(first)
+        f.encounter.transitionTo("main", 100)
+        f.run(first)
+        assertEquals(listOf("a", "x", "b", "a"), f.speech.map { it.second })
+        val spec = f.spec.copy(abilities = mapOf("basic" to first))
+        assertTrue(org.rsmod.api.bosses.validation.SpecValidator.validate(spec).isEmpty())
+    }
+
+    @Test
     fun `animation delay reaches native sequence packet without suspending the attack`() {
         val f = Fixture()
         f.run(Effect.Sequence(listOf(Effect.Anim(seq(11966), 8), Effect.Say("after"))))

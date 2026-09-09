@@ -225,7 +225,7 @@ Diagnostic-only modules are excluded. Zero manager lines is not proof of archite
 |---|---|---|---|---|---|---|
 | Kraken | private per-player run, native combat wrapper; 363 → 0 manager lines | Boss/tentacle specifications; ordinary attacks delegated to native NvPCombat by DSL | Source InstanceScript; native spawns, keyed joins, session state and lifecycle | KrakenWhirlpools (171 lines): dormant activation, one-shot completion/drop tile; native attack-validation hook | 12 passing tests, including 8 native integration/characterization tests | No live deployment/client verification; no new OSRS parity claim |
 | Vorkath | managers/timing; 1,254 -> 426 coordinator lines | BossSpec/BossCombat normal attacks, weights, forced cadence, phases; old timeline test-only | InstanceScript source arena, keyed join/leave, native ownership and cleanup | Arena effects (344 lines), spawn collision/contact (228), session data (71), no-reward diagnostics (105), existing reclaim storage | 110 passing module tests; all boss/shared regressions and server classes pass; revision-240 cache audit passes | Not deployed; PR unsubmitted. Inferred selection/path rules and original non-player damage exclusion retained, not certified as OSRS-correct |
-| Corporeal Beast | manager; 502 | Pending | Pending | Core behavior | Pending | Detailed mapping pending |
+| Corporeal Beast | manager; 502 | Characterization before conversion | Public lairs; no private-instance behavior added | Core, split projectiles and underfoot hazards | Native baseline characterization in progress | Existing third-party projectile provenance is preserved, not newly certified |
 | Alchemical Hydra | manager; 858 | Pending | Pending | Vents/hazards | Pending | Detailed mapping pending |
 | Grotesque Guardians | manager; 945 | Pending | Pending | Paired mechanics | Pending | Detailed mapping pending |
 | Zulrah | manager; 993 | Pending | Pending | Positions/clouds/snakes | Pending | Detailed mapping pending |
@@ -331,3 +331,36 @@ Kree'arra, K'ril, Obor, Scorpia, Scurrius, Wilderness, Zilyana) must be regressi
   Remaining reviewed exceptions are specialized area/contact effects and the Torfinn reclaim
   reminder hook. The latter does not manage encounter membership or cleanup. The manager retains
   presentation, attack eligibility, native KC/PB and reclaim coordination, not ordinary scheduling.
+
+## Corporeal Beast mapping (before migration)
+
+Architecture reference: upstream/main `61139e76a216592d66c2b20366ef26d48609875d`.
+All coordinates, attack formulas and timing below characterize existing `BEHAVIOUR.md`, Assets,
+Rules and the 502-line manager at the source baseline; they are not new OSRS verification.
+
+| Behavior preserved | Existing path | Established workflow / implementation | Executable coverage |
+|---|---|---|---|
+| 40% adjacent melee; otherwise three equally weighted magic variants | Manager attack selector | Official BossSpec/WeightedRandom/Whenever/Choose; normal NpcAttack adapter (documented local extension) | Registered Ap2/Op2, all weight boundaries, both melee animations |
+| Four ticks, occasional three ticks | Per-attack actionDelay assignment | Official upstream BossEncounter.attackRateOverride and BossCombat gating; declarative effect setting that existing concept | Injected RNG and exact native launch ticks |
+| Melee 33, magic 65, impact-time 100%/33% prayer reduction | NvPCombat override | Existing native NvPCombat through DSL; named parameters only for drain impact callback | Native hits, both prayer timings, drain/heal, projectile equality |
+| Tile-targeted main/six split projectiles | Manager queues with private generation | Named area handler; scoped native world queue and source-aware hit validity | Tile snapshot, split coordinates, queued cancellation |
+| Two public lairs, fixed radius/plane restriction | Manager room check | Existing map spawns/routes remain; launch eligibility predicate in shared BossCombat; no player/run maps or new private room | Other lair/plane exclusion, simultaneous lair isolation |
+| Core jump/siphon, underfoot stomp, empty-room heal/stat recovery | Global states/coreOwners maps and LateCycle handler | State and owned NPCs on BossEncounter; same native LateCycle stage enumerates native NPC list for specialized hazards | Native NPC/core ownership, timing, death/reset/delete, no stale hit/task |
+| Native death/drops/respawn | NpcDeath plus duplicate cleanup events | Keep NpcDeath; BossCombat lifecycle owns cancellation, cleanup resource callback removes core | Native death queue and fresh encounter identity |
+
+Searches: full local boss spec/interpreter/extension registry, NPC timer/queue APIs, NvPCombat
+and attack validation, native lifecycle and instance APIs, upstream boss spec/Effect/BossCombat/
+BossEncounter plus upstream content usages. Exact upstream references are files under
+`https://github.com/OpenRune/OpenRune-Server/tree/61139e76a216592d66c2b20366ef26d48609875d/api/bosses/src/main/kotlin/org/rsmod/api/bosses`.
+Upstream has `BossEncounter.attackRateOverride` and BossCombat precedence, absent locally.
+Bring that capability across without replacing local edits. Its declarative setter is a small
+local DSL extension; no Corp-specific concept or independent scheduler. Existing Choose can select
+weighted branches, but currently consumes the parent phase forced cadence/cursor, a generic defect
+requiring a regression and isolated branch selector state before using it for variants/cooldowns.
+A shared optional launch eligibility callback is needed for public room bounds: native PvN validation
+is the opposite attack direction, while hit validity alone acts after selection and cannot guard an
+external tile launch. The callback is a local BossCombat extension, not a private combat hook.
+NPC timers run at a different stage than the characterized LateCycle hazard snapshot; retain the
+native LateCycle hook for specialized effects only, with native NPC/encounter ownership instead of
+a plugin-owned states map. These scoped API adjustments fall under the requested framework repairs;
+no cache, access, balancing, contribution or reward changes are proposed.
