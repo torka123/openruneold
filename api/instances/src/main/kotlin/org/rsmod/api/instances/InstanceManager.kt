@@ -353,6 +353,12 @@ constructor(
         }
     }
 
+    /**
+     * Replaces instance-owned actors through the same pipeline as an empty-room rejoin. Membership,
+     * session content and the room lifetime are retained. Intended for coordinated group respawns.
+     */
+    public fun resetNpcs(session: InstanceSession, currentTick: Int): Boolean = false
+
     private fun resetNpcs(session: InstanceSession, region: Region, currentTick: Int) {
         spawnedNpcs.remove(session.id)?.forEach { untagAndDelete(it) }
         val spawned = mutableListOf<Npc>()

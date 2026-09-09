@@ -608,3 +608,18 @@ handlers only snapshot prayer and supply the already-characterized final damage 
 The old normal attack functions/counters and prison period counter are removed. Private membership,
 special effect extraction and paired respawn integration remain in progress; this is not the final
 Guardians architecture acceptance or a live verification claim.
+
+Paired reset mapping before the next shared change: the draft leaves Dawn's corpse visible until
+17 ticks after Dusk's native death completes, then replaces both actors. A hidden NPC cannot resume
+its coroutine (`NpcMainProcess` uses `Npc.canProcess`, which requires visibility), so placing a
+17-tick coroutine delay after Dusk's despawn would stall. Individual native respawn would also reveal
+an extra actor before the pair replacement. Local and upstream searches for `resetNpcs`,
+`resetServerOwned` and respawn APIs show an existing private InstanceManager actor-reset pipeline
+(upstream 61139e7, InstanceManager.kt:318), but no callable reset for an occupied private session.
+Expose a validated overload of that same pipeline, not new spawning logic. It must reject stale,
+ended, expiring or invalid-region sessions, delete/detach all old actors, restore configured actors,
+and preserve occupants and session-owned content. Test repeated reset, helper cleanup, identity
+validation and two-instance isolation. This is a local shared adapter approved by this migration
+task, not an official upstream API. Guardians' specialized pair reset will use Dawn's still-live
+BossEncounter-scoped native world queue; instance teardown cancels it. Dusk's individual respawn
+will be suppressed through the existing native death delay parameter. No new lifecycle scheduler.
