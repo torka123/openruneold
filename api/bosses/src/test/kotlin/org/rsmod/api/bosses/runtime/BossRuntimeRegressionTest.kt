@@ -50,12 +50,111 @@ import org.rsmod.routefinder.collision.CollisionFlagMap
 @OptIn(InternalApi::class)
 class BossRuntimeRegressionTest {
     @Test
+    fun `retiring one summon detaches only that resource and ended state cannot be read`() {
+        val f = Fixture()
+        val second = Npc(f.npc.type, f.npc.coords)
+        f.encounter.own(f.npc)
+        f.encounter.own(second)
+        f.encounter.state("hazard") { "value" }
+        f.encounter.disown(f.npc)
+        assertEquals(listOf(second), f.encounter.owned())
+        assertEquals("value", f.encounter.stateOrNull<String>("hazard"))
+        f.registry.remove(f.npc)
+        assertNull(f.encounter.stateOrNull<String>("hazard"))
+    }
+
+    @Test
+    fun `declarative cadence changes native action lock and next DSL deadline together`() {
+        val f = Fixture(nativeCombat = true, random = Rolls(0))
+        f.npc.mode = NpcMode.ApPlayer2
+        val rate =
+            Effect.Choose(
+                Selector.WeightedRandom(WeightedRef("short", 1), WeightedRef("normal", 7)),
+                mapOf("short" to Effect.SetAttackRate(3), "normal" to Effect.SetAttackRate(null)),
+            )
+        val spec =
+            f.spec.copy(
+                abilities =
+                    mapOf(
+                        "basic" to
+                            Effect.Sequence(
+                                listOf(
+                                    rate,
+                                    Effect.NpcAttack(
+                                        CombatAttack.NpcMelee(
+                                            org.rsmod.api.combat.commons.types.MeleeAttackType.Crush
+                                        ),
+                                        maxHit = 12,
+                                    ),
+                                )
+                            )
+                    ),
+                phases =
+                    mapOf(
+                        "main" to PhaseSpec("main", selector = Selector.Rotation(listOf("basic")))
+                    ),
+            )
+        val registry = EncounterRegistry(f.random)
+        val deps =
+            with(f.deps) {
+                BossDeps(
+                    random,
+                    accuracy,
+                    worldRepo,
+                    npcRepo,
+                    playerList,
+                    mapClock,
+                    worldQueues,
+                    collision,
+                    registry,
+                    extensionRegistry,
+                    npcCombat,
+                )
+            }
+        val events = EventBus()
+        var allowed = false
+        BossCombat.register(
+            ScriptContext(events, CheatCommandMap(), EngineQueueCache()),
+            spec,
+            deps,
+            canTarget = { _, _ -> allowed },
+        )
+        fun attack() {
+            f.npc.launch {
+                events.publish(f.access(this, events), AiPlayerEvents.Ap2(f.player, f.npc))
+            }
+        }
+        attack()
+        assertNull(
+            registry.existing(f.npc),
+            "Rejected targets must not advance/create an encounter",
+        )
+        allowed = true
+        attack()
+        assertEquals(103, f.npc.actionDelay)
+        f.tick(2)
+        attack()
+        assertEquals(listOf(100), registry.of(f.npc).recentAbilityCommitTicks())
+        f.tick(1)
+        attack()
+        assertEquals(listOf(100, 103), registry.of(f.npc).recentAbilityCommitTicks())
+        assertEquals(listOf(3, 3), registry.of(f.npc).recentAttackTraces().map { it.expectedRate })
+        registry.remove(f.npc)
+        assertNull(registry.of(f.npc).attackRateOverride)
+        assertFailsWith<IllegalArgumentException> { Effect.SetAttackRate(0) }
+    }
+
+    @Test
     fun `nested choice never consumes the phase forced attack counter`() {
-        val f = Fixture(PhaseSpec("main", forceAbilities = listOf(ForcedAbility(0, "special", 1, 1))))
+        val f =
+            Fixture(PhaseSpec("main", forceAbilities = listOf(ForcedAbility(0, "special", 1, 1))))
         val normal = Selector.Rotation(listOf("basic"))
         assertEquals("basic", f.encounter.selectAbility(normal, 100, f.player))
-        val choice = Effect.Choose(Selector.Rotation(listOf("left", "right")),
-            mapOf("left" to Effect.Say("left"), "right" to Effect.Say("right")))
+        val choice =
+            Effect.Choose(
+                Selector.Rotation(listOf("left", "right")),
+                mapOf("left" to Effect.Say("left"), "right" to Effect.Say("right")),
+            )
         f.run(choice)
         f.run(choice)
         assertEquals(listOf(100 to "left", 100 to "right"), f.speech)
@@ -66,9 +165,19 @@ class BossRuntimeRegressionTest {
     @Test
     fun `each nested choice owns its rotation and phase transition resets it`() {
         val f = Fixture()
-        val first = Effect.Choose(Selector.Rotation(listOf("a", "b")), mapOf("a" to Effect.Say("a"), "b" to Effect.Say("b")))
-        val second = Effect.Choose(Selector.Rotation(listOf("x", "y")), mapOf("x" to Effect.Say("x"), "y" to Effect.Say("y")))
-        f.run(first); f.run(second); f.run(first)
+        val first =
+            Effect.Choose(
+                Selector.Rotation(listOf("a", "b")),
+                mapOf("a" to Effect.Say("a"), "b" to Effect.Say("b")),
+            )
+        val second =
+            Effect.Choose(
+                Selector.Rotation(listOf("x", "y")),
+                mapOf("x" to Effect.Say("x"), "y" to Effect.Say("y")),
+            )
+        f.run(first)
+        f.run(second)
+        f.run(first)
         f.encounter.transitionTo("main", 100)
         f.run(first)
         assertEquals(listOf("a", "x", "b", "a"), f.speech.map { it.second })

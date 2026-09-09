@@ -364,3 +364,18 @@ NPC timers run at a different stage than the characterized LateCycle hazard snap
 native LateCycle hook for specialized effects only, with native NPC/encounter ownership instead of
 a plugin-owned states map. These scoped API adjustments fall under the requested framework repairs;
 no cache, access, balancing, contribution or reward changes are proposed.
+
+Ownership adjuncts: existing `BossEncounter.own/owned/drainOwnedNpcs` and `state` lacked a way to
+detach one retired summon or read state without creating it. Add `disown` and `stateOrNull` to those
+same collections, with removal/isolation tests; do not add another registry. These are local shared
+extensions to the already adopted encounter identity.
+
+`boss-nested-choice-red.log`: both new choice tests fail (28 tests, 2 failures). After isolating
+branch selection state and validating branch keys, `boss-nested-choice-green-3.log` passes 30 boss
+API, 12 Kraken and 110 Vorkath tests (39s, 168 tasks). `boss-choice-check-2.log` passes scoped
+formatting and API check (43s, 159 tasks). The first check command used an unavailable formatter task;
+the corrected invocation uses the project's existing selected-file Spotless workflow.
+`corp-characterization-before-3.log`: 13 tests pass against the old manager (31s, 155 tasks).
+`corp-dsl-characterization-after.log`: the same 13 assertions pass via production BossCombat wiring
+(39s, 157 tasks). Two earlier baseline fixture iterations were corrected to read the native deferred
+impact-hit queue rather than mistakenly looking only for already-built hits.

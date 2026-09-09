@@ -1,5 +1,6 @@
 package org.rsmod.api.bosses.runtime
 
+import java.util.IdentityHashMap
 import org.rsmod.api.bosses.spec.*
 import org.rsmod.api.random.GameRandom
 import org.rsmod.game.MapClock
@@ -11,7 +12,7 @@ import org.rsmod.game.queue.WorldQueueList
 data class BossAttackTrace(
     val ability: String,
     val commitTick: Int,
-    val expectedRate: Int,
+    var expectedRate: Int,
     var style: HitType? = null,
     var expectedImpactTick: Int? = null,
     var actualImpactTick: Int? = null,
@@ -26,11 +27,34 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
     var damageScale: Double = 1.0
     var lethalHandled: Boolean = false
 
+    /** Official upstream override; native attacks and ability readiness use the same cadence. */
+    var attackRateOverride: Int? = null
+        set(value) {
+            require(value == null || value > 0) { "Attack rate must be positive." }
+            field = value
+            attackTraces.lastOrNull()?.expectedRate = expectedAttackRate()
+        }
+
     internal val firedTriggers = mutableSetOf<Int>()
     internal val firedPhaseEntries = mutableSetOf<String>()
-    private val cooldowns = mutableMapOf<String, Int>()
+
+    private class SelectionState {
+        val cooldowns = mutableMapOf<String, Int>()
+        var rotationCursor = 0
+    }
+
+    private val phaseSelection = SelectionState()
+    private val branchSelections = IdentityHashMap<Effect.Choose, SelectionState>()
+    private val cooldowns
+        get() = phaseSelection.cooldowns
+
     private val forcedTickLastFired = mutableMapOf<String, Int>()
-    private var rotationCursor = 0
+    private var rotationCursor: Int
+        get() = phaseSelection.rotationCursor
+        set(value) {
+            phaseSelection.rotationCursor = value
+        }
+
     private var basicAttackCount = 0
     var lastRotationIndex: Int = -1
         private set
@@ -60,6 +84,11 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
         ownedNpcs += npc
     }
 
+    /** Detaches a retired summon without draining other live resources from this encounter. */
+    fun disown(npc: Npc) {
+        ownedNpcs.remove(npc)
+    }
+
     fun drainOwnedNpcs(): Set<Npc> = ownedNpcs.toSet().also { ownedNpcs.clear() }
 
     fun owned(): List<Npc> = ownedNpcs.toList()
@@ -78,6 +107,7 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
         val actions = cleanupActions.toList()
         cleanupActions.clear()
         encounterState.clear()
+        branchSelections.clear()
         var failure: Throwable? = null
         actions.forEach { action ->
             try {
@@ -131,6 +161,9 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
         return create().also { encounterState[key] = it }
     }
 
+    @Suppress("UNCHECKED_CAST")
+    fun <T : Any> stateOrNull(key: String): T? = encounterState[key] as? T
+
     fun forceNextAbility(name: String): Boolean {
         if (isEnded) return false
         if (name !in spec.abilities) return false
@@ -173,7 +206,8 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
     fun attackTracesAfter(tick: Int): List<BossAttackTrace> =
         attackTraces.filter { it.commitTick > tick }.map { it.copy() }
 
-    fun expectedAttackRate(): Int = currentPhase?.attackRate ?: spec.stats.attackRate
+    fun expectedAttackRate(): Int =
+        attackRateOverride ?: currentPhase?.attackRate ?: spec.stats.attackRate
 
     fun transitionTo(phaseName: String, tick: Int) {
         val from = currentPhaseName
@@ -182,6 +216,7 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
         rotationCursor = 0
         lastRotationIndex = -1
         cooldowns.clear()
+        branchSelections.clear()
         forcedTickLastFired.clear()
         basicAttackCount = 0
         forceAttackThreshold = -1
@@ -220,21 +255,38 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
             }
         }
 
-        val selected =
-            when (selector) {
-                is Selector.WeightedRandom -> selectWeightedRandom(selector, tick, target)
-                is Selector.Rotation -> selectRotation(selector)
-                is Selector.MeleeOverrideRotation -> selectMeleeOverrideRotation(selector, target)
-                is Selector.Conditional ->
-                    selector.branches
-                        .firstOrNull { (condition, _) -> evaluate(condition, target) }
-                        ?.second ?: selector.fallback
-            }
+        val selected = select(selector, tick, target, phaseSelection)
         if (selected != null && attackForced != null) {
             basicAttackCount++
         }
         return selected
     }
+
+    /** A nested effect chooses a branch, not another phase attack opportunity. */
+    internal fun selectBranch(choice: Effect.Choose, tick: Int, target: Player?): String? =
+        select(
+            choice.selector,
+            tick,
+            target,
+            branchSelections.getOrPut(choice) { SelectionState() },
+        )
+
+    private fun select(
+        selector: Selector,
+        tick: Int,
+        target: Player?,
+        state: SelectionState,
+    ): String? =
+        when (selector) {
+            is Selector.WeightedRandom -> selectWeightedRandom(selector, tick, target, state)
+            is Selector.Rotation -> selectRotation(selector, state)
+            is Selector.MeleeOverrideRotation ->
+                selectMeleeOverrideRotation(selector, target, state)
+            is Selector.Conditional ->
+                selector.branches
+                    .firstOrNull { (condition, _) -> evaluate(condition, target) }
+                    ?.second ?: selector.fallback
+        }
 
     private fun randomThreshold(forced: ForcedAbility): Int {
         val min = forced.attackMin ?: return Int.MAX_VALUE
@@ -246,10 +298,12 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
         selector: Selector.WeightedRandom,
         tick: Int,
         target: Player? = null,
+        state: SelectionState,
     ): String? {
         val available =
             selector.entries.filter { ref ->
-                val onCooldown = cooldowns[ref.ability]?.let { tick - it < ref.cooldown } ?: false
+                val onCooldown =
+                    state.cooldowns[ref.ability]?.let { tick - it < ref.cooldown } ?: false
                 !onCooldown && evaluate(ref.requires, target)
             }
 
@@ -262,31 +316,32 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
         for (ref in available) {
             roll -= ref.weight
             if (roll < 0) {
-                cooldowns[ref.ability] = tick
-                lastAbilityName = ref.ability
+                state.cooldowns[ref.ability] = tick
+                if (state === phaseSelection) lastAbilityName = ref.ability
                 return ref.ability
             }
         }
         return available.last().ability
     }
 
-    private fun selectRotation(selector: Selector.Rotation): String? {
+    private fun selectRotation(selector: Selector.Rotation, state: SelectionState): String? {
         if (selector.sequence.isEmpty()) return null
-        val index = rotationCursor % selector.sequence.size
-        lastRotationIndex = index
+        val index = state.rotationCursor % selector.sequence.size
+        if (state === phaseSelection) lastRotationIndex = index
         val ability = selector.sequence[index]
-        rotationCursor++
+        state.rotationCursor++
         return ability
     }
 
     private fun selectMeleeOverrideRotation(
         selector: Selector.MeleeOverrideRotation,
         target: Player?,
+        state: SelectionState,
     ): String? {
         if (selector.sequence.isEmpty()) return null
-        val index = rotationCursor % selector.sequence.size
-        lastRotationIndex = index
-        rotationCursor++
+        val index = state.rotationCursor % selector.sequence.size
+        if (state === phaseSelection) lastRotationIndex = index
+        state.rotationCursor++
         // Melee is a positional replacement for this attack opportunity. It must not pause the
         // underlying rotation: phase switches, movement, and specials remain tied to the same
         // deterministic opportunity index even when a player steps next to a large boss.

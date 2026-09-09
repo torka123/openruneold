@@ -86,6 +86,13 @@ sealed interface Effect {
 
     data class Delay(val ticks: Int) : Effect
 
+    /** Declaratively sets the upstream per-encounter cadence override; null restores phase rate. */
+    data class SetAttackRate(val ticks: Int?) : Effect {
+        init {
+            require(ticks == null || ticks > 0) { "Attack rate must be positive." }
+        }
+    }
+
     data object NoOp : Effect
 
     data class Hit(

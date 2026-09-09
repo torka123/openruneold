@@ -34,6 +34,7 @@ object BossCombat {
         onResolveHit: (NpcHitEvents.Resolve.() -> Unit)? = null,
         onImpactHit: (NpcHitEvents.Impact.() -> Unit)? = null,
         onAbilityCommitted: (suspend (Npc, Player, BossEncounter) -> Unit)? = null,
+        canTarget: (Npc, Player) -> Boolean = { _, _ -> true },
     ) {
         val errors = SpecValidator.validate(spec)
         if (errors.isNotEmpty()) {
@@ -53,8 +54,14 @@ object BossCombat {
 
         with(ctx) {
             for (npcType in npcTypes) {
-                onAiOpPlayer2(npcType) { runCombatTick(it.target, spec, deps, onAbilityCommitted) }
-                onAiApPlayer2(npcType) { runCombatTick(it.target, spec, deps, onAbilityCommitted) }
+                onAiOpPlayer2(npcType) {
+                    if (canTarget(npc, it.target))
+                        runCombatTick(it.target, spec, deps, onAbilityCommitted)
+                }
+                onAiApPlayer2(npcType) {
+                    if (canTarget(npc, it.target))
+                        runCombatTick(it.target, spec, deps, onAbilityCommitted)
+                }
                 if (onResolveHit != null) onResolveNpcHit(npcType, onResolveHit)
                 if (onImpactHit != null) onNpcHit(npcType, onImpactHit)
                 onModifyNpcHit(npcType) {
@@ -140,7 +147,7 @@ object BossCombat {
         // Native action locks (for example awakening) must not consume an ability opportunity.
         if (npc.actionDelay > tick) return
         val ticksSinceLastAttack = tick - encounter.lastAbilityTick
-        val attackRate = encounter.currentPhase?.attackRate ?: spec.stats.attackRate
+        val attackRate = encounter.expectedAttackRate()
         if (ticksSinceLastAttack < attackRate) return
 
         val phase = encounter.currentPhase ?: return

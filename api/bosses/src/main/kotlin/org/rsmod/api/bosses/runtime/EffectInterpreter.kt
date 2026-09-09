@@ -54,6 +54,7 @@ class EffectInterpreter(
 
     private suspend fun execute(access: StandardNpcAccess, effect: Effect) {
         when (effect) {
+            is Effect.SetAttackRate -> encounter.attackRateOverride = effect.ticks
             is Effect.NpcAttack -> {
                 val supplied =
                     effect.parameters?.let {
@@ -160,7 +161,7 @@ class EffectInterpreter(
             }
             is Effect.Choose -> {
                 val abilityName =
-                    encounter.selectAbility(effect.selector, deps.mapClock.cycle, target) ?: return
+                    encounter.selectBranch(effect, deps.mapClock.cycle, target) ?: return
                 val branch = effect.branches[abilityName] ?: return
                 run(access, branch)
             }

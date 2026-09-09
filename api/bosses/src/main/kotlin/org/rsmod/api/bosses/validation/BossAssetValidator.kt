@@ -86,6 +86,7 @@ object BossAssetValidator {
                 is Effect.OnEach -> effect(value.effect)
                 is Effect.Broadcast,
                 is Effect.Delay,
+                is Effect.SetAttackRate,
                 is Effect.Freeze,
                 is Effect.NoOp,
                 is Effect.NpcAttackAnim,
