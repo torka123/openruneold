@@ -290,7 +290,9 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
             is Condition.OnSpawn -> false
             is Condition.OnDeath -> false
             is Condition.WithinMeleeRange -> {
-                target != null && npc.isWithinDistance(target, 1)
+                target != null &&
+                    target.coords.level == npc.coords.level &&
+                    npc.isWithinDistance(target, 1)
             }
             is Condition.HpBelow -> {
                 val fraction = npc.hitpoints.toDouble() / npc.baseHitpointsLvl.coerceAtLeast(1)
@@ -304,7 +306,10 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
             is Condition.EveryNTicks -> false
             is Condition.OnPhaseTick -> false
             is Condition.IncomingHitDamageAtLeast -> false
-            is Condition.PlayerEnterRange -> false
+            is Condition.PlayerEnterRange ->
+                target != null &&
+                    target.coords.level == npc.coords.level &&
+                    npc.isWithinDistance(target, condition.tiles)
             is Condition.TargetPraying ->
                 target != null &&
                     when (condition.type) {

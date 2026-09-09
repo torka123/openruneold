@@ -313,6 +313,23 @@ class BossRuntimeRegressionTest {
     }
 
     @Test
+    fun `range conditions use occupied footprints and exclude other planes`() {
+        val f = Fixture()
+        f.player.coords = f.npc.coords.translate(1, 1)
+        assertTrue(f.encounter.evaluate(Condition.PlayerEnterRange(0), f.player))
+        val adjacentOnly =
+            Condition.WithinMeleeRange and Condition.Not(Condition.PlayerEnterRange(0))
+        assertFalse(f.encounter.evaluate(adjacentOnly, f.player))
+        f.player.coords = f.npc.coords.translate(f.npc.size, 1)
+        assertTrue(f.encounter.evaluate(adjacentOnly, f.player))
+        f.player.coords = f.npc.coords.translate(f.npc.size + 1, 1)
+        assertFalse(f.encounter.evaluate(Condition.PlayerEnterRange(1), f.player))
+        f.player.coords = f.npc.coords.copy(level = 1)
+        assertFalse(f.encounter.evaluate(Condition.PlayerEnterRange(32), f.player))
+        assertFalse(f.encounter.evaluate(Condition.WithinMeleeRange, f.player))
+    }
+
+    @Test
     fun `forced attack threshold uses injected random and resets after firing`() {
         val random = Rolls(2, 0)
         val phase = PhaseSpec("main", forceAbilities = listOf(ForcedAbility(0, "special", 2, 4)))

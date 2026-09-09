@@ -165,6 +165,12 @@ local InstanceManager.destroy/resetServerOwned, InstanceSession, InstanceLifecyc
 cleanup and GameCycle/WorldQueueListProcess. Shared world work runs before NPC/player movement;
 preserve that snapshot boundary when replacing Vorkath's StartCycle deadline lists.
 
+One existing condition also needs repair: `Condition.PlayerEnterRange` is declared but always
+returns false. Use native footprint distance (and matching plane), which lets Vorkath preserve its
+existing "adjacent but not under the boss" melee eligibility without a custom selector. Test inside,
+edge, beyond-range and wrong-plane positions before wiring its weights. This repairs an existing
+generic condition rather than introducing a Vorkath-specific predicate.
+
 Initial line-count definition: main Kotlin files ending in `Manager.kt` or `Timeline.kt`, excluding
 generated output. Includes specialized manager files (therefore not all counted lines are duplication).
 Diagnostic-only modules are excluded. Zero manager lines is not proof of architecture compliance.
@@ -258,3 +264,12 @@ Kree'arra, K'ril, Obor, Scorpia, Scurrius, Wilderness, Zilyana) must be regressi
 - `boss-specialized-adapters-check.log`: selected-file API formatting/checks plus Kraken and
   existing Vorkath tests pass (45s, 177 tasks). Boss API: 25 tests; instances: 31; Kraken: 12;
   Vorkath: 103. These are supporting APIs; Vorkath's migration is not yet complete.
+- `boss-footprint-condition-red.log` fails against the stubbed range condition. After repair,
+  `vorkath-dsl-characterization-2.log` passes: 26 boss API tests and 105 Vorkath tests. The first
+  combined run exposed concurrent initialization of the shared revision-240 test cache; Vorkath's
+  tests now run serially like Kraken and the shared API fixtures. No gameplay timing changed.
+- Vorkath's new specification is currently exercised by characterization only, not registered beside
+  the old combat in production. It reproduces six native attacks and the following special deadline,
+  exact ranged projectile fields and queue delays, all selection weight boundaries including
+  underfoot exclusion, and retirement of queued hits. Existing special/capture tests still run
+  against the old wiring until each specialized/lifecycle path is migrated and compared.
