@@ -9,16 +9,29 @@ import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import org.junit.jupiter.api.parallel.Execution
 import org.junit.jupiter.api.parallel.ExecutionMode
+import org.mockito.Mockito.mock
+import org.rsmod.api.area.checker.AreaChecker
+import org.rsmod.api.droptable.DropTableRegistry
+import org.rsmod.content.drops.toml.ContentDropTableTomlResolver
+import org.rsmod.content.quest.manager.QuestRequirementResolver
+import org.rsmod.game.entity.Npc
+import org.rsmod.map.CoordGrid
 
 @Execution(ExecutionMode.SAME_THREAD)
 class GrotesqueGuardiansDropTableTest {
     @Test
     fun `final dusk registers the wiki two roll reward table`() {
         assertEquals("Grotesque Guardians Drops", grotesqueGuardiansDropTable.tableIdentifier)
-        assertEquals(listOf("npc.gargboss_dusk_phase4"), grotesqueGuardiansDropTable.npcs)
+        assertEquals(
+            listOf("npc.gargboss_dusk_phase1_defensive", "npc.gargboss_dusk_phase4"),
+            grotesqueGuardiansDropTable.npcs,
+        )
         assertEquals(2, GROTESQUE_MAIN_ROLLS)
         assertEquals(142.0, grotesqueCommonTable.maxRoll)
         assertEquals(8.0, grotesqueSharkTable.maxRoll)
@@ -59,6 +72,24 @@ class GrotesqueGuardiansDropTableTest {
         } finally {
             cache.close()
         }
+    }
+
+    @Test
+    fun `native registry resolves transformed Dusk using original actor identity without awarding Dawn`() {
+        if (ServerCacheManager.objectSize() == 0) ServerCacheManager.init(240).close()
+        val registry =
+            DropTableRegistry(
+                ContentDropTableTomlResolver(
+                    mock(AreaChecker::class.java),
+                    mock(QuestRequirementResolver::class.java),
+                )
+            )
+        val dusk = Npc(assertNotNull(ServerCacheManager.getNpc(7851)), CoordGrid(1689, 4573))
+        dusk.transmog(assertNotNull(ServerCacheManager.getNpc(7888)), Int.MAX_VALUE)
+        assertEquals(7851, dusk.type.id)
+        assertSame(grotesqueGuardiansDropTable, registry.forNpc(dusk))
+        val dawn = Npc(assertNotNull(ServerCacheManager.getNpc(7852)), CoordGrid(1701, 4573))
+        assertNull(registry.forNpc(dawn))
     }
 
     private fun projectRoot(): Path =

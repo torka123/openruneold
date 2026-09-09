@@ -82,7 +82,8 @@ internal val grotesquePerRollTable =
 public val grotesqueGuardiansDropTable: RSDropTable<Player, DropRollItem> =
     RSDropTable(
         tableIdentifier = "Grotesque Guardians Drops",
-        npcs = npcs("npc.gargboss_dusk_phase4"),
+        // Native actors retain their spawn definition through all visual transformations.
+        npcs = npcs("npc.gargboss_dusk_phase1_defensive", "npc.gargboss_dusk_phase4"),
         guaranteed = rsPlayerGuaranteedTable { "obj.granite_dust" count 50..100 },
         mainTable = grotesquePerRollTable,
         mainRolls = GROTESQUE_MAIN_ROLLS,

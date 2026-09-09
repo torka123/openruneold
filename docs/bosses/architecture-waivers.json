@@ -133,33 +133,9 @@
   },
   {
     "boss": "grotesque-guardians",
-    "rule": "boss-api-dependency",
-    "maximum": 1,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "grotesque-guardians",
-    "rule": "global-runs-map",
-    "maximum": 1,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "grotesque-guardians",
-    "rule": "manual-lifecycle",
-    "maximum": 3,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "grotesque-guardians",
     "rule": "direct-combat-review",
-    "maximum": 8,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "grotesque-guardians",
-    "rule": "instance-script",
-    "maximum": 1,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+    "maximum": 7,
+    "reason": "Reviewed arena-only stone, debris, lightning, explosion and prison hits plus two native attack parameter adapters. BossSpec owns ordinary volleys, phase identities and forced cadence; InstanceScript owns membership and configured actors. Existing BossEncounter scopes own delayed spatial callbacks and the paired native actor reset. No private attack loop, player/run map or standalone respawn scheduler remains."
   },
   {
     "boss": "muspah",

@@ -2004,6 +2004,13 @@ inherit = "npc.gargboss_dusk_death"
 [npc.params]
 "param.killcount_varp"="varp.total_gargboss_kills"
 
+# Native kill credit uses the immutable spawn definition, not the visual final/death form.
+[[npc]]
+id = "npc.gargboss_dusk_phase1_defensive"
+inherit = "npc.gargboss_dusk_phase1_defensive"
+[npc.params]
+"param.killcount_varp"="varp.total_gargboss_kills"
+
 [[npc]]
 id = "npc.godwars_armadyl_avatar"
 inherit = "npc.godwars_armadyl_avatar"

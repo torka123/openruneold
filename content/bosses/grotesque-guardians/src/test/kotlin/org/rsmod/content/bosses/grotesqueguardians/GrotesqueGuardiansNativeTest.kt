@@ -24,6 +24,7 @@ import org.rsmod.api.bosses.runtime.EncounterRegistry
 import org.rsmod.api.combat.NvPCombat
 import org.rsmod.api.combat.formulas.AccuracyFormulae
 import org.rsmod.api.combat.formulas.MaxHitFormulae
+import org.rsmod.api.config.refs.BaseParams
 import org.rsmod.api.death.NpcDeath
 import org.rsmod.api.death.NpcDeathDropHook
 import org.rsmod.api.death.NpcDeathKillContext
@@ -313,10 +314,13 @@ class GrotesqueGuardiansNativeTest {
             assertFalse(f.dawn.hidden)
             assertEquals(7885, f.dawn.visType.id)
             assertEquals(completion + 1, f.kills.size)
-            // Baseline definition defect: native KC reads the immutable spawn definition (7851),
-            // while the active cache only supplies this varp on the death definition. Keep this
-            // discrepancy visible; it is not proof of working KC or an approved zero-KC rule.
-            assertEquals(0, f.player.vars["varp.total_gargboss_kills"])
+            // The source correction is validated separately without repacking the live cache.
+            // Also allow this characterization to run after an authorized cache rebuild.
+            val hasNativeKc = f.dusk.paramOrNull(BaseParams.killcount_varp) != null
+            assertEquals(
+                if (hasNativeKc) completion + 1 else 0,
+                f.player.vars["varp.total_gargboss_kills"],
+            )
             assertEquals(f.player.coords, f.kills.last().dropCoords)
             val scheduled = f.queues.size
             f.encounters.finishDuskDeath(f.dusk)
@@ -496,6 +500,37 @@ class GrotesqueGuardiansNativeTest {
             assertEquals(1, f.player.vars["varp.total_gargboss_kills"])
         } finally {
             definition.paramMap = previous
+        }
+    }
+
+    @Test
+    fun `native actor deletion cancels its spatial callbacks and clears arena locations`() {
+        for (role in GuardianRole.entries) {
+            val f = GuardiansFixture()
+            if (role == GuardianRole.DUSK) {
+                f.finalPhase()
+                f.encounters.launchSpecial(f.dusk, f.player, "prison")
+            } else {
+                f.ring()
+                f.damage(f.dawn, 500, HitType.Ranged)
+                f.damage(f.dusk, 500, HitType.Melee)
+                f.idleUntil(112)
+                f.encounters.launchSpecial(f.dawn, f.player, "stone")
+            }
+            val state = assertNotNull(f.instances.guardiansState(f.player))
+            assertEquals(1, f.queues.size)
+            val actor = if (role == GuardianRole.DAWN) f.dawn else f.dusk
+            f.npcs.del(actor, Int.MAX_VALUE)
+            assertEquals(0, f.queues.size)
+            assertTrue(state.spheres.isEmpty())
+            assertTrue(state.lightning.isEmpty())
+            assertFalse(f.encounters.canAttack(f.dawn, f.player))
+            assertFalse(f.encounters.canAttack(f.dusk, f.player))
+            val hits = f.hits().size
+            f.idleUntil(f.clock.cycle + 20)
+            assertEquals(hits, f.hits().size)
+            f.leave()
+            assertEquals(0, f.npcList.count())
         }
     }
 

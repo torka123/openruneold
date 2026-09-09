@@ -60,6 +60,7 @@ constructor(
             run.player.isSlotAssigned &&
             run.player.hitpoints > 0 &&
             deps.encounterRegistry.isCurrent(run.dawn, run.dawnEncounter) &&
+            deps.encounterRegistry.isCurrent(run.dusk, run.duskEncounter) &&
             run.phase !in
                 setOf(
                     GrotesquePhase.DORMANT,
@@ -121,7 +122,7 @@ constructor(
         run.dusk.anim(GrotesqueAssets.DUSK_EXPLOSION_ANIMATION)
         val phase = run.phase
         val phaseTick = run.duskEncounter.phaseEnteredTick
-        run.dawnEncounter.schedule(worldQueues, 2) {
+        run.duskEncounter.schedule(worldQueues, 2) {
             if (
                 !(isCurrent(run) &&
                     run.phase == phase &&
@@ -145,7 +146,7 @@ constructor(
         val phase = run.phase
         val phaseTick = run.duskEncounter.phaseEnteredTick
         repeat(3) { wave ->
-            run.dawnEncounter.schedule(worldQueues, wave) {
+            run.duskEncounter.schedule(worldQueues, wave) {
                 if (
                     !(isCurrent(run) &&
                         run.phase == phase &&
@@ -159,7 +160,7 @@ constructor(
                         SpotanimType(GrotesqueAssets.DEBRIS_SHADOW),
                         tile,
                     )
-                    run.dawnEncounter.schedule(worldQueues, 3) {
+                    run.duskEncounter.schedule(worldQueues, 3) {
                         if (
                             !(isCurrent(run) &&
                                 run.phase == phase &&
@@ -249,7 +250,7 @@ constructor(
         }
         val phase = run.phase
         val phaseTick = run.duskEncounter.phaseEnteredTick
-        run.dawnEncounter.schedule(worldQueues, GrotesqueGuardiansRules.PRISON_ESCAPE_TICKS) {
+        run.duskEncounter.schedule(worldQueues, GrotesqueGuardiansRules.PRISON_ESCAPE_TICKS) {
             if (
                 !(isCurrent(run) &&
                     run.phase == phase &&

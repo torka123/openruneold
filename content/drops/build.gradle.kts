@@ -29,4 +29,5 @@ dependencies {
     implementation(projects.engine.map)
     implementation(projects.engine.plugin)
     testImplementation(kotlin("test"))
+    testImplementation("org.mockito:mockito-core:5.18.0")
 }

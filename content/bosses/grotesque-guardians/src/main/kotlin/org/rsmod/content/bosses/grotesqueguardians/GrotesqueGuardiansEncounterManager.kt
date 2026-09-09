@@ -49,6 +49,8 @@ constructor(
                     deps.encounterRegistry.of(dusk),
                     clock,
                 )
+            state.dawnEncounter.onCleanup { effects.clear(state) }
+            state.duskEncounter.onCleanup { effects.clear(state) }
             session.onCleanup {
                 effects.clear(state)
                 player.combatClearQueue()
@@ -168,6 +170,11 @@ constructor(
 
     fun canAttack(npc: Npc, target: Player): Boolean {
         val run = instances.guardiansState(target) ?: return false
+        if (
+            !deps.encounterRegistry.isCurrent(run.dawn, run.dawnEncounter) ||
+                !deps.encounterRegistry.isCurrent(run.dusk, run.duskEncounter)
+        )
+            return false
         if (!npc.isSpawnOwnedBy(target)) return false
         return when (npc) {
             run.dawn -> run.phase in setOf(GrotesquePhase.DAWN_ONE, GrotesquePhase.DAWN_THREE)

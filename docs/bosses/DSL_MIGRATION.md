@@ -227,7 +227,7 @@ Diagnostic-only modules are excluded. Zero manager lines is not proof of archite
 | Vorkath | managers/timing; 1,254 -> 426 coordinator lines | BossSpec/BossCombat normal attacks, weights, forced cadence, phases; old timeline test-only | InstanceScript source arena, keyed join/leave, native ownership and cleanup | Arena effects (344 lines), spawn collision/contact (228), session data (71), no-reward diagnostics (105), existing reclaim storage | 110 passing module tests; all boss/shared regressions and server classes pass; revision-240 cache audit passes | Not deployed; PR unsubmitted. Inferred selection/path rules and original non-player damage exclusion retained, not certified as OSRS-correct |
 | Corporeal Beast | manager; 502 -> 0 | BossSpec normal attacks, weighted styles/animations/cadence, native NvPCombat; old selector test-only | Public lairs retained, so no InstanceScript required; native NPC/encounter lifecycle | Room recovery/stomp (161 lines), core (114), split area (95), drain impact parameters (29), state (49) | 24 tests pass (17 native fixture + 7 prior rules/oracle); all boss/shared tests and server classes pass | Existing third-party projectile provenance, core poison stun and live visuals remain unverified |
 | Alchemical Hydra | manager; 858 | Ordinary native volleys, rotation, forced cadence and phase identity | Native InstanceScript, typed session state and native same-actor respawn | 260-line observation/form coordinator; 317-line arena hazards; 71-line transform presentation; parameter/hit-policy adapters | 22 deterministic tests pass, including native lifecycle and two kills | No live verification; baseline-only hazard/pathing constants, non-player damage exclusion and natural exterior entrance remain uncertified |
-| Grotesque Guardians | manager; 945 | Pending | Pending | Paired mechanics | Pending | Detailed mapping pending |
+| Grotesque Guardians | manager; 945 -> 327 coordinator lines | Two BossSpecs: ordinary native volleys, phase identity, ordinal style selection and forced cadence | Native InstanceScript, typed session state, configured actors and validated native pair reset | Arena geometry/effects (343 lines), paired form coordination, native parameter/damage adapters | 21 deterministic tests (15 native), 48 drop tests pass | No live verification or cache repack; inherited lightning vulnerability, non-player damage exclusion and draft-only spatial values remain uncertified |
 | Zulrah | manager; 993 | Pending | Pending | Positions/clouds/snakes | Pending | Detailed mapping pending |
 | Muspah | manager; 1,088 | Pending | Pending | Spikes/pathing/shield | Pending | Detailed mapping pending |
 | Cerberus | manager; 1,290 | Pending | Pending | Ghosts/lava | Existing capture tests preserved | Detailed mapping pending |
@@ -660,3 +660,35 @@ existing PackServerConfig TOML parser and native kill hook with an in-memory par
 restoring the cached test definition afterward. This does not repack or deploy SERVER/LIVE.
 The already-running JVM will require an explicitly authorized cache rebuild/restart later. No new
 shared reward API, boss-local counter, table probabilities, quantities or prayer behavior changes.
+
+### Guardians source migration result
+
+`guardians-native-rewards-green.log`: 20 Guardians tests and four focused drop-table tests pass
+(53s, 199 tasks). The source metadata test first failed without the 7851 entry, then passed by
+executing the native kill hook with the parsed source overlay in memory. The registry regression
+resolves the unchanged reward table from a 7851 actor visually transformed to 7888; Dawn receives
+no table. No production cache was repacked. Only the seven-line intentional source configuration
+hunk was staged; all pre-existing Royal Titans/GE data changes remain unstaged and preserved.
+
+`guardians-final-module-check-2.log`: 21 Guardians tests (15 native, six rules) and the complete
+48-test drops module pass; both scoped module checks succeed (37s, 199 tasks, process exit 0).
+Added actor-deletion coverage proves native encounter teardown cancels scheduled spatial work,
+clears temporary locations and prevents either actor attacking with a stale paired encounter.
+Other new cases execute roof entry/exit, two isolated rooms, external teleport, logout/disconnect,
+native death membership handling, queued-hit invalidation, sphere absorption/return, prison escape
+and two paired resets. Reset occurs once, 17 ticks after native Dusk death completion; duplicate
+completion callbacks cannot enqueue another reset. The two-kill test accommodates the unchanged
+active cache and a future authorized cache rebuild; the separate source-overlay test always
+requires exactly one native KC increment.
+
+The manager no longer creates/deletes actors, tracks player-to-run membership, selects ordinary
+attacks or owns respawn timers. Retained paired coordination and arena effects use native instance
+and BossEncounter identities. Four obsolete architecture waivers were removed; seven reviewed
+spatial-hit/native-parameter sites remain. Architecture detector and `git diff --check` pass.
+Doctor after the changes still identifies the canonical live workspace and unchanged revision-240
+cache authority. Runtime deployment, cache packing, two restarts, client visuals and the complete
+grave pipeline remain **not performed**, not implied by these headless tests.
+
+`guardians-broad-regression.log`: all applicable boss-module tests, drops, bosses/instances/NPC/death/
+game-process/combat-scripts/engine-game tests and server app classes pass (1m44s, 507 tasks,
+process exit 0). Modules reporting NO-SOURCE do not provide encounter gameplay coverage.
