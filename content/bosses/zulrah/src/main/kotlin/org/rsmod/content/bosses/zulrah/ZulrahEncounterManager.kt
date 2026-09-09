@@ -259,6 +259,7 @@ constructor(
     fun attack(access: StandardNpcAccess, target: Player) {
         val run = runs[target.uid] ?: return
         if (run.state != ZulrahState.ACTIVE || run.boss !== access.npc) return
+        if (clock.cycle < run.nextActionCycle || access.npc.actionDelay > clock.cycle) return
         val action = run.runtimePhase.actions.getOrNull(run.actionIndex) ?: return
         val style =
             when (action) {
