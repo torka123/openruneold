@@ -722,7 +722,8 @@ constructor(
         )
     }
 
-    fun isActive(player: Player): Boolean = runs[player.uid]?.state != ZulrahState.DISPOSED
+    fun isActive(player: Player): Boolean =
+        runs[player.uid]?.let { it.state != ZulrahState.DISPOSED } == true
 
     fun escape(player: Player): Boolean {
         if (!runs.containsKey(player.uid)) return false
