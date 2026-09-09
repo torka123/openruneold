@@ -32,16 +32,21 @@ constructor(
 ) {
     private var lootTrackerEventId: Int = 0
 
-    public suspend fun deathNoDrops(access: StandardNpcAccess, deathAnimationId: Int? = null) {
-        access.death(npcRepo, players, deathAnimationId)
+    public suspend fun deathNoDrops(
+        access: StandardNpcAccess,
+        deathAnimationId: Int? = null,
+        respawnDelay: Int? = null,
+    ) {
+        access.death(npcRepo, players, deathAnimationId, respawnDelay)
     }
 
     public suspend fun deathWithDrops(
         access: StandardNpcAccess,
         dropCoords: CoordGrid = access.coords,
         deathAnimationId: Int? = null,
+        respawnDelay: Int? = null,
     ) {
-        access.death(npcRepo, players, deathAnimationId)
+        access.death(npcRepo, players, deathAnimationId, respawnDelay)
         access.npc.spawnDeathDrops(dropCoords)
     }
 
@@ -84,7 +89,6 @@ constructor(
                         spawned.count,
                     )
                 }
-
             }
             val killCtx =
                 NpcDeathKillContext(
@@ -135,7 +139,9 @@ public suspend fun StandardNpcAccess.death(
     npcRepo: NpcRepository,
     players: PlayerList,
     deathAnimationId: Int? = null,
+    respawnDelay: Int? = null,
 ) {
+    require(respawnDelay == null || respawnDelay >= 0) { "Respawn delay cannot be negative." }
     walk(coords)
     noneMode()
     hideAllOps()
@@ -174,7 +180,7 @@ public suspend fun StandardNpcAccess.death(
     }
 
     if (npc.respawns) {
-        npcRepo.despawn(npc, npc.type.respawnRate)
+        npcRepo.despawn(npc, respawnDelay ?: npc.type.respawnRate)
         return
     }
 

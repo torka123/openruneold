@@ -226,7 +226,7 @@ Diagnostic-only modules are excluded. Zero manager lines is not proof of archite
 | Kraken | private per-player run, native combat wrapper; 363 → 0 manager lines | Boss/tentacle specifications; ordinary attacks delegated to native NvPCombat by DSL | Source InstanceScript; native spawns, keyed joins, session state and lifecycle | KrakenWhirlpools (171 lines): dormant activation, one-shot completion/drop tile; native attack-validation hook | 12 passing tests, including 8 native integration/characterization tests | No live deployment/client verification; no new OSRS parity claim |
 | Vorkath | managers/timing; 1,254 -> 426 coordinator lines | BossSpec/BossCombat normal attacks, weights, forced cadence, phases; old timeline test-only | InstanceScript source arena, keyed join/leave, native ownership and cleanup | Arena effects (344 lines), spawn collision/contact (228), session data (71), no-reward diagnostics (105), existing reclaim storage | 110 passing module tests; all boss/shared regressions and server classes pass; revision-240 cache audit passes | Not deployed; PR unsubmitted. Inferred selection/path rules and original non-player damage exclusion retained, not certified as OSRS-correct |
 | Corporeal Beast | manager; 502 -> 0 | BossSpec normal attacks, weighted styles/animations/cadence, native NvPCombat; old selector test-only | Public lairs retained, so no InstanceScript required; native NPC/encounter lifecycle | Room recovery/stomp (161 lines), core (114), split area (95), drain impact parameters (29), state (49) | 24 tests pass (17 native fixture + 7 prior rules/oracle); all boss/shared tests and server classes pass | Existing third-party projectile provenance, core poison stun and live visuals remain unverified |
-| Alchemical Hydra | manager; 858 | Pending | Pending | Vents/hazards | Pending | Detailed mapping pending |
+| Alchemical Hydra | manager; 858 | Ordinary native volleys, rotation and forced cadence wired | In progress | Vents/hazards and transition presentation | 14 baseline/new-wiring tests pass | Lifecycle and live verification pending |
 | Grotesque Guardians | manager; 945 | Pending | Pending | Paired mechanics | Pending | Detailed mapping pending |
 | Zulrah | manager; 993 | Pending | Pending | Positions/clouds/snakes | Pending | Detailed mapping pending |
 | Muspah | manager; 1,088 | Pending | Pending | Spikes/pathing/shield | Pending | Detailed mapping pending |
@@ -444,3 +444,28 @@ tests, combat-scripts tests and scoped checks/formatting (58s, 187 tasks). Nativ
 remain one hit; supplied counts take precedence. Animation, retaliation and cadence are armed
 once; accuracy, damage, projectile and impact callbacks are per hit. Forced first-use thresholds
 reset with the native phase identity. No live runtime verification is implied.
+
+`hydra-dsl-characterization-after.log`: all 14 Hydra tests pass after replacing production ordinary
+attack selection/scheduling with BossCombat/BossSpec (42s, 163 tasks). The old normal attack loop,
+style counters and special selector are removed, not left registered beside the new one. Native
+BossEncounter owns phase names/rotation; vent-dependent maxima and launch prayer are parameter
+snapshots. Membership and specialized effect extraction are not yet complete.
+
+Respawn integration gap found before modifying shared death: the executable cache check in
+`hydra-native-respawn-audit.log` finds native NPC 8615 respawnRate **50**, versus the characterized
+manager's **43** ticks after death completion. Native NpcRepository.add(Int.MAX_VALUE) also sets
+respawns=true after the old manager set false, leaving both native respawn and manager replacement
+active. Searches of local/upstream NpcDeath, NpcRepository, Npc and instance reset/respawn usages
+find no per-death delay input. Add an optional delay to the existing NpcDeath/StandardNpcAccess.death
+workflow; default stays the cache value, with unchanged rewards and native despawn/respawn ownership.
+This is a minimal **local shared extension**, not a replacement death pipeline or a cache change.
+Shared tests cover default/custom delay, ordinary deletion and cancellation; Hydra must additionally
+exercise two native death/respawn cycles without actor growth. Use the existing 43-tick rule, not a
+new OSRS claim. Do not retain the private reform timer or a second spawning authority.
+
+`native-death-delay-check-5.log`: four shared death tests and 15 Hydra tests pass with scoped
+checks (29s, 171 tasks). Tests execute NpcDeathScript, the native death coroutine, registry and
+NpcRevealProcessor; default/custom timing, same-actor respawn, temporary deletion and cancellation
+are covered. Earlier fixture iterations needed direct test dependencies, the real death plugin,
+and the native lifecycle sentinel/deadline semantics. One unscoped check encountered existing
+formatting violations; unrelated files were not reformatted. This is headless evidence only.
