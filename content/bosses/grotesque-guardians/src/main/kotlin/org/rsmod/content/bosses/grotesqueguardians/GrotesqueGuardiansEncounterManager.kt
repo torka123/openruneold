@@ -2,26 +2,22 @@ package org.rsmod.content.bosses.grotesqueguardians
 
 import dev.openrune.ServerCacheManager
 import dev.openrune.types.MoveRestrict
-import dev.openrune.types.ProjAnimType
 import dev.openrune.types.aconverted.SpotanimType
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import org.rsmod.api.combat.commons.types.MeleeAttackType
-import org.rsmod.api.combat.formulas.AccuracyFormulae
+import org.rsmod.api.bosses.runtime.BossDeps
 import org.rsmod.api.instances.InstanceAccess
 import org.rsmod.api.instances.InstanceId
 import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.instances.InstanceSession
 import org.rsmod.api.instances.RaidLeaveResult
 import org.rsmod.api.instances.RegionLocal
-import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.api.npc.apPlayer2
 import org.rsmod.api.npc.interact.AiPlayerInteractions
 import org.rsmod.api.npc.owner.assignSpawnOwner
 import org.rsmod.api.npc.owner.isSpawnOwnedBy
 import org.rsmod.api.player.combatClearQueue
 import org.rsmod.api.player.hit.modifier.NpcBypassProtectionPrayerPlayerHitModifier
-import org.rsmod.api.player.hit.modifier.NpcCalculatedProtectionPrayerPlayerHitModifier
 import org.rsmod.api.player.hit.queueHit
 import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.righthand
@@ -41,7 +37,6 @@ import org.rsmod.game.loc.LocEntity
 import org.rsmod.game.loc.LocInfo
 import org.rsmod.game.loc.LocShape
 import org.rsmod.game.map.Direction
-import org.rsmod.game.proj.ProjAnim
 import org.rsmod.game.queue.WorldQueueList
 import org.rsmod.map.CoordGrid
 import org.rsmod.routefinder.collision.CollisionFlagMap
@@ -57,7 +52,7 @@ constructor(
     private val interactions: AiPlayerInteractions,
     private val collision: CollisionFlagMap,
     private val random: GameRandom,
-    private val accuracy: AccuracyFormulae,
+    private val deps: BossDeps,
     private val worldQueues: WorldQueueList,
     private val world: WorldRepository,
 ) {
@@ -113,7 +108,7 @@ constructor(
         instances.finalizeEntry(player, result.session, clock.cycle)
         val dawn = spawnGuardian(player, result.session, dawnType, GuardianRole.DAWN)
         val dusk = spawnGuardian(player, result.session, duskType, GuardianRole.DUSK)
-        runs[player.uid] = Run(player, result.session, dawn, dusk)
+        runs[player.uid] = Run(player, result.session, dawn, dusk, deps, clock)
         player.mes("Ring the Cloister Bell to awaken the Grotesque Guardians.")
         return true
     }
@@ -137,188 +132,33 @@ constructor(
         return true
     }
 
-    fun attack(access: StandardNpcAccess, target: Player) {
-        val run = runs[target.uid] ?: return
-        if (!access.npc.isSpawnOwnedBy(target) || access.actionDelay > clock.cycle) return
-        when {
-            access.npc === run.dawn &&
-                run.phase in setOf(GrotesquePhase.DAWN_ONE, GrotesquePhase.DAWN_THREE) ->
-                dawnAttack(run)
-            access.npc === run.dusk &&
+    fun canAttack(npc: Npc, target: Player): Boolean {
+        val run = runs[target.uid] ?: return false
+        if (!npc.isSpawnOwnedBy(target)) return false
+        return when (npc) {
+            run.dawn -> run.phase in setOf(GrotesquePhase.DAWN_ONE, GrotesquePhase.DAWN_THREE)
+            run.dusk ->
                 run.phase in
                     setOf(
                         GrotesquePhase.DAWN_ONE,
                         GrotesquePhase.DUSK_TWO,
                         GrotesquePhase.DAWN_THREE,
                         GrotesquePhase.DUSK_FOUR,
-                    ) -> duskAttack(run)
-            else -> return
-        }
-        access.actionDelay = clock.cycle + GrotesqueGuardiansRules.ATTACK_RATE_TICKS
-    }
-
-    private fun dawnAttack(run: Run) {
-        run.dawnAttacks++
-        if (run.dawnAttacks % 4 == 0) {
-            launchStoneBall(run)
-            return
-        }
-        val melee = distanceToFootprint(run.dawn, run.player) <= 1 && run.dawnAttacks % 2 == 0
-        if (melee) {
-            run.dawn.anim(GrotesqueAssets.DAWN_MELEE_ANIMATION)
-            queueStandardHit(
-                run,
-                run.dawn,
-                GuardianAttackStyle.MELEE,
-                GrotesqueGuardiansRules.DAWN_MELEE_MAX_HIT,
-                1,
-            )
-        } else {
-            run.dawn.anim(GrotesqueAssets.DAWN_RANGED_ANIMATION)
-            repeat(2) { index ->
-                launchRanged(
-                    run,
-                    run.dawn,
-                    GrotesqueGuardiansRules.DAWN_RANGED_MAX_HIT,
-                    index,
-                    phaseFour = false,
-                )
-            }
-        }
-    }
-
-    private fun duskAttack(run: Run) {
-        run.duskAttacks++
-        when (run.phase) {
-            GrotesquePhase.DUSK_TWO -> {
-                if (run.duskAttacks % 3 == 0) {
-                    launchBlindingExplosion(run)
-                } else {
-                    run.dusk.anim(
-                        if (run.duskAttacks % 2 == 0) GrotesqueAssets.DUSK_MELEE_ANIMATION
-                        else GrotesqueAssets.DUSK_MELEE_SECOND_ANIMATION
                     )
-                    queueStandardHit(
-                        run,
-                        run.dusk,
-                        GuardianAttackStyle.MELEE,
-                        GrotesqueGuardiansRules.DUSK_PHASE_TWO_MAX_HIT,
-                        1,
-                    )
-                }
-                if (clock.cycle >= run.nextDebrisCycle) launchDebris(run)
-            }
-            GrotesquePhase.DUSK_FOUR -> {
-                if (clock.cycle >= run.nextPrisonCycle) {
-                    launchPrison(run)
-                } else if (run.duskAttacks % 2 == 0) {
-                    run.dusk.anim(GrotesqueAssets.DUSK_RANGED_ANIMATION)
-                    repeat(2) { index ->
-                        launchRanged(
-                            run,
-                            run.dusk,
-                            GrotesqueGuardiansRules.DUSK_PHASE_FOUR_RANGED_MAX_HIT,
-                            index,
-                            phaseFour = true,
-                        )
-                    }
-                } else {
-                    run.dusk.anim(GrotesqueAssets.DUSK_PHASE_FOUR_MELEE_ANIMATION)
-                    queueStandardHit(
-                        run,
-                        run.dusk,
-                        GuardianAttackStyle.MELEE,
-                        GrotesqueGuardiansRules.DUSK_PHASE_FOUR_MELEE_MAX_HIT,
-                        1,
-                    )
-                }
-            }
-            else -> {
-                run.dusk.anim(GrotesqueAssets.DUSK_MELEE_ANIMATION)
-                queueStandardHit(
-                    run,
-                    run.dusk,
-                    GuardianAttackStyle.MELEE,
-                    GrotesqueGuardiansRules.DUSK_PHASE_TWO_MAX_HIT,
-                    1,
-                )
-            }
+            else -> false
         }
     }
 
-    private fun queueStandardHit(
-        run: Run,
-        source: Npc,
-        style: GuardianAttackStyle,
-        maxHit: Int,
-        delay: Int,
-    ) {
-        source.facePlayer(run.player)
-        val accurate =
-            when (style) {
-                GuardianAttackStyle.MELEE ->
-                    accuracy.rollMeleeAccuracy(source, run.player, MeleeAttackType.Slash, random)
-                GuardianAttackStyle.RANGED ->
-                    accuracy.rollRangedAccuracy(source, run.player, random)
-            }
-        val damage = if (accurate) random.of(maxHit + 1) else 0
-        val protected = isProtected(run.player, style)
-        run.player.queueHit(
-            source = source,
-            delay = delay.coerceAtLeast(1),
-            type = if (style == GuardianAttackStyle.MELEE) HitType.Melee else HitType.Ranged,
-            damage = damage,
-            modifier =
-                NpcCalculatedProtectionPrayerPlayerHitModifier(
-                    protectedAtCalculation = protected,
-                    reductionPercent = 80,
-                ),
-        )
-    }
-
-    private fun launchRanged(
-        run: Run,
-        source: Npc,
-        maxHit: Int,
-        componentDelay: Int,
-        phaseFour: Boolean,
-    ) {
-        val projectile =
-            ProjAnim.fromNpcToPlayer(
-                source,
-                run.player,
-                GrotesqueAssets.RANGED_PROJECTILE,
-                RANGED_PROFILE,
-            )
-        world.projAnim(projectile)
-        val accurate = accuracy.rollRangedAccuracy(source, run.player, random)
-        val protected = run.player.vars["varbit.prayer_protectfrommissiles"] == 1
-        val damage =
-            if (phaseFour && componentDelay == 0) {
-                GrotesqueGuardiansRules.phaseFourRangedFirstHit(accurate, protected)
-            } else if (phaseFour) {
-                val first = if (accurate) random.of(maxHit + 1) else 0
-                GrotesqueGuardiansRules.phaseFourRangedSecondHit(
-                    accurate,
-                    first,
-                    random.of(first + 1),
-                )
-            } else if (accurate) {
-                random.of(maxHit + 1)
-            } else 0
-        run.player.queueHit(
-            source = source,
-            delay = projectile.serverCycles.coerceAtLeast(1) + componentDelay,
-            type = HitType.Ranged,
-            damage = damage,
-            modifier =
-                if (phaseFour) NpcBypassProtectionPrayerPlayerHitModifier
-                else
-                    NpcCalculatedProtectionPrayerPlayerHitModifier(
-                        protectedAtCalculation = protected,
-                        reductionPercent = 80,
-                    ),
-        )
+    fun launchSpecial(npc: Npc, target: Player, handler: String) {
+        if (!canAttack(npc, target)) return
+        val run = runs[target.uid] ?: return
+        when (handler) {
+            "stone" -> launchStoneBall(run)
+            "explosion" -> launchBlindingExplosion(run)
+            "debris" -> if (clock.cycle >= run.nextDebrisCycle) launchDebris(run)
+            "prison" -> launchPrison(run)
+            else -> error("Unknown Guardians handler: $handler")
+        }
     }
 
     private fun launchStoneBall(run: Run) {
@@ -488,7 +328,6 @@ constructor(
         run.dusk.transmog(requireNpc(GrotesqueAssets.DUSK_PHASE_TWO), Int.MAX_VALUE)
         run.dusk.movementLocked = false
         run.phase = GrotesquePhase.DUSK_TWO
-        run.duskAttacks = 0
         run.nextDebrisCycle = clock.cycle + 8
         run.dusk.apPlayer2(run.player, interactions)
     }
@@ -520,7 +359,6 @@ constructor(
         run.dusk.movementLocked = false
         run.dusk.actionDelay = clock.cycle + 1
         run.phase = GrotesquePhase.DAWN_THREE
-        run.dawnAttacks = 0
         spawnSpheres(run)
         run.dawn.apPlayer2(run.player, interactions)
         run.dusk.apPlayer2(run.player, interactions)
@@ -576,13 +414,11 @@ constructor(
         run.dusk.movementLocked = false
         run.dusk.actionDelay = clock.cycle + 2
         run.phase = GrotesquePhase.DUSK_FOUR
-        run.duskAttacks = 0
-        run.nextPrisonCycle = clock.cycle
+        run.duskEncounter.forceNextAbility("prison")
         run.dusk.apPlayer2(run.player, interactions)
     }
 
     private fun launchPrison(run: Run) {
-        run.nextPrisonCycle = clock.cycle + 42
         run.dusk.anim(GrotesqueAssets.DUSK_PRISON_ANIMATION)
         val centre = run.player.coords
         val safe = CoordGrid(centre.x + 2, centre.z, centre.level)
@@ -728,9 +564,9 @@ constructor(
                 requireNpc(GrotesqueAssets.DUSK_PHASE_ONE),
                 GuardianRole.DUSK,
             )
+        run.dawnEncounter = deps.encounterRegistry.of(run.dawn)
+        run.duskEncounter = deps.encounterRegistry.of(run.dusk)
         run.phase = GrotesquePhase.DORMANT
-        run.dawnAttacks = 0
-        run.duskAttacks = 0
         run.player.mes("The rooftop falls quiet. Ring the bell when you are ready.")
     }
 
@@ -875,12 +711,6 @@ constructor(
         return internal.contains("halberd") || internal.contains("golembane")
     }
 
-    private fun isProtected(player: Player, style: GuardianAttackStyle): Boolean =
-        when (style) {
-            GuardianAttackStyle.MELEE -> player.vars["varbit.prayer_protectfrommelee"] == 1
-            GuardianAttackStyle.RANGED -> player.vars["varbit.prayer_protectfrommissiles"] == 1
-        }
-
     private fun distanceToFootprint(npc: Npc, player: Player): Int {
         val minX = npc.coords.x
         val minZ = npc.coords.z
@@ -919,27 +749,21 @@ constructor(
         val session: InstanceSession,
         var dawn: Npc,
         var dusk: Npc,
-        var phase: GrotesquePhase = GrotesquePhase.DORMANT,
+        private val deps: BossDeps,
+        private val clock: MapClock,
         var generation: Int = 1,
         var stateCycle: Int = 0,
-        var dawnAttacks: Int = 0,
-        var duskAttacks: Int = 0,
         var nextDebrisCycle: Int = 0,
-        var nextPrisonCycle: Int = 0,
         val spheres: MutableList<EnergySphere> = mutableListOf(),
         val lightning: MutableList<Lightning> = mutableListOf(),
-    )
-
-    private companion object {
-        val RANGED_PROFILE =
-            ProjAnimType(
-                startHeight = 90,
-                endHeight = 40,
-                delay = 0,
-                angle = 32,
-                lengthAdjustment = 0,
-                progress = 0,
-                stepMultiplier = 5,
-            )
+    ) {
+        var dawnEncounter = deps.encounterRegistry.of(dawn)
+        var duskEncounter = deps.encounterRegistry.of(dusk)
+        var phase: GrotesquePhase
+            get() = GrotesquePhase.valueOf(duskEncounter.currentPhaseName.uppercase())
+            set(value) {
+                dawnEncounter.transitionTo(value.name.lowercase(), clock.cycle)
+                duskEncounter.transitionTo(value.name.lowercase(), clock.cycle)
+            }
     }
 }

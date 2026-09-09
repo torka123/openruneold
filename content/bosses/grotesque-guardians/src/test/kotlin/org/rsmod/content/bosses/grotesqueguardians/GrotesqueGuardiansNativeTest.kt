@@ -6,7 +6,12 @@ import kotlin.test.*
 import org.junit.jupiter.api.BeforeAll
 import org.mockito.Mockito.*
 import org.rsmod.annotations.InternalApi
+import org.rsmod.api.bosses.runtime.BossDeps
+import org.rsmod.api.bosses.runtime.BossExtensionRegistry
+import org.rsmod.api.bosses.runtime.EncounterRegistry
+import org.rsmod.api.combat.NvPCombat
 import org.rsmod.api.combat.formulas.AccuracyFormulae
+import org.rsmod.api.combat.formulas.MaxHitFormulae
 import org.rsmod.api.death.NpcDeath
 import org.rsmod.api.death.NpcDeathDropHook
 import org.rsmod.api.death.NpcDeathKillHook
@@ -286,6 +291,20 @@ private class GuardiansFixture(accurate: Boolean = true) {
         mock(AccuracyFormulae::class.java) { call ->
             if (call.method.name.startsWith("roll")) accurate else RETURNS_DEFAULTS.answer(call)
         }
+    val deps =
+        BossDeps(
+            random,
+            accuracy,
+            world,
+            npcs,
+            players,
+            clock,
+            queues,
+            collision,
+            EncounterRegistry(random),
+            BossExtensionRegistry(),
+            NvPCombat(accuracy, mock(MaxHitFormulae::class.java), world),
+        )
     val encounters =
         GrotesqueGuardiansEncounterManager(
             clock,
@@ -294,7 +313,7 @@ private class GuardiansFixture(accurate: Boolean = true) {
             AiPlayerInteractions(events, players),
             collision,
             random,
-            accuracy,
+            deps,
             queues,
             world,
         )
@@ -313,7 +332,17 @@ private class GuardiansFixture(accurate: Boolean = true) {
         collision.allocateIfAbsent(player.coords.x, player.coords.z, player.coords.level)
         val context = ScriptContext(events, CheatCommandMap(), EngineQueueCache())
         with(NpcDeathScript(death)) { context.startup() }
-        with(GrotesqueGuardiansCombat(encounters, death, players)) { context.startup() }
+        with(
+            GrotesqueGuardiansCombat(
+                encounters,
+                death,
+                players,
+                deps,
+                GrotesqueGuardiansAttackParameters(),
+            )
+        ) {
+            context.startup()
+        }
         with(GrotesqueGuardiansWorld(encounters)) { context.startup() }
         assertTrue(encounters.enter(player))
         dawn = npcList.single { it.type.id == 7852 }

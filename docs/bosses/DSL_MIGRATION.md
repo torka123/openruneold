@@ -600,3 +600,11 @@ existing normal-attack tests must prove this reusable correction; no boss-specif
 `boss-native-special-lock-green.log` passes 39 API tests and Hydra/Kraken/Vorkath/Corp regressions
 with scoped API check (47s, 184 tasks). The shared commit extends the native lock only after
 interpretation and only while that encounter is current; it does not introduce a second timer.
+
+`guardians-dsl-characterization-after.log`: the same 12 Guardians tests pass through production
+BossCombat/BossSpec registration (44s, 166 tasks). Separate Dawn/Dusk specs own ordinary attacks,
+paired phase identities, ordinal-based styles and forced stone/explosion/prison cadence. Parameter
+handlers only snapshot prayer and supply the already-characterized final damage distributions.
+The old normal attack functions/counters and prison period counter are removed. Private membership,
+special effect extraction and paired respawn integration remain in progress; this is not the final
+Guardians architecture acceptance or a live verification claim.
