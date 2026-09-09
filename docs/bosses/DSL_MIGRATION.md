@@ -91,6 +91,20 @@ retain their current effect semantics. No new boss-specific combat pipeline is i
 
 ## Inventory and progress
 
+### Entry/exit safety found during the golden migration
+
+Pre-edit mapping: `InstanceScript.completeInstanceEntry` calls the existing protected telejump
+but finalizes membership unconditionally; `defaultLeaveFlow` removes membership before knowing
+whether that telejump succeeds. ProtectedAccess already validates teleport rules and destination
+zones. Search: all `finalizeEntry` callers, InstanceCreateScript, InstanceManager pending-entry
+cleanup, ProtectedAccess telejump/validator/hooks, and upstream/main InstanceScript. This is a
+native instance-flow defect, not a Kraken mechanic. Keep the established APIs: guard the entry
+callback against a destroyed session, commit membership only at the intended destination, cancel
+a failed newly-created pending instance, and detach a normal exit only after successful movement.
+Do not bypass teleport rules. Tests execute the real protected access and InstanceScript with a
+refusing validator, successful movement, cancelled/destroyed sessions and repeated callbacks.
+No new boss-specific API is needed. Runtime/client validation remains outstanding.
+
 ### Kraken characterization and pre-edit migration mapping
 
 Reference behavior is the recoverable `798b8c320` implementation, not a fresh claim of OSRS parity.
@@ -172,3 +186,6 @@ Kree'arra, K'ril, Obor, Scorpia, Scurrius, Wilderness, Zilyana) must be regressi
   and retaliation queues; all previous override fields are preserved.
 - `boss-native-broad-regression.log`: every boss module test passes after adding the ordinary
   attack effect (1m21s, 306 tasks). No boss migration is implied by this adapter test pass.
+- `boss-instance-entry-red-2.log`: all three entry safety regression tests fail against the old
+  shared flow. `boss-instance-entry-green.log`: 29 instance tests pass after guarding failed entry,
+  destroyed-session callbacks and refused exits. This does not bypass native teleport validation.

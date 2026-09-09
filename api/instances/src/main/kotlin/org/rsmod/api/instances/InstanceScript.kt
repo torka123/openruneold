@@ -134,9 +134,17 @@ public abstract class InstanceScript(private val registry: BossInstanceRegistry)
                         is InstanceManager.Result.Joined -> result.session
                         else -> return
                     }
-                val enter: InstanceEnterAction = {
+                val enter: InstanceEnterAction = enter@{
+                    // A prelude can suspend while logout, timeout or another entry ends this run.
+                    if (manager.sessionForId(session.id) !== session || session.isEnded)
+                        return@enter
+                    if (manager.sessionForPlayer(player) != null) return@enter
                     telejump(enterCoord)
-                    manager.finalizeEntry(player, session, worldClock.cycle)
+                    if (coords == enterCoord) {
+                        manager.finalizeEntry(player, session, worldClock.cycle)
+                    } else if (result is InstanceManager.Result.Created) {
+                        manager.cancelPendingEntry(player, worldClock.cycle)
+                    }
                 }
                 if (runPreludeWhen(result)) {
                     objectHooks.getEnterPrelude(key)?.let { prelude ->
@@ -292,8 +300,13 @@ public abstract class InstanceScript(private val registry: BossInstanceRegistry)
                     mes("You are not inside an instance.")
                     return
                 }
-        val exit = manager.leave(player, session, worldClock.cycle)
+        val exit = session.placement.exitCoord
         telejump(exit)
+        // Teleport validation may refuse movement. Never orphan a player inside a destroyed map.
+        // Native before-teleport hooks may already have detached the successful exit.
+        if (coords == exit && manager.sessionForPlayer(player) === session) {
+            manager.leave(player, session, worldClock.cycle)
+        }
     }
 
     protected suspend fun ProtectedAccess.enterPublicRoom(area: InstanceArea) {

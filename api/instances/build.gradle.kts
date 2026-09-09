@@ -19,6 +19,7 @@ dependencies {
     testImplementation(kotlin("test"))
     testImplementation("org.mockito:mockito-core:5.18.0")
     testImplementation(projects.engine.routefinder)
+    testImplementation(projects.engine.coroutine)
 }
 
 tasks.test {
