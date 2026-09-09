@@ -1009,6 +1009,17 @@ class BossRuntimeRegressionTest {
         assertFailsWith<IllegalArgumentException> { Condition.AbilityCountModulo(2, 2) }
     }
 
+    @Test
+    fun `registered nonattack ability arms the native action lock from DSL cadence`() {
+        val f = Fixture(phase = PhaseSpec("main", selector = Selector.Rotation(listOf("basic"))))
+        val events = EventBus()
+        val context = ScriptContext(events, CheatCommandMap(), EngineQueueCache())
+        BossCombat.register(context, f.spec, f.deps, "fixture")
+        f.npc.launch { events.publish(f.access(this, events), AiPlayerEvents.Ap2(f.player, f.npc)) }
+        assertEquals(100, f.encounter.lastAbilityTick)
+        assertEquals(104, f.npc.actionDelay)
+    }
+
     private class Fixture(
         phase: PhaseSpec = PhaseSpec("main"),
         val random: GameRandom = DefaultGameRandom(42L),

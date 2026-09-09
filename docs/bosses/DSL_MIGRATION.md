@@ -587,3 +587,11 @@ attack gate or scheduler. Lists are snapshotted per volley; native validity is r
 components, including after a synchronous first-hit callback retires the encounter. Explicit forced
 commits rearm existing periodic cadence; phase-local committed ability counts include those commits
 and reset on phase changes. All are local extensions/repairs as mapped, not new upstream claims.
+
+Native action-lock adjunct identified before Guardians wiring: BossCombat gates its own selector
+after a special but does not synchronize the native NPC actionDelay unless the ability happens
+to invoke NvPCombat. The old Guardians manager sets that lock after every special. Use the existing
+BossCombat commit path to extend (never shorten) the native action lock to the declarative cadence
+after interpreting the ability, while the encounter is still current. Do not arm it before
+NvPCombat, which would reject its own attack. A registered no-op/special ability regression and
+existing normal-attack tests must prove this reusable correction; no boss-specific action timer.
