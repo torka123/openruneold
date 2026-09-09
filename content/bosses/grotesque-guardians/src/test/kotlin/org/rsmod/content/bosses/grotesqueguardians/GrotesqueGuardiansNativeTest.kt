@@ -2,8 +2,18 @@ package org.rsmod.content.bosses.grotesqueguardians
 
 import com.google.inject.AbstractModule
 import com.google.inject.Guice
+import dev.openrune.ParamMap
 import dev.openrune.ServerCacheManager
+import dev.openrune.rscm.RSCM.asRSCM
+import dev.openrune.rscm.RSCMType
+import dev.openrune.toml.rsconfig.decodeRuneScape
+import dev.openrune.toml.rsconfig.decodeRuneScapeBlocks
+import dev.openrune.toml.rsconfig.rsconfig
+import dev.openrune.toml.tomlMapper
+import dev.openrune.types.NpcServerType
 import dev.openrune.types.ProjAnimType
+import java.io.File
+import kotlin.reflect.typeOf
 import kotlin.test.*
 import org.junit.jupiter.api.BeforeAll
 import org.mockito.Mockito.*
@@ -16,6 +26,7 @@ import org.rsmod.api.combat.formulas.AccuracyFormulae
 import org.rsmod.api.combat.formulas.MaxHitFormulae
 import org.rsmod.api.death.NpcDeath
 import org.rsmod.api.death.NpcDeathDropHook
+import org.rsmod.api.death.NpcDeathKillContext
 import org.rsmod.api.death.NpcDeathKillHook
 import org.rsmod.api.death.plugin.NpcDeathScript
 import org.rsmod.api.game.process.world.WorldQueueListProcess
@@ -25,10 +36,13 @@ import org.rsmod.api.instances.region.InstanceAreaResolver
 import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.api.npc.access.StandardNpcAccessContext
 import org.rsmod.api.npc.events.NpcHitEvents
+import org.rsmod.api.npc.events.NpcQueueEvents
 import org.rsmod.api.npc.events.interact.AiPlayerEvents
 import org.rsmod.api.npc.hit.modifier.StandardNpcHitModifier
 import org.rsmod.api.npc.hit.processor.StandardNpcHitProcessor
 import org.rsmod.api.npc.interact.AiPlayerInteractions
+import org.rsmod.api.player.events.PlayerMovementEvent
+import org.rsmod.api.player.events.interact.LocEvents
 import org.rsmod.api.player.hook.PlayerPostTickHook
 import org.rsmod.api.player.hook.PlayerTeleportHooks
 import org.rsmod.api.player.hook.PlayerTeleportValidator
@@ -38,10 +52,12 @@ import org.rsmod.api.player.protect.ProtectedAccessLauncher
 import org.rsmod.api.player.vars.VarPlayerIntMapSetter
 import org.rsmod.api.random.GameRandom
 import org.rsmod.api.registry.npc.NpcRegistry
+import org.rsmod.api.repo.NpcRevealProcessor
 import org.rsmod.api.repo.npc.NpcRepository
 import org.rsmod.api.repo.obj.ObjRepository
 import org.rsmod.api.repo.region.RegionRepository
 import org.rsmod.api.repo.world.WorldRepository
+import org.rsmod.content.generic.killcount.KillcountNpcKillHook
 import org.rsmod.events.EventBus
 import org.rsmod.game.MapClock
 import org.rsmod.game.cheat.CheatCommandMap
@@ -49,9 +65,13 @@ import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.NpcList
 import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
+import org.rsmod.game.entity.player.SessionStateEvent
 import org.rsmod.game.hit.Hit
 import org.rsmod.game.hit.HitBuilder
 import org.rsmod.game.hit.HitType
+import org.rsmod.game.loc.BoundLocInfo
+import org.rsmod.game.loc.LocEntity
+import org.rsmod.game.loc.LocInfo
 import org.rsmod.game.proj.ProjAnim
 import org.rsmod.game.queue.EngineQueueCache
 import org.rsmod.game.queue.WorldQueueList
@@ -221,7 +241,7 @@ class GrotesqueGuardiansNativeTest {
     }
 
     @Test
-    fun `threshold transition waits for accepted native impact and simultaneous crossings stop at floor`() {
+    fun `threshold transition waits for native impact and queued damage respects the active phase`() {
         val f = GuardiansFixture()
         f.ring()
         val first = f.calculate(f.dawn, 500, HitType.Ranged)
@@ -237,9 +257,246 @@ class GrotesqueGuardiansNativeTest {
         val duskSecond = f.calculate(f.dusk, 500, HitType.Melee)
         assertEquals(7882, f.dusk.visType.id)
         f.apply(f.dusk, duskFirst)
-        f.apply(f.dusk, duskSecond)
         assertEquals(247, f.dusk.hitpoints)
+        f.apply(f.dusk, duskSecond)
+        // The inherited rules explicitly allow Dusk damage during lightning. Do not silently
+        // introduce transition immunity as part of an architecture migration.
+        assertEquals(44, f.dusk.hitpoints)
         assertEquals(7855, f.dusk.visType.id)
+    }
+
+    @Test
+    fun `native exits cancel pending hits callbacks and paired instance resources`() {
+        for (ending in listOf("exit", "teleport", "logout", "disconnect", "death")) {
+            val f = GuardiansFixture()
+            f.ring()
+            f.attack(102, f.dawn)
+            f.encounters.launchSpecial(f.dawn, f.player, "stone")
+            val session = assertNotNull(f.instances.sessionForPlayer(f.player))
+            val state = assertNotNull(session.stateOrNull(GUARDIANS_ARENA))
+            val pending = f.hits().map { it.second }
+            assertEquals(2, pending.size)
+            assertEquals(1, f.queues.size)
+            f.end(ending)
+            assertTrue(pending.all { !it.isValidNow() }, ending)
+            f.instances.tickReclaim(f.clock.cycle + 1)
+            assertTrue(pending.all { !it.isQueueArgumentValid() }, ending)
+            assertTrue(session.isEnded, ending)
+            assertTrue(f.instances.npcsForInstance(session.id).isEmpty(), ending)
+            assertNull(f.instances.sessionForPlayer(f.player), ending)
+            assertEquals(0, f.queues.size, ending)
+            assertTrue(state.spheres.isEmpty())
+            assertTrue(state.lightning.isEmpty())
+            assertFalse(f.dawn.isSlotAssigned)
+            assertFalse(f.dusk.isSlotAssigned)
+            assertNull(f.deps.encounterRegistry.existing(f.dawn))
+            assertNull(f.deps.encounterRegistry.existing(f.dusk))
+            val output = mockingDetails(f.world).invocations.size
+            f.idleUntil(130)
+            assertEquals(output, mockingDetails(f.world).invocations.size)
+        }
+    }
+
+    @Test
+    fun `two native kills retain Dawn corpse then replace the pair once after seventeen ticks`() {
+        val f = GuardiansFixture()
+        val session = assertNotNull(f.instances.sessionForPlayer(f.player))
+        repeat(2) { completion ->
+            f.finalPhase()
+            val old = assertNotNull(session.stateOrNull(GUARDIANS_ARENA))
+            f.damage(f.dusk, 500, HitType.Melee)
+            f.killQueue()
+            var remaining = 30
+            while (!f.dusk.hidden && remaining-- > 0) f.idleUntil(f.clock.cycle + 1)
+            assertTrue(remaining > 0, "Native death sequence must complete")
+            assertEquals(GrotesquePhase.RESPAWNING, old.phase)
+            assertFalse(f.dawn.hidden)
+            assertEquals(7885, f.dawn.visType.id)
+            assertEquals(completion + 1, f.kills.size)
+            // Baseline definition defect: native KC reads the immutable spawn definition (7851),
+            // while the active cache only supplies this varp on the death definition. Keep this
+            // discrepancy visible; it is not proof of working KC or an approved zero-KC rule.
+            assertEquals(0, f.player.vars["varp.total_gargboss_kills"])
+            assertEquals(f.player.coords, f.kills.last().dropCoords)
+            val scheduled = f.queues.size
+            f.encounters.finishDuskDeath(f.dusk)
+            assertEquals(
+                scheduled,
+                f.queues.size,
+                "Duplicate completion must not schedule another reset",
+            )
+            val resetTick = f.clock.cycle + 17
+            f.idleUntil(resetTick - 1)
+            assertEquals(7885, f.dawn.visType.id)
+            assertSame(old, session.stateOrNull(GUARDIANS_ARENA))
+            f.idleUntil(resetTick)
+            assertFalse(old.dawn.isSlotAssigned)
+            assertFalse(old.dusk.isSlotAssigned)
+            assertTrue(old.dawnEncounter.isEnded)
+            assertTrue(old.duskEncounter.isEnded)
+            val fresh = assertNotNull(session.stateOrNull(GUARDIANS_ARENA))
+            assertNotSame(old, fresh)
+            assertEquals(GrotesquePhase.DORMANT, fresh.phase)
+            assertEquals(listOf(450, 450), listOf(fresh.dawn.hitpoints, fresh.dusk.hitpoints))
+            assertEquals(2, f.npcList.count())
+            assertEquals(
+                setOf(fresh.dawn, fresh.dusk),
+                f.instances.npcsForInstance(session.id).toSet(),
+            )
+            assertEquals(0, f.queues.size)
+            f.dawn = fresh.dawn
+            f.dusk = fresh.dusk
+        }
+    }
+
+    @Test
+    fun `real roof operation uses protected entry exit and fresh instance identity without commands`() {
+        val f = GuardiansFixture()
+        val first = assertNotNull(f.instances.sessionForPlayer(f.player))
+        f.roofOp()
+        assertEquals(GROTESQUE_PUBLIC_EXIT, f.player.coords)
+        assertTrue(first.isEnded)
+        f.roofOp()
+        val second = assertNotNull(f.instances.sessionForPlayer(f.player))
+        assertNotEquals(first.id, second.id)
+        assertEquals(
+            GrotesquePhase.DORMANT,
+            assertNotNull(second.stateOrNull(GUARDIANS_ARENA)).phase,
+        )
+        assertEquals(2, f.instances.npcsForInstance(second.id).size)
+        assertEquals(2, f.npcList.count())
+    }
+
+    @Test
+    fun `two rooms isolate guardian ownership arena resources and cleanup`() {
+        val f = GuardiansFixture()
+        val first = assertNotNull(f.instances.sessionForPlayer(f.player))
+        val partner =
+            Player().apply {
+                slotId = 2
+                uuid = 2L
+                assignUid()
+                coords = GROTESQUE_PUBLIC_EXIT
+                statMap.setBaseLevel("stat.hitpoints", 99)
+                statMap.setCurrentLevel("stat.hitpoints", 99)
+            }
+        f.players[2] = partner
+        f.enter(partner)
+        val second = assertNotNull(f.instances.sessionForPlayer(partner))
+        val secondState = assertNotNull(second.stateOrNull(GUARDIANS_ARENA))
+        assertFalse(f.encounters.isParticipant(f.player, secondState.dawn))
+        assertFalse(f.encounters.canAttack(f.dawn, partner))
+        f.ring()
+        f.encounters.launchSpecial(f.dawn, f.player, "stone")
+        assertTrue(f.encounters.ringBell(partner))
+        f.encounters.launchSpecial(secondState.dawn, partner, "stone")
+        assertEquals(2, f.queues.size)
+        f.leave()
+        assertTrue(first.isEnded)
+        assertFalse(second.isEnded)
+        assertEquals(1, f.queues.size)
+        assertSame(second, f.instances.sessionForPlayer(partner))
+        assertEquals(2, f.npcList.count())
+        f.instances.terminate(second)
+        assertEquals(0, f.queues.size)
+        assertEquals(0, f.npcList.count())
+    }
+
+    @Test
+    fun `sphere absorption and timed return retain exact native locations and healing`() {
+        val f = GuardiansFixture()
+        f.ring()
+        f.damage(f.dawn, 500, HitType.Ranged)
+        f.damage(f.dusk, 500, HitType.Melee)
+        f.idleUntil(112)
+        val state = assertNotNull(f.instances.guardiansState(f.player))
+        val spheres = state.spheres.toList()
+        assertEquals(listOf(31678, 31679, 31680), spheres.map { it.loc.id })
+        assertTrue(f.encounters.absorbSphere(f.player, spheres.first().loc.coords))
+        assertFalse(f.encounters.absorbSphere(f.player, spheres.first().loc.coords))
+        f.dawn.hitpoints = 100
+        f.idleUntil(147)
+        assertEquals(100, f.dawn.hitpoints)
+        f.idleUntil(148)
+        assertEquals(280, f.dawn.hitpoints)
+        assertTrue(state.spheres.isEmpty())
+        assertEquals(
+            3,
+            mockingDetails(f.world).invocations.count { it.method.name == "locDelPrivate" },
+        )
+    }
+
+    @Test
+    fun `prison snapshots fifteen perimeter flames and escape avoids damage and healing`() {
+        for (escape in listOf(false, true)) {
+            val f = GuardiansFixture()
+            f.finalPhase()
+            val previousHits = f.hits().size
+            f.attack(119, f.dusk)
+            val flames =
+                mockingDetails(f.world)
+                    .invocations
+                    .filter {
+                        it.method.name.startsWith("spotanimMapPrivate") &&
+                            (it.arguments[1] as dev.openrune.types.aconverted.SpotanimType).id ==
+                                1434
+                    }
+                    .map { CoordGrid(it.arguments[2] as Int) }
+            assertEquals(15, flames.size)
+            assertFalse(f.player.coords.translate(2, 0) in flames)
+            if (escape) f.player.coords = f.player.coords.translate(2, 0)
+            f.idleUntil(123)
+            assertEquals(247, f.dusk.hitpoints)
+            f.idleUntil(124)
+            assertEquals(if (escape) 247 else 312, f.dusk.hitpoints)
+            assertEquals(
+                if (escape) emptyList() else listOf(65),
+                f.hits()
+                    .drop(previousHits)
+                    .filter { it.second.type == HitType.Typeless }
+                    .map { it.second.damage },
+            )
+        }
+    }
+
+    @Test
+    fun `source NPC overlay enables one native killcount without mutating the active cache files`() {
+        val f = GuardiansFixture()
+        val blocks =
+            tomlMapper { rsconfig { enableConstantProvider() } }
+                .decodeRuneScapeBlocks(File(".data/raw-cache/server/npcs.toml").toPath())
+        val mapper = tomlMapper {}
+        val overlay =
+            blocks
+                .asSequence()
+                .filter { it.name == "npc" }
+                .map {
+                    mapper.decodeRuneScape(typeOf<List<NpcServerType>>(), it.map.properties)
+                        as NpcServerType
+                }
+                .firstOrNull { it.id == 7851 }
+        assertNotNull(
+            overlay,
+            "The native spawn identity ${f.dusk.type.internalName} needs the same KC parameter as its death form",
+        )
+        val definition = f.dusk.type
+        val previous = definition.paramMap
+        try {
+            // Exercise the compiler's base-plus-source parameter merge entirely in memory.
+            // The live SERVER/LIVE cache files and all unrelated definition fields stay unchanged.
+            definition.paramMap =
+                ParamMap(definition.paramsRaw.orEmpty() + overlay.paramsRaw.orEmpty())
+            f.finalPhase()
+            f.damage(f.dusk, 500, HitType.Melee)
+            f.killQueue()
+            var guard = 30
+            while (!f.dusk.hidden && guard-- > 0) f.idleUntil(f.clock.cycle + 1)
+            assertTrue(guard > 0)
+            assertEquals(1, f.kills.size)
+            assertEquals(1, f.player.vars["varp.total_gargboss_kills"])
+        } finally {
+            definition.paramMap = previous
+        }
     }
 
     companion object {
@@ -346,16 +603,17 @@ private class GuardiansFixture(accurate: Boolean = true) {
             queues,
             GuardiansArenaEffects(clock, instances, random, deps, queues, world),
         )
+    val kills = mutableListOf<NpcDeathKillContext>()
     val death =
         NpcDeath(
             npcs,
             players,
             mock(ObjRepository::class.java),
             setOf(NpcDeathDropHook { true }),
-            emptySet<NpcDeathKillHook>(),
+            setOf(KillcountNpcKillHook(), NpcDeathKillHook { kills += it }),
         )
-    val dawn: Npc
-    val dusk: Npc
+    var dawn: Npc
+    var dusk: Npc
     val instanceScript =
         GrotesqueGuardiansWorld(
             BossInstanceRegistry(),
@@ -385,7 +643,8 @@ private class GuardiansFixture(accurate: Boolean = true) {
                 death,
                 players,
                 deps,
-                GrotesqueGuardiansAttackParameters(),
+                GrotesqueGuardiansAttackParameters(instances),
+                GuardiansDamageRules(instances, deps),
             )
         ) {
             context.startup()
@@ -435,13 +694,14 @@ private class GuardiansFixture(accurate: Boolean = true) {
     }
 
     fun finalPhase() {
+        val start = clock.cycle
         ring()
         damage(dawn, 500, HitType.Ranged)
         damage(dusk, 500, HitType.Melee)
-        idleUntil(112)
+        idleUntil(start + 12)
         damage(dawn, 500, HitType.Ranged)
         assertTrue(encounters.useHammer(player, dawn, "obj.slayer_rock_hammer"))
-        idleUntil(117)
+        idleUntil(start + 17)
     }
 
     fun idleUntil(tick: Int) {
@@ -449,7 +709,62 @@ private class GuardiansFixture(accurate: Boolean = true) {
             clearFrameSequences()
             clock.cycle++
             WorldQueueListProcess(queues).process()
+            npcList.toList().forEach {
+                if (!it.isSlotAssigned) return@forEach
+                it.currentMapClock = clock.cycle
+                it.processedMapClock = clock.cycle
+                if (it.canProcess && it.activeCoroutine != null) it.advanceActiveCoroutine()
+                NpcRevealProcessor(npcs).process(it)
+            }
             encounters.tickAll()
+        }
+    }
+
+    fun end(ending: String) {
+        when (ending) {
+            "exit" -> leave()
+            "teleport" -> {
+                val previous = player.coords
+                player.coords = GROTESQUE_PUBLIC_EXIT
+                events.publish(PlayerMovementEvent.CoordsMovedEvent(player, previous))
+            }
+            "logout" -> events.publish(SessionStateEvent.Logout(player))
+            "disconnect" -> {
+                player.clientDisconnected.set(true)
+                lifecycle.onPostTick(player)
+            }
+            "death" -> instances.handleDeath(player, clock.cycle)
+            else -> error(ending)
+        }
+    }
+
+    fun killQueue() {
+        dusk.launch {
+            events.publish(
+                StandardNpcAccess(
+                    dusk,
+                    this,
+                    StandardNpcAccessContext(
+                        { random },
+                        { StandardNpcHitModifier(events) },
+                        { StandardNpcHitProcessor(players, events, emptySet()) },
+                    ),
+                ),
+                NpcQueueEvents.Type(dusk, null, "queue.death".asRSCM(RSCMType.QUEUE)),
+            )
+        }
+    }
+
+    fun roofOp() {
+        val type = assertNotNull(ServerCacheManager.getObject(GrotesqueAssets.ROOF_ENTRANCE))
+        val loc = BoundLocInfo(LocInfo(2, player.coords, LocEntity(type.id, 10, 0)), type)
+        // Movement-arrival processing is outside this interaction fixture.
+        player.previousCoords = player.coords
+        player.launch {
+            events.publish(
+                ProtectedAccess(player, this, accessContext),
+                LocEvents.Op1(loc, loc, type),
+            )
         }
     }
 

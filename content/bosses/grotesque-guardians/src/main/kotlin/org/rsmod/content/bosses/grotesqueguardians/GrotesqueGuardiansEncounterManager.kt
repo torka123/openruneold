@@ -13,13 +13,10 @@ import org.rsmod.api.npc.owner.assignSpawnOwner
 import org.rsmod.api.npc.owner.isSpawnOwnedBy
 import org.rsmod.api.player.combatClearQueue
 import org.rsmod.api.player.output.mes
-import org.rsmod.api.player.righthand
 import org.rsmod.api.player.stat.hitpoints
 import org.rsmod.game.MapClock
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
-import org.rsmod.game.hit.HitBuilder
-import org.rsmod.game.hit.HitType
 import org.rsmod.game.queue.WorldQueueList
 import org.rsmod.map.CoordGrid
 
@@ -105,6 +102,7 @@ constructor(
 
     fun finishDuskDeath(npc: Npc) {
         val run = instances.guardiansState(npc)?.takeIf { it.dusk === npc } ?: return
+        if (run.phase != GrotesquePhase.DYING) return
         run.phase = GrotesquePhase.RESPAWNING
         // Dawn remains visible. Its native encounter owns the pair's delayed replacement.
         run.dawnEncounter.scheduleAt(
@@ -185,44 +183,19 @@ constructor(
         }
     }
 
-    fun modifyNpcHit(player: Player, npc: Npc, hit: HitBuilder) {
-        val run = instances.guardiansState(player)
-        if (run == null || !npc.isSpawnOwnedBy(player)) {
-            hit.damage = 0
-            return
-        }
-        val role =
-            if (npc === run.dawn) GuardianRole.DAWN
-            else if (npc === run.dusk) GuardianRole.DUSK else null
-        if (role == null || !GrotesqueGuardiansRules.canDamage(role, run.phase)) {
-            hit.damage = 0
-            return
-        }
-        if (role == GuardianRole.DUSK && hit.type != HitType.Melee) {
-            hit.damage = 0
-            player.mes("Dusk's stone armour resists that attack.")
-            return
-        }
-        if (role == GuardianRole.DAWN && hit.type == HitType.Melee && !isHalberd(player)) {
-            hit.damage = 0
-            player.mes("Dawn is flying too high for that weapon.")
-            return
-        }
+    fun acceptedHit(npc: Npc, damage: Int) {
+        if (damage <= 0) return
+        val run = instances.guardiansState(npc) ?: return
         when (run.phase) {
-            GrotesquePhase.DAWN_ONE,
-            GrotesquePhase.DUSK_TWO -> {
-                hit.damage = GrotesqueGuardiansRules.capDamageAtThreshold(npc.hitpoints, hit.damage)
-                if (npc.hitpoints - hit.damage <= GrotesqueGuardiansRules.PHASE_THRESHOLD) {
-                    if (run.phase == GrotesquePhase.DAWN_ONE) beginPhaseTwo(run)
-                    else beginLightning(run)
-                }
-            }
-            GrotesquePhase.DAWN_THREE -> {
-                hit.damage = GrotesqueGuardiansRules.capDawnFinalDamage(npc.hitpoints, hit.damage)
-                if (npc.hitpoints - hit.damage <= GrotesqueGuardiansRules.FINISH_THRESHOLD) {
-                    player.mes("Dawn is weakened. Finish her with a rock hammer.")
-                }
-            }
+            GrotesquePhase.DAWN_ONE ->
+                if (npc === run.dawn && npc.hitpoints <= GrotesqueGuardiansRules.PHASE_THRESHOLD)
+                    beginPhaseTwo(run)
+            GrotesquePhase.DUSK_TWO ->
+                if (npc === run.dusk && npc.hitpoints <= GrotesqueGuardiansRules.PHASE_THRESHOLD)
+                    beginLightning(run)
+            GrotesquePhase.DAWN_THREE ->
+                if (npc === run.dawn && npc.hitpoints <= GrotesqueGuardiansRules.FINISH_THRESHOLD)
+                    run.player.mes("Dawn is weakened. Finish her with a rock hammer.")
             else -> Unit
         }
     }
@@ -340,13 +313,6 @@ constructor(
         return if (GrotesqueGuardiansRules.canDamage(role, run.phase)) null
         else if (run.phase == GrotesquePhase.DORMANT) "Ring the Cloister Bell first."
         else "That Guardian cannot be harmed during this phase."
-    }
-
-    private fun isHalberd(player: Player): Boolean {
-        val weapon = player.righthand
-        val internal =
-            weapon?.let { ServerCacheManager.getItem(it.id)?.internalName } ?: return false
-        return internal.contains("halberd") || internal.contains("golembane")
     }
 
     private fun requireNpc(id: Int) =

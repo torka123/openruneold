@@ -19,6 +19,7 @@ constructor(
     private val players: PlayerList,
     private val deps: BossDeps,
     private val parameters: GrotesqueGuardiansAttackParameters,
+    private val damageRules: GuardiansDamageRules,
 ) : PluginScript() {
     override fun ScriptContext.startup() {
         deps.extensionRegistry.registerAttackParameters("guardians.normal") { npc, target, data ->
@@ -39,9 +40,10 @@ constructor(
                     val player =
                         if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players)
                         else null
-                    if (player == null) hit.damage = 0
-                    else encounters.modifyNpcHit(player, npc, hit)
+                    if (player == null) hit.damage = 0 else damageRules.modify(player, npc, hit)
                 },
+                onResolveHit = { damage = damageRules.resolve(npc, damage) },
+                onImpactHit = { encounters.acceptedHit(npc, hit.damage) },
                 canTarget = encounters::canAttack,
             )
         }

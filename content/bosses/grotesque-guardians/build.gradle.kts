@@ -27,6 +27,8 @@ dependencies {
     testImplementation(projects.api.registry)
     testImplementation(projects.api.gameProcess)
     testImplementation(projects.api.deathPlugin)
+    testImplementation(projects.content.generic.killcount)
+    testImplementation("dev.or2:toml-rsconfig:1.0")
 }
 
 tasks.test {

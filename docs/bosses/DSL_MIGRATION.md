@@ -635,3 +635,28 @@ threshold-crossing hit immediately transforms Dawn before accepted damage. Corre
 the already-mapped native Resolve/Impact callbacks, preserving 247/9 HP floors and all form delays.
 This is a demonstrated pipeline timing defect, not an invented OSRS rebalance. Initial instance
 test compilation required correcting fixture imports; no production mechanic changed for that.
+
+The first impact-time test overconstrained Dusk: the inherited `canDamage` explicitly allows damage
+during LIGHTNING_TRANSITION. Keep that behavior, rather than introducing unresearched immunity.
+The phase-two crossing stops at 247; a second precomputed 203 hit may then land during lightning,
+leaving 44. Dawn's defensive phase rejects the second hit. The regression now distinguishes those
+two existing policies. Lightning vulnerability remains an OSRS evidence gap, not a parity claim.
+
+Further native death coverage exposes a **pre-existing reward integration defect**: both
+DropTableRegistry and KillcountNpcKillHook use the immutable spawn definition. Dusk is spawned as
+7851 then visually transformed; the reward table registers only 7888 and the active cache's KC
+parameter is supplied on death definitions instead of 7851. The native kill hook executes once per
+completion, but the KC remains zero. The characterization explicitly records zero as a known defect,
+not an intended rule or passing-KC certification. Correct the table's base-identity registration
+through the existing table system. The KC definition correction needs a source-definition and
+non-live cache validation pass; do not mutate the running cache or install an ad hoc boss counter.
+Guardians is not fully accepted until that integration is resolved. No source/cache paths changed.
+
+Reward correction mapping: register the existing unchanged table for Dusk's native spawn identity
+as well as the supported final-form spawn. Add only the missing `killcount_varp` source entry for
+7851 to the existing intentional `.data/raw-cache/server/npcs.toml` configuration. Its unrelated
+Royal Titans/GE hunks were inspected and must remain unstaged. Verify the overlay through the
+existing PackServerConfig TOML parser and native kill hook with an in-memory parameter merge,
+restoring the cached test definition afterward. This does not repack or deploy SERVER/LIVE.
+The already-running JVM will require an explicitly authorized cache rebuild/restart later. No new
+shared reward API, boss-local counter, table probabilities, quantities or prayer behavior changes.
