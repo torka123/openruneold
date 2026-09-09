@@ -10,18 +10,14 @@ import dev.openrune.types.aconverted.SpotanimType
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import org.rsmod.api.bossbar.plugin.BossHpBarScript
+import org.rsmod.api.bosses.runtime.BossDeps
+import org.rsmod.api.bosses.runtime.BossEncounter
 import org.rsmod.api.combat.NpcAttackOverride
-import org.rsmod.api.combat.NvPCombat
-import org.rsmod.api.combat.commons.CombatAttack
 import org.rsmod.api.combat.commons.CombatEffects
-import org.rsmod.api.combat.commons.types.MeleeAttackType
-import org.rsmod.api.combat.commons.types.RangedAttackType
 import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.instances.InstanceSession
 import org.rsmod.api.instances.InstanceStateKey
 import org.rsmod.api.instances.RegionLocal
-import org.rsmod.api.mechanics.toxins.impl.PlayerVenom
-import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.api.npc.apPlayer2
 import org.rsmod.api.npc.heal
 import org.rsmod.api.npc.hit.modifier.StandardNpcHitModifier
@@ -30,7 +26,6 @@ import org.rsmod.api.npc.interact.AiPlayerInteractions
 import org.rsmod.api.npc.owner.assignSpawnOwner
 import org.rsmod.api.npc.owner.isSpawnOwnedBy
 import org.rsmod.api.player.combatClearQueue
-import org.rsmod.api.player.disablePrayers
 import org.rsmod.api.player.hit.modifier.NpcBypassProtectionPrayerPlayerHitModifier
 import org.rsmod.api.player.hit.queueHit
 import org.rsmod.api.player.output.mes
@@ -68,7 +63,7 @@ constructor(
     private val interactions: AiPlayerInteractions,
     private val collision: CollisionFlagMap,
     private val random: GameRandom,
-    private val combat: NvPCombat,
+    private val deps: BossDeps,
     private val world: WorldRepository,
     private val npcHitModifier: StandardNpcHitModifier,
     private val bossBars: BossHpBarScript,
@@ -153,6 +148,8 @@ constructor(
                     session.id.value,
                     sleeping,
                     firstSpecial = VorkathRules.firstSpecial(random.of(2)),
+                    combat = deps.encounterRegistry.of(sleeping),
+                    clock = clock,
                 )
             }
         ownResources(run)
@@ -167,6 +164,7 @@ constructor(
         run.session.onCleanup {
             run.state = VorkathState.ENDED
             clearMechanics(run)
+            deps.encounterRegistry.remove(run.boss)
             bossBars.onClose(run.player, run.boss, instant = true)
             run.player.lootDropDuration = run.player.attr[VORKATH_PREVIOUS_DROP_DURATION]
             run.player.attr.remove(VORKATH_PREVIOUS_DROP_DURATION)
@@ -181,7 +179,18 @@ constructor(
             return false
         npc.mode = null
         npc.movementLocked = true
-        run.timeline.wake(clock.cycle)
+        run.state = VorkathState.AWAKENING
+        run.wakeCycle = clock.cycle + 7
+        run.combat.scheduleAt(deps.worldQueues, clock, run.wakeCycle) {
+            if (
+                runFor(player) === run &&
+                    inArena(run) &&
+                    run.state == VorkathState.AWAKENING &&
+                    player.hitpoints > 0 &&
+                    npc.isSlotAssigned
+            )
+                activate(run)
+        }
         npc.transmog(requireNpc(VorkathAssets.SLEEPING_NOOP), Int.MAX_VALUE)
         npc.anim(VorkathAssets.WAKE_ANIM)
         player.mes("Vorkath awakens.")
@@ -222,65 +231,46 @@ constructor(
             clearMechanics(run)
             return
         }
-        if (run.state in COMBAT_STATES) {
-            bossBars.onUpdate(player, run.boss)
-            val heals = run.pendingHeals.filter { it.first <= clock.cycle }
-            run.pendingHeals.removeAll(heals.toSet())
-            heals.forEach { run.boss.heal(it.second, showHitsplat = true) }
-            processFireballLaunches(run)
-            processPending(run)
-        }
-        if (clock.cycle >= run.spawnRetireCycle) {
-            run.retiringSpawns.forEach { if (it.isSlotAssigned) npcs.del(it, Int.MAX_VALUE) }
-            run.retiringSpawns.clear()
-            run.spawnRetireCycle = Int.MAX_VALUE
-        }
-        when (run.state) {
-            VorkathState.ENTERING,
-            VorkathState.SLEEPING,
-            VorkathState.RESETTING,
-            VorkathState.DYING,
-            VorkathState.ENDED -> Unit
-            VorkathState.AWAKENING -> if (clock.cycle >= run.wakeCycle) activate(run)
-            VorkathState.ACTIVE -> {
-                if (
-                    run.timeline.attackDue(clock.cycle) &&
-                        run.standardAttacks == VORKATH_STANDARD_ATTACKS
-                )
-                    beginSpecial(run)
-                else keepAggressive(run)
+        if (run.state in COMBAT_STATES) bossBars.onUpdate(player, run.boss)
+        if (run.state == VorkathState.ACTIVE) keepAggressive(run)
+    }
+
+    /** Delegate unique arena deadlines to the shared, encounter-cancelled world queue. */
+    private fun schedule(run: Run, tick: Int, action: () -> Unit) {
+        run.combat.scheduleAt(deps.worldQueues, clock, tick) { if (validTarget(run)) action() }
+    }
+
+    private fun scheduleSpecialStep(run: Run) {
+        schedule(run, clock.cycle + 1) {
+            when (run.state) {
+                VorkathState.ACID_SPECIAL -> tickAcid(run)
+                VorkathState.ZOMBIFIED_SPAWN_SPECIAL -> tickSpawn(run)
+                else -> return@schedule
             }
-            VorkathState.ACID_SPECIAL -> tickAcid(run)
-            VorkathState.ZOMBIFIED_SPAWN_SPECIAL -> tickSpawn(run)
-            VorkathState.LOOTABLE ->
-                if (clock.cycle >= run.respawnCycle) {
-                    run.state = VorkathState.RESETTING
-                    respawn(run)
-                }
+            if (
+                run.state == VorkathState.ACID_SPECIAL ||
+                    run.state == VorkathState.ZOMBIFIED_SPAWN_SPECIAL
+            )
+                scheduleSpecialStep(run)
         }
     }
 
-    fun attack(access: StandardNpcAccess, target: Player) {
-        val run = runFor(target) ?: return
-        if (run.boss !== access.npc || !validTarget(run) || !run.timeline.attackDue(clock.cycle))
-            return
-        if (run.standardAttacks == VORKATH_STANDARD_ATTACKS) {
-            beginSpecial(run)
-            return
-        }
-        val attack = chooseStandard(run, target)
-        if (attack == VorkathStandardAttack.FIREBALL) {
-            launchFireball(run)
-            return
-        }
-        val override = standardOverride(run, target, attack)
-        val style =
-            when (attack) {
-                VorkathStandardAttack.MELEE -> CombatAttack.NpcMelee(MeleeAttackType.Crush)
-                VorkathStandardAttack.RANGED -> CombatAttack.NpcRanged(RangedAttackType.Standard)
-                else -> CombatAttack.NpcMagic(maxHit = override.maxHit ?: 30)
-            }
-        combat.attack(access, target, style, override)
+    fun attackParameters(
+        npc: Npc,
+        target: Player,
+        attack: VorkathStandardAttack,
+    ): NpcAttackOverride {
+        val run = requireNotNull(runFor(npc))
+        return VorkathAttackParameters.resolve(npc, target, attack)
+            .copy(hitValidity = hitValidity(run))
+    }
+
+    fun fireball(npc: Npc) {
+        runFor(npc)?.let(::launchFireball)
+    }
+
+    fun special(npc: Npc) {
+        runFor(npc)?.let(::beginSpecial)
     }
 
     fun isEncounterNpc(npc: Npc): Boolean = runFor(npc)?.owns(npc) == true
@@ -431,7 +421,7 @@ constructor(
         run.rewardEligible = false
         clearMechanics(run)
         run.state = VorkathState.ACTIVE
-        run.timeline.forceSpecial(clock.cycle, special)
+        run.nextSpecial = special
         run.boss.actionDelay = clock.cycle
         beginSpecial(run)
         player.mes("Forced Vorkath special: $special (no rewards).")
@@ -441,15 +431,10 @@ constructor(
     fun debugAttack(player: Player, attack: VorkathStandardAttack): Boolean {
         val run = activeDebugRun(player) ?: return false
         run.rewardEligible = false
-        run.timeline.forceAttack(clock.cycle)
-        if (attack == VorkathStandardAttack.FIREBALL) {
-            run.boss.actionDelay = clock.cycle
-            launchFireball(run)
-        } else {
-            run.forcedAttack = attack
-            run.boss.actionDelay = clock.cycle
-            run.boss.apPlayer2(player, interactions)
-        }
+        run.combat.lastAbilityTick = clock.cycle - VORKATH_ATTACK_RATE
+        run.combat.forceNextAbility(attack.name)
+        run.boss.actionDelay = clock.cycle
+        run.boss.apPlayer2(player, interactions)
         player.mes("Forced Vorkath attack: $attack (no rewards).")
         return true
     }
@@ -509,8 +494,9 @@ constructor(
         active.apRangeOverride = 32
         active.apRequiresLineOfSight = false
         run.boss = active
-        run.timeline.activate(clock.cycle)
-        active.actionDelay = run.timeline.nextAttackCycle
+        run.combat = deps.encounterRegistry.of(active)
+        run.state = VorkathState.ACTIVE
+        active.actionDelay = clock.cycle + 1
         run.startCycle = clock.cycle
         active.apPlayer2(run.player, interactions)
         bossBars.onOpen(run.player, active)
@@ -524,8 +510,11 @@ constructor(
             spawnNpc(run.player, run.session, VorkathAssets.SLEEPING, bossCoord(run.session))
         sleeping.movementLocked = true
         run.boss = sleeping
-        run.timeline.reset(VorkathRules.firstSpecial(random.of(2)))
-        run.forcedAttack = null
+        run.combat = deps.encounterRegistry.of(sleeping)
+        run.state = VorkathState.SLEEPING
+        run.nextSpecial = VorkathRules.firstSpecial(random.of(2))
+        run.shotsFired = 0
+        run.wakeCycle = Int.MAX_VALUE
         run.player.mes("Vorkath settles back into a deep sleep.")
     }
 
@@ -535,88 +524,44 @@ constructor(
         }
     }
 
-    private fun standardOverride(
-        run: Run,
-        target: Player,
-        attack: VorkathStandardAttack,
-    ): NpcAttackOverride {
-        val spec = VorkathProjectiles.standard(attack)
-        val projectile = spec?.build(run.boss, target.coords, target)
-        val dragonfire =
-            attack == VorkathStandardAttack.DRAGONFIRE ||
-                attack == VorkathStandardAttack.VENOM_DRAGONFIRE ||
-                attack == VorkathStandardAttack.PRAYER_DRAGONFIRE
-        val protection = VorkathDragonfire.snapshot(target)
-        val baseMaximum =
-            when (attack) {
-                VorkathStandardAttack.MELEE,
-                VorkathStandardAttack.RANGED -> 32
-                VorkathStandardAttack.MAGIC -> 30
-                VorkathStandardAttack.FIREBALL -> 0
-                else -> protection.maximum
-            }
-        return NpcAttackOverride(
-            attackAnimation =
-                if (attack == VorkathStandardAttack.MELEE) VorkathAssets.MELEE_ANIM
-                else VorkathAssets.RANGED_ANIM,
-            maxHit = baseMaximum,
-            inaccurateMaxHit = if (dragonfire) protection.resistedMaximum else null,
-            projectileFactory = projectile?.let { exact -> { _, _ -> exact } },
-            // Player queues count their first processing tick, including this NPC launch tick.
-            impactDelay = (projectile?.let { it.endTime / 30 } ?: 0) + 1,
-            attackRate = VORKATH_ATTACK_RATE,
-            hitValidity = hitValidity(run),
-            damageTransform =
-                if (dragonfire) { rolled -> protection.damage(rolled, attack) } else null,
-            hitModifier =
-                if (dragonfire) NpcBypassProtectionPrayerPlayerHitModifier
-                else org.rsmod.api.player.hit.modifier.StandardPlayerHitModifier,
-            onAttack = {
-                run.timeline.standardLaunched(clock.cycle)
-                // Client effects are sent with the same client delay as the projectile.
-                VorkathProjectiles.impact(attack)?.let {
-                    target.spotanim(it, delay = projectile?.endTime ?: 0, height = 124)
-                }
-            },
-            onImpact = { _, _ ->
-                if (attack == VorkathStandardAttack.VENOM_DRAGONFIRE) PlayerVenom.tryVenom(target)
-                if (attack == VorkathStandardAttack.PRAYER_DRAGONFIRE) target.disablePrayers()
-            },
-        )
-    }
-
     private fun launchFireball(run: Run) {
-        if (!validTarget(run) || !run.timeline.attackDue(clock.cycle)) return
-        run.timeline.standardLaunched(clock.cycle)
-        run.boss.actionDelay = run.timeline.nextAttackCycle
+        if (!validTarget(run)) return
+        run.boss.actionDelay = clock.cycle + VORKATH_ATTACK_RATE
         run.boss.anim(VorkathAssets.RANGED_UP_ANIM, delay = 2)
-        run.pendingFireballs += PendingFireball(clock.cycle + 1)
-    }
-
-    private fun processFireballLaunches(run: Run) {
-        val due = run.pendingFireballs.filter { it.launchCycle <= clock.cycle }
-        run.pendingFireballs.removeAll(due.toSet())
-        for (launch in due) {
+        val launch = PendingFireball(clock.cycle + 1)
+        run.pendingFireballs += launch
+        schedule(run, launch.launchCycle) {
+            run.pendingFireballs.remove(launch)
             val tile = run.player.coords
             launchTileProjectile(run, tile, VorkathProjectiles.FIREBALL)
-            run.pendingHits +=
+            scheduleTileHit(
+                run,
                 PendingTileHit(
                     clock.cycle + VorkathProjectiles.FIREBALL.impactTicks,
                     tile,
                     0,
                     121,
                     VorkathTileAttack.FIREBALL,
-                )
+                ),
+            )
         }
     }
 
     private fun beginSpecial(run: Run) {
         if (!validTarget(run)) return
-        when (run.timeline.beginSpecial(clock.cycle)) {
+        val special = run.nextSpecial
+        run.nextSpecial = VorkathRules.nextSpecial(special)
+        run.shotsFired = 0
+        run.specialStartCycle = clock.cycle
+        run.state =
+            if (special == VorkathSpecial.ACID) VorkathState.ACID_SPECIAL
+            else VorkathState.ZOMBIFIED_SPAWN_SPECIAL
+        when (special) {
             VorkathSpecial.ACID -> beginAcid(run)
             VorkathSpecial.ZOMBIFIED_SPAWN -> beginSpawn(run)
         }
         run.boss.mode = null
+        scheduleSpecialStep(run)
     }
 
     private fun beginAcid(run: Run) {
@@ -635,12 +580,15 @@ constructor(
             }
         selected.forEach { tile ->
             launchTileProjectile(run, tile, VorkathProjectiles.ACID)
-            run.pendingAcidPools += PendingAcidPool(clock.cycle + 3, tile)
+            val pool = PendingAcidPool(clock.cycle + 3, tile)
+            run.pendingAcidPools += pool
+            schedule(run, pool.impactCycle) {
+                if (run.pendingAcidPools.remove(pool)) formAcidPool(run, pool)
+            }
         }
     }
 
     private fun tickAcid(run: Run) {
-        processPendingAcid(run)
         if (run.player.coords in run.acidTiles) {
             val damage = random.of(1..10)
             run.player.queueHit(
@@ -651,34 +599,44 @@ constructor(
                 modifier = NpcBypassProtectionPrayerPlayerHitModifier,
                 impactHandler =
                     org.rsmod.game.hit.HitImpactHandler { impact ->
-                        run.pendingHeals += (clock.cycle + 1) to impact.damage
+                        val heal = (clock.cycle + 1) to impact.damage
+                        run.pendingHeals += heal
+                        schedule(run, heal.first) {
+                            run.pendingHeals.remove(heal)
+                            run.boss.heal(heal.second, showHitsplat = true)
+                        }
                     },
                 validity = hitValidity(run),
             )
         }
-        if (run.timeline.rapidShotDue(clock.cycle)) {
+        if (
+            run.shotsFired < VORKATH_ACID_SHOTS &&
+                clock.cycle >= run.specialStartCycle + 4 + run.shotsFired
+        ) {
             val tile = run.player.coords
             run.boss.facePlayer(run.player)
             val delay = launchTileProjectile(run, tile, VorkathProjectiles.RAPID_FIRE)
-            run.pendingHits +=
+            scheduleTileHit(
+                run,
                 PendingTileHit(
                     impactCycle = clock.cycle + delay,
                     tile = tile,
                     minimum = 25,
                     maximum = 41,
                     kind = VorkathTileAttack.RAPID_FIRE,
-                )
-            run.timeline.rapidLaunched(clock.cycle)
+                ),
+            )
+            run.shotsFired++
             if (run.shotsFired == VORKATH_ACID_SHOTS) clearAcid(run)
         }
-        if (clock.cycle >= run.timeline.specialStartCycle + 33)
-            finishSpecial(run, recoveryTicks = 0)
+        if (clock.cycle >= run.specialStartCycle + 33) finishSpecial(run, recoveryTicks = 0)
     }
 
-    private fun processPending(run: Run) {
-        val due = run.pendingHits.filter { it.impactCycle <= clock.cycle }
-        run.pendingHits.removeAll(due.toSet())
-        for (hit in due) {
+    private fun scheduleTileHit(run: Run, hit: PendingTileHit) {
+        // Diagnostic metadata only: execution/cancellation belongs to BossEncounter.scheduleAt.
+        run.pendingHits += hit
+        schedule(run, hit.impactCycle) {
+            run.pendingHits.remove(hit)
             val graphic =
                 if (hit.kind == VorkathTileAttack.FIREBALL) VorkathAssets.FIREBALL_IMPACT
                 else VorkathAssets.RAPID_FIRE_IMPACT
@@ -693,7 +651,7 @@ constructor(
                     VorkathTileAttack.FIREBALL -> VorkathRules.fireballMaximum(distance)
                     VorkathTileAttack.RAPID_FIRE -> if (distance == 0) hit.maximum else 0
                 }
-            if (maximum <= 0) continue
+            if (maximum <= 0) return@schedule
             run.player.queueHit(
                 source = run.boss,
                 delay = 1,
@@ -708,22 +666,18 @@ constructor(
         }
     }
 
-    private fun processPendingAcid(run: Run) {
-        val due = run.pendingAcidPools.filter { it.impactCycle <= clock.cycle }
-        run.pendingAcidPools.removeAll(due.toSet())
-        for (pool in due) {
-            if (pool.tile in run.acidTiles) continue
-            val visual =
-                locs.add(
-                    pool.tile,
-                    acidPoolType(),
-                    Int.MAX_VALUE,
-                    LocAngle[random.of(4)],
-                    LocShape.CentrepieceStraight,
-                )
-            run.acidTiles += pool.tile
-            run.acidVisuals += visual
-        }
+    private fun formAcidPool(run: Run, pool: PendingAcidPool) {
+        if (pool.tile in run.acidTiles) return
+        val visual =
+            locs.add(
+                pool.tile,
+                acidPoolType(),
+                Int.MAX_VALUE,
+                LocAngle[random.of(4)],
+                LocShape.CentrepieceStraight,
+            )
+        run.acidTiles += pool.tile
+        run.acidVisuals += visual
     }
 
     private fun beginSpawn(run: Run) {
@@ -790,6 +744,11 @@ constructor(
                 run.retiringSpawns += spawn
                 run.spawn = null
                 run.spawnRetireCycle = clock.cycle + 2
+                schedule(run, run.spawnRetireCycle) {
+                    run.retiringSpawns.remove(spawn)
+                    if (spawn.isSlotAssigned) npcs.del(spawn, Int.MAX_VALUE)
+                    run.spawnRetireCycle = Int.MAX_VALUE
+                }
                 finishSpecial(run)
             }
             return
@@ -880,13 +839,15 @@ constructor(
         clearAcid(run)
         clearSpawn(run)
         releaseFreeze(run)
-        run.timeline.finishSpecial(clock.cycle, recoveryTicks)
-        run.boss.actionDelay = run.timeline.nextAttackCycle
+        run.state = VorkathState.ACTIVE
+        run.specialStartCycle = Int.MAX_VALUE
+        run.boss.actionDelay = clock.cycle + recoveryTicks
         run.boss.apPlayer2(run.player, interactions)
     }
 
     private fun clearMechanics(run: Run) {
         run.hitEpoch++
+        run.combat.runCleanupActions()
         clearAcid(run)
         run.pendingHits.clear()
         run.pendingFireballs.clear()
@@ -961,21 +922,6 @@ constructor(
         return HitValidity { run.hitEpoch == epoch && validTarget(run) }
     }
 
-    private fun chooseStandard(run: Run, target: Player): VorkathStandardAttack {
-        run.forcedAttack?.let {
-            run.forcedAttack = null
-            return it
-        }
-        val adjacent = run.boss.isWithinDistance(target, 1) && !bossOccupies(run, target.coords)
-        val weights = VorkathRules.standardWeights(adjacent)
-        var roll = random.of(weights.values.sum())
-        for ((attack, weight) in weights) {
-            if (roll < weight) return attack
-            roll -= weight
-        }
-        return VorkathStandardAttack.MAGIC
-    }
-
     private fun arenaTiles(session: InstanceSession): List<CoordGrid> {
         val tiles = ArrayList<CoordGrid>(550)
         // All four bounds are witnessed by the supplied spawn launches.
@@ -1037,6 +983,12 @@ constructor(
         var boss: Npc,
         val initialState: VorkathState = VorkathState.SLEEPING,
         val firstSpecial: VorkathSpecial = VorkathSpecial.ACID,
+        var combat: BossEncounter,
+        private val clock: MapClock,
+        var nextSpecial: VorkathSpecial = firstSpecial,
+        var wakeCycle: Int = Int.MAX_VALUE,
+        var specialStartCycle: Int = Int.MAX_VALUE,
+        var shotsFired: Int = 0,
         var startCycle: Int = 0,
         var respawnCycle: Int = Int.MAX_VALUE,
         var spawnArrivalCycle: Int = Int.MAX_VALUE,
@@ -1055,31 +1007,30 @@ constructor(
         var killcount: Int = 0,
         var killTicks: Int = 0,
         var rewardEligible: Boolean = true,
-        var forcedAttack: VorkathStandardAttack? = null,
         val acidTiles: MutableSet<CoordGrid> = linkedSetOf(),
         val acidSafeLane: MutableSet<CoordGrid> = linkedSetOf(),
         val acidVisuals: MutableList<LocInfo> = mutableListOf(),
         val pendingAcidPools: MutableList<PendingAcidPool> = mutableListOf(),
         val pendingHits: MutableList<PendingTileHit> = mutableListOf(),
     ) {
-        val timeline = VorkathTimeline(firstSpecial).also { it.state = initialState }
         var state: VorkathState
-            get() = timeline.state
+            get() = VorkathState.entries.single { phaseName(it) == combat.currentPhaseName }
             set(value) {
-                timeline.state = value
+                combat.transitionTo(phaseName(value), clock.cycle)
             }
 
         val standardAttacks: Int
-            get() = timeline.standardAttacks
+            get() =
+                combat.attackTracesAfter(combat.phaseEnteredTick - 1).count {
+                    it.ability != "special"
+                }
 
-        val nextSpecial: VorkathSpecial
-            get() = timeline.nextSpecial
-
-        val wakeCycle: Int
-            get() = timeline.wakeCycle
-
-        val shotsFired: Int
-            get() = timeline.shotsFired
+        private fun phaseName(state: VorkathState) =
+            when (state) {
+                VorkathState.ACID_SPECIAL -> "acid"
+                VorkathState.ZOMBIFIED_SPAWN_SPECIAL -> "spawn"
+                else -> state.name.lowercase()
+            }
 
         fun owns(npc: Npc): Boolean = npc === boss || npc === spawn || npc in retiringSpawns
     }

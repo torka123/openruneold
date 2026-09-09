@@ -8,7 +8,7 @@ import org.rsmod.api.combat.commons.types.RangedAttackType
 
 /** Ordinary selection/cadence belongs to BossEncounter; arena mechanics remain named extensions. */
 internal fun vorkathCombatSpec(): BossSpec =
-    boss(VorkathAssets.ACTIVE) {
+    boss(VorkathAssets.ACTIVE, VorkathAssets.SLEEPING) {
         stats(attackRate = VORKATH_ATTACK_RATE, aggressionRadius = 32)
         for (attack in VorkathStandardAttack.entries) {
             val effect =
@@ -31,6 +31,7 @@ internal fun vorkathCombatSpec(): BossSpec =
             ability(attack.name, effect)
         }
         ability("special", Effect.External("vorkath.special"))
+        phase("sleeping", lockMovement = true) { selector = Selector.Rotation(emptyList()) }
         phase("active", lockMovement = true) {
             selector =
                 Selector.WeightedRandom(
@@ -52,4 +53,7 @@ internal fun vorkathCombatSpec(): BossSpec =
         // finish.
         phase("acid", lockMovement = true) { selector = Selector.Rotation(emptyList()) }
         phase("spawn", lockMovement = true) { selector = Selector.Rotation(emptyList()) }
+        for (state in listOf("entering", "awakening", "dying", "lootable", "resetting", "ended")) {
+            phase(state, lockMovement = true) { selector = Selector.Rotation(emptyList()) }
+        }
     }

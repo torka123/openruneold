@@ -148,6 +148,7 @@ class VorkathDslCharacterizationTest {
                 deps,
                 "vorkath-characterization",
             )
+            registry.of(npc).transitionTo("active", clock.cycle)
         }
 
         fun tick() {

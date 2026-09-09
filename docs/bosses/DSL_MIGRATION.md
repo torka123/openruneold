@@ -205,6 +205,17 @@ readiness, `boss-absolute-world-check.log` passes engine/game, game-process and 
 `vorkath-native-instance-check.log` passes selected-file formatting, Vorkath check and instance tests
 (40s, 168 tasks); this still does not certify Vorkath's remaining custom combat timeline.
 
+Vorkath combat wiring now registers only BossCombat for active/sleeping forms. BossEncounter owns
+weighted selection, the six-normal cadence, action locks and all combat phase identity. The old
+VorkathTimeline is moved to **test sources only**, as a frozen comparison oracle, not shipped or
+registered. Exact wake, fireball, pool, splash and spawn deadlines delegate to scoped native world
+work. Pending collections are audit metadata, no longer polled to execute hits/projectiles.
+`vorkath-dsl-production-test.log`: 105 tests pass. `vorkath-scoped-special-effects-test-2.log`:
+107 tests pass (34s/162 tasks), including native six-normal/acid/six-normal/spawn rotation against
+the old cadence, all 25 rapid shots at +4..+28, zero world tasks after exit during each special or
+wake, and collision/queued-hit races. Arena effects still need separation into focused handlers
+before this migration is accepted; live packet/visual comparisons remain unperformed.
+
 Initial line-count definition: main Kotlin files ending in `Manager.kt` or `Timeline.kt`, excluding
 generated output. Includes specialized manager files (therefore not all counted lines are duplication).
 Diagnostic-only modules are excluded. Zero manager lines is not proof of architecture compliance.

@@ -1,17 +1,25 @@
 package org.rsmod.content.bosses.vorkath
 
-/** Encounter clock; all deadlines are absolute game ticks, never projectile helper durations. */
+/**
+ * Frozen pre-migration oracle, test-only. Production timing is owned by BossEncounter/native
+ * queues. Retained to compare the existing characterized cadence, not registered or packaged as
+ * gameplay.
+ */
 internal class VorkathTimeline(firstSpecial: VorkathSpecial) {
     var state = VorkathState.SLEEPING
     var nextSpecial = firstSpecial
     var standardAttacks = 0
         private set
+
     var nextAttackCycle = Int.MAX_VALUE
         private set
+
     var wakeCycle = Int.MAX_VALUE
         private set
+
     var specialStartCycle = Int.MAX_VALUE
         private set
+
     var shotsFired = 0
         private set
 
@@ -27,8 +35,7 @@ internal class VorkathTimeline(firstSpecial: VorkathSpecial) {
         nextAttackCycle = now + 1
     }
 
-    fun attackDue(now: Int): Boolean =
-        state == VorkathState.ACTIVE && now >= nextAttackCycle
+    fun attackDue(now: Int): Boolean = state == VorkathState.ACTIVE && now >= nextAttackCycle
 
     fun standardLaunched(now: Int) {
         check(attackDue(now) && standardAttacks < VORKATH_STANDARD_ATTACKS)
@@ -43,10 +50,11 @@ internal class VorkathTimeline(firstSpecial: VorkathSpecial) {
         standardAttacks = 0
         specialStartCycle = now
         shotsFired = 0
-        state = when (selected) {
-            VorkathSpecial.ACID -> VorkathState.ACID_SPECIAL
-            VorkathSpecial.ZOMBIFIED_SPAWN -> VorkathState.ZOMBIFIED_SPAWN_SPECIAL
-        }
+        state =
+            when (selected) {
+                VorkathSpecial.ACID -> VorkathState.ACID_SPECIAL
+                VorkathSpecial.ZOMBIFIED_SPAWN -> VorkathState.ZOMBIFIED_SPAWN_SPECIAL
+            }
         return selected
     }
 

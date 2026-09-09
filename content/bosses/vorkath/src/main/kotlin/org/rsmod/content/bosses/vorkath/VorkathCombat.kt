@@ -4,8 +4,9 @@ import dev.openrune.ServerCacheManager
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
 import jakarta.inject.Inject
+import org.rsmod.api.bosses.runtime.BossCombat
+import org.rsmod.api.bosses.runtime.BossDeps
 import org.rsmod.api.death.NpcDeath
-import org.rsmod.api.script.onAiApPlayer2
 import org.rsmod.api.script.onModifyNpcHit
 import org.rsmod.api.script.onNpcHit
 import org.rsmod.api.script.onNpcQueue
@@ -20,27 +21,39 @@ constructor(
     private val encounters: VorkathEncounterManager,
     private val death: NpcDeath,
     private val players: PlayerList,
+    private val deps: BossDeps,
 ) : PluginScript() {
     override fun ScriptContext.startup() {
         val active = requireNpc(VorkathAssets.ACTIVE)
         val sleeping = requireNpc(VorkathAssets.SLEEPING)
         val spawn = requireNpc(VorkathAssets.SPAWN)
 
-        onAiApPlayer2(active) { encounters.attack(this, it.target) }
-        onModifyNpcHit(active) {
-            val player =
-                if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players) else null
-            if (player == null) hit.damage = 0 else encounters.modifyNpcHit(player, npc, hit)
+        deps.extensionRegistry.registerAttackParameters("vorkath.normal") { npc, target, params ->
+            encounters.attackParameters(npc, target, params as VorkathStandardAttack)
         }
-        onModifyNpcHit(sleeping) { hit.damage = 0 }
+        deps.extensionRegistry.register("vorkath.fireball") { _, npc, _, _ ->
+            encounters.fireball(npc)
+        }
+        deps.extensionRegistry.register("vorkath.special") { _, npc, _, _ ->
+            encounters.special(npc)
+        }
+        BossCombat.register(
+            this,
+            vorkathCombatSpec(),
+            deps,
+            onModifyHit = {
+                val player =
+                    if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players)
+                    else null
+                if (player == null) hit.damage = 0 else encounters.modifyNpcHit(player, npc, hit)
+            },
+        )
         onModifyNpcHit(spawn) {
             val player =
                 if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players) else null
             if (player == null) hit.damage = 0 else encounters.modifyNpcHit(player, npc, hit)
         }
-        onNpcHit(spawn) {
-            if (npc.hitpoints == 0) encounters.beginSpawnDeath(npc)
-        }
+        onNpcHit(spawn) { if (npc.hitpoints == 0) encounters.beginSpawnDeath(npc) }
         onNpcQueue(active, "queue.death") {
             val run = encounters.beginBossDeath(npc) ?: return@onNpcQueue
             noneMode()
@@ -54,9 +67,7 @@ constructor(
                 encounters.finishBossDeath(npc)
             }
         }
-        onNpcQueue(spawn, "queue.death") {
-            encounters.beginSpawnDeath(npc)
-        }
+        onNpcQueue(spawn, "queue.death") { encounters.beginSpawnDeath(npc) }
     }
 
     private fun requireNpc(internal: String) =

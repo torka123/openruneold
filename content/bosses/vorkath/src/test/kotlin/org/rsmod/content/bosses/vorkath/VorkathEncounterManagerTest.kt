@@ -10,12 +10,21 @@ import org.mockito.Answers
 import org.mockito.Mockito.*
 import org.rsmod.annotations.InternalApi
 import org.rsmod.api.bossbar.plugin.BossHpBarScript
+import org.rsmod.api.bosses.runtime.*
 import org.rsmod.api.combat.NvPCombat
 import org.rsmod.api.combat.commons.npc.combatPlayDefendAnim
+import org.rsmod.api.combat.formulas.AccuracyFormulae
+import org.rsmod.api.combat.formulas.MaxHitFormulae
 import org.rsmod.api.config.refs.params
+import org.rsmod.api.death.NpcDeath
+import org.rsmod.api.game.process.world.WorldQueueListProcess
 import org.rsmod.api.instances.*
 import org.rsmod.api.instances.region.InstanceAreaResolver
+import org.rsmod.api.npc.access.StandardNpcAccess
+import org.rsmod.api.npc.access.StandardNpcAccessContext
+import org.rsmod.api.npc.events.interact.AiPlayerEvents
 import org.rsmod.api.npc.hit.modifier.StandardNpcHitModifier
+import org.rsmod.api.npc.hit.processor.StandardNpcHitProcessor
 import org.rsmod.api.npc.interact.AiPlayerInteractions
 import org.rsmod.api.npc.owner.assignSpawnOwner
 import org.rsmod.api.player.events.PlayerMovementEvent
@@ -48,6 +57,7 @@ import org.rsmod.game.loc.LocInfo
 import org.rsmod.game.proj.ProjAnim
 import org.rsmod.game.queue.EngineQueueCache
 import org.rsmod.game.queue.PlayerQueueList
+import org.rsmod.game.queue.WorldQueueList
 import org.rsmod.game.region.Region
 import org.rsmod.game.region.zone.RegionZoneCopy
 import org.rsmod.map.CoordGrid
@@ -197,7 +207,7 @@ class VorkathEncounterManagerTest {
         f.advance(5)
         assertEquals(VorkathState.ACTIVE, f.run.state)
         assertEquals(25, f.projectiles().count { it.spotanim == 1482 })
-        assertEquals(cast + 33, f.run.timeline.nextAttackCycle)
+        assertEquals(cast + 33, f.run.boss.actionDelay)
     }
 
     @Test
@@ -250,7 +260,7 @@ class VorkathEncounterManagerTest {
         assertEquals(1, f.playerQueues().single { it.args === hit }.remainingCycles)
         assertTrue(hit.isValidNow())
         assertEquals(VorkathState.ACTIVE, f.run.state)
-        assertTrue(f.run.timeline.attackDue(f.clock.cycle))
+        assertEquals(f.clock.cycle, f.run.boss.actionDelay)
         assertNull(f.run.spawn)
         assertFalse(spawn.isSlotAssigned)
     }
@@ -270,6 +280,7 @@ class VorkathEncounterManagerTest {
         assertEquals(contactCycle + 1, f.run.spawnExplosionCycle)
         assertTrue(f.playerHits().isEmpty())
         f.manager.tick(f.player)
+        f.processWorld()
         assertEquals(60, f.playerHits().single().damage)
         assertEquals(VorkathState.ACTIVE, f.run.state)
         assertFalse(spawn.isSlotAssigned)
@@ -328,6 +339,7 @@ class VorkathEncounterManagerTest {
     fun fireballSnapshotsAtProjectileLaunchAndResetCancelsItsImpact() {
         val f = VorkathFixture()
         assertTrue(f.manager.debugAttack(f.player, VorkathStandardAttack.FIREBALL))
+        f.dispatchCombat()
         assertTrue(f.projectiles().isEmpty())
         val launchTile = f.player.coords.translate(1, 0)
         f.player.coords = launchTile
@@ -350,6 +362,7 @@ class VorkathEncounterManagerTest {
     fun fireballImpactQueuesForThisPlayerCycleAndResetInvalidatesTheQueuedHit() {
         val f = VorkathFixture()
         assertTrue(f.manager.debugAttack(f.player, VorkathStandardAttack.FIREBALL))
+        f.dispatchCombat()
         f.advance()
         val impactCycle = f.run.pendingHits.single().impactCycle
         f.advance(impactCycle - f.clock.cycle - 1)
@@ -503,6 +516,78 @@ class VorkathEncounterManagerTest {
         assertFalse(oldHit.validity?.isValid() == true)
     }
 
+    @Test
+    fun nativeDslAlternatesSpecialsAndMatchesTheOldOrdinaryCadence() {
+        val f = VorkathFixture()
+        f.run.nextSpecial = VorkathSpecial.ACID
+        val oracle =
+            VorkathTimeline(VorkathSpecial.ACID).also {
+                it.wake(93)
+                it.activate(100)
+            }
+        val expected = mutableListOf<Int>()
+        repeat(31) {
+            f.advance()
+            f.dispatchCombat()
+            if (oracle.attackDue(f.clock.cycle)) {
+                expected += f.clock.cycle
+                if (oracle.standardAttacks == 6) oracle.beginSpecial(f.clock.cycle)
+                else oracle.standardLaunched(f.clock.cycle)
+            }
+        }
+        assertEquals(listOf(101, 106, 111, 116, 121, 126, 131), expected)
+        assertEquals(expected, f.run.combat.recentAbilityCommitTicks())
+        assertEquals(VorkathState.ACID_SPECIAL, f.run.state)
+        repeat(33) {
+            f.advance()
+            f.dispatchCombat()
+        }
+        assertEquals(
+            (135..159).toList(),
+            f.projectileTicks.filter { it.second.spotanim == 1482 }.map { it.first },
+        )
+        assertEquals(VorkathState.ACTIVE, f.run.state)
+        assertEquals(164, f.run.combat.lastAbilityTick)
+        assertEquals(1, f.run.standardAttacks)
+        repeat(30) {
+            f.advance()
+            f.dispatchCombat()
+        }
+        assertEquals(VorkathState.ZOMBIFIED_SPAWN_SPECIAL, f.run.state)
+        assertEquals(
+            listOf(164, 169, 174, 179, 184, 189, 194),
+            f.run.combat.recentAbilityCommitTicks(7),
+        )
+        assertEquals(VorkathSpecial.ACID, f.run.nextSpecial)
+        f.leave()
+        assertEquals(0, f.pendingWorldEffects)
+        assertTrue(f.instances.npcsForInstance(f.session.id).isEmpty())
+    }
+
+    @Test
+    fun nativeTeardownCancelsAwakeningAndEverySpecialWithoutAStaleCallback() {
+        for (phase in listOf("wake", "acid", "spawn")) {
+            val f = VorkathFixture()
+            when (phase) {
+                "wake" -> {
+                    f.manager.debugReset(f.player)
+                    f.manager.poke(f.player, f.run.boss)
+                }
+                "acid" -> f.manager.debugSpecial(f.player, VorkathSpecial.ACID)
+                "spawn" -> f.manager.debugSpecial(f.player, VorkathSpecial.ZOMBIFIED_SPAWN)
+            }
+            assertTrue(f.pendingWorldEffects > 0)
+            val projectileCount = f.projectiles().size
+            f.leave()
+            assertEquals(0, f.pendingWorldEffects)
+            f.advance(70)
+            assertEquals(projectileCount, f.projectiles().size)
+            assertTrue(f.instances.npcsForInstance(f.session.id).isEmpty())
+            assertNull(f.session.stateOrNull(f.manager.stateKey))
+            framework().clearInlineMocks()
+        }
+    }
+
     companion object {
         @JvmStatic
         @BeforeAll
@@ -543,7 +628,13 @@ private class VorkathFixture {
     val instances =
         InstanceManager(regions, npcs, players, events, InstanceAreaResolver(), clock, collision)
     val bars = mock(BossHpBarScript::class.java)
-    val world = mock(WorldRepository::class.java)
+    val projectileTicks = mutableListOf<Pair<Int, ProjAnim>>()
+    val world =
+        mock(WorldRepository::class.java) { call ->
+            if (call.method.name == "projAnim")
+                projectileTicks += clock.cycle to call.getArgument<ProjAnim>(0)
+            Answers.RETURNS_DEFAULTS.answer(call)
+        }
     val locs =
         mock(LocRepository::class.java) { call ->
             if (call.method.returnType == LocInfo::class.java) {
@@ -570,6 +661,31 @@ private class VorkathFixture {
     private val boss
         get() = run.boss
 
+    private val random = DefaultGameRandom(42L)
+    private val queues = WorldQueueList()
+    val pendingWorldEffects
+        get() = queues.size
+
+    private val registry = EncounterRegistry(random)
+    private val accuracy =
+        mock(AccuracyFormulae::class.java) { call ->
+            if (call.method.name.startsWith("roll")) true else Answers.RETURNS_DEFAULTS.answer(call)
+        }
+    private val deps =
+        BossDeps(
+            random,
+            accuracy,
+            world,
+            npcs,
+            players,
+            clock,
+            queues,
+            collision,
+            registry,
+            BossExtensionRegistry(),
+            NvPCombat(accuracy, mock(MaxHitFormulae::class.java), world),
+        )
+
     val manager =
         VorkathEncounterManager(
             clock,
@@ -578,8 +694,8 @@ private class VorkathFixture {
             locs,
             mock(AiPlayerInteractions::class.java),
             collision,
-            DefaultGameRandom(42L),
-            mock(NvPCombat::class.java),
+            random,
+            deps,
             world,
             mock(StandardNpcHitModifier::class.java),
             bars,
@@ -621,6 +737,9 @@ private class VorkathFixture {
         injector.injectMembers(arena)
         val context = ScriptContext(events, CheatCommandMap(), EngineQueueCache())
         with(arena) { context.startup() }
+        with(VorkathCombat(manager, mock(NpcDeath::class.java), players, deps)) {
+            context.startup()
+        }
         val plugin =
             injector.getInstance(
                 Class.forName("org.rsmod.api.instances.hook.InstanceLifecycleScript")
@@ -650,7 +769,25 @@ private class VorkathFixture {
             clock.tick()
             player.currentMapClock = clock.cycle
             manager.tick(player)
+            processWorld()
         }
+
+    fun processWorld() = WorldQueueListProcess(queues).process()
+
+    fun dispatchCombat() {
+        val npc = run.boss
+        npc.currentMapClock = clock.cycle
+        npc.processedMapClock = clock.cycle
+        npc.launch {
+            val context =
+                StandardNpcAccessContext(
+                    { random },
+                    { StandardNpcHitModifier(events) },
+                    { StandardNpcHitProcessor(players, events, emptySet()) },
+                )
+            events.publish(StandardNpcAccess(npc, this, context), AiPlayerEvents.Ap2(player, npc))
+        }
+    }
 
     fun completeMovement(npc: Npc, destination: CoordGrid) {
         npc.coords = destination
