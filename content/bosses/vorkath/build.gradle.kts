@@ -5,6 +5,7 @@ dependencies {
     implementation(libs.fastutil)
     implementation(libs.rsprot.api)
     implementation(projects.api.attr)
+    implementation(projects.api.bosses)
     implementation(projects.api.bossHpBarPlugin)
     implementation(projects.api.registry)
     implementation(projects.engine.events)
@@ -30,7 +31,12 @@ dependencies {
     implementation(projects.engine.routefinder)
     testImplementation(kotlin("test"))
     testImplementation("org.mockito:mockito-core:5.18.0")
+    testImplementation(projects.api.combat.combatFormulas)
+    testImplementation(projects.engine.coroutine)
 }
 
 
-tasks.test { workingDir = rootProject.projectDir }
+tasks.test {
+    workingDir = rootProject.projectDir
+    systemProperty("junit.jupiter.execution.parallel.enabled", "false")
+}
