@@ -91,6 +91,28 @@ retain their current effect semantics. No new boss-specific combat pipeline is i
 
 ## Inventory and progress
 
+### Kraken characterization and pre-edit migration mapping
+
+Reference behavior is the recoverable `798b8c320` implementation, not a fresh claim of OSRS parity.
+`KrakenEncounterCharacterizationTest` executes that implementation's native instance entry,
+five dormant spawns, individual/boss awakening, same-entity transformations, stats/action locks,
+one-shot completion and tentacle removal. Existing rules tests and all revision-240 IDs remain.
+
+| Existing Kraken responsibility | Destination | Parity check / qualification |
+|---|---|---|
+| `Run` map keyed by PlayerUid, membership polling and custom logout/teleport handlers | Native InstanceManager indexes + typed InstanceSession state; InstanceLifecycleScript | Shared lifecycle integration tests cover removal, death, disconnect, stale references and two instances. No replacement membership map. |
+| Manual five-NPC creation and attachment | InstanceArea.npcSpawns, existing InstanceManager spawn workflow | Characterization checks exact coordinates/order, dormant forms, ownership and respawn flags. Join hook applies dormant presentation only. |
+| Ordinary boss magic and tentacle ranged attacks | BossSpec + declarative NpcAttack effects through NvPCombat | Keep 4 ticks, 28/2 maxima, prayer bypass, fire-wave/water-strike graphics and magic_spell controller; native adapter equality test. |
+| Repeated `keepAggressive` polling | Native apPlayer2 interaction established at awakening | Upstream NvPCombat explicitly documents that NPC interactions repeat until cancelled. No private tick loop; verify approach retains the target. |
+| Whirlpool activation and paired wake-up | Small named KrakenWhirlpools handler, state on InstanceSession | These are pre-combat encounter-specific interactions, not a second combat phase engine. |
+| Create/leave/admin convenience commands | InstanceScript completeInstanceEntry/defaultLeaveFlow; ProtectedAccessLauncher | Retain free private one-player policy, messages, loc options and commands; native protected-access guard replaces the old contradictory guard inside protected loc access. |
+| Boss/tentacle deaths and owner-position loot | Existing NpcDeath workflow; snapshot owner/drop coordinate before NPC deletion | No replacement drops, KC or rewards service. Existing no-natural-respawn behavior is retained, not silently rebalanced. |
+
+API classification: BossSpec/BossCombat/InstanceScript/InstanceManager/NpcDeath/ProtectedAccess are
+upstream workflows. Source-instance constructor, typed session state and declarative native attack
+effect are the new shared local extensions documented above. Attack validation and source-aware hit
+scopes are existing local shared integrations. No cache paths/data or mechanic constants change.
+
 Initial line-count definition: main Kotlin files ending in `Manager.kt` or `Timeline.kt`, excluding
 generated output. Includes specialized manager files (therefore not all counted lines are duplication).
 Diagnostic-only modules are excluded. Zero manager lines is not proof of architecture compliance.
