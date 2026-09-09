@@ -703,3 +703,68 @@ prerequisite must fail visibly, not silently skip enforcement. No task writes so
 
 `boss-architecture-gradle-check.log`: both detector self-tests and repository enforcement pass
 through Gradle (24s, 11 tasks, exit 0). Root `check` now depends on that same task.
+
+## Zulrah mapping (before migration)
+
+Baseline: 993-line manager, PlayerUid run map, private action/transition deadlines, polled pending
+projectile/tail lists and manual NPC replacement; 22 existing module tests are rules/rotation/storage
+tests, not native combat execution. Full source, world/combat/lifecycle/storage, configuration and
+rotation programs inspected. Repository searches find only this encounter, its existing Kotlin
+drop table, Collection Log KC mapping and item charging references; no second boss implementation.
+
+Architecture reference remains upstream `61139e76a216592d66c2b20366ef26d48609875d`:
+Scurrius.kt:104 registers BossCombat and ScurriusInstance.kt:23 extends InstanceScript. Upstream
+api/bosses runtime/spec/DSL and api/instances are the native owners. Prior Kraken/Hydra/Guardians
+migrations are local adapter examples, not official provenance.
+
+| Mechanic | Evidence / confidence | Existing implementation | Native mapping and planned implementation | Executable coverage |
+|---|---|---|---|---|
+| Four rotation programs, surface locations/facing and action counts | Existing ZulrahRotation and three preserved ledgers; opening subset from rev234.1 capture 820, otherwise donor/Wiki claims, not full normal-game proof | Private actionIndex/actionProgress/tickPhase | Official Selector.Rotation and BossEncounter phase identity; derive specs from unchanged rotation data, flatten counted attacks, named spatial handlers | Registered combat through complete programs, exact opening/dive/emerge timeline and Jad ordering |
+| Standard and Jad attacks, 2:1 tanzanite styles, max41, cadence3, launch prayer and venom | Existing code/rules; lone captured ranged launch, unobserved magic/protected branches | Manager NvPCombat override and manually launched ordinary projectile | Official native NvPCombat via local Effect.NpcAttack adapter; DSL weighted choice and rotation; pure launch parameters for prayer/venom/sounds and captured controller | Native projectile fields, hits, cadence, prayer snapshots, accurate zero venom, misses |
+| Initial11/emerge3/dive3/phase-end4, tail4+3 | Existing capture ledger 10362..10399 and configuration; League context retained | Manager transitionCycle/nextActionCycle | Existing DSL delays/cadence and scoped external form positioning; no private general scheduler | Exact relative tick traces and teardown during delayed transitions |
+| Cloud pairs, origin/centre, 3x3 damage1..4,30tick life; egg landing | Capture820 opening projectile/loc subset and retained configuration | Private pendingHazards and cloud lists | Named spatial handler, native projectile calculations and BossEncounter-owned world queues; content state only for active footprints | Two delayed impacts, overlap, expiry, cancellation, second-room isolation |
+| Tail target snapshot, pillar safe tiles, damage20..30/stun/venom | Donor/Wiki claims; no captured hit branch | Private pendingTails | Named spatial handler with scoped native queue/hit validity, unchanged geometry | Dodge/safe/hit, delayed cancellation |
+| Snakeling stats/type selection, lock3/rate4/lifetime67 | Existing cache/config; not seen in capture820 | Manual construction plus ordinary attack function | Native attached summon ownership, own BossSpec/NvPCombat; scoped lifetime handling | Both styles, one HP, launch lock, lifetime/death/instance cleanup |
+| Damage reroll >50 to45..50; transforms preserve UID | Existing rules/cache, no authoritative player-hit trace | Modify callback; native transmog/teleport | Existing BossCombat hit callbacks and native movement/transmog; preserve current source exclusion explicitly as unresolved | Native hit modification and queued damage across dives |
+| Solo boat entry/exit/camera/debug, rotated template and no Regicide enforcement | Existing interactions/template; some entry packets in820 | Manager create/finalize/telejump plus duplicated cleanup | Official InstanceScript/keyed native lifecycle with existing local source/typed-state/protected-entry adapters; unchanged template/camera | Actual object interaction, failed entry, exit/logout/teleport/death, two rooms |
+| Death,10second/17tick repeat, drops,KC,PB and debug no-reward | Existing native death/table/storage; completion claims need characterization | deathNoDrops then spawnDrops; localKC; private replacement | Existing native death/drop/KC pipeline and native respawn, same source data; preserve debug reward suppression | Native completion, duplicate callbacks, two kills and no stale actors |
+| Reclaim triples/fee/reminder/persistence | Existing ZulrahDeathStorage/codec and persistent AttributeKey; no new persistence research | Native death storage hook and invTransaction; bad null-active check suspected | Preserve native storage/inventory workflow; remove duplicated lifecycle cleanup, fix proven outside-room activation | Outside encounter, native death membership and preserved storage tests |
+
+All new native-fixture evidence is characterization, not independent OSRS proof. Existing capture
+820 is Grid Master (rev234.1, SHA256 40A571CD18DBB50965FCBF3363FC5D4050A45ABD0AC9036753808F9B659915EB),
+not normal combat timing authority. Preserve its provenance and previously unobserved branches.
+The old audit's no-sounds claim is stale; current code sends mapped sounds. First-tail naming/order
+also conflicts between code and capture ledger and must stay documented, not silently rebalanced.
+
+Native source search will precede any additional generic capability. In particular deterministic
+debug rotation seeding must not introduce a second selector or change production GameRandom behavior.
+The already available scoped queues, native respawn, paired reset and attack parameter adapters are
+**local shared extensions**, not official upstream APIs. No new shared change is proposed here yet.
+
+`zulrah-native-characterization-before-4.log`: 29 tests pass (seven new native cases, 22 retained
+rules/rotation/storage cases), scoped check 31s/164 tasks. Fixture corrections were a missing
+constructor argument and an over-specific projectile expectation: the south-phase native controller
+ends at client cycle65 (hit delay3), not the captured middle-position cycle90. Production geometry
+and controller values were unchanged. Native tests preserve opening eleven-tick delay, cloud launches
+at111/114/117/120 and impacts +3/+4, dive124, emerge127, tail sequence5806 then5807 seven ticks apart,
+ordinary prayer/accuracy/native cadence, seeded blue selection, Jad order, capped damage and UID.
+The first-tail order is baseline behavior with a ledger conflict, not a newly verified OSRS rule.
+
+Two generic integration gaps are now demonstrated before implementation:
+
+1. The native draft's already-fired projectile remains valid after source death. Capture820's
+   launch11578/death11579/impact11581 supports that lifetime (without claiming its altered damage
+   is normal). The DSL currently invalidates every attack when source HP reaches zero. Local and
+   upstream searches across BossEncounter/EncounterRegistry/Effect/NvPCombat/Hit find native scoped
+   validity but no declarative source-death policy. Add an opt-in `survivesSourceDeath` parameter
+   on Effect.NpcAttack; keep default cancellation, live-only launch, player/owner/instance validity
+   and hard cancellation on deletion/respawn/encounter end. Reuse the existing hit scope; no new queue.
+2. Existing no-reward debug seeding uses Kotlin Random(seed) for rotation/style/spatial choices.
+   Official DefaultGameRandom already wraps the same seeded generator; use it instead. Local and
+   upstream registry searches find no per-encounter selection RNG input. Allow the existing registry
+   creation path to accept an injected selection GameRandom, used only on first creation. Existing
+   encounters must not be reseeded by later lookup; production defaults remain unchanged. This avoids
+   retaining a private debug selector beside the DSL. Tests cover isolation, reset and identity.
+
+These are the smallest local shared extensions under the user's framework-repair authorization,
+not official upstream APIs. Add failing API regressions before enabling either capability.
