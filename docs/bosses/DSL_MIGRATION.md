@@ -127,6 +127,44 @@ upstream workflows. Source-instance constructor, typed session state and declara
 effect are the new shared local extensions documented above. Attack validation and source-aware hit
 scopes are existing local shared integrations. No cache paths/data or mechanic constants change.
 
+### Vorkath pre-edit mapping
+
+Baseline: `798b8c320`, with 103 existing tests passing again in
+`kraken-golden-broad-regression.log`. Preserve the five-capture projectile model, all capture tests,
+safe-lane/collision logic, reclaim codec/storage, access policy, developer no-reward restrictions,
+live audit script and research documents. No change to its documented inferred probabilities.
+
+| Responsibility | Destination | Characterization / evidence |
+|---|---|---|
+| Six ordinary attacks at five ticks, alternating specials | BossEncounter forced-ability cadence and BossSpec phases/selectors | VorkathTimelineTest witnesses 8/13/18/23/28/33 then special 38; migrate these assertions to actual DSL dispatch before deleting the timeline |
+| Ordinary magic/ranged/melee and conditional weighted selection | NpcAttack effects and WeightedRef.requires | Preserve VorkathRules.standardWeights, including its explicitly inferred weights; native attack tests compare metadata and RNG |
+| Mouth-position projectile geometry and equipment-snapshotted dragonfire, venom/prayer impact | Small named attack-parameter resolver through BossExtensionRegistry; native NvPCombat still owns launch/accuracy/hit/prayer queues | VorkathProjectiles tests; exact fields remain in the existing researched model. This is not an external attack loop. |
+| Sleeping/wake/death presentation | Native NPC lifecycle plus declarative delays/phase transitions; preserve actual delete/add sequence | Wake +7, first normal +1, death +6; existing native entity tests |
+| Acid tiles and spawn movement/contact | Focused external handlers using native collision, movement, hit and scoped scheduling | Existing acid layout, contact, Crumble Undead, freeze and queued-hit tests stay executable |
+| Membership, enter/exit/teleport/logout | InstanceScript + InstanceLifecycleScript/InstanceManager | Preserve selected ice-wall X, two-tick crossing, free solo room; remove username/PlayerUid run index and duplicated lifecycle |
+| Session resources, freeze/drop-duration restoration | Typed InstanceSession state and native teardown callbacks | Must clean on forced termination as well as ordinary leave; no global lookup map in ended-event callback |
+| KC/PB/reclaim/drop lifetime and diagnostic controls | Preserve existing native vars/attributes, NpcDeath and death storage hooks during architecture migration | Existing storage/50th-kill/idempotent death tests; no unrelated persistence or balance redesign |
+
+Additional shared gaps verified by local/upstream searches: Effect.NpcAttack currently only accepts
+static controller geometry/max hit; ProjectileConfig cannot express Vorkath's facing-dependent mouth
+and equipment snapshot. Existing fork NvPCombat already supports the exact override, but calling it
+from every boss's external attack function would reintroduce duplicated scheduling. Add a named,
+non-suspending **parameter resolver** to the existing BossExtensionRegistry, referenced by NpcAttack.
+It returns the existing NpcAttackOverride data, with cadence and encounter hit cancellation enforced
+by the interpreter. Test override geometry/maxima/impact callbacks and composed cancellation; reject
+duplicate/missing names. This is a proposed new local extension of upstream's registry, not an
+official upstream API. No second hit/accuracy processor is proposed.
+
+InstanceSession state currently discards references without releasing resources; InstanceEndedEvent
+is published after removal and carries no session state. Native instance APIs have no content-owned
+resource cleanup registration (`attachNpc` is the entity workflow, not freeze/visual restoration).
+Add a small session-owned cleanup registration, exercised on reset/end and all teardown paths, with
+tests proving idempotence and cleanup continuation after one handler fails. It must not own combat
+cadence or replace InstanceManager. Search references: upstream/main api/instances and api/bosses,
+local InstanceManager.destroy/resetServerOwned, InstanceSession, InstanceLifecycleScript, BossEncounter
+cleanup and GameCycle/WorldQueueListProcess. Shared world work runs before NPC/player movement;
+preserve that snapshot boundary when replacing Vorkath's StartCycle deadline lists.
+
 Initial line-count definition: main Kotlin files ending in `Manager.kt` or `Timeline.kt`, excluding
 generated output. Includes specialized manager files (therefore not all counted lines are duplication).
 Diagnostic-only modules are excluded. Zero manager lines is not proof of architecture compliance.
@@ -211,3 +249,12 @@ Kree'arra, K'ril, Obor, Scorpia, Scurrius, Wilderness, Zilyana) must be regressi
 - `kraken-golden-broad-regression.log`: all boss module tests plus boss/instance/NPC/combat/game API
   tests pass (1m10s, 316 tasks). `git diff --check` passes. `.data` edits remain deliberately
   uncommitted and untouched. No live deployment/restart was performed.
+- `boss-attack-parameters-red.log`: the new resolver regression fails before interpreter wiring
+  (it sees the static maximum instead of the resolved snapshot). `boss-attack-parameters-green.log`
+  passes after wiring; supplied attribution/scopes and impact callbacks are preserved while the
+  interpreter always enforces the declared cadence and encounter cancellation.
+- `boss-instance-cleanup-test.log`: 31 instance tests pass, including resource release across every
+  teardown route, reset/unregistration, and continued native cleanup when one resource callback fails.
+- `boss-specialized-adapters-check.log`: selected-file API formatting/checks plus Kraken and
+  existing Vorkath tests pass (45s, 177 tasks). Boss API: 25 tests; instances: 31; Kraken: 12;
+  Vorkath: 103. These are supporting APIs; Vorkath's migration is not yet complete.

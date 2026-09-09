@@ -720,7 +720,8 @@ constructor(
 
     private fun destroy(session: InstanceSession) {
         if (sessions.remove(session.id) == null) return
-        session.markEnded()
+        // A specialized cleanup failure must not retain native entities, indexes or occupants.
+        val cleanupFailure = runCatching { session.markEnded() }.exceptionOrNull()
         deferredLogoutReclaims.remove(session.id)
         publish(
             InstanceEndedEvent(
@@ -750,6 +751,7 @@ constructor(
             player.clearInstance()
         }
         session.occupants.clear()
+        cleanupFailure?.let { throw it }
     }
 
     private fun removeOccupant(

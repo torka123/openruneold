@@ -55,21 +55,46 @@ class EffectInterpreter(
     private suspend fun execute(access: StandardNpcAccess, effect: Effect) {
         when (effect) {
             is Effect.NpcAttack -> {
+                val supplied =
+                    effect.parameters?.let {
+                        deps.extensionRegistry.attackParameters(
+                            it,
+                            npc,
+                            target,
+                            effect.parameterData,
+                        )
+                    } ?: NpcAttackOverride()
+                val encounterValidity = validity(target)
                 deps.npcCombat.attack(
                     access,
                     target,
                     effect.attack,
-                    NpcAttackOverride(
-                        attackAnimation = effect.animation,
-                        maxHit = effect.maxHit,
-                        forceAccurate = effect.accuracy == AccuracyMode.Always,
-                        projectile = effect.projectile,
-                        impactDelay = effect.impactDelay,
+                    supplied.copy(
+                        attackAnimation = supplied.attackAnimation ?: effect.animation,
+                        maxHit = supplied.maxHit ?: effect.maxHit,
+                        forceAccurate =
+                            supplied.forceAccurate || effect.accuracy == AccuracyMode.Always,
+                        projectile = supplied.projectile ?: effect.projectile,
+                        impactDelay = supplied.impactDelay ?: effect.impactDelay,
                         attackRate = encounter.expectedAttackRate(),
-                        hitModifier = protectionModifier(effect.protectionPrayer),
-                        onImpact = { _, _ -> effect.impact?.let { target.spotanim(it) } },
-                        hitValidity = validity(target),
-                        hitContext = HitContext.of(HitAttribution(), encounter.effectScope),
+                        hitModifier =
+                            if (effect.protectionPrayer == ProtectionPrayer.Standard)
+                                supplied.hitModifier
+                            else protectionModifier(effect.protectionPrayer),
+                        onImpact = { source, impact ->
+                            supplied.onImpact?.invoke(source, impact)
+                            effect.impact?.let { target.spotanim(it) }
+                        },
+                        hitValidity =
+                            HitValidity {
+                                encounterValidity.isValid() &&
+                                    supplied.hitValidity?.isValid() != false
+                            },
+                        hitContext =
+                            HitContext.compose(
+                                supplied.hitContext ?: HitContext.EMPTY,
+                                HitContext.of(HitAttribution(), encounter.effectScope),
+                            ),
                     ),
                 )
             }

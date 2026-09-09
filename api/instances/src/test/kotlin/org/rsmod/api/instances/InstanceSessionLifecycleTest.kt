@@ -44,6 +44,8 @@ class InstanceSessionLifecycleTest {
             val key = InstanceStateKey<Any>("mechanic")
             session.state(key) { Any() }
             val npc = f.attach(session)
+            var cleaned = 0
+            session.onCleanup { cleaned++ }
             end(f, player, session)
             assertNull(f.manager.sessionForPlayer(player))
             assertNull(f.manager.sessionForId(session.id))
@@ -54,6 +56,7 @@ class InstanceSessionLifecycleTest {
             assertTrue(session.occupants.isEmpty())
             verify(f.npcs).del(npc, Int.MAX_VALUE)
             assertFalse(f.manager.terminate(session))
+            assertEquals(1, cleaned)
             assertIs<InstanceManager.Result.Failed>(f.manager.join(player, session, 3))
         }
     }
@@ -74,6 +77,41 @@ class InstanceSessionLifecycleTest {
         f.manager.terminate(third)
         f.manager.terminate(second)
         assertNull(f.manager.firstSession())
+    }
+
+    @Test
+    fun `failing content cleanup still runs other callbacks and releases native ownership`() {
+        val f = Fixture()
+        val (player, session) = f.enter(1)
+        val npc = f.attach(session)
+        var second = 0
+        session.onCleanup { error("fixture resource failure") }
+        session.onCleanup { second++ }
+        assertFailsWith<IllegalStateException> { f.manager.terminate(session) }
+        assertEquals(1, second)
+        assertTrue(session.isEnded)
+        assertNull(f.manager.sessionForPlayer(player))
+        assertNull(f.manager.sessionForId(session.id))
+        assertNull(f.manager.instanceForNpc(npc))
+        verify(f.npcs).del(npc, Int.MAX_VALUE)
+        assertFalse(f.manager.terminate(session))
+        assertEquals(1, second)
+    }
+
+    @Test
+    fun `reset releases old resources unregister skips finished resources and end cannot revive them`() {
+        val f = Fixture()
+        val (_, session) = f.enter(1)
+        var cleaned = 0
+        val unregister = session.onCleanup { error("finished resource") }
+        unregister()
+        session.onCleanup { cleaned++ }
+        session.resetState()
+        assertEquals(1, cleaned)
+        session.onCleanup { cleaned++ }
+        f.manager.terminate(session)
+        assertEquals(2, cleaned)
+        assertFailsWith<IllegalStateException> { session.onCleanup {} }
     }
 
     private class Fixture {

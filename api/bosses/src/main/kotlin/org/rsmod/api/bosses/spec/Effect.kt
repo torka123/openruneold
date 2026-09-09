@@ -60,6 +60,9 @@ sealed interface Effect {
         val impact: String? = null,
         val protectionPrayer: ProtectionPrayer = ProtectionPrayer.Standard,
         val accuracy: AccuracyMode = AccuracyMode.Standard,
+        /** Optional named parameter resolver; attack execution and cadence remain native/DSL. */
+        val parameters: String? = null,
+        val parameterData: Any? = null,
     ) : Effect
 
     data class Anim(val seq: String, val delay: Int = 0) : Effect

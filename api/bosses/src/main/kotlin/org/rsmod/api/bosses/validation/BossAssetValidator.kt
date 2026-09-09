@@ -46,6 +46,11 @@ object BossAssetValidator {
                     value.animation?.let(::seq)
                     value.projectile?.travelSpotanim?.let(::spot)
                     value.impact?.let(::spot)
+                    value.parameters?.let { name ->
+                        if (extensions != null && !extensions.containsAttackParameters(name)) {
+                            missing += "attack-parameters.$name (resolver is not registered)"
+                        }
+                    }
                 }
                 is Effect.Anim -> seq(value.seq)
                 is Effect.Sound -> synth(value.synth)

@@ -582,6 +582,57 @@ class BossRuntimeRegressionTest {
         assertTrue(random.bounds.isEmpty())
     }
 
+    @Test
+    fun `attack parameter resolver preserves native overrides but cannot escape encounter cadence or cancellation`() {
+        val f = Fixture(random = Rolls(17), nativeCombat = true)
+        f.npc.mode = NpcMode.ApPlayer2
+        var impacts = 0
+        val scope = org.rsmod.game.hit.HitScope()
+        val context =
+            org.rsmod.game.hit.HitContext.of(
+                org.rsmod.game.hit.HitAttribution(mechanic = "fixture"),
+                scope,
+            )
+        f.extensions.registerAttackParameters("snapshot") { npc, target, data ->
+            assertSame(f.npc, npc)
+            assertSame(f.player, target)
+            assertEquals(28, data)
+            NpcAttackOverride(
+                maxHit = data as Int,
+                attackRate = 999,
+                impactDelay = 3,
+                damageTransform = { it / 2 },
+                hitContext = context,
+                onImpact = { _, _ -> impacts++ },
+            )
+        }
+        f.run(
+            Effect.NpcAttack(CombatAttack.NpcMagic(1), parameters = "snapshot", parameterData = 28)
+        )
+        val (delay, hit) = f.queuedHits().single()
+        assertEquals(3, delay)
+        assertEquals(8, hit.damage)
+        assertEquals(104, f.npc.actionDelay)
+        assertEquals("fixture", hit.context.attribution.mechanic)
+        hit.dispatchImpact(f.player, hit.damage)
+        assertEquals(1, impacts)
+        assertTrue(hit.isQueueArgumentValid())
+        scope.close()
+        assertFalse(hit.isQueueArgumentValid())
+        assertFailsWith<IllegalArgumentException> {
+            f.extensions.registerAttackParameters("snapshot") { _, _, _ -> NpcAttackOverride() }
+        }
+        val another = Fixture(random = Rolls(17), nativeCombat = true)
+        another.npc.mode = NpcMode.ApPlayer2
+        another.extensions.registerAttackParameters("snapshot") { _, _, _ ->
+            NpcAttackOverride(maxHit = 28)
+        }
+        another.run(Effect.NpcAttack(CombatAttack.NpcMagic(1), parameters = "snapshot"))
+        val retiring = another.queuedHits().single().second
+        another.registry.remove(another.npc)
+        assertFalse(retiring.isQueueArgumentValid())
+    }
+
     private class Fixture(
         phase: PhaseSpec = PhaseSpec("main"),
         val random: GameRandom = DefaultGameRandom(42L),

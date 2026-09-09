@@ -19,6 +19,7 @@ class InstanceSession(
     val isServerOwned: Boolean = false,
 ) {
     private val contentState = mutableMapOf<InstanceStateKey<*>, Any>()
+    private val cleanupActions = mutableListOf<() -> Unit>()
     var isEnded: Boolean = false
         private set
 
@@ -30,10 +31,36 @@ class InstanceSession(
         return stateOrNull(key) ?: create().also { contentState[key] = it }
     }
 
+    /** Owns specialized resources across NPC forms until the native session resets or ends. */
+    fun onCleanup(action: () -> Unit): () -> Unit {
+        check(!isEnded) { "Instance session has ended: $id" }
+        cleanupActions += action
+        return {
+            cleanupActions.remove(action)
+            Unit
+        }
+    }
+
     internal fun markEnded() {
+        if (isEnded) return
         isEnded = true
-        contentState.clear()
         damageContributions.clear()
+        clearContentState()
+    }
+
+    private fun clearContentState() {
+        val actions = cleanupActions.toList()
+        cleanupActions.clear()
+        contentState.clear()
+        var failure: Throwable? = null
+        for (action in actions) {
+            try {
+                action()
+            } catch (error: Throwable) {
+                if (failure == null) failure = error else failure.addSuppressed(error)
+            }
+        }
+        failure?.let { throw it }
     }
 
     val damageContributions = DamageContributions()
@@ -115,7 +142,6 @@ class InstanceSession(
 
     fun resetState() {
         check(!isEnded) { "Cannot reset a destroyed instance: $id" }
-        contentState.clear()
         state = SessionState.Active
         arenaExpired = false
         gracePending = false
@@ -123,6 +149,7 @@ class InstanceSession(
         timeWarningsSent.clear()
         graceWarningsSent.clear()
         damageContributions.clear()
+        clearContentState()
     }
 
     fun isExpired(currentTick: Int): Boolean =
