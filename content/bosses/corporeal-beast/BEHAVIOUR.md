@@ -31,7 +31,24 @@
 - Corp death uses the normal OpenRune NPC death/drop pipeline, which is the canonical Collection
   Log unlock path.
 
-## Evidence status
+## Architecture migration (9 September 2026)
+
+Ordinary combat now registers through `BossCombat` and `corporealBeastSpec`: weighted selection,
+both melee animations, native magic projectiles, impact-time protection and the existing variable
+cooldown. The short-roll distribution preserves even the baseline modulo bias; this is mechanical
+preservation, not new evidence of that probability in OSRS. The old selector/footprint helper is a
+test-only comparison oracle, not a production engine.
+
+Public map spawns/routes remain unchanged. `BossEncounter` owns room state, core ownership and
+cancellable world work. Three focused handlers retain split-projectile geometry, core jump/contact,
+underfoot hazards and room recovery at the existing native LateCycle stage. Native NPC death/drop
+processing remains authoritative. There are no per-player runs or new private instances.
+
+The module's native fixture executes registered combat, deferred prayer modifiers, NPC registry,
+world queues, lifecycle events and two-lair isolation. It does not claim live-client or packet parity.
+See [the migration report](../../../docs/bosses/DSL_MIGRATION.md) for exact commands/results.
+
+## Historical evidence provenance (unchanged)
 
 - Mechanics and rates: current OSRS Wiki.
 - Animation/projectile/spot-effect IDs and projectile profiles: the user-authorized Near Reality

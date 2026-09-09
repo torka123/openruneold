@@ -67,15 +67,9 @@
   },
   {
     "boss": "corporeal-beast",
-    "rule": "boss-api-dependency",
-    "maximum": 1,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "corporeal-beast",
     "rule": "direct-combat-review",
-    "maximum": 8,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+    "maximum": 7,
+    "reason": "Reviewed tile-splitting projectiles, underfoot stomp, core jump/siphon and impact-only drain parameters. Ordinary attack selection, animations, projectiles, damage and variable cadence use BossSpec; specialized queues and minion references are owned by BossEncounter. Public lairs retain their native LateCycle hazard snapshot; no private instance workflow is introduced."
   },
   {
     "boss": "crazy-archaeologist",

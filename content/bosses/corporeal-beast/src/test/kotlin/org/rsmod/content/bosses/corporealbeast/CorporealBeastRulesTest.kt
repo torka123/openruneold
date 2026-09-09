@@ -9,23 +9,26 @@ import org.rsmod.map.CoordGrid
 class CorporealBeastRulesTest {
     @Test
     fun `melee can only be selected in reach`() {
-        assertEquals(CorporealBeastAttack.Melee, CorporealBeastRules.attack(true, 0, 0))
-        assertEquals(CorporealBeastAttack.Magic, CorporealBeastRules.attack(false, 0, 0))
-        assertEquals(CorporealBeastAttack.Drain, CorporealBeastRules.attack(false, 99, 1))
-        assertEquals(CorporealBeastAttack.AreaMagic, CorporealBeastRules.attack(false, 99, 2))
+        assertEquals(CorporealBeastAttack.Melee, CorporealBeastLegacyCombat.attack(true, 0, 0))
+        assertEquals(CorporealBeastAttack.Magic, CorporealBeastLegacyCombat.attack(false, 0, 0))
+        assertEquals(CorporealBeastAttack.Drain, CorporealBeastLegacyCombat.attack(false, 99, 1))
+        assertEquals(
+            CorporealBeastAttack.AreaMagic,
+            CorporealBeastLegacyCombat.attack(false, 99, 2),
+        )
     }
 
     @Test
     fun `attack rhythm is normally four ticks with an occasional three tick turn`() {
-        assertEquals(3, CorporealBeastRules.attackRate(0))
-        assertEquals(4, CorporealBeastRules.attackRate(1))
-        assertEquals(3, CorporealBeastRules.attackRate(8))
+        assertEquals(3, CorporealBeastLegacyCombat.attackRate(0))
+        assertEquals(4, CorporealBeastLegacyCombat.attackRate(1))
+        assertEquals(3, CorporealBeastLegacyCombat.attackRate(8))
     }
 
     @Test
     fun `footprint detects melee reach and stomp tiles`() {
-        assertEquals(0, CorporealBeastRules.distanceToFootprint(10, 10, 5, 12, 12))
-        assertEquals(1, CorporealBeastRules.distanceToFootprint(10, 10, 5, 15, 12))
+        assertEquals(0, CorporealBeastLegacyCombat.distanceToFootprint(10, 10, 5, 12, 12))
+        assertEquals(1, CorporealBeastLegacyCombat.distanceToFootprint(10, 10, 5, 15, 12))
         assertTrue(CorporealBeastRules.isUnderFootprint(10, 10, 5, 14, 14))
         assertFalse(CorporealBeastRules.isUnderFootprint(10, 10, 5, 15, 14))
     }

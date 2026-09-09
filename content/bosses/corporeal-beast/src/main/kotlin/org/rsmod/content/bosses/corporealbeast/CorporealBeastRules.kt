@@ -1,14 +1,6 @@
 package org.rsmod.content.bosses.corporealbeast
 
-import kotlin.math.max
 import org.rsmod.map.CoordGrid
-
-internal enum class CorporealBeastAttack {
-    Melee,
-    Magic,
-    Drain,
-    AreaMagic,
-}
 
 internal object CorporealBeastRules {
     const val HITPOINTS = 2_000
@@ -41,30 +33,6 @@ internal object CorporealBeastRules {
     const val NO_COMBAT_RESET_TICKS = 300
     const val ROOM_RADIUS = 48
     const val AREA_SPLIT_COUNT = 6
-
-    fun attack(inMeleeReach: Boolean, primaryRoll: Int, magicRoll: Int): CorporealBeastAttack {
-        if (inMeleeReach && primaryRoll in 0 until MELEE_CHANCE_PERCENT) {
-            return CorporealBeastAttack.Melee
-        }
-        return when (magicRoll.mod(3)) {
-            0 -> CorporealBeastAttack.Magic
-            1 -> CorporealBeastAttack.Drain
-            else -> CorporealBeastAttack.AreaMagic
-        }
-    }
-
-    fun attackRate(shortRoll: Int): Int =
-        if (shortRoll.mod(SHORT_ATTACK_ROLL_DENOMINATOR) == 0) {
-            SHORT_ATTACK_RATE_TICKS
-        } else {
-            NORMAL_ATTACK_RATE_TICKS
-        }
-
-    fun distanceToFootprint(npcX: Int, npcZ: Int, npcSize: Int, playerX: Int, playerZ: Int): Int {
-        val dx = maxOf(npcX - playerX, playerX - (npcX + npcSize - 1), 0)
-        val dz = maxOf(npcZ - playerZ, playerZ - (npcZ + npcSize - 1), 0)
-        return max(dx, dz)
-    }
 
     fun isUnderFootprint(npcX: Int, npcZ: Int, npcSize: Int, playerX: Int, playerZ: Int): Boolean =
         playerX in npcX until (npcX + npcSize) && playerZ in npcZ until (npcZ + npcSize)

@@ -225,7 +225,7 @@ Diagnostic-only modules are excluded. Zero manager lines is not proof of archite
 |---|---|---|---|---|---|---|
 | Kraken | private per-player run, native combat wrapper; 363 → 0 manager lines | Boss/tentacle specifications; ordinary attacks delegated to native NvPCombat by DSL | Source InstanceScript; native spawns, keyed joins, session state and lifecycle | KrakenWhirlpools (171 lines): dormant activation, one-shot completion/drop tile; native attack-validation hook | 12 passing tests, including 8 native integration/characterization tests | No live deployment/client verification; no new OSRS parity claim |
 | Vorkath | managers/timing; 1,254 -> 426 coordinator lines | BossSpec/BossCombat normal attacks, weights, forced cadence, phases; old timeline test-only | InstanceScript source arena, keyed join/leave, native ownership and cleanup | Arena effects (344 lines), spawn collision/contact (228), session data (71), no-reward diagnostics (105), existing reclaim storage | 110 passing module tests; all boss/shared regressions and server classes pass; revision-240 cache audit passes | Not deployed; PR unsubmitted. Inferred selection/path rules and original non-player damage exclusion retained, not certified as OSRS-correct |
-| Corporeal Beast | manager; 502 | Characterization before conversion | Public lairs; no private-instance behavior added | Core, split projectiles and underfoot hazards | Native baseline characterization in progress | Existing third-party projectile provenance is preserved, not newly certified |
+| Corporeal Beast | manager; 502 -> 0 | BossSpec normal attacks, weighted styles/animations/cadence, native NvPCombat; old selector test-only | Public lairs retained, so no InstanceScript required; native NPC/encounter lifecycle | Room recovery/stomp (161 lines), core (114), split area (95), drain impact parameters (29), state (49) | 24 tests pass (17 native fixture + 7 prior rules/oracle); all boss/shared tests and server classes pass | Existing third-party projectile provenance, core poison stun and live visuals remain unverified |
 | Alchemical Hydra | manager; 858 | Pending | Pending | Vents/hazards | Pending | Detailed mapping pending |
 | Grotesque Guardians | manager; 945 | Pending | Pending | Paired mechanics | Pending | Detailed mapping pending |
 | Zulrah | manager; 993 | Pending | Pending | Positions/clouds/snakes | Pending | Detailed mapping pending |
@@ -379,3 +379,19 @@ the corrected invocation uses the project's existing selected-file Spotless work
 `corp-dsl-characterization-after.log`: the same 13 assertions pass via production BossCombat wiring
 (39s, 157 tasks). Two earlier baseline fixture iterations were corrected to read the native deferred
 impact-hit queue rather than mistakenly looking only for already-built hits.
+
+Corp migration completion (source/headless only): `corp-native-lifecycle-tests-2.log` passed the
+native registry/world-queue tests (32s, 157 tasks). `corp-final-native-check.log` passed 24 Corp,
+30 boss API, 12 Kraken and 110 Vorkath tests plus scoped formatting/check (44s, 176 tasks).
+After removing the unregistered old manager and moving its selector to a test-only oracle,
+`corp-final-native-check-2.log` passes (40s, 161 tasks). `corp-broad-regression.log` passes every
+boss module test, affected shared tests and server app classes (58s, 503 tasks).
+Native fixtures cover both melee animations, all weighted style boundaries, tracking/tile projectile
+fields, deferred prayer changes, resolved-damage drain/healing, core ownership/jump/siphon/removal,
+six-way splitting and callback unlinking, seven-tick stomp, empty-room recovery and reset,
+teleport/logout/death hit cancellation, native respawn events and independent public lairs.
+Impact callbacks are exercised with explicit resolved damage; no new drop or live-client claim.
+The native death/drop registration remains unchanged apart from retiring the shared encounter.
+24 test passes do not verify disputed OSRS rules or new public/private instance behavior.
+The 502-line manager is recoverable from baseline commit `798b8c320`; no evidence or unrelated
+source was removed. Dependency waiver removed; seven reviewed specialized-combat matches remain.

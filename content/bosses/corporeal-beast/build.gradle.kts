@@ -2,6 +2,7 @@ plugins { id("base-conventions") }
 
 dependencies {
     implementation(libs.guice)
+    implementation(projects.api.bosses)
     implementation(projects.api.combat.combatCommons)
     implementation(projects.api.combat.combatFormulas)
     implementation(projects.api.combat.combatScripts)
@@ -20,6 +21,8 @@ dependencies {
     testImplementation(kotlin("test"))
     testImplementation("org.mockito:mockito-core:5.18.0")
     testImplementation(projects.engine.coroutine)
+    testImplementation(projects.api.registry)
+    testImplementation(projects.api.gameProcess)
 }
 
 tasks.test {
