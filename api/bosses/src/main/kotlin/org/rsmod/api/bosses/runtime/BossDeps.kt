@@ -2,6 +2,7 @@ package org.rsmod.api.bosses.runtime
 
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import org.rsmod.api.combat.NvPCombat
 import org.rsmod.api.combat.formulas.AccuracyFormulae
 import org.rsmod.api.random.GameRandom
 import org.rsmod.api.repo.npc.NpcRepository
@@ -25,4 +26,5 @@ constructor(
     val collision: CollisionFlagMap,
     val encounterRegistry: EncounterRegistry,
     val extensionRegistry: BossExtensionRegistry,
+    val npcCombat: NvPCombat,
 )

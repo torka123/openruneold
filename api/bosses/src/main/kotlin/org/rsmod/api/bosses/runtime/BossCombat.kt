@@ -77,8 +77,12 @@ object BossCombat {
 
             val bossIds = npcTypes.map { it.id }.toSet()
             // Ensures phases and other states are reset
-            onEvent<NpcStateEvents.Respawn> { if (npc.type.id in bossIds) resetBoss(npc, deps) }
-            onEvent<NpcStateEvents.Delete> { if (npc.type.id in bossIds) clearEncounter(npc, deps) }
+            onEvent<NpcStateEvents.Respawn> {
+                if (npc.type.id in bossIds || npc.visType.id in bossIds) resetBoss(npc, deps)
+            }
+            onEvent<NpcStateEvents.Delete> {
+                if (npc.type.id in bossIds || npc.visType.id in bossIds) clearEncounter(npc, deps)
+            }
         }
     }
 
@@ -133,6 +137,8 @@ object BossCombat {
         checkAutoTransitions(this, target, encounter, tick, spec, deps)
         checkTriggers(this, target, spec, deps, encounter)
 
+        // Native action locks (for example awakening) must not consume an ability opportunity.
+        if (npc.actionDelay > tick) return
         val ticksSinceLastAttack = tick - encounter.lastAbilityTick
         val attackRate = encounter.currentPhase?.attackRate ?: spec.stats.attackRate
         if (ticksSinceLastAttack < attackRate) return

@@ -8,6 +8,7 @@ import dev.openrune.types.ProjAnimType
 import dev.openrune.types.aconverted.SpotanimType
 import org.rsmod.api.bosses.spec.*
 import org.rsmod.api.bosses.spec.HitType as BossHitType
+import org.rsmod.api.combat.NpcAttackOverride
 import org.rsmod.api.combat.commons.CombatEffects
 import org.rsmod.api.combat.commons.DragonfireProtection
 import org.rsmod.api.combat.commons.types.MeleeAttackType
@@ -53,6 +54,25 @@ class EffectInterpreter(
 
     private suspend fun execute(access: StandardNpcAccess, effect: Effect) {
         when (effect) {
+            is Effect.NpcAttack -> {
+                deps.npcCombat.attack(
+                    access,
+                    target,
+                    effect.attack,
+                    NpcAttackOverride(
+                        attackAnimation = effect.animation,
+                        maxHit = effect.maxHit,
+                        forceAccurate = effect.accuracy == AccuracyMode.Always,
+                        projectile = effect.projectile,
+                        impactDelay = effect.impactDelay,
+                        attackRate = encounter.expectedAttackRate(),
+                        hitModifier = protectionModifier(effect.protectionPrayer),
+                        onImpact = { _, _ -> effect.impact?.let { target.spotanim(it) } },
+                        hitValidity = validity(target),
+                        hitContext = HitContext.of(HitAttribution(), encounter.effectScope),
+                    ),
+                )
+            }
             is Effect.Anim -> access.anim(effect.seq, effect.delay)
             is Effect.NpcAttackAnim -> {
                 val animation = npc.visType.paramOrNull(params.attack_anim)
@@ -448,7 +468,10 @@ class EffectInterpreter(
     }
 
     private fun hitModifier(hit: Effect.Hit): PlayerHitModifier =
-        when (val prayer = hit.protectionPrayer) {
+        protectionModifier(hit.protectionPrayer)
+
+    private fun protectionModifier(prayer: ProtectionPrayer): PlayerHitModifier =
+        when (prayer) {
             ProtectionPrayer.Standard -> StandardPlayerHitModifier
             ProtectionPrayer.Bypass -> NpcBypassProtectionPrayerPlayerHitModifier
             is ProtectionPrayer.Reduce ->

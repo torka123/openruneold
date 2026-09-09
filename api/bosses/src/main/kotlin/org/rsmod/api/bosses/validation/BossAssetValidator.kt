@@ -42,6 +42,11 @@ object BossAssetValidator {
 
         fun effect(value: Effect) {
             when (value) {
+                is Effect.NpcAttack -> {
+                    value.animation?.let(::seq)
+                    value.projectile?.travelSpotanim?.let(::spot)
+                    value.impact?.let(::spot)
+                }
                 is Effect.Anim -> seq(value.seq)
                 is Effect.Sound -> synth(value.synth)
                 is Effect.Spotanim -> spot(value.spot)

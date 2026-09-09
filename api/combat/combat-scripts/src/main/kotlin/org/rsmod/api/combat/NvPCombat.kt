@@ -27,6 +27,7 @@ import org.rsmod.api.random.GameRandom
 import org.rsmod.api.repo.world.WorldRepository
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
+import org.rsmod.game.hit.HitContext
 import org.rsmod.game.hit.HitImpact
 import org.rsmod.game.hit.HitImpactHandler
 import org.rsmod.game.hit.HitType
@@ -59,6 +60,8 @@ public data class NpcAttackOverride(
     public val hitValidity: HitValidity? = null,
     /** Applied to the rolled damage, before prayer and equipment modifiers. */
     public val damageTransform: ((Int) -> Int)? = null,
+    /** Optional native lifecycle scope; queued hits retire when their encounter ends. */
+    public val hitContext: HitContext? = null,
 )
 
 internal fun NpcAttackOverride.rollDamage(
@@ -231,7 +234,7 @@ constructor(
         override: NpcAttackOverride,
     ) {
         setAttackVars(target)
-        target.queueCombatRetaliate(npc)
+        target.queueCombatRetaliate(npc, context = override.hitContext)
         val impactHandler =
             override.onImpact?.let { effect -> HitImpactHandler { impact -> effect(npc, impact) } }
         if (override.applyModifierOnImpact) {
@@ -243,6 +246,7 @@ constructor(
                 modifier = override.hitModifier,
                 impactHandler = impactHandler,
                 validity = override.hitValidity,
+                context = override.hitContext,
             )
         } else {
             target.queueHit(
@@ -253,6 +257,7 @@ constructor(
                 modifier = override.hitModifier,
                 impactHandler = impactHandler,
                 validity = override.hitValidity,
+                context = override.hitContext,
             )
         }
         target.combatPlayDefendAnim()
@@ -260,7 +265,6 @@ constructor(
     }
 
     private fun canAttack(target: Player): Boolean = target.isValidTarget()
-
 
     private fun StandardNpcAccess.setAttackVars(target: Player) {
         npc.lastAttack = mapClock

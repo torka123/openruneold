@@ -2,19 +2,28 @@ package org.rsmod.api.bosses.runtime
 
 import dev.openrune.ServerCacheManager
 import dev.openrune.rscm.RSCM
+import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
+import dev.openrune.types.NpcMode
 import kotlin.test.*
 import org.junit.jupiter.api.BeforeAll
+import org.mockito.Answers
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.mockingDetails
 import org.rsmod.annotations.InternalApi
 import org.rsmod.api.bosses.spec.*
+import org.rsmod.api.combat.NpcAttackOverride
+import org.rsmod.api.combat.NpcProjectile
+import org.rsmod.api.combat.NvPCombat
+import org.rsmod.api.combat.commons.CombatAttack
 import org.rsmod.api.combat.formulas.AccuracyFormulae
+import org.rsmod.api.combat.formulas.MaxHitFormulae
 import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.api.npc.access.StandardNpcAccessContext
 import org.rsmod.api.npc.events.interact.AiPlayerEvents
 import org.rsmod.api.npc.hit.modifier.StandardNpcHitModifier
 import org.rsmod.api.npc.hit.processor.StandardNpcHitProcessor
+import org.rsmod.api.player.hit.modifier.NpcBypassProtectionPrayerPlayerHitModifier
 import org.rsmod.api.random.DefaultGameRandom
 import org.rsmod.api.random.GameRandom
 import org.rsmod.api.repo.npc.NpcRepository
@@ -171,6 +180,7 @@ class BossRuntimeRegressionTest {
                     collision,
                     registry,
                     extensionRegistry,
+                    npcCombat,
                 )
             }
         val spec =
@@ -426,9 +436,157 @@ class BossRuntimeRegressionTest {
         override fun randomDouble(): Double = error("Not used by integer selection")
     }
 
+    @Test
+    fun `deleting an actor created as a dormant type retires its active form encounter`() {
+        val f = Fixture()
+        val events = EventBus()
+        BossCombat.register(
+            ScriptContext(events, CheatCommandMap(), EngineQueueCache()),
+            f.spec,
+            f.deps,
+            "fixture",
+        )
+        val actor =
+            Npc(
+                    assertNotNull(
+                        ServerCacheManager.getNpc(
+                            "npc.slayer_kraken_boss_whirlpool".asRSCM(RSCMType.NPC)
+                        )
+                    ),
+                    f.npc.coords,
+                )
+                .apply {
+                    slotId = 2
+                    assignUid()
+                    transmog(f.npc.type, Int.MAX_VALUE)
+                }
+        val encounter = f.registry.of(actor)
+        events.publish(NpcStateEvents.Delete(actor))
+        assertTrue(encounter.isEnded)
+        assertNull(f.registry.existing(actor))
+    }
+
+    @Test
+    fun `native action lock does not consume an ability or start its cooldown`() {
+        val f = Fixture()
+        val events = EventBus()
+        val spec =
+            f.spec.copy(
+                abilities = mapOf("basic" to Effect.Say("attack")),
+                phases =
+                    mapOf(
+                        "main" to PhaseSpec("main", selector = Selector.Rotation(listOf("basic")))
+                    ),
+            )
+        val registry = EncounterRegistry(f.random)
+        val deps =
+            with(f.deps) {
+                BossDeps(
+                    random,
+                    accuracy,
+                    worldRepo,
+                    npcRepo,
+                    playerList,
+                    mapClock,
+                    worldQueues,
+                    collision,
+                    registry,
+                    extensionRegistry,
+                    npcCombat,
+                )
+            }
+        BossCombat.register(
+            ScriptContext(events, CheatCommandMap(), EngineQueueCache()),
+            spec,
+            deps,
+        )
+        f.npc.actionDelay = 101
+        fun attack() {
+            f.npc.launch {
+                events.publish(f.access(this, events), AiPlayerEvents.Ap2(f.player, f.npc))
+            }
+        }
+        attack()
+        assertTrue(registry.of(f.npc).recentAbilityCommitTicks().isEmpty())
+        f.tick(1)
+        attack()
+        assertEquals(listOf(101 to "attack"), f.speech)
+    }
+
+    @Test
+    fun `ordinary attack effect preserves native attack output metadata prayer and travel`() {
+        val direct = Fixture(random = Rolls(17), nativeCombat = true)
+        val interpreted = Fixture(random = Rolls(17), nativeCombat = true)
+        val projectile =
+            NpcProjectile(
+                "spotanim.firewave_travel",
+                assertNotNull(
+                    ServerCacheManager.getProjectile(
+                        "projanim.magic_spell".asRSCM(RSCMType.PROJANIM)
+                    )
+                ),
+            )
+        for (f in listOf(direct, interpreted)) {
+            f.npc.mode = NpcMode.ApPlayer2
+            org.rsmod.api.player.vars.VarPlayerIntMapSetter.set(
+                f.player,
+                "varbit.prayer_protectfrommagic",
+                1,
+            )
+        }
+        direct.npc.launch {
+            direct.deps.npcCombat.attack(
+                direct.access(this, EventBus()),
+                direct.player,
+                CombatAttack.NpcMagic(28),
+                NpcAttackOverride(
+                    maxHit = 28,
+                    projectile = projectile,
+                    attackRate = 4,
+                    hitModifier = NpcBypassProtectionPrayerPlayerHitModifier,
+                ),
+            )
+        }
+        interpreted.run(
+            Effect.NpcAttack(
+                CombatAttack.NpcMagic(28),
+                maxHit = 28,
+                projectile = projectile,
+                protectionPrayer = ProtectionPrayer.Bypass,
+            )
+        )
+        assertEquals(direct.projectiles(), interpreted.projectiles())
+        assertEquals(direct.animations, interpreted.animations)
+        assertEquals(104, interpreted.npc.actionDelay)
+        assertEquals(100, interpreted.npc.vars["varn.lastattack"])
+        assertEquals(100, interpreted.player.vars["varp.lastcombat"])
+        assertEquals(
+            direct.queuedHits().map { it.first to it.second.damage },
+            interpreted.queuedHits().map { it.first to it.second.damage },
+        )
+        val (delay, hit) = interpreted.queuedHits().single()
+        assertEquals(17, hit.damage)
+        assertEquals(interpreted.projectiles().single().serverCycles, delay)
+        assertTrue(hit.isQueueArgumentValid())
+        interpreted.registry.remove(interpreted.npc)
+        assertFalse(hit.isQueueArgumentValid())
+    }
+
+    @Test
+    fun `native attack miss does not consume a damage roll`() {
+        val random = Rolls()
+        val f = Fixture(random = random, nativeCombat = true, accurate = false)
+        f.npc.mode = NpcMode.ApPlayer2
+        f.run(Effect.NpcAttack(CombatAttack.NpcMagic(28)))
+        assertEquals(0, f.queuedHits().single().second.damage)
+        assertTrue(random.bounds.isEmpty())
+    }
+
     private class Fixture(
         phase: PhaseSpec = PhaseSpec("main"),
         val random: GameRandom = DefaultGameRandom(42L),
+        nativeCombat: Boolean = false,
+        accurate: Boolean = true,
     ) {
         val clock = MapClock().apply { cycle = 100 }
         val speech = mutableListOf<Pair<Int, String>>()
@@ -486,10 +644,15 @@ class BossRuntimeRegressionTest {
         val encounter = registry.of(npc)
         val extensions = BossExtensionRegistry()
         val world = mock(WorldRepository::class.java)
+        val accuracy =
+            mock(AccuracyFormulae::class.java) { invocation ->
+                if (invocation.method.name.startsWith("roll")) accurate
+                else Answers.RETURNS_DEFAULTS.answer(invocation)
+            }
         val deps =
             BossDeps(
                 random,
-                mock(AccuracyFormulae::class.java),
+                accuracy,
                 world,
                 mock(NpcRepository::class.java),
                 players,
@@ -498,6 +661,8 @@ class BossRuntimeRegressionTest {
                 CollisionFlagMap(),
                 registry,
                 extensions,
+                if (nativeCombat) NvPCombat(accuracy, mock(MaxHitFormulae::class.java), world)
+                else mock(NvPCombat::class.java),
             )
 
         fun run(effect: Effect) {
@@ -533,6 +698,20 @@ class BossRuntimeRegressionTest {
                 .invocations
                 .filter { it.method.name == "projAnim" }
                 .map { it.arguments[0] as ProjAnim }
+
+        fun queuedHits(): List<Pair<Int, Hit>> {
+            val iterator = player.queueList.iterator() ?: return emptyList()
+            return try {
+                buildList {
+                    while (iterator.hasNext()) {
+                        val queue = iterator.next()
+                        (queue.args as? Hit)?.let { add(queue.remainingCycles to it) }
+                    }
+                }
+            } finally {
+                iterator.cleanUp()
+            }
+        }
     }
 
     companion object {

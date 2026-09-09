@@ -143,3 +143,10 @@ Kree'arra, K'ril, Obor, Scorpia, Scurrius, Wilderness, Zilyana) must be regressi
   exit/teleport/death/logout/disconnect/NPC ownership/re-entry tests pass. Instance module now has
   26 passing tests; boss API and Kraken regression tests also pass. Scurrius compiles (no tests).
   Physical region allocation is a test recording repository, not a running client or server.
+- `boss-native-attack-check-2.log`: DSL/native attack adapter checks pass, including direct-vs-DSL
+  packet projectile value equality, native animation, damage/prayer result, combat vars, travel
+  delay, no damage RNG on a miss, action-lock cadence and transformed-NPC deletion. Boss API now
+  has 24 passing tests. Native NvPCombat change only threads HitContext through its existing hit
+  and retaliation queues; all previous override fields are preserved.
+- `boss-native-broad-regression.log`: every boss module test passes after adding the ordinary
+  attack effect (1m21s, 306 tasks). No boss migration is implied by this adapter test pass.

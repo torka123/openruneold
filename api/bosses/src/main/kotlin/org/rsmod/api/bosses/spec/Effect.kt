@@ -1,6 +1,8 @@
 package org.rsmod.api.bosses.spec
 
 import dev.openrune.types.NpcMode
+import org.rsmod.api.combat.NpcProjectile
+import org.rsmod.api.combat.commons.CombatAttack
 import org.rsmod.api.combat.commons.types.MeleeAttackType
 
 public data class StatDrainEntry(
@@ -45,6 +47,20 @@ public sealed interface ImpactProtection {
 }
 
 sealed interface Effect {
+
+    /**
+     * Ordinary attacks delegate to NvPCombat, including its native presentation and retaliation.
+     */
+    data class NpcAttack(
+        val attack: CombatAttack.NpcAttack,
+        val maxHit: Int? = null,
+        val animation: String? = null,
+        val projectile: NpcProjectile? = null,
+        val impactDelay: Int? = null,
+        val impact: String? = null,
+        val protectionPrayer: ProtectionPrayer = ProtectionPrayer.Standard,
+        val accuracy: AccuracyMode = AccuracyMode.Standard,
+    ) : Effect
 
     data class Anim(val seq: String, val delay: Int = 0) : Effect
 
