@@ -20,7 +20,9 @@ sealed interface Condition {
     /** Includes the ability currently executing; selection sees only earlier commits. */
     data class AbilityCountModulo(val modulus: Int, val remainder: Int) : Condition {
         init {
-            require(modulus > 0 && remainder in 0 until modulus) { "Invalid ability-count modulus." }
+            require(modulus > 0 && remainder in 0 until modulus) {
+                "Invalid ability-count modulus."
+            }
         }
     }
 

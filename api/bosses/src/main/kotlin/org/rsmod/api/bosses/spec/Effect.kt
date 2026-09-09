@@ -1,8 +1,8 @@
 package org.rsmod.api.bosses.spec
 
 import dev.openrune.types.NpcMode
-import org.rsmod.api.combat.NpcProjectile
 import org.rsmod.api.combat.NpcHitParameters
+import org.rsmod.api.combat.NpcProjectile
 import org.rsmod.api.combat.commons.CombatAttack
 import org.rsmod.api.combat.commons.types.MeleeAttackType
 

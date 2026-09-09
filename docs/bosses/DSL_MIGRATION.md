@@ -578,3 +578,12 @@ reset their existing periodic cadence when committed: currently only selection u
 timestamp, so forceNextAbility may be followed immediately by the same time-based ability after a
 late start. Correct that generic bug in recordAbilityCommit, with regression tests. First prison can
 then use the existing one-shot forceNextAbility API; no separate prison scheduler is needed.
+
+`guardians-shared-components-red.log`: 38 API tests, exactly the five new regressions fail
+(42s, 155 tasks). `guardians-shared-components-green.log`: shared API/scoped checks and the
+Guardians/Hydra/Kraken/Vorkath/Corp regression tests pass (55s, 193 tasks). Native hit components
+now support pure damage distributions, independent modifiers and impact offsets without a second
+attack gate or scheduler. Lists are snapshotted per volley; native validity is rechecked between
+components, including after a synchronous first-hit callback retires the encounter. Explicit forced
+commits rearm existing periodic cadence; phase-local committed ability counts include those commits
+and reset on phase changes. All are local extensions/repairs as mapped, not new upstream claims.

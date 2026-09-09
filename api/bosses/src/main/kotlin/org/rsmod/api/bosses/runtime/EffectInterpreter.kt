@@ -78,6 +78,7 @@ class EffectInterpreter(
                         projectile = supplied.projectile ?: effect.projectile,
                         impactDelay = supplied.impactDelay ?: effect.impactDelay,
                         hitCount = supplied.hitCount ?: effect.hitCount,
+                        hits = supplied.hits ?: effect.hits,
                         attackRate = encounter.expectedAttackRate(),
                         hitModifier =
                             if (effect.protectionPrayer == ProtectionPrayer.Standard)

@@ -48,7 +48,9 @@ public data class NpcHitParameters(
     /** Pure damage distribution using the native accuracy result, maximum and injected RNG. */
     public val damageRoll: ((maximum: Int, accurate: Boolean, random: GameRandom) -> Int)? = null,
 ) {
-    init { require(impactOffset >= 0) { "Impact offset must not be negative." } }
+    init {
+        require(impactOffset >= 0) { "Impact offset must not be negative." }
+    }
 }
 
 public data class NpcAttackOverride(
@@ -87,7 +89,12 @@ internal fun NpcAttackOverride.rollDamage(
     accurateMaxHit: Int,
     successfulHit: Boolean,
     random: GameRandom,
+    component: NpcHitParameters? = null,
 ): Int {
+    component?.damageRoll?.let { policy ->
+        val rolled = policy(accurateMaxHit.coerceAtLeast(0), successfulHit, random)
+        return (damageTransform?.invoke(rolled) ?: rolled).coerceAtLeast(0)
+    }
     val maximum = if (successfulHit) accurateMaxHit else inaccurateMaxHit ?: return 0
     val rolled = random.of(0..maximum.coerceAtLeast(0))
     return damageTransform?.invoke(rolled)?.coerceAtLeast(0) ?: rolled
@@ -127,24 +134,28 @@ constructor(
         if (!beginAttack(target, override)) return
         playAttackFx(target, override)
         override.onAttack?.invoke(this, target)
-        repeat(override.hitCount ?: 1) { index ->
+        val components = override.hits?.toList()
+        repeat(components?.size ?: override.hitCount ?: 1) { index ->
+            if (!componentIsValid(target, override)) return
+            val component = components?.get(index)
             val successfulHit =
                 override.forceAccurate ||
                     accuracy.rollMeleeAccuracy(npc, target, attack.type, random)
             val maxHit = override.maxHit ?: maxHits.getMeleeMaxHit(npc, target, attack.type)
-            val damage = override.rollDamage(maxHit, successfulHit, random)
+            val damage = override.rollDamage(maxHit, successfulHit, random, component)
             val projectileDelay =
                 if (override.projectile != null || override.projectileFactory != null)
                     spawnProjectile(target, override)
                 else MELEE_HIT_DELAY
-            val hitDelay = override.impactDelay ?: projectileDelay
+            val hitDelay =
+                (override.impactDelay ?: projectileDelay) + (component?.impactOffset ?: 0)
             finishAttack(
                 target,
                 hitDelay,
                 HitType.Melee,
                 damage,
                 successfulHit,
-                override,
+                component?.modifier?.let { override.copy(hitModifier = it) } ?: override,
                 index == 0,
             )
         }
@@ -158,20 +169,24 @@ constructor(
         if (!beginAttack(target, override)) return
         playAttackFx(target, override)
         override.onAttack?.invoke(this, target)
-        repeat(override.hitCount ?: 1) { index ->
+        val components = override.hits?.toList()
+        repeat(components?.size ?: override.hitCount ?: 1) { index ->
+            if (!componentIsValid(target, override)) return
+            val component = components?.get(index)
             val projectileDelay = spawnProjectile(target, override)
-            val hitDelay = override.impactDelay ?: projectileDelay
+            val hitDelay =
+                (override.impactDelay ?: projectileDelay) + (component?.impactOffset ?: 0)
             val successfulHit =
                 override.forceAccurate || accuracy.rollRangedAccuracy(npc, target, random)
             val maxHit = override.maxHit ?: maxHits.getRangedMaxHit(npc, target)
-            val damage = override.rollDamage(maxHit, successfulHit, random)
+            val damage = override.rollDamage(maxHit, successfulHit, random, component)
             finishAttack(
                 target,
                 hitDelay,
                 HitType.Ranged,
                 damage,
                 successfulHit,
-                override,
+                component?.modifier?.let { override.copy(hitModifier = it) } ?: override,
                 index == 0,
             )
         }
@@ -185,26 +200,40 @@ constructor(
         if (!beginAttack(target, override)) return
         playAttackFx(target, override)
         override.onAttack?.invoke(this, target)
-        repeat(override.hitCount ?: 1) { index ->
+        val components = override.hits?.toList()
+        repeat(components?.size ?: override.hitCount ?: 1) { index ->
+            if (!componentIsValid(target, override)) return
+            val component = components?.get(index)
             val projectileDelay = spawnProjectile(target, override)
-            val hitDelay = override.impactDelay ?: projectileDelay
+            val hitDelay =
+                (override.impactDelay ?: projectileDelay) + (component?.impactOffset ?: 0)
             val maxHit =
                 override.maxHit
                     ?: if (attack.maxHit > 0) attack.maxHit else maxHits.getMagicMaxHit(npc, target)
             val successfulHit =
                 override.forceAccurate || accuracy.rollMagicAccuracy(npc, target, random)
-            val damage = override.rollDamage(maxHit, successfulHit, random)
+            val damage = override.rollDamage(maxHit, successfulHit, random, component)
             finishAttack(
                 target,
                 hitDelay,
                 HitType.Magic,
                 damage,
                 successfulHit,
-                override,
+                component?.modifier?.let { override.copy(hitModifier = it) } ?: override,
                 index == 0,
             )
         }
     }
+
+    /** A synchronous component callback may retire an encounter before the next strike. */
+    private fun StandardNpcAccess.componentIsValid(
+        target: Player,
+        override: NpcAttackOverride,
+    ): Boolean =
+        npc.isSlotAssigned &&
+            canAttack(target) &&
+            override.hitValidity?.isValid() != false &&
+            override.hitContext?.isValid() != false
 
     /** Shared attack gating and attack-rate arming. */
     private fun StandardNpcAccess.beginAttack(

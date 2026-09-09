@@ -176,6 +176,13 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
     fun consumeForcedAbility(): String? = forcedAbility.also { forcedAbility = null }
 
     fun recordAbilityCommit(tick: Int, ability: String, expectedRate: Int) {
+        phaseAbilityCount++
+        if (
+            currentPhase?.forceAbilities?.any { it.attackMin == null && it.ability == ability } ==
+                true
+        ) {
+            forcedTickLastFired[ability] = tick
+        }
         lastAbilityTick = tick
         lastAbilityName = ability
         attackTraces +=
@@ -221,6 +228,7 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
         branchSelections.clear()
         forcedTickLastFired.clear()
         basicAttackCount = 0
+        phaseAbilityCount = 0
         forceAttackThreshold = -1
 
         val phase = spec.phases[phaseName]
@@ -371,7 +379,8 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
             }
             is Condition.HpExact -> npc.hitpoints == condition.hp
             is Condition.InPhase -> currentPhaseName == condition.phase
-            is Condition.AbilityCountModulo -> false
+            is Condition.AbilityCountModulo ->
+                phaseAbilityCount % condition.modulus == condition.remainder
             is Condition.Not -> !evaluate(condition.c, target)
             is Condition.And -> evaluate(condition.a, target) && evaluate(condition.b, target)
             is Condition.Or -> evaluate(condition.a, target) || evaluate(condition.b, target)

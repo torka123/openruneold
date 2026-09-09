@@ -884,25 +884,35 @@ class BossRuntimeRegressionTest {
 
     @Test
     fun `heterogeneous native components preserve damage policy modifiers and impact offsets`() {
-        for (attack in listOf(
-            CombatAttack.NpcMagic(28),
-            CombatAttack.NpcRanged(org.rsmod.api.combat.commons.types.RangedAttackType.Standard),
-            CombatAttack.NpcMelee(org.rsmod.api.combat.commons.types.MeleeAttackType.Crush),
-        )) {
+        for (attack in
+            listOf(
+                CombatAttack.NpcMagic(28),
+                CombatAttack.NpcRanged(
+                    org.rsmod.api.combat.commons.types.RangedAttackType.Standard
+                ),
+                CombatAttack.NpcMelee(org.rsmod.api.combat.commons.types.MeleeAttackType.Crush),
+            )) {
             val f = Fixture(random = Rolls(8, 3), nativeCombat = true)
             f.npc.mode = NpcMode.ApPlayer2
             val seenAccuracy = mutableListOf<Boolean>()
-            val components = listOf(
-                NpcHitParameters(
-                    modifier = NpcCalculatedProtectionPrayerPlayerHitModifier(true, 50),
-                    damageRoll = { _, accurate, _ -> seenAccuracy += accurate; if (accurate) 9 else 0 },
-                ),
-                NpcHitParameters(impactOffset = 1, damageRoll = { maximum, accurate, rng ->
-                    seenAccuracy += accurate
-                    val first = if (accurate) rng.of(maximum + 1) else 0
-                    rng.of(first + 1)
-                }),
-            )
+            val components =
+                listOf(
+                    NpcHitParameters(
+                        modifier = NpcCalculatedProtectionPrayerPlayerHitModifier(true, 50),
+                        damageRoll = { _, accurate, _ ->
+                            seenAccuracy += accurate
+                            if (accurate) 9 else 0
+                        },
+                    ),
+                    NpcHitParameters(
+                        impactOffset = 1,
+                        damageRoll = { maximum, accurate, rng ->
+                            seenAccuracy += accurate
+                            val first = if (accurate) rng.of(maximum + 1) else 0
+                            rng.of(first + 1)
+                        },
+                    ),
+                )
             f.run(Effect.NpcAttack(attack, maxHit = 28, impactDelay = 3, hits = components))
             assertEquals(listOf(4, 3), f.queuedHits().map { it.second.damage })
             assertEquals(listOf(3, 4), f.queuedHits().map { it.first })
@@ -918,19 +928,35 @@ class BossRuntimeRegressionTest {
         f.npc.mode = NpcMode.ApPlayer2
         var sawMiss = false
         f.extensions.registerAttackParameters("components") { _, _, _ ->
-            NpcAttackOverride(hits = listOf(NpcHitParameters(impactOffset = 2, damageRoll = { _, accurate, rng ->
-                sawMiss = !accurate
-                rng.of(1)
-            })))
+            NpcAttackOverride(
+                hits =
+                    listOf(
+                        NpcHitParameters(
+                            impactOffset = 2,
+                            damageRoll = { _, accurate, rng ->
+                                sawMiss = !accurate
+                                rng.of(1)
+                            },
+                        )
+                    )
+            )
         }
-        f.run(Effect.NpcAttack(CombatAttack.NpcMagic(28), impactDelay = 2, parameters = "components",
-            hits = listOf(NpcHitParameters(), NpcHitParameters())))
+        f.run(
+            Effect.NpcAttack(
+                CombatAttack.NpcMagic(28),
+                impactDelay = 2,
+                parameters = "components",
+                hits = listOf(NpcHitParameters(), NpcHitParameters()),
+            )
+        )
         assertTrue(sawMiss)
         assertEquals(listOf(4), f.queuedHits().map { it.first })
         assertEquals(listOf(0), f.queuedHits().map { it.second.damage })
         assertFailsWith<IllegalArgumentException> { NpcHitParameters(impactOffset = -1) }
         assertFailsWith<IllegalArgumentException> { NpcAttackOverride(hits = emptyList()) }
-        assertFailsWith<IllegalArgumentException> { Effect.NpcAttack(CombatAttack.NpcMagic(28), hits = emptyList()) }
+        assertFailsWith<IllegalArgumentException> {
+            Effect.NpcAttack(CombatAttack.NpcMagic(28), hits = emptyList())
+        }
     }
 
     @Test
@@ -939,10 +965,13 @@ class BossRuntimeRegressionTest {
         f.npc.mode = NpcMode.ApPlayer2
         var components = 0
         f.extensions.registerAttackParameters("retire") { _, _, _ ->
-            NpcAttackOverride(hitCount = 2, onSuccessfulAttack = { _, _ ->
-                components++
-                f.registry.remove(f.npc)
-            })
+            NpcAttackOverride(
+                hitCount = 2,
+                onSuccessfulAttack = { _, _ ->
+                    components++
+                    f.registry.remove(f.npc)
+                },
+            )
         }
         f.run(Effect.NpcAttack(CombatAttack.NpcMagic(28), parameters = "retire"))
         assertEquals(1, components)
@@ -952,12 +981,16 @@ class BossRuntimeRegressionTest {
 
     @Test
     fun `explicit forced commit rearms periodic cadence from that actual commit`() {
-        val f = Fixture(phase = PhaseSpec("main", forceAbilities = listOf(ForcedAbility(42, "basic"))))
+        val f =
+            Fixture(phase = PhaseSpec("main", forceAbilities = listOf(ForcedAbility(42, "basic"))))
         f.encounter.phaseEnteredTick = 100
         assertTrue(f.encounter.forceNextAbility("basic"))
         val forced = assertNotNull(f.encounter.consumeForcedAbility())
         f.encounter.recordAbilityCommit(200, forced, 6)
-        assertEquals("ordinary", f.encounter.selectAbility(Selector.Rotation(listOf("ordinary")), 206))
+        assertEquals(
+            "ordinary",
+            f.encounter.selectAbility(Selector.Rotation(listOf("ordinary")), 206),
+        )
         assertEquals("basic", f.encounter.selectAbility(Selector.Rotation(listOf("ordinary")), 242))
     }
 
