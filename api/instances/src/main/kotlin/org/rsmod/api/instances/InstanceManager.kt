@@ -720,6 +720,7 @@ constructor(
 
     private fun destroy(session: InstanceSession) {
         if (sessions.remove(session.id) == null) return
+        session.markEnded()
         deferredLogoutReclaims.remove(session.id)
         publish(
             InstanceEndedEvent(
@@ -748,6 +749,7 @@ constructor(
             }
             player.clearInstance()
         }
+        session.occupants.clear()
     }
 
     private fun removeOccupant(

@@ -20,6 +20,20 @@ import org.rsmod.plugin.scripts.ScriptContext
 
 public abstract class InstanceScript(private val registry: BossInstanceRegistry) : PluginScript() {
 
+    private var sourceDefinition: Pair<String, InstanceSpec>? = null
+
+    /**
+     * Source-defined instances use the same registry, entry flows and keyed lifecycle as DB rows.
+     */
+    protected constructor(
+        registry: BossInstanceRegistry,
+        key: String,
+        spec: InstanceSpec,
+    ) : this(registry) {
+        require(key.isNotBlank()) { "Instance key must not be blank." }
+        sourceDefinition = key to spec
+    }
+
     @field:Inject private lateinit var objectHooks: InstanceObjectHookRegistry
     @field:Inject protected lateinit var manager: InstanceManager
     @field:Inject protected lateinit var worldClock: MapClock
@@ -27,11 +41,13 @@ public abstract class InstanceScript(private val registry: BossInstanceRegistry)
     private val rowData: InstanceSettingsRow by lazy { InstanceSettingsRow.getRow(settingsRow()) }
 
     protected val key: String
-        get() = rowData.key
+        get() = sourceDefinition?.first ?: rowData.key
 
-    protected abstract fun area(): InstanceArea
+    protected open fun area(): InstanceArea =
+        sourceDefinition?.second?.area ?: error("Override area() for a database-defined instance.")
 
-    protected abstract fun settingsRow(): String
+    protected open fun settingsRow(): String =
+        error("A source-defined instance has no database settings row.")
 
     protected open fun ScriptContext.configure() {}
 
@@ -42,7 +58,7 @@ public abstract class InstanceScript(private val registry: BossInstanceRegistry)
 
     protected fun settingsRowData(): InstanceSettingsRow = rowData
 
-    protected fun settingsRowId(): Int = rowData.rowId
+    protected fun settingsRowId(): Int = sourceDefinition?.second?.settingsRowId ?: rowData.rowId
 
     protected open fun spawnOnFirstJoin(): Boolean = false
 
@@ -52,6 +68,13 @@ public abstract class InstanceScript(private val registry: BossInstanceRegistry)
     protected open fun destroyWhenEmpty(): Boolean = false
 
     protected fun buildSpec(area: InstanceArea = area()): InstanceSpec {
+        sourceDefinition?.second?.let { spec ->
+            return spec.copy(
+                area = area,
+                spawnOnFirstJoin = spec.spawnOnFirstJoin || spawnOnFirstJoin(),
+                destroyWhenEmpty = spec.destroyWhenEmpty || destroyWhenEmpty(),
+            )
+        }
         val settings = rowData.toInstanceSettings()
         var resolved = if (spawnOnFirstJoin()) settings.copy(spawnOnFirstJoin = true) else settings
         if (destroyWhenEmpty()) {

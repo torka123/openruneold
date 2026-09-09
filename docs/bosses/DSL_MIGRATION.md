@@ -70,6 +70,25 @@ ended and clears it. Do not store another player list or username/run index in c
 tests cover two sessions, reset, destruction, stale references and native manager teardown. These
 are proposed reusable local extensions of upstream APIs, not claims that upstream already has them.
 
+### Native ordinary attacks (mapped before editing)
+
+Kraken currently calls `NvPCombat.attack`, whose upstream implementation owns native attack gating,
+animation/sound, accuracy-before-damage RNG order, combat metadata, retaliation, defender animation,
+projectile travel and queued hits. Existing DSL `Effect.Projectile`/`Hit` do not perform all of these
+steps. Simply translating Kraken to those effects would silently remove combat metadata/presentation
+and change random draw order. Exact upstream reference:
+[NvPCombat](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/api/combat/combat-scripts/src/main/kotlin/org/rsmod/api/combat/NvPCombat.kt).
+
+Add a declarative ordinary-NPC-attack effect to the existing DSL, interpreted by delegating to that
+same `NvPCombat` pipeline. It has native attack type, optional maximum/animation/projectile/impact
+delay, impact graphic and prayer policy; no content callbacks or private loop. BossEncounter remains
+the ability selector/cadence owner. The existing local public `NvPCombat`, `NpcProjectile` and
+`NpcAttackOverride` are extensions of upstream (the upstream class is internal), not official public
+upstream API. Add a HitContext field to the existing override so the DSL can attach the same native
+encounter cancellation scope used by other effects. Test native-vs-interpreted attack output,
+accuracy draw ordering, prayer bypass, combat state, travel ticks and teardown. Existing DSL specs
+retain their current effect semantics. No new boss-specific combat pipeline is introduced.
+
 ## Inventory and progress
 
 Initial line-count definition: main Kotlin files ending in `Manager.kt` or `Timeline.kt`, excluding
@@ -119,3 +138,8 @@ Kree'arra, K'ril, Obor, Scorpia, Scurrius, Wilderness, Zilyana) must be regressi
   existing migration debt. It is a review aid, not mechanical parity evidence.
 - Selected-file formatting and `git diff --check` pass. No deployment, live restart, client
   gameplay, packet comparison or visual parity is claimed.
+- `boss-instance-source-check.log`: source-defined and database-defined InstanceScript startup,
+  keyed join dispatch, typed session state isolation/reset/retirement, and native InstanceManager
+  exit/teleport/death/logout/disconnect/NPC ownership/re-entry tests pass. Instance module now has
+  26 passing tests; boss API and Kraken regression tests also pass. Scurrius compiles (no tests).
+  Physical region allocation is a test recording repository, not a running client or server.

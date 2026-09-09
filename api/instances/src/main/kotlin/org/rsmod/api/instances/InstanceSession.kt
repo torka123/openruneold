@@ -3,6 +3,11 @@ package org.rsmod.api.instances
 import org.rsmod.api.instances.region.InstancePlacement
 import org.rsmod.game.damage.DamageContributions
 
+/**
+ * Identity-based typed key: two scripts cannot collide merely by choosing the same display name.
+ */
+public class InstanceStateKey<T : Any>(public val name: String)
+
 class InstanceSession(
     val id: InstanceId,
     val regionIds: MutableSet<Int>,
@@ -13,6 +18,24 @@ class InstanceSession(
     var access: InstanceAccess,
     val isServerOwned: Boolean = false,
 ) {
+    private val contentState = mutableMapOf<InstanceStateKey<*>, Any>()
+    var isEnded: Boolean = false
+        private set
+
+    @Suppress("UNCHECKED_CAST")
+    fun <T : Any> stateOrNull(key: InstanceStateKey<T>): T? = contentState[key] as T?
+
+    fun <T : Any> state(key: InstanceStateKey<T>, create: () -> T): T {
+        check(!isEnded) { "Instance session has ended: $id" }
+        return stateOrNull(key) ?: create().also { contentState[key] = it }
+    }
+
+    internal fun markEnded() {
+        isEnded = true
+        contentState.clear()
+        damageContributions.clear()
+    }
+
     val damageContributions = DamageContributions()
 
     val occupants = mutableSetOf<Long>()
@@ -91,6 +114,8 @@ class InstanceSession(
         }
 
     fun resetState() {
+        check(!isEnded) { "Cannot reset a destroyed instance: $id" }
+        contentState.clear()
         state = SessionState.Active
         arenaExpired = false
         gracePending = false
