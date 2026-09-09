@@ -171,6 +171,40 @@ existing "adjacent but not under the boss" melee eligibility without a custom se
 edge, beyond-range and wrong-plane positions before wiring its weights. This repairs an existing
 generic condition rather than introducing a Vorkath-specific predicate.
 
+Vorkath lifecycle integration (in progress, not a completed combat migration): native InstanceScript
+entry, selected-X exit, keyed join, declarative sleeping spawn and typed session-owned state replace
+the private membership map, generation counter and travel/leave/logout/death-cleanup implementations.
+Session cleanup owns arena resources, while InstanceManager/InstanceLifecycleScript owns NPC/index
+retirement. Existing diagnostic entry/exit now calls the same protected flows (not enabled live).
+The characterization fixture now executes the real InstanceManager, InstanceScript and shared
+lifecycle plugin. `vorkath-native-instance-test-5.log`: 105 tests pass, 36s/162 tasks.
+
+The new native entry fixture found an actual collision defect, separate from architecture debt:
+activation added the active boss over the sleeping boss, then deleting the sleeping footprint erased
+the active footprint. Delete the sleeping actor before adding the active actor on that same tile;
+`spawnRejectsStuckLandingTilesAndClipsAlongTheCapturedBossEdge` now passes from real entry/wake.
+Both remain delete/add at the same tick; client/index ordering still requires runtime comparison.
+The intermediate fixture run exhausted the test heap because inline mocks retained collision maps;
+the fixture releases those recorded mocks after each test. No production memory limits changed.
+
+Scoped timing gap for external mechanics: searched local `api`, `engine`, upstream/main
+WorldQueueList/WorldQueueListProcess, NPC access, BossEncounter.schedule and instance tick hooks.
+World queues use relative countdowns and may process an appended callback in the same cycle;
+InstanceTimeTick is only for time-limited sessions and runs after player movement. Neither provides
+an exact pre-input absolute deadline. Moving Vorkath's tile snapshots to NPC coroutines would move
+them past player input. Add an optional readiness guard to the existing cancellable world queue
+and `BossEncounter.scheduleAt` using MapClock; leave existing relative queues unchanged. This is a
+small local extension of the native world queue, not another scheduler. Test nested scheduling at
+different queue positions, exact deadlines, legacy countdown semantics, cancellation and encounter
+end. Use it for unique arena effects; ordinary attacks remain declarative DSL effects.
+
+`boss-absolute-world-queue-red-2.log`: two of three regression tests fail on early execution and
+ignored readiness, while the unchanged relative-countdown test passes. After the processor honors
+readiness, `boss-absolute-world-check.log` passes engine/game, game-process and boss API checks plus
+105 Vorkath tests (39s, 178 tasks). Encounter removal also physically unlinks absolute work.
+`vorkath-native-instance-check.log` passes selected-file formatting, Vorkath check and instance tests
+(40s, 168 tasks); this still does not certify Vorkath's remaining custom combat timeline.
+
 Initial line-count definition: main Kotlin files ending in `Manager.kt` or `Timeline.kt`, excluding
 generated output. Includes specialized manager files (therefore not all counted lines are duplication).
 Diagnostic-only modules are excluded. Zero manager lines is not proof of architecture compliance.

@@ -20,8 +20,15 @@ public class WorldQueueList {
     }
 
     /** Enqueues on the normal world list with explicit, game-thread-owned cancellation. */
-    public fun addCancellable(remainingCycles: Int, action: () -> Unit): Cancellation {
-        val queue = Queue(action, remainingCycles)
+    public fun addCancellable(remainingCycles: Int, action: () -> Unit): Cancellation =
+        addCancellable(remainingCycles, ready = { true }, action = action)
+
+    public fun addCancellable(
+        remainingCycles: Int,
+        ready: () -> Boolean,
+        action: () -> Unit,
+    ): Cancellation {
+        val queue = Queue(action, remainingCycles, ready)
         val node = Node(queue, prev = last)
         add(node)
         return Cancellation { remove(node) }
@@ -79,7 +86,11 @@ public class WorldQueueList {
         internal var linked: Boolean = true
     }
 
-    public data class Queue(val action: () -> Unit, var remainingCycles: Int)
+    public data class Queue(
+        val action: () -> Unit,
+        var remainingCycles: Int,
+        val ready: () -> Boolean = { true },
+    )
 
     public fun iterator(): QueueIterator {
         iterator.reset(first)

@@ -17,7 +17,7 @@ public class WorldQueueListProcess @Inject constructor(private val queues: World
 
             queue.remainingCycles--
 
-            if (queue.remainingCycles <= 0) {
+            if (queue.remainingCycles <= 0 && queue.ready()) {
                 iterator.remove()
                 queue.action()
             }

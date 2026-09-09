@@ -354,6 +354,9 @@ class BossRuntimeRegressionTest {
             }
         }
         f.encounter.schedule(f.deps.worldQueues, 50) { error("stale world task") }
+        f.encounter.scheduleAt(f.deps.worldQueues, f.clock, f.clock.cycle + 50) {
+            error("stale absolute world task")
+        }
         f.run(Effect.Parallel(listOf(Effect.External("wait"), Effect.External("wait"))))
         f.registry.remove(f.npc)
         assertEquals(2, finalized)

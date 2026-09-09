@@ -2,6 +2,7 @@ package org.rsmod.api.bosses.runtime
 
 import org.rsmod.api.bosses.spec.*
 import org.rsmod.api.random.GameRandom
+import org.rsmod.game.MapClock
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
 import org.rsmod.game.hit.HitScope
@@ -103,6 +104,18 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
         var unregister: () -> Unit = {}
         val cancellation =
             queues.addCancellable(ticks) {
+                unregister()
+                if (!isEnded) action()
+            }
+        unregister = onCleanup(cancellation::cancel)
+    }
+
+    /** Exact pre-input deadline on the existing world queue, independent of enqueue stage. */
+    fun scheduleAt(queues: WorldQueueList, clock: MapClock, tick: Int, action: () -> Unit) {
+        check(!isEnded) { "Encounter has ended." }
+        var unregister: () -> Unit = {}
+        val cancellation =
+            queues.addCancellable(0, ready = { clock.cycle >= tick }) {
                 unregister()
                 if (!isEnded) action()
             }
