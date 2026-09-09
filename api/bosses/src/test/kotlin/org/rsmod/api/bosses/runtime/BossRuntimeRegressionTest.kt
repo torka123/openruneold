@@ -1020,6 +1020,48 @@ class BossRuntimeRegressionTest {
         assertEquals(104, f.npc.actionDelay)
     }
 
+    @Test
+    fun `source death policy preserves only already launched hits until native encounter teardown`() {
+        for (survives in listOf(false, true)) {
+            val f = Fixture(random = Rolls(8), nativeCombat = true)
+            f.npc.mode = NpcMode.ApPlayer2
+            f.run(Effect.NpcAttack(CombatAttack.NpcMagic(28), survivesSourceDeath = survives))
+            val hit = f.queuedHits().single().second
+            assertTrue(hit.isValidNow())
+            f.npc.hitpoints = 0
+            assertEquals(survives, hit.isValidNow())
+            f.tick(5)
+            f.run(Effect.NpcAttack(CombatAttack.NpcMagic(28), survivesSourceDeath = survives))
+            assertEquals(1, f.queuedHits().size, "Death must never permit another launch")
+            if (survives) {
+                f.player.coords = f.player.coords.translate(100, 100)
+                assertFalse(hit.isValidNow(), "Target departure still invalidates the hit")
+                f.player.coords = CoordGrid(2911, 9566)
+                assertTrue(hit.isValidNow())
+            }
+            f.registry.remove(f.npc)
+            assertFalse(hit.isValidNow())
+            assertFalse(hit.isQueueArgumentValid())
+        }
+    }
+
+    @Test
+    fun `encounter selection RNG can be injected once without reseeding another lookup`() {
+        val f = Fixture(random = Rolls(0))
+        val registry = EncounterRegistry(f.random)
+        registry.register(f.npc.type.id, f.spec, "seeded")
+        val selected = registry.of(f.npc, Rolls(1))
+        val choice = Selector.WeightedRandom(WeightedRef("a", 1), WeightedRef("b", 1))
+        assertEquals("b", selected.selectAbility(choice, 100))
+        assertSame(selected, registry.of(f.npc, Rolls(0)))
+        assertEquals("b", selected.selectAbility(choice, 104))
+        registry.remove(f.npc)
+        assertTrue(selected.isEnded)
+        val next = registry.of(f.npc)
+        assertNotSame(selected, next)
+        assertEquals("a", next.selectAbility(choice, 108))
+    }
+
     private class Fixture(
         phase: PhaseSpec = PhaseSpec("main"),
         val random: GameRandom = DefaultGameRandom(42L),

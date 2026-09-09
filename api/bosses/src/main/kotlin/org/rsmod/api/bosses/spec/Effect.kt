@@ -66,6 +66,8 @@ sealed interface Effect {
         val parameterData: Any? = null,
         val hitCount: Int = 1,
         val hits: List<NpcHitParameters>? = null,
+        /** Fired hits may outlive death, but never deletion, respawn or encounter teardown. */
+        val survivesSourceDeath: Boolean = false,
     ) : Effect {
         init {
             require(hitCount > 0) { "Hit count must be positive." }

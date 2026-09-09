@@ -32,7 +32,7 @@ class EncounterRegistry @Inject constructor(private val random: GameRandom) {
 
     fun registeredSpec(npc: Npc): BossSpec? = specs[npc.type.id] ?: specs[npc.visType.id]
 
-    fun of(npc: Npc): BossEncounter {
+    fun of(npc: Npc, selectionRandom: GameRandom = random): BossEncounter {
         return encounters.getOrPut(npc.uid) {
             val spec =
                 requireNotNull(registeredSpec(npc)) {
