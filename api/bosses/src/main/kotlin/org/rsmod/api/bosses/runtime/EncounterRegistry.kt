@@ -1,22 +1,29 @@
 package org.rsmod.api.bosses.runtime
 
+import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import org.rsmod.api.bosses.spec.BossSpec
+import org.rsmod.api.random.GameRandom
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.npc.NpcUid
 
 @Singleton
-class EncounterRegistry {
+class EncounterRegistry @Inject constructor(private val random: GameRandom) {
     private val encounters = mutableMapOf<NpcUid, BossEncounter>()
     private val specs = mutableMapOf<Int, BossSpec>()
     private val owners = linkedMapOf<String, BossSpec>()
 
     fun register(npcTypeId: Int, spec: BossSpec, ownerSlug: String) {
-        specs[npcTypeId] = spec
-        val previous = owners.putIfAbsent(ownerSlug, spec)
+        val previous = owners[ownerSlug]
         require(previous == null || previous === spec) {
             "Duplicate boss owner slug registered: $ownerSlug"
         }
+        val previousSpec = specs[npcTypeId]
+        require(previousSpec == null || previousSpec === spec) {
+            "Duplicate boss NPC type registered: $npcTypeId"
+        }
+        specs[npcTypeId] = spec
+        owners[ownerSlug] = spec
     }
 
     fun registeredBosses(): Map<String, BossSpec> = owners.toMap()
@@ -31,16 +38,19 @@ class EncounterRegistry {
                 requireNotNull(registeredSpec(npc)) {
                     "NPC type ${npc.type.id}/${npc.visType.id} has no registered boss combat owner."
                 }
-            BossEncounter(npc, spec)
+            BossEncounter(npc, spec, random)
         }
     }
 
     fun isCurrent(npc: Npc, encounter: BossEncounter): Boolean =
-        npc.isSlotAssigned && npc.hitpoints > 0 && encounters[npc.uid] === encounter
+        npc.isSlotAssigned &&
+            npc.hitpoints > 0 &&
+            !encounter.isEnded &&
+            encounters[npc.uid] === encounter
 
     fun existing(npc: Npc): BossEncounter? = encounters[npc.uid]
 
     fun remove(npc: Npc) {
-        encounters.remove(npc.uid)
+        encounters.remove(npc.uid)?.end()
     }
 }

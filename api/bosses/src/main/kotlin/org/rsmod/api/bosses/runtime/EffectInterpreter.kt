@@ -20,11 +20,15 @@ import org.rsmod.api.player.hit.modifier.StandardPlayerHitModifier
 import org.rsmod.api.player.hit.queueHit
 import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.stat.hitpoints
+import org.rsmod.api.player.stat.prayerLvl
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.player.PlayerUid
+import org.rsmod.game.hit.HitAttribution
+import org.rsmod.game.hit.HitContext
 import org.rsmod.game.hit.HitImpactHandler
 import org.rsmod.game.hit.HitType
+import org.rsmod.game.hit.HitValidity
 import org.rsmod.game.map.collision.isWalkBlocked
 import org.rsmod.game.proj.ProjAnim
 import org.rsmod.map.CoordGrid
@@ -38,8 +42,18 @@ class EffectInterpreter(
 ) {
 
     suspend fun run(access: StandardNpcAccess, effect: Effect) {
+        if (!deps.encounterRegistry.isCurrent(npc, encounter)) return
+        val unregister = encounter.onCleanup { npc.cancelActiveCoroutine() }
+        try {
+            execute(access, effect)
+        } finally {
+            unregister()
+        }
+    }
+
+    private suspend fun execute(access: StandardNpcAccess, effect: Effect) {
         when (effect) {
-            is Effect.Anim -> access.anim(effect.seq)
+            is Effect.Anim -> access.anim(effect.seq, effect.delay)
             is Effect.NpcAttackAnim -> {
                 val animation = npc.visType.paramOrNull(params.attack_anim)
                 if (animation != null) {
@@ -97,16 +111,19 @@ class EffectInterpreter(
                 for (e in effect.effects) run(access, e)
             }
             is Effect.Parallel -> {
-                for (e in effect.effects) run(access, e)
+                access.parallel(effect.effects.map { child -> { run(this, child) } })
             }
             is Effect.Choose -> {
                 val abilityName =
-                    encounter.selectAbility(effect.selector, deps.mapClock.cycle) ?: return
+                    encounter.selectAbility(effect.selector, deps.mapClock.cycle, target) ?: return
                 val branch = effect.branches[abilityName] ?: return
                 run(access, branch)
             }
             is Effect.Repeat -> {
-                repeat(effect.times) { run(access, effect.effect) }
+                repeat(effect.times) { index ->
+                    run(access, effect.effect)
+                    if (index < effect.times - 1 && effect.gap > 0) access.delay(effect.gap)
+                }
             }
             is Effect.Whenever -> {
                 if (encounter.evaluate(effect.condition, target)) {
@@ -150,6 +167,8 @@ class EffectInterpreter(
                 damage,
                 modifier = hitModifier(hit),
                 impactHandler = impactHandler(t, hit, accurate, expectedImpactTick),
+                validity = validity(t),
+                context = HitContext.of(HitAttribution(), encounter.effectScope),
             )
         }
     }
@@ -177,6 +196,7 @@ class EffectInterpreter(
             }
 
         val projAnim = ProjAnim.fromNpcToPlayer(npc, t, spotId, type)
+        proj.launch?.let { access.spotanim(it) }
         deps.worldRepo.projAnim(projAnim)
 
         proj.hit?.let { hit ->
@@ -199,8 +219,19 @@ class EffectInterpreter(
                 damage,
                 modifier = hitModifier(hit),
                 impactHandler = impactHandler(t, landedHit, accurate, expectedImpactTick),
+                validity = validity(t),
+                context = HitContext.of(HitAttribution(), encounter.effectScope),
             )
         }
+        if (proj.hit == null && proj.impact != null) {
+            encounter.schedule(deps.worldQueues, projAnim.serverCycles) {
+                if (validity(t).isValid()) t.spotanim(proj.impact)
+            }
+        }
+    }
+
+    private fun validity(player: Player): HitValidity = HitValidity {
+        deps.encounterRegistry.isCurrent(npc, encounter) && eligible(player)
     }
 
     private fun impactHandler(
@@ -247,7 +278,14 @@ class EffectInterpreter(
         val targets = eligiblePlayers().filter { it.coords.chebyshevDistance(center) <= radius }
         for (t in targets) {
             val damage = evaluateDamage(aoe.damage)
-            t.queueHit(npc, 0, aoe.type.toEngine(), damage)
+            t.queueHit(
+                npc,
+                0,
+                aoe.type.toEngine(),
+                damage,
+                validity = validity(t),
+                context = HitContext.of(HitAttribution(), encounter.effectScope),
+            )
         }
     }
 
@@ -272,8 +310,8 @@ class EffectInterpreter(
 
         tiles.forEach { deps.worldRepo.spotanimMap(telegraphSpot, it) }
 
-        deps.worldQueues.add(effect.windup) {
-            if (!deps.encounterRegistry.isCurrent(npc, encounter)) return@add
+        encounter.schedule(deps.worldQueues, effect.windup) {
+            if (!deps.encounterRegistry.isCurrent(npc, encounter)) return@schedule
             effect.impact?.let { impact ->
                 val impactSpot = SpotanimType(impact.asRSCM(RSCMType.SPOTANIM))
                 tileSet.forEach { deps.worldRepo.spotanimMap(impactSpot, it) }
@@ -284,7 +322,14 @@ class EffectInterpreter(
                 }
             for (player in landing) {
                 if (player.hitpoints > 0 && player.coords in tileSet) {
-                    player.queueHit(npc, 1, effect.type.toEngine(), evaluateDamage(effect.damage))
+                    player.queueHit(
+                        npc,
+                        1,
+                        effect.type.toEngine(),
+                        evaluateDamage(effect.damage),
+                        validity = validity(player),
+                        context = HitContext.of(HitAttribution(), encounter.effectScope),
+                    )
                 }
             }
         }
@@ -362,12 +407,13 @@ class EffectInterpreter(
 
     private fun resolveSingle(expr: TargetExpr.Single): Player? {
         return when (expr) {
-            is TargetExpr.CurrentTarget -> target
+            is TargetExpr.CurrentTarget -> target.takeIf(::eligible)
             is TargetExpr.Self -> null
             is TargetExpr.CurrentTargetTile -> null
-            is TargetExpr.HighestDamageDealer -> target
-            is TargetExpr.LowestPrayer -> target
-            is TargetExpr.RandomNearby -> target
+            is TargetExpr.HighestDamageDealer ->
+                eligiblePlayers().maxByOrNull { npc.damageContributions.damageBy(it) }
+            is TargetExpr.LowestPrayer -> eligiblePlayers().minByOrNull { it.prayerLvl }
+            is TargetExpr.RandomNearby -> deps.random.pickOrNull(eligiblePlayers())
         }
     }
 
@@ -415,7 +461,22 @@ class EffectInterpreter(
                 val center = resolveTile(expr.of)
                 eligiblePlayers().filter { it.coords.chebyshevDistance(center) <= expr.radius }
             }
-            is TargetExpr.TopN -> listOf(target)
+            is TargetExpr.TopN ->
+                when (expr.by) {
+                    TargetExpr.HighestDamageDealer ->
+                        eligiblePlayers().sortedByDescending {
+                            npc.damageContributions.damageBy(it)
+                        }
+                    TargetExpr.LowestPrayer -> eligiblePlayers().sortedBy { it.prayerLvl }
+                    TargetExpr.RandomNearby ->
+                        buildList {
+                            val remaining = eligiblePlayers().toMutableList()
+                            repeat(minOf(expr.n.coerceAtLeast(0), remaining.size)) {
+                                add(remaining.removeAt(deps.random.of(remaining.size)))
+                            }
+                        }
+                    else -> listOfNotNull(resolveSingle(expr.by))
+                }.take(expr.n.coerceAtLeast(0))
             is TargetExpr.Single -> listOfNotNull(resolveSingle(expr))
             else -> listOf(target)
         }
@@ -424,10 +485,17 @@ class EffectInterpreter(
     private fun eligiblePlayers(): List<Player> {
         val owner = npc.spawnOwner
         if (owner != PlayerUid.NULL) {
-            return owner.resolve(deps.playerList)?.let(::listOf) ?: emptyList()
+            return owner.resolve(deps.playerList)?.takeIf(::eligible)?.let(::listOf) ?: emptyList()
         }
-        return deps.playerList.toList()
+        return deps.playerList.filter(::eligible)
     }
+
+    private fun eligible(player: Player): Boolean =
+        player.isSlotAssigned &&
+            player.hitpoints > 0 &&
+            player.coords.level == npc.coords.level &&
+            npc.isWithinDistance(player, MAX_PENDING_ATTACK_DISTANCE) &&
+            (npc.spawnOwner == PlayerUid.NULL || npc.spawnOwner == player.uid)
 
     private fun damageMax(expr: DamageExpr): Int =
         when (expr) {

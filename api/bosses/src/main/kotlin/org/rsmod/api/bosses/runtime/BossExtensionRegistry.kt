@@ -14,7 +14,9 @@ class BossExtensionRegistry {
     private val handlers = mutableMapOf<String, BossExtensionHandler>()
 
     fun register(name: String, handler: BossExtensionHandler) {
-        handlers[name] = handler
+        require(handlers.putIfAbsent(name, handler) == null) {
+            "Duplicate boss extension registered: $name"
+        }
     }
 
     suspend fun invoke(

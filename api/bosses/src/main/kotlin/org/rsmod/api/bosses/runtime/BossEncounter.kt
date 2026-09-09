@@ -1,9 +1,11 @@
 package org.rsmod.api.bosses.runtime
 
-import kotlin.random.Random
 import org.rsmod.api.bosses.spec.*
+import org.rsmod.api.random.GameRandom
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
+import org.rsmod.game.hit.HitScope
+import org.rsmod.game.queue.WorldQueueList
 
 data class BossAttackTrace(
     val ability: String,
@@ -14,9 +16,9 @@ data class BossAttackTrace(
     var actualImpactTick: Int? = null,
 )
 
-class BossEncounter(val npc: Npc, val spec: BossSpec) {
+class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRandom) {
     var currentPhaseName: String = spec.phases.keys.firstOrNull() ?: ""
-    var phaseEnteredTick: Int = 0
+    var phaseEnteredTick: Int = -1
     var lastAbilityTick: Int = 0
     var lastAbilityName: String? = null
     var invulnerable: Boolean = false
@@ -26,6 +28,7 @@ class BossEncounter(val npc: Npc, val spec: BossSpec) {
     internal val firedTriggers = mutableSetOf<Int>()
     internal val firedPhaseEntries = mutableSetOf<String>()
     private val cooldowns = mutableMapOf<String, Int>()
+    private val forcedTickLastFired = mutableMapOf<String, Int>()
     private var rotationCursor = 0
     private var basicAttackCount = 0
     var lastRotationIndex: Int = -1
@@ -38,6 +41,9 @@ class BossEncounter(val npc: Npc, val spec: BossSpec) {
     private var forcedAbility: String? = null
     private val cleanupActions = mutableListOf<() -> Unit>()
     private val encounterState = mutableMapOf<String, Any>()
+    internal val effectScope = HitScope()
+    var isEnded: Boolean = false
+        private set
 
     init {
         npc.movementLocked = currentPhase?.lockMovement == true
@@ -58,25 +64,62 @@ class BossEncounter(val npc: Npc, val spec: BossSpec) {
     fun owned(): List<Npc> = ownedNpcs.toList()
 
     /** Registers encounter-owned world state (locs, hazards, etc.) for deterministic cleanup. */
-    fun onCleanup(action: () -> Unit) {
+    fun onCleanup(action: () -> Unit): () -> Unit {
+        check(!isEnded) { "Encounter has ended." }
         cleanupActions += action
+        return {
+            cleanupActions.remove(action)
+            Unit
+        }
     }
 
     fun runCleanupActions() {
-        cleanupActions.toList().forEach { it() }
+        val actions = cleanupActions.toList()
         cleanupActions.clear()
         encounterState.clear()
+        var failure: Throwable? = null
+        actions.forEach { action ->
+            try {
+                action()
+            } catch (error: Throwable) {
+                if (failure == null) failure = error else failure!!.addSuppressed(error)
+            }
+        }
+        failure?.let { throw it }
+    }
+
+    internal fun end() {
+        if (isEnded) return
+        isEnded = true
+        effectScope.close()
+        forcedAbility = null
+        externalMarks.clear()
+        runCleanupActions()
+    }
+
+    /** Owns work on the existing world queue, releasing both callback and cleanup registration. */
+    fun schedule(queues: WorldQueueList, ticks: Int, action: () -> Unit) {
+        check(!isEnded) { "Encounter has ended." }
+        var unregister: () -> Unit = {}
+        val cancellation =
+            queues.addCancellable(ticks) {
+                unregister()
+                if (!isEnded) action()
+            }
+        unregister = onCleanup(cancellation::cancel)
     }
 
     /** Stores mechanic state on this encounter instead of in a plugin-global combat singleton. */
     @Suppress("UNCHECKED_CAST")
     fun <T : Any> state(key: String, create: () -> T): T {
+        check(!isEnded) { "Encounter has ended." }
         val existing = encounterState[key]
         if (existing != null) return existing as T
         return create().also { encounterState[key] = it }
     }
 
     fun forceNextAbility(name: String): Boolean {
+        if (isEnded) return false
         if (name !in spec.abilities) return false
         forcedAbility = name
         return true
@@ -126,6 +169,7 @@ class BossEncounter(val npc: Npc, val spec: BossSpec) {
         rotationCursor = 0
         lastRotationIndex = -1
         cooldowns.clear()
+        forcedTickLastFired.clear()
         basicAttackCount = 0
         forceAttackThreshold = -1
 
@@ -144,8 +188,9 @@ class BossEncounter(val npc: Npc, val spec: BossSpec) {
 
         for (forced in phase.forceAbilities) {
             if (forced.attackMin != null) continue
-            val elapsed = tick - phaseEnteredTick
-            if (elapsed > 0 && elapsed % forced.period == 0) {
+            val lastFired = forcedTickLastFired[forced.ability] ?: phaseEnteredTick
+            if (tick - lastFired >= forced.period) {
+                forcedTickLastFired[forced.ability] = tick
                 return forced.ability
             }
         }
@@ -181,7 +226,7 @@ class BossEncounter(val npc: Npc, val spec: BossSpec) {
     private fun randomThreshold(forced: ForcedAbility): Int {
         val min = forced.attackMin ?: return Int.MAX_VALUE
         val max = (forced.attackMax ?: min).coerceAtLeast(min)
-        return if (max == min) min else Random.nextInt(min, max + 1)
+        return if (max == min) min else random.of(min, max)
     }
 
     private fun selectWeightedRandom(
@@ -200,7 +245,7 @@ class BossEncounter(val npc: Npc, val spec: BossSpec) {
         val totalWeight = available.sumOf { it.weight }
         if (totalWeight <= 0) return null
 
-        var roll = Random.nextInt(totalWeight)
+        var roll = random.of(totalWeight)
         for (ref in available) {
             roll -= ref.weight
             if (roll < 0) {

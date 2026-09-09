@@ -105,15 +105,17 @@ object BossCombat {
     }
 
     private fun clearEncounter(npc: Npc, deps: BossDeps) {
-        deps.encounterRegistry.existing(npc)?.let { encounter ->
-            encounter.drainOwnedNpcs().forEach { owned ->
+        val ownedNpcs = deps.encounterRegistry.existing(npc)?.drainOwnedNpcs().orEmpty()
+        try {
+            // Retire hit/task scopes before deleting owned entities or invoking their hooks.
+            deps.encounterRegistry.remove(npc)
+        } finally {
+            ownedNpcs.forEach { owned ->
                 if (owned.isSlotAssigned) {
                     deps.npcRepo.del(owned, Int.MAX_VALUE)
                 }
             }
-            encounter.runCleanupActions()
         }
-        deps.encounterRegistry.remove(npc)
     }
 
     private suspend fun StandardNpcAccess.runCombatTick(
@@ -126,6 +128,7 @@ object BossCombat {
         val encounter = deps.encounterRegistry.of(npc)
         if (encounter.currentPhase == null) return
         val tick = deps.mapClock.cycle
+        if (encounter.phaseEnteredTick < 0) encounter.phaseEnteredTick = tick
 
         checkAutoTransitions(this, target, encounter, tick, spec, deps)
         checkTriggers(this, target, spec, deps, encounter)

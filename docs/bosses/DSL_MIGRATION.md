@@ -41,9 +41,34 @@ The local contribution file describes older Alter module names; use current Grad
 | TargetExpr stubs return current target | Upstream TargetExpr, native PlayerList and DamageContributions | Use eligible same-level/live/owned candidates, GameRandom and native contribution/prayer state. Test distinct targets and ownership isolation. |
 | Instance lifecycle | Upstream InstanceScript, InstanceManager, keyed events; local teleport/disconnect and detach fixes | Reuse shared membership and removal. Session-owned mechanic state may require a small reusable InstanceSession state facility; no boss-local player/run registry. Verify native lifecycle integration before migrating content. |
 
+Additional verified generic ownership gap: native `WorldQueueList.add` returns Unit and exposes no
+cancellation handle; repository searches found only iterator-based removal in WorldQueueListProcess.
+Add a cancellable enqueue overload to that same list (not another scheduler), with safe removal
+during iteration. BossEncounter owns the cancellation handles through existing cleanup actions.
+Tests must cover cancel-before-due, cancelling the iterator's next node, double cancellation and
+encounter teardown. Existing `add` callers keep their signature and execution order.
+
 No new boss-specific constants, timing, hit rules or reward rates are authorized by this table.
 Existing local source-attribution, trace, ownership, recoil and impact-resolution additions are
 preserved. Deferred concerns such as ignored noRepeatBias must not silently rebalance existing specs.
+
+### Source-defined instance integration (mapped before editing)
+
+Kraken's existing `krakenSpec` is an `InstanceSettings.withArea` specification with no DB settings
+row (`settingsRowId = 0`). Local and upstream `InstanceScript` require an abstract settings row and
+derive their key from it. The cache's instance gamevals contain no Kraken settings row. Requiring
+a new cache row merely to adopt keyed lifecycle hooks would unnecessarily change the cache data.
+Add a source-key/spec constructor to **the existing InstanceScript**; keep the database constructor
+and all default flows unchanged. Source-defined content explicitly registers its loc interactions
+and calls the same protected `completeInstanceEntry` / `defaultLeaveFlow`. Test registry startup,
+keyed events, preservation of the supplied area/settings and the existing database path.
+
+`InstanceSession` already owns identity, membership, contribution and timing, but repository and
+upstream searches found no typed content-state attachment there. Add a typed identity key and
+get/create accessor to that class. Native reset clears this state; native destruction marks it
+ended and clears it. Do not store another player list or username/run index in content. Regression
+tests cover two sessions, reset, destruction, stale references and native manager teardown. These
+are proposed reusable local extensions of upstream APIs, not claims that upstream already has them.
 
 ## Inventory and progress
 
@@ -73,6 +98,24 @@ Kree'arra, K'ril, Obor, Scorpia, Scurrius, Wilderness, Zilyana) must be regressi
 
 ## Verification log
 
-Implementation and test results will be recorded per focused commit. No gameplay migration or
-runtime verification is claimed by the initial mapping. No deployment is permitted without new
-explicit authorization.
+- `3f1bddb26`: regression-first commit. `boss-dsl-regression-red-2.log`: 12 tests, 11 failures
+  against the pre-repair interpreter/cadence (the native coroutine fixture advances both map clocks).
+- Shared repairs: animation client delay, launch/impact graphics, repeat gaps, parallel native
+  coroutine branches, injected random selection, encounter-relative forced cadence, live target
+  selection, pre-impact hit invalidation, cancellable native world work, idempotent cleanup and
+  atomic duplicate registration rejection. No boss timing constants or cache values changed.
+- `boss-dsl-repairs-test-7.log`: `:api:bosses:test :api:npc:test :engine:game:test`, success;
+  20 boss API, 12 NPC API and 35 game tests, no failures/skips.
+- `boss-dsl-broad-regression.log`: unscoped API/game `check` plus all boss tests stopped at
+  **pre-existing formatting violations in untouched sources**. Those files were not formatted.
+- `boss-dsl-broad-regression-2.log`: same checks with `scripts/format-selected.init.gradle` and
+  explicit changed-file manifest, plus every boss module's `test`, `--continue`; success in 1m31s,
+  319 tasks. Boss module test totals: Hydra 7, Bryophyta 4, Cerberus 52, Chaos Fanatic 3, Corp 7,
+  Crazy Archaeologist 3, DKS 10, DT2 133, Doom 115, Mole 3, GG 6, KBD 2, Kraken 4, Muspah 40,
+  Nex 18, Obor 3, RT 97, Scorpia 3, Vorkath 103, Wilderness 63, Yama 112, Zulrah 22.
+  Other boss modules compile but have no test sources; this is not runtime coverage for them.
+- `scripts/check-boss-architecture.ps1 -SelfTest` and default budget check pass. The detector
+  flags new debt, while explicit per-rule waivers preserve specialized content and identify
+  existing migration debt. It is a review aid, not mechanical parity evidence.
+- Selected-file formatting and `git diff --check` pass. No deployment, live restart, client
+  gameplay, packet comparison or visual parity is claimed.

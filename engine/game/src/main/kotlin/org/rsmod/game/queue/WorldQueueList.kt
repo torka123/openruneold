@@ -16,9 +16,23 @@ public class WorldQueueList {
         get() = size > 0
 
     public fun add(remainingCycles: Int, action: () -> Unit) {
+        addCancellable(remainingCycles, action)
+    }
+
+    /** Enqueues on the normal world list with explicit, game-thread-owned cancellation. */
+    public fun addCancellable(remainingCycles: Int, action: () -> Unit): Cancellation {
         val queue = Queue(action, remainingCycles)
         val node = Node(queue, prev = last)
         add(node)
+        return Cancellation { remove(node) }
+    }
+
+    public class Cancellation internal constructor(private var cancelAction: (() -> Unit)?) {
+        public fun cancel() {
+            val action = cancelAction ?: return
+            cancelAction = null
+            action()
+        }
     }
 
     private fun add(node: Node) {
@@ -33,6 +47,9 @@ public class WorldQueueList {
     }
 
     private fun remove(node: Node) {
+        if (!node.linked) return
+        node.linked = false
+        iterator.onRemoved(node)
         val prev = node.prev
         val next = node.next
 
@@ -52,11 +69,15 @@ public class WorldQueueList {
 
         check(size > 0)
         size--
+        node.prev = null
+        node.next = null
     }
 
     override fun toString(): String = "WorldQueueList(size=$size, first=$first, last=$last)"
 
-    public data class Node(val queue: Queue, var prev: Node?, var next: Node? = null)
+    public data class Node(val queue: Queue, var prev: Node?, var next: Node? = null) {
+        internal var linked: Boolean = true
+    }
 
     public data class Queue(val action: () -> Unit, var remainingCycles: Int)
 
@@ -88,6 +109,11 @@ public class WorldQueueList {
         public fun cleanUp() {
             this.next = null
             this.curr = null
+        }
+
+        internal fun onRemoved(node: Node) {
+            if (next === node) next = node.next
+            if (curr === node) curr = null
         }
 
         internal fun reset(first: Node?) {

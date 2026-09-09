@@ -1,0 +1,404 @@
+[
+  {
+    "boss": "alchemical-hydra",
+    "rule": "boss-api-dependency",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "alchemical-hydra",
+    "rule": "global-runs-map",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "alchemical-hydra",
+    "rule": "manual-lifecycle",
+    "maximum": 3,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "alchemical-hydra",
+    "rule": "direct-combat-review",
+    "maximum": 6,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "alchemical-hydra",
+    "rule": "instance-script",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "cerberus",
+    "rule": "boss-api-dependency",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "cerberus",
+    "rule": "global-runs-map",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "cerberus",
+    "rule": "manual-lifecycle",
+    "maximum": 3,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "cerberus",
+    "rule": "direct-combat-review",
+    "maximum": 7,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "cerberus",
+    "rule": "instance-script",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "chaos-fanatic",
+    "rule": "direct-combat-review",
+    "maximum": 1,
+    "reason": "Existing external area-special handler; preserve mechanics and review additions."
+  },
+  {
+    "boss": "corporeal-beast",
+    "rule": "boss-api-dependency",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "corporeal-beast",
+    "rule": "direct-combat-review",
+    "maximum": 8,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "crazy-archaeologist",
+    "rule": "direct-combat-review",
+    "maximum": 1,
+    "reason": "Existing external area-special handler; preserve mechanics and review additions."
+  },
+  {
+    "boss": "dagannoth-kings",
+    "rule": "boss-api-dependency",
+    "maximum": 1,
+    "reason": "Separate pending audit of native NvPCombat and spinolyp lifecycle; no mechanical defect inferred."
+  },
+  {
+    "boss": "dagannoth-kings",
+    "rule": "direct-combat-review",
+    "maximum": 7,
+    "reason": "Separate pending audit of native NvPCombat and spinolyp lifecycle; no mechanical defect inferred."
+  },
+  {
+    "boss": "desert-treasure-ii",
+    "rule": "boss-api-dependency",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "desert-treasure-ii",
+    "rule": "private-timeline",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "desert-treasure-ii",
+    "rule": "global-runs-map",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "desert-treasure-ii",
+    "rule": "manual-lifecycle",
+    "maximum": 3,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "desert-treasure-ii",
+    "rule": "direct-combat-review",
+    "maximum": 10,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "desert-treasure-ii",
+    "rule": "instance-script",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "doom-of-mokhaiotl",
+    "rule": "boss-api-dependency",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "doom-of-mokhaiotl",
+    "rule": "global-runs-map",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "doom-of-mokhaiotl",
+    "rule": "manual-lifecycle",
+    "maximum": 3,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "doom-of-mokhaiotl",
+    "rule": "direct-combat-review",
+    "maximum": 11,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "doom-of-mokhaiotl",
+    "rule": "instance-script",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "grotesque-guardians",
+    "rule": "boss-api-dependency",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "grotesque-guardians",
+    "rule": "global-runs-map",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "grotesque-guardians",
+    "rule": "manual-lifecycle",
+    "maximum": 3,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "grotesque-guardians",
+    "rule": "direct-combat-review",
+    "maximum": 8,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "grotesque-guardians",
+    "rule": "instance-script",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "kraken",
+    "rule": "boss-api-dependency",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "kraken",
+    "rule": "global-runs-map",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "kraken",
+    "rule": "manual-lifecycle",
+    "maximum": 3,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "kraken",
+    "rule": "direct-combat-review",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "kraken",
+    "rule": "instance-script",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "muspah",
+    "rule": "boss-api-dependency",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "muspah",
+    "rule": "global-runs-map",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "muspah",
+    "rule": "manual-lifecycle",
+    "maximum": 5,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "muspah",
+    "rule": "direct-combat-review",
+    "maximum": 5,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "muspah",
+    "rule": "instance-script",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "nex",
+    "rule": "manual-lifecycle",
+    "maximum": 5,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "nex",
+    "rule": "direct-combat-review",
+    "maximum": 15,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "royal-titans",
+    "rule": "boss-api-dependency",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "royal-titans",
+    "rule": "global-runs-map",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "royal-titans",
+    "rule": "manual-lifecycle",
+    "maximum": 3,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "royal-titans",
+    "rule": "direct-combat-review",
+    "maximum": 3,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "royal-titans",
+    "rule": "instance-script",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "vorkath",
+    "rule": "boss-api-dependency",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "vorkath",
+    "rule": "private-timeline",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "vorkath",
+    "rule": "global-runs-map",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "vorkath",
+    "rule": "manual-lifecycle",
+    "maximum": 7,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "vorkath",
+    "rule": "direct-combat-review",
+    "maximum": 8,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "vorkath",
+    "rule": "instance-script",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "wilderness",
+    "rule": "private-timeline",
+    "maximum": 1,
+    "reason": "Existing DSL/external split includes specialized hazards; inspect remaining timeline during shared regression review."
+  },
+  {
+    "boss": "wilderness",
+    "rule": "direct-combat-review",
+    "maximum": 14,
+    "reason": "Existing DSL/external split includes specialized hazards; inspect remaining timeline during shared regression review."
+  },
+  {
+    "boss": "yama",
+    "rule": "boss-api-dependency",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "yama",
+    "rule": "global-runs-map",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "yama",
+    "rule": "manual-lifecycle",
+    "maximum": 7,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "yama",
+    "rule": "direct-combat-review",
+    "maximum": 4,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "yama",
+    "rule": "instance-script",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "zulrah",
+    "rule": "boss-api-dependency",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "zulrah",
+    "rule": "global-runs-map",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "zulrah",
+    "rule": "manual-lifecycle",
+    "maximum": 5,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "zulrah",
+    "rule": "direct-combat-review",
+    "maximum": 7,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  },
+  {
+    "boss": "zulrah",
+    "rule": "instance-script",
+    "maximum": 1,
+    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+  }
+]
