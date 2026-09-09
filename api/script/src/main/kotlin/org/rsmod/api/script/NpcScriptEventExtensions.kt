@@ -275,11 +275,18 @@ public fun ScriptContext.onNpcWalkTrigger(
 
 /* Hit functions */
 /**
- * Registers a script to modify any **incoming** hit **before** it is applied to the associated npc.
+ * Modifies an incoming hit when it is queued, not when it lands. Use [onResolveNpcHit] for immunity
+ * or HP floors that must sample impact-time state.
  */
 public fun ScriptContext.onModifyNpcHit(
     type: NpcServerType,
     action: NpcHitEvents.Modify.() -> Unit,
+): Unit = onEvent(type.id, action)
+
+/** Resolves final damage immediately before native HP loss and contribution processing. */
+public fun ScriptContext.onResolveNpcHit(
+    type: NpcServerType,
+    action: NpcHitEvents.Resolve.() -> Unit,
 ): Unit = onEvent(type.id, action)
 
 /**

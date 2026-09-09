@@ -15,8 +15,6 @@ import org.rsmod.api.player.stat.hitpoints
 import org.rsmod.api.player.vars.VarPlayerIntMapSetter
 import org.rsmod.api.random.GameRandom
 import org.rsmod.api.repo.obj.ObjRepository
-import org.rsmod.api.script.onOpHeld1
-import org.rsmod.api.script.onOpHeld2
 import org.rsmod.api.script.onPlayerCoordsChanged
 import org.rsmod.api.script.onPlayerLogin
 import org.rsmod.api.script.onPlayerLogout
@@ -157,11 +155,6 @@ constructor(private val random: GameRandom, private val objRepo: ObjRepository) 
         registerLoc(53224, CoordGrid(3005, 3936), 1) { tagDispenser() }
         registerLoc(53224, CoordGrid(3005, 3936), 2) { payDispenser() }
         registerLoc(53224, CoordGrid(3005, 3936), 3) { redeemTickets() }
-
-        onOpHeld1(CLOSED_LOOTING_BAG) { openLootingBag() }
-        onOpHeld1(OPEN_LOOTING_BAG) { closeLootingBag() }
-        onOpHeld2(CLOSED_LOOTING_BAG) { checkLootingBag() }
-        onOpHeld2(OPEN_LOOTING_BAG) { checkLootingBag() }
 
         onPlayerLogin {
             VarPlayerIntMapSetter.set(player, WILDERNESS_AGILITY_STAGE_VARP, 0)
@@ -655,23 +648,6 @@ constructor(private val random: GameRandom, private val objRepo: ObjRepository) 
         }
 
     private fun reward(obj: String, weight: Int): WeightedReward = WeightedReward(obj, 1, 1, weight)
-
-    private fun ProtectedAccess.openLootingBag() {
-        if (invReplace(inv, CLOSED_LOOTING_BAG, 1, OPEN_LOOTING_BAG).success) {
-            mes("You open the looting bag.")
-        }
-    }
-
-    private fun ProtectedAccess.closeLootingBag() {
-        if (invReplace(inv, OPEN_LOOTING_BAG, 1, CLOSED_LOOTING_BAG).success) {
-            mes("You close the looting bag.")
-        }
-    }
-
-    private fun ProtectedAccess.checkLootingBag() {
-        val bag = player.invMap.getOrPut(LOOTING_BAG_INVENTORY)
-        mes("Your looting bag contains ${bag.occupiedSpace()} of ${bag.size} item stacks.")
-    }
 
     private fun ProtectedAccess.rollSuccess(): Boolean =
         WildernessAgilityRules.succeeds(stat("stat.agility"), random.of(256))

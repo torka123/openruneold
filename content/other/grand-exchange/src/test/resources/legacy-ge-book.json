@@ -1,0 +1,26 @@
+{
+  "nextId": 2,
+  "offers": [
+    {
+      "id": 1,
+      "owner": 1,
+      "ownerName": "buyer",
+      "slot": 7,
+      "type": "Buy",
+      "item": 10344,
+      "price": 1000,
+      "total": 20,
+      "createdAt": 999999,
+      "completed": 8,
+      "gold": 8000,
+      "taxPaid": 0,
+      "collectItems": 8,
+      "collectCoins": 0,
+      "finished": false
+    }
+  ],
+  "history": {
+    "1": [{ "time": 1000000, "type": "Buy", "item": 10344, "quantity": 8, "total": 8000, "tax": 0 }]
+  },
+  "buyWindows": [{ "owner": 1, "item": 10344, "start": 1000000, "bought": 8 }]
+}

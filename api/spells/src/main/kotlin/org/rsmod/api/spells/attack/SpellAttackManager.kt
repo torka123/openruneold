@@ -26,6 +26,7 @@ import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.PathingEntity
 import org.rsmod.game.entity.Player
 import org.rsmod.game.hit.Hit
+import org.rsmod.game.hit.HitContext
 import org.rsmod.game.hit.HitImpactHandler
 import org.rsmod.game.proj.ProjAnim
 
@@ -307,6 +308,7 @@ constructor(
         damage: Int,
         clientDelay: Int,
         hitDelay: Int,
+        context: HitContext? = null,
     ): Hit =
         manager.queueMagicHit(
             source = source.player,
@@ -320,6 +322,7 @@ constructor(
             hitDelay = hitDelay,
             retaliationDelay = hitDelay,
             notifyAttackLaunch = false,
+            context = context,
         )
 
     /** @see [PlayerAttackManager.queueSplashHit] */
@@ -394,5 +397,11 @@ constructor(
         projanim: String,
         impactOffset: Int,
     ): ProjAnim =
-        manager.spawnProjectileWithImpactOffset(source.player, target, spotanim, projanim, impactOffset)
+        manager.spawnProjectileWithImpactOffset(
+            source.player,
+            target,
+            spotanim,
+            projanim,
+            impactOffset,
+        )
 }

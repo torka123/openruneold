@@ -1,0 +1,9 @@
+api/combat/combat-commons/src/main/kotlin/org/rsmod/api/combat/commons/magic/HomeTeleportCooldown.kt
+content/bosses/royal-titans/src/main/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansWallInteractions.kt
+content/bosses/royal-titans/src/test/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansWallCastTest.kt
+content/skills/magic/spell-attacks/src/main/kotlin/org/rsmod/content/skills/magic/spell/attacks/RoyalTitansWallSpells.kt
+content/skills/magic/spell-teleports/src/main/kotlin/org/rsmod/content/skills/magic/spell/teleports/HomeTeleport.kt
+content/skills/magic/spell-teleports/src/main/kotlin/org/rsmod/content/skills/magic/spell/teleports/SpellTeleportScript.kt
+content/skills/magic/spell-teleports/src/main/kotlin/org/rsmod/content/skills/magic/spell/teleports/AncientSpellTeleportScript.kt
+content/skills/magic/spell-teleports/src/main/kotlin/org/rsmod/content/skills/magic/spell/teleports/ArceuusSpellTeleportScript.kt
+content/skills/magic/spell-teleports/src/test/kotlin/org/rsmod/content/skills/magic/spell/teleports/ArceuusTeleportRuntimeTest.kt

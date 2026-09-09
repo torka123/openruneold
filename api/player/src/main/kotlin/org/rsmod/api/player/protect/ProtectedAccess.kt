@@ -62,6 +62,7 @@ import org.rsmod.api.player.hit.queueImpactHit
 import org.rsmod.api.player.hit.takeInstantHit
 import org.rsmod.api.player.hook.TeleportType
 import org.rsmod.api.player.input.ResumePCountDialogInput
+import org.rsmod.api.player.input.ResumePNameDialogInput
 import org.rsmod.api.player.input.ResumePObjDialogInput
 import org.rsmod.api.player.input.ResumePStringDialogInput
 import org.rsmod.api.player.input.ResumePauseButtonInput
@@ -81,6 +82,7 @@ import org.rsmod.api.player.output.ClientScripts
 import org.rsmod.api.player.output.ClientScripts.chatDefaultRestoreInput
 import org.rsmod.api.player.output.ClientScripts.mesLayerMode14
 import org.rsmod.api.player.output.ClientScripts.mesLayerMode7
+import org.rsmod.api.player.output.ClientScripts.mesLayerMode8
 import org.rsmod.api.player.output.ClientScripts.mesLayerMode9
 import org.rsmod.api.player.output.UpdateInventory.resendSlot
 import org.rsmod.api.player.output.clearMapFlag
@@ -2845,6 +2847,18 @@ public class ProtectedAccess(
     }
 
     /**
+     * Native player-name lookup with the same modal/protection validation as [stringDialog]. The
+     * client owns its remembered-name link; no duplicate server-side input UI is required. The
+     * returned UID must still be resolved when used, because a player may have since logged out.
+     */
+    public suspend fun nameDialog(title: String): ResumePNameDialogInput.Result {
+        mesLayerMode8(player, title)
+        val modal = player.ui.getModalOrNull("component.toplevel_osrs_stretch:mainmodal")
+        val input = coroutine.pause(ResumePNameDialogInput::class)
+        return resumeWithMainModalProtectedAccess(input.result, modal)
+    }
+
+    /**
      * **Note:** The returned integer will _always_ be positive. To allow negative values, use
      * [numberDialog] instead.
      *
@@ -3038,8 +3052,7 @@ public class ProtectedAccess(
         // component. Compare the packed cache IDs so a valid Continue click is not rejected just
         // because its canonical alias differs from the name used by the dialogue helper.
         val expectedPacked = expectedComponent.asRSCM(RSCMType.COMPONENT)
-        val receivedPacked =
-            input.componentPacked ?: input.component.asRSCM(RSCMType.COMPONENT)
+        val receivedPacked = input.componentPacked ?: input.component.asRSCM(RSCMType.COMPONENT)
         if (expectedPacked != receivedPacked) {
             logger.debug {
                 "Protected-access was lost due to unexpected component: " +
@@ -3303,12 +3316,7 @@ public class ProtectedAccess(
         player.ifOpenMainSidePair(main, side, colour, transparency, context.eventBus)
     }
 
-    public fun ifOpenMainSidePair(
-        main: Int,
-        side: Int,
-        colour: Int = -1,
-        transparency: Int = -1,
-    ) {
+    public fun ifOpenMainSidePair(main: Int, side: Int, colour: Int = -1, transparency: Int = -1) {
         player.ifOpenMainSidePair(main, side, colour, transparency, context.eventBus)
     }
 

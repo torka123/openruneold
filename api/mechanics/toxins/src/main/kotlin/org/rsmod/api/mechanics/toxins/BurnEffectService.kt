@@ -13,6 +13,9 @@ import org.rsmod.api.player.isValidTarget
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.PathingEntity
 import org.rsmod.game.entity.Player
+import org.rsmod.game.hit.HitAttribution
+import org.rsmod.game.hit.HitContext
+import org.rsmod.game.hit.HitOrigin
 import org.rsmod.game.hit.HitType
 import org.rsmod.game.queue.WorldQueueList
 
@@ -58,23 +61,30 @@ constructor(
     ): Boolean {
         require(maxStacks > 0) { "maxStacks must be positive." }
         require(damage > 0) { "damage must be positive." }
+        prune(target)
         if (!target.isBurnable()) {
             return false
         }
 
+        val context =
+            HitContext.capture(source, target)
+                .withAttribution(HitAttribution(HitOrigin.Burn, (source as? Player)?.uuid))
+        if (!context.isValid()) return false
         val stacks = active.getOrPut(target) { mutableListOf() }
         if (stacks.size >= maxStacks) {
             return false
         }
-
-        val stack = BurnStack(source = source, target = target, remainingDamage = damage)
+        val stack = BurnStack(source, target, damage, context)
         stacks += stack
         arm(stack)
         return true
     }
 
     /** Returns the number of currently active Burn stacks on [target]. */
-    public fun stackCount(target: PathingEntity): Int = active[target]?.size ?: 0
+    public fun stackCount(target: PathingEntity): Int {
+        prune(target)
+        return active[target]?.size ?: 0
+    }
 
     /** Returns whether [target] currently has any active Burn stacks. */
     public fun isBurned(target: PathingEntity): Boolean = stackCount(target) > 0
@@ -86,6 +96,7 @@ constructor(
      * mirrors consuming only the damage that the effect would deal from this point forward.
      */
     public fun consumeRemainingDamage(target: PathingEntity): Int {
+        prune(target)
         val stacks = active.remove(target) ?: return 0
         return stacks.sumOf { it.remainingDamage }
     }
@@ -104,8 +115,14 @@ constructor(
         worldQueues.add(TICK_INTERVAL) { tick(stack) }
     }
 
+    private fun prune(target: PathingEntity) {
+        val stacks = active[target] ?: return
+        stacks.removeAll { !it.context.isValid() }
+        if (stacks.isEmpty()) active.remove(target)
+    }
+
     private fun tick(stack: BurnStack) {
-        if (!isActive(stack) || !stack.target.isBurnable()) {
+        if (!isActive(stack) || !stack.context.isValid() || !stack.target.isBurnable()) {
             remove(stack)
             return
         }
@@ -135,14 +152,30 @@ constructor(
                     damage = 1,
                     hitmark = hitmark_groups.burn,
                     modifier = npcHitModifier,
+                    context = stack.context,
                 )
             }
 
             is Player ->
                 when (val source = stack.source) {
                     is Player ->
-                        target.queueHit(source, 1, HitType.Typeless, 1, hitmark_groups.burn)
-                    is Npc -> target.queueHit(source, 1, HitType.Typeless, 1, hitmark_groups.burn)
+                        target.queueHit(
+                            source,
+                            1,
+                            HitType.Typeless,
+                            1,
+                            hitmark_groups.burn,
+                            context = stack.context,
+                        )
+                    is Npc ->
+                        target.queueHit(
+                            source,
+                            1,
+                            HitType.Typeless,
+                            1,
+                            hitmark_groups.burn,
+                            context = stack.context,
+                        )
                 }
         }
     }
@@ -167,6 +200,7 @@ constructor(
         val source: PathingEntity,
         val target: PathingEntity,
         var remainingDamage: Int,
+        val context: HitContext,
     )
 
     public companion object {

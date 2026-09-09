@@ -23,4 +23,10 @@ dependencies {
     implementation(projects.engine.map)
     implementation(projects.engine.routefinder)
     implementation(projects.engine.utilsBits)
+    testImplementation(kotlin("test"))
+}
+
+tasks.withType<Test>().configureEach {
+    workingDir = rootProject.projectDir
+    systemProperty("junit.jupiter.execution.parallel.enabled", "false")
 }

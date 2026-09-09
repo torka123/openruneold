@@ -13,7 +13,6 @@ import org.rsmod.api.combat.manager.MagicRuneManager.Companion.isFailure
 import org.rsmod.api.config.refs.params
 import org.rsmod.api.player.hook.PlayerTeleportValidator
 import org.rsmod.api.player.hook.TeleportType
-import org.rsmod.api.player.isInCombat
 import org.rsmod.api.player.output.ChatType
 import org.rsmod.api.player.output.clearMapFlag
 import org.rsmod.api.player.output.mes
@@ -37,7 +36,9 @@ constructor(
     override fun ScriptContext.startup() {
         for (teleport in AncientSpellTeleport.entries) {
             val spell = teleport.resolveSpell() ?: continue
-            onIfOverlayButton(spell.component, ignoreRepeatedClicks = true) { cast(spell, teleport) }
+            onIfOverlayButton(spell.component, ignoreRepeatedClicks = true) {
+                cast(spell, teleport)
+            }
         }
     }
 
@@ -47,7 +48,10 @@ constructor(
     }
 
     private suspend fun ProtectedAccess.cast(spell: MagicSpell, teleport: AncientSpellTeleport) {
-        if (actionDelay > mapClock || !AncientMagicksAccessPolicy.canAccess(player)) {
+        if (
+            (teleport != AncientSpellTeleport.Home && actionDelay > mapClock) ||
+                !AncientMagicksAccessPolicy.canAccess(player)
+        ) {
             return
         }
         val destination =
@@ -57,7 +61,7 @@ constructor(
                     return
                 }
         if (teleport == AncientSpellTeleport.Home) {
-            if (consumeRequirements(spell)) castHome(destination, { canTeleport() })
+            if (consumeRequirements(spell)) castHome(destination, { canTeleport() }, areaChecker)
             return
         }
 

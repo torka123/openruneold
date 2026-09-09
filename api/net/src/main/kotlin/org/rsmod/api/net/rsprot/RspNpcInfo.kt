@@ -50,6 +50,20 @@ class RspNpcInfo(val rspAvatar: NpcAvatar) : NpcInfoProtocol {
         rspAvatar.extendedInfo.setTransmogrification(originalType)
     }
 
+    override fun setBodyModels(models: List<Int>) {
+        require(models.size in 1..255) { "NPC body model count must be in 1..255" }
+        require(models.all { it >= 0 }) { "NPC body model ids must be non-negative" }
+        rspAvatar.extendedInfo.setBodyCustomisation(
+            java.util.List.copyOf(models),
+            emptyList(),
+            emptyList(),
+        )
+    }
+
+    override fun resetBodyModels() {
+        rspAvatar.extendedInfo.resetBodyCustomisations()
+    }
+
     override fun showHeadbar(headbar: Headbar) {
         rspAvatar.extendedInfo.addHeadBar(
             sourceIndex = if (headbar.isNoSource) -1 else headbar.sourceSlot,

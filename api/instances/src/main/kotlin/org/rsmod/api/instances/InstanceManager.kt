@@ -6,6 +6,7 @@ import dev.openrune.rscm.RSCMType
 import dev.openrune.types.NpcServerType
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import java.util.IdentityHashMap
 import java.util.concurrent.atomic.AtomicLong
 import org.rsmod.api.instances.events.InstanceEndedEvent
 import org.rsmod.api.instances.events.InstancePersonalBestEvent
@@ -69,7 +70,9 @@ constructor(
     private val ownerIndex = HashMap<Long, InstanceId>()
     private val playerIndex = HashMap<Long, InstanceId>()
     private val spawnedNpcs = HashMap<InstanceId, MutableList<Npc>>()
-    private val npcInstanceIndex = HashMap<NpcUid, InstanceId>()
+    // Public lookups are by entity object. Owning that identity survives transforms and UID
+    // retirement, and cannot accidentally resolve a later NPC reusing the same slot.
+    private val npcInstanceIndex = IdentityHashMap<Npc, InstanceId>()
     private val deferredLogoutReclaims = HashMap<InstanceId, Int>()
 
     public sealed interface Result {
@@ -237,19 +240,27 @@ constructor(
     public fun contributionsFor(id: InstanceId): DamageContributions? =
         sessionForId(id)?.damageContributions
 
-    public fun instanceForNpc(npc: Npc): InstanceId? = npcInstanceIndex[npc.uid]
+    public fun instanceForNpc(npc: Npc): InstanceId? = npcInstanceIndex[npc]
 
-    public fun npcsForInstance(id: InstanceId): List<Npc> = spawnedNpcs[id] ?: emptyList()
+    public fun npcsForInstance(id: InstanceId): List<Npc> = spawnedNpcs[id]?.toList() ?: emptyList()
 
     public fun attachNpc(instanceId: InstanceId, npc: Npc) {
-        spawnedNpcs.getOrPut(instanceId) { mutableListOf() }.add(npc)
+        require(npc.isSlotAssigned && npc.uid != NpcUid.NULL) {
+            "Register the NPC before attaching it to an instance"
+        }
+        val previous = npcInstanceIndex[npc]
+        require(previous == null || previous == instanceId) {
+            "NPC already belongs to instance $previous"
+        }
+        val owned = spawnedNpcs.getOrPut(instanceId) { mutableListOf() }
+        if (owned.none { it === npc }) owned.add(npc)
         indexNpc(instanceId, npc)
     }
 
     /** Releases an encounter-owned helper without retaining it for the whole instance lifetime. */
     public fun detachNpc(instanceId: InstanceId, npc: Npc) {
-        spawnedNpcs[instanceId]?.remove(npc)
-        if (npcInstanceIndex[npc.uid] == instanceId) npcInstanceIndex.remove(npc.uid)
+        spawnedNpcs[instanceId]?.removeAll { it === npc }
+        if (npcInstanceIndex[npc] == instanceId) npcInstanceIndex.remove(npc)
     }
 
     public fun registerSessionNpc(player: Player, npc: Npc): Boolean {
@@ -858,13 +869,11 @@ constructor(
 
     private fun indexNpc(instanceId: InstanceId, npc: Npc) {
         if (npc.uid == NpcUid.NULL) return
-        npcInstanceIndex[npc.uid] = instanceId
+        npcInstanceIndex[npc] = instanceId
     }
 
     private fun untagAndDelete(npc: Npc) {
-        if (npc.uid != NpcUid.NULL) {
-            npcInstanceIndex.remove(npc.uid)
-        }
+        npcInstanceIndex.remove(npc)
         if (!npc.isSlotAssigned) {
             return
         }

@@ -1,36 +1,39 @@
 package org.rsmod.content.skills.magic.spell.attacks.arceuus
 
 import dev.openrune.ServerCacheManager
-import dev.openrune.types.NpcMode
 import dev.openrune.rscm.RSCM
 import dev.openrune.rscm.RSCMType
-import dev.openrune.types.aconverted.SpotanimType
+import dev.openrune.types.NpcMode
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import org.rsmod.api.combat.commons.CombatCorruption
 import org.rsmod.api.combat.commons.magic.ArceuusSpellState
 import org.rsmod.api.death.NpcAttackValidateResult
 import org.rsmod.api.npc.apPlayer2
-import org.rsmod.api.npc.interact.AiPlayerInteractions
 import org.rsmod.api.npc.hit.modifier.NpcHitModifier
 import org.rsmod.api.npc.hit.queueHit
+import org.rsmod.api.npc.interact.AiPlayerInteractions
 import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.output.soundSynth
+import org.rsmod.api.player.stat.hitpoints
+import org.rsmod.api.player.stat.statAdvance
 import org.rsmod.api.player.vars.VarPlayerIntMapSetter
 import org.rsmod.api.random.GameRandom
 import org.rsmod.api.repo.npc.NpcRepository
 import org.rsmod.api.repo.world.WorldRepository
 import org.rsmod.api.specials.energy.SpecialAttackEnergy
-import org.rsmod.api.player.stat.statAdvance
 import org.rsmod.game.MapClock
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
+import org.rsmod.game.entity.npc.NpcUid
 import org.rsmod.game.entity.player.PlayerUid
+import org.rsmod.game.hit.HitAttribution
+import org.rsmod.game.hit.HitContext
+import org.rsmod.game.hit.HitOrigin
+import org.rsmod.game.hit.HitScope
 import org.rsmod.game.hit.HitType
 import org.rsmod.game.hit.HitValidity
 import org.rsmod.game.proj.ProjAnim
-import org.rsmod.api.player.stat.hitpoints
-import org.rsmod.game.entity.npc.NpcUid
 
 /** Authoritative runtime state for timed Arceuus buffs, procs, and a player's active thrall. */
 @Singleton
@@ -106,9 +109,10 @@ constructor(
         definition: ArceuusReanimationDefinition,
         coords: org.rsmod.map.CoordGrid = player.coords.translate(1, 0),
     ) {
-        val type = requireNotNull(ServerCacheManager.getNpc(definition.npcId)) {
-            "Missing revision-240 reanimated NPC ${definition.npcId}"
-        }
+        val type =
+            requireNotNull(ServerCacheManager.getNpc(definition.npcId)) {
+                "Missing revision-240 reanimated NPC ${definition.npcId}"
+            }
         val npc = Npc(type, coords)
         npc.suppressDrops = true
         npcs.add(npc, REANIMATION_LIFETIME)
@@ -120,8 +124,8 @@ constructor(
         if (thralls.values.any { it.npc === npc }) {
             return NpcAttackValidateResult.Deny("You cannot attack that.")
         }
-        val active = reanimated.values.firstOrNull { it.npc === npc }
-            ?: return NpcAttackValidateResult.Pass
+        val active =
+            reanimated.values.firstOrNull { it.npc === npc } ?: return NpcAttackValidateResult.Pass
         return if (active.owner === player) {
             NpcAttackValidateResult.Pass
         } else {
@@ -154,8 +158,13 @@ constructor(
             VarPlayerIntMapSetter.set(player, "varbit.arceuus_death_charge_active", 0)
             return
         }
-        if (npc != null && (npc.coords.level != player.coords.level || player.distanceTo(npc) > 16 ||
-                !deathChargeEligible(npc))) return
+        if (
+            npc != null &&
+                (npc.coords.level != player.coords.level ||
+                    player.distanceTo(npc) > 16 ||
+                    !deathChargeEligible(npc))
+        )
+            return
         val lastPvp = player.vars["varp.lastcombat_pvp"]
         if (lastPvp > 0 && clock.cycle - lastPvp <= 10) return
         charge.remaining--
@@ -168,13 +177,15 @@ constructor(
     }
 
     private fun deathChargeEligible(npc: Npc): Boolean =
-        npc.id !in DEATH_CHARGE_EXCLUDED_IDS && npc.visType.name.lowercase() !in DEATH_CHARGE_EXCLUDED_NAMES
+        npc.id !in DEATH_CHARGE_EXCLUDED_IDS &&
+            npc.visType.name.lowercase() !in DEATH_CHARGE_EXCLUDED_NAMES
 
     fun summon(player: Player, definition: ArceuusThrallDefinition, duration: Int) {
         removeThrall(player, announce = false)
-        val type = requireNotNull(ServerCacheManager.getNpc(definition.npcId)) {
-            "Missing revision-240 thrall NPC ${definition.npcId}"
-        }
+        val type =
+            requireNotNull(ServerCacheManager.getNpc(definition.npcId)) {
+                "Missing revision-240 thrall NPC ${definition.npcId}"
+            }
         val npc = Npc(type, player.coords.translate(1, 0))
         npc.mode = NpcMode.None
         npc.ignoreCombatInteractions = true
@@ -194,8 +205,15 @@ constructor(
                 startsAt = clock.cycle + THRALL_RAISE_DELAY,
                 expiresAt = clock.cycle + lifetime + THRALL_DESPAWN_OFFSET + 1,
                 nextAttackAt = clock.cycle + THRALL_INITIAL_ATTACK_DELAY,
+                context =
+                    HitContext.capture(player, npc)
+                        .withAttribution(HitAttribution(HitOrigin.Thrall, player.uuid)),
             )
-        VarPlayerIntMapSetter.set(player, "varbit.arceuus_resurrection_used", ArceuusThralls.definitions.indexOf(definition))
+        VarPlayerIntMapSetter.set(
+            player,
+            "varbit.arceuus_resurrection_used",
+            ArceuusThralls.definitions.indexOf(definition),
+        )
         VarPlayerIntMapSetter.set(player, "varbit.arceuus_resurrection_active", 0)
     }
 
@@ -223,7 +241,11 @@ constructor(
         }
 
         val active = thralls[player.uid] ?: return
-        if (active.npc.coords.level != player.coords.level || active.npc.distanceTo(player) > THRALL_TARGET_LEASH) {
+        if (
+            !active.context.isValid() ||
+                active.npc.coords.level != player.coords.level ||
+                active.npc.distanceTo(player) > THRALL_TARGET_LEASH
+        ) {
             lastTargets.remove(player.uid)
             removeThrall(player, announce = false)
             return
@@ -233,10 +255,12 @@ constructor(
             return
         }
         if (clock.cycle >= active.expiresAt - 1) {
+            active.hitScope.invalidate()
             if (active.npc.isSlotAssigned) npcs.del(active.npc, Int.MAX_VALUE)
             return
         }
         if (!active.npc.isSlotAssigned || active.npc.hitpoints <= 0) {
+            active.hitScope.invalidate()
             thralls.remove(player.uid)
             VarPlayerIntMapSetter.set(player, "varbit.arceuus_resurrection_active", 0)
             return
@@ -278,7 +302,11 @@ constructor(
             reanimated.remove(player.uid)
             return
         }
-        if (player.pendingLogout || player.coords.level != npc.coords.level || player.distanceTo(npc) > 25) {
+        if (
+            player.pendingLogout ||
+                player.coords.level != npc.coords.level ||
+                player.distanceTo(npc) > 25
+        ) {
             removeReanimated(player)
         }
     }
@@ -301,7 +329,10 @@ constructor(
             }
             return
         }
-        if (owner.distanceTo(target) > THRALL_TARGET_LEASH || owner.coords.level != target.coords.level) {
+        if (
+            owner.distanceTo(target) > THRALL_TARGET_LEASH ||
+                owner.coords.level != target.coords.level
+        ) {
             lastTargets.remove(owner.uid)
             npc.routeDestination.clear()
             return
@@ -323,15 +354,28 @@ constructor(
             definition.projectile?.let {
                 val base = ProjAnim.fromBoundsToNpc(npc.bounds(), target, it, MAGIC_PROJECTILE)
                 // RSProx 4037: skeleton shots at distances 1/2/3 arrive at frames 72/77/82.
-                val projectile = if (definition.hitType == HitType.Ranged) {
-                    base.copy(startHeight = 100, endHeight = 124, startTime = 57,
-                        endTime = 67 + 5 * npc.distanceTo(target), angle = 15, progress = 32)
-                } else base
+                val projectile =
+                    if (definition.hitType == HitType.Ranged) {
+                        base.copy(
+                            startHeight = 100,
+                            endHeight = 124,
+                            startTime = 57,
+                            endTime = 67 + 5 * npc.distanceTo(target),
+                            angle = 15,
+                            progress = 32,
+                        )
+                    } else base
                 world.projAnim(projectile)
                 projectile.durations.serverDelay
             } ?: 1
         if (definition.hitSound != null) {
-            world.soundArea(target.coords, definition.hitSound, delay = delay * 30, radius = 12, size = target.size)
+            world.soundArea(
+                target.coords,
+                definition.hitSound,
+                delay = delay * 30,
+                radius = 12,
+                size = target.size,
+            )
         }
         val targetUid = target.uid
         target.queueHit(
@@ -339,28 +383,44 @@ constructor(
             delay = delay.coerceAtLeast(1),
             type = definition.hitType,
             damage = random.of(definition.maxHit + 1),
-            modifier = NpcHitModifier { victim ->
-                with(npcHitModifier) { modify(victim) }
-                val previous = validity
-                validity = HitValidity {
-                    previous?.isValid() != false && thralls[owner.uid] === active &&
-                        owner.isSlotAssigned && !owner.pendingLogout && owner.hitpoints > 0 &&
-                        npc.isSlotAssigned && target.isSlotAssigned && target.uid == targetUid &&
-                        owner.coords.level == target.coords.level && owner.coords.level == npc.coords.level &&
-                        owner.distanceTo(target) <= THRALL_TARGET_LEASH && owner.distanceTo(npc) <= THRALL_TARGET_LEASH
-                }
-            },
+            context =
+                HitContext.compose(
+                    active.context,
+                    HitContext.of(active.context.attribution, active.hitScope),
+                ),
+            modifier =
+                NpcHitModifier { victim ->
+                    with(npcHitModifier) { modify(victim) }
+                    val previous = validity
+                    validity = HitValidity {
+                        previous?.isValid() != false &&
+                            thralls[owner.uid] === active &&
+                            owner.isSlotAssigned &&
+                            !owner.pendingLogout &&
+                            owner.hitpoints > 0 &&
+                            npc.isSlotAssigned &&
+                            target.isSlotAssigned &&
+                            target.uid == targetUid &&
+                            owner.coords.level == target.coords.level &&
+                            owner.coords.level == npc.coords.level &&
+                            owner.distanceTo(target) <= THRALL_TARGET_LEASH &&
+                            owner.distanceTo(npc) <= THRALL_TARGET_LEASH
+                    }
+                },
         )
     }
 
     private fun removeThrall(player: Player, announce: Boolean) {
         val active = thralls.remove(player.uid) ?: return
+        active.hitScope.invalidate()
         VarPlayerIntMapSetter.set(player, "varbit.arceuus_resurrection_active", 0)
         if (active.npc.isSlotAssigned) {
             npcs.del(active.npc, Int.MAX_VALUE)
         }
         if (announce) {
-            player.mes("<col=ff289d>Your ${active.definition.displayName} returns to the grave.</col>")
+            player.mes(
+                "<col=ff289d>Your ${active.definition.displayName} returns to the grave.</col>"
+            )
             player.soundSynth(RSCM.getReverseMapping(RSCMType.SYNTH, 5054))
         }
     }
@@ -372,6 +432,8 @@ constructor(
         val startsAt: Int,
         val expiresAt: Int,
         var nextAttackAt: Int,
+        val context: HitContext,
+        val hitScope: HitScope = HitScope(),
         var raised: Boolean = false,
     )
 
@@ -391,9 +453,16 @@ constructor(
         const val DEATH_CHARGE_DURATION = 100
         const val DEATH_CHARGE_RESTORE = 150
         val DEATH_CHARGE_EXCLUDED_IDS = setOf(5914, 5915, 7550, 7552, 7553, 7555, 7556, 7557, 7568)
-        val DEATH_CHARGE_EXCLUDED_NAMES = setOf(
-            "unstable ice", "blood moon", "blue moon", "eclipse moon", "totem", "obelisk", "energy siphon",
-        )
+        val DEATH_CHARGE_EXCLUDED_NAMES =
+            setOf(
+                "unstable ice",
+                "blood moon",
+                "blue moon",
+                "eclipse moon",
+                "totem",
+                "obelisk",
+                "energy siphon",
+            )
         const val MIN_THRALL_DURATION = 6
         const val THRALL_INITIAL_ATTACK_DELAY = 4
         const val THRALL_RAISE_DELAY = 5

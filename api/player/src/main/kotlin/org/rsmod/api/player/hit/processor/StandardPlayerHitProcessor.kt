@@ -58,6 +58,7 @@ public object StandardPlayerHitProcessor : QueuedPlayerHitProcessor {
                 statSub("stat.hitpoints", constant = damage, percent = 0)
                 currentHitpoints = player.hitpoints
             }
+            if (currentHitpoints == 0) player.combatHitScope?.close()
             recordHitDamage(player, hit, damage)
             publishPlayerHitpointsChangedEvent(
                 oldHitpoints = oldHitpoints,

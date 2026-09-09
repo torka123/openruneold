@@ -5,12 +5,30 @@ import dev.openrune.rscm.RSCMType
 import it.unimi.dsi.fastutil.bytes.Byte2ByteOpenHashMap
 import it.unimi.dsi.fastutil.bytes.Byte2IntOpenHashMap
 import org.rsmod.annotations.InternalApi
+import org.rsmod.events.EventBus
+import org.rsmod.game.MapClock
+import org.rsmod.game.entity.Player
 
 public class PlayerStatMap(
     private val xp: Byte2IntOpenHashMap = Byte2IntOpenHashMap(),
     private val baseLevels: Byte2ByteOpenHashMap = Byte2ByteOpenHashMap(),
     private val currLevels: Byte2ByteOpenHashMap = Byte2ByteOpenHashMap(),
 ) {
+    private var observation: Observation? = null
+
+    /** Registry-owned binding; offline account loading intentionally has no gameplay observers. */
+    @InternalApi
+    public fun bindObservations(player: Player, eventBus: EventBus, clock: MapClock) {
+        require(player.statMap === this)
+        check(observation == null) { "Stat observations already bound" }
+        observation = Observation(player, eventBus, clock)
+    }
+
+    @InternalApi
+    public fun unbindObservations() {
+        observation = null
+    }
+
     public fun getXP(stat: String): Int = getFineXP(stat) / XP_FINE_PRECISION
 
     public fun setXP(stat: String, xp: Int) {
@@ -32,7 +50,10 @@ public class PlayerStatMap(
         baseLevels.getOrDefault(stat.asRSCM(RSCMType.STAT).toByte(), 1)
 
     public fun setBaseLevel(stat: String, level: Byte) {
-        this.baseLevels[stat.asRSCM(RSCMType.STAT).toByte()] = level
+        val id = stat.asRSCM(RSCMType.STAT).toByte()
+        val previous = baseLevels.getOrDefault(id, 1)
+        baseLevels[id] = level
+        publish(id, StatLevelKind.Base, previous, level)
     }
 
     @InternalApi
@@ -40,8 +61,29 @@ public class PlayerStatMap(
         currLevels.getOrDefault(stat.asRSCM(RSCMType.STAT).toByte(), 1)
 
     public fun setCurrentLevel(stat: String, level: Byte) {
-        this.currLevels[stat.asRSCM(RSCMType.STAT).toByte()] = level
+        val id = stat.asRSCM(RSCMType.STAT).toByte()
+        val previous = currLevels.getOrDefault(id, 1)
+        currLevels[id] = level
+        publish(id, StatLevelKind.Current, previous, level)
     }
+
+    private fun publish(id: Byte, kind: StatLevelKind, previous: Byte, current: Byte) {
+        if (previous == current) return
+        val (player, bus, clock) = observation ?: return
+        bus.publish(
+            PlayerStatChangedEvent(
+                player,
+                id.toInt() and 0xFF,
+                kind,
+                previous.toInt() and 0xFF,
+                current.toInt() and 0xFF,
+                clock.cycle,
+                player.combatHitScope?.token(),
+            )
+        )
+    }
+
+    private data class Observation(val player: Player, val bus: EventBus, val clock: MapClock)
 
     public companion object {
         public const val MAX_XP: Int = 200_000_000

@@ -16,37 +16,6 @@ class NexRulesTest {
     }
 
     @Test
-    fun `wilderness nex is pinned inside the frozen plateau multi arena`() {
-        assertEquals(2976, WILDERNESS_NEX_SPAWN.x)
-        assertEquals(3952, WILDERNESS_NEX_SPAWN.z)
-        assertEquals(2966..2986, WILDERNESS_NEX_ARENA.xRange)
-        assertEquals(3942..3962, WILDERNESS_NEX_ARENA.zRange)
-        assertEquals(6, WILDERNESS_NEX_ATTACK_RATE)
-        assertEquals(12, WILDERNESS_NEX_ATTACK_RANGE)
-        assertEquals(3, WILDERNESS_NEX_LEASH)
-        assertTrue(WILDERNESS_NEX_ARENA.wilderness)
-        assertTrue(WILDERNESS_NEX_ARENA.contains(WILDERNESS_NEX_SPAWN))
-        assertFalse(WILDERNESS_NEX_ARENA.contains(NEX_SPAWN))
-    }
-
-    @Test
-    fun `wilderness nex uses melee only when a player is in melee range`() {
-        assertEquals(WildernessNexAttack.MELEE, NexRules.wildernessAttack(true))
-        assertEquals(WildernessNexAttack.PURPLE_AREA, NexRules.wildernessAttack(false))
-    }
-
-    @Test
-    fun `wilderness nex is leashed to three tiles from spawn`() {
-        assertTrue(
-            NexRules.withinWildernessLeash(
-                WILDERNESS_NEX_SPAWN,
-                WILDERNESS_NEX_SPAWN.translate(3, -3),
-            )
-        )
-        assertFalse(NexRules.withinWildernessLeash(WILDERNESS_NEX_SPAWN, WILDERNESS_NEX_SPAWN.translate(4, 0)))
-    }
-
-    @Test
     fun `soft cap reduces only damage above fifty`() {
         assertEquals(50, NexRules.softCap(50))
         assertEquals(60, NexRules.softCap(80))

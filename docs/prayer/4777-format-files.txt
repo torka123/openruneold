@@ -1,0 +1,3 @@
+api/player/src/main/kotlin/org/rsmod/api/player/PlayerExtensions.kt
+content/interfaces/prayer-tab/src/main/kotlin/org/rsmod/content/interfaces/prayer/tab/scripts/PrayerTabScript.kt
+content/interfaces/prayer-tab/src/test/kotlin/org/rsmod/content/interfaces/prayer/tab/PrayerLifecycleTest.kt

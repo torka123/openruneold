@@ -55,7 +55,7 @@ class CollectionLogUiProjectionTest {
             mapOf(
                 "Nex" to "varp.total_nex_kills",
                 "Phantom Muspah" to "varp.total_muspah_kills",
-                "Vorkath" to "varp.kc_vorkath",
+                "Vorkath" to "varp.total_vorkath_kills",
                 "Zulrah" to "varp.total_snakeboss_kills",
             ),
             CollectionLogUi.SPECIAL_COUNTER_VARPS,

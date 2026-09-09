@@ -1,47 +1,72 @@
-﻿package org.rsmod.content.skills.magic.spell.teleports
+package org.rsmod.content.skills.magic.spell.teleports
 
+import org.rsmod.api.area.checker.AreaChecker
+import org.rsmod.api.area.checker.wildernessLevel
 import org.rsmod.api.combat.commons.magic.HomeTeleportCooldown
-import org.rsmod.api.player.isInCombat
+import org.rsmod.api.player.clearInteractionRoute
 import org.rsmod.api.player.hook.TeleportType
+import org.rsmod.api.player.isInCombat
 import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.protect.ProtectedAccess
-import org.rsmod.api.player.vars.VarPlayerIntMapSetter
 import org.rsmod.game.entity.Player
 import org.rsmod.map.CoordGrid
 
-/** The shared, interruptible home spell sequence and persistent recharge timer. */
+/** OpenRune's fast, cooldown-free Home; the resting sequence remains for minigame teleports. */
 internal object HomeTeleport {
     const val TIMER = HomeTeleportCooldown.TIMER
-    const val RECHARGE_MINUTES = 30
-    const val CAST_TICKS = 22
+    const val CAST_TICKS = 4
+    private const val RESTING_CAST_TICKS = 22
     private const val COMBAT_BLOCK_TICKS = 17
-
-    fun remainingMinutes(player: Player, nowMinute: Int): Int {
-        val lastCast = player.vars[TIMER]
-        return if (lastCast <= 0) 0 else (lastCast + RECHARGE_MINUTES - nowMinute).coerceAtLeast(0)
-    }
 
     suspend fun ProtectedAccess.castHome(
         destination: CoordGrid,
         canTeleport: () -> Boolean,
-        nowMinute: () -> Int = { (System.currentTimeMillis() / 60_000L).toInt() },
-        sequence: suspend ProtectedAccess.() -> Boolean = { castResting(destination, canTeleport) },
+        areaChecker: AreaChecker,
     ) {
-        val recharge = HomeTeleportCooldown.requiresRecharge(player)
         HomeTeleportCooldown.syncClient(player)
-        val remaining = if (recharge) remainingMinutes(player, nowMinute()) else 0
-        if (remaining > 0) {
-            mes("You need to wait $remaining more minutes before you can use your home teleport.")
-            return
+        if (!homeAllowed(areaChecker, canTeleport)) return
+        player.clearInteractionRoute()
+        clearQueue(SpellTeleportScript.TeleportQueue)
+        val origin = coords
+        var arrived = false
+        try {
+            // Use the same native visuals/timing as ordinary Standard spellbook teleports.
+            actionDelay = mapClock + SpellTeleportScript.TeleportActionDelay
+            anim(SpellTeleportScript.TeleportStartAnim)
+            spotanim(
+                SpellTeleportScript.TeleportSpotanim,
+                height = SpellTeleportScript.TeleportSpotanimHeight,
+            )
+            soundSynth(SpellTeleportScript.TeleportSound)
+            delay(CAST_TICKS)
+            if (coords != origin || !homeAllowed(areaChecker, canTeleport)) return
+            telejump(destination, TeleportType.Standard)
+            arrived = coords == destination
+            if (arrived) {
+                player.resetSpotanim()
+                anim(SpellTeleportScript.TeleportEndAnim)
+            }
+        } finally {
+            if (!arrived) {
+                player.resetAnim()
+                player.resetSpotanim()
+            }
         }
-        if (recentCombat(player)) {
+    }
+
+    private fun ProtectedAccess.homeAllowed(
+        areaChecker: AreaChecker,
+        canTeleport: () -> Boolean,
+    ): Boolean {
+        if (player.isInCombat()) {
             mes("You can't use this teleport while in combat.")
-            return
+            return false
         }
-        if (!canTeleport()) return
-        if (sequence() && recharge) {
-            VarPlayerIntMapSetter.set(player, TIMER, nowMinute())
+        if (coords.wildernessLevel(areaChecker) >= 20) {
+            mes("You can't use your home teleport at level 20 Wilderness or above.")
+            return false
         }
+        return canTeleport()
     }
 
     suspend fun ProtectedAccess.castResting(
@@ -58,18 +83,36 @@ internal object HomeTeleport {
         val origin = coords
         player.routeDestination.clear()
         try {
-            for (tick in 0 until CAST_TICKS) {
+            for (tick in 0 until RESTING_CAST_TICKS) {
                 when (tick) {
-                    0 -> { anim("seq.aide_drawing_chalk_circle"); spotanim("spotanim.aide_chalk_circle") }
-                    4 -> { anim("seq.aide_sitting_down_crosslegged"); spotanim("spotanim.aide_chalk_circle_static") }
-                    7 -> { anim("seq.aide_player_getting_book"); spotanim("spotanim.aide_player_book_get") }
-                    10 -> { anim("seq.aide_reciting_incantation"); spotanim("spotanim.aide_player_book_portal") }
-                    17 -> { anim("seq.aide_player_teleporting"); spotanim("spotanim.aide_player_teleport") }
+                    0 -> {
+                        anim("seq.aide_drawing_chalk_circle")
+                        spotanim("spotanim.aide_chalk_circle")
+                    }
+                    4 -> {
+                        anim("seq.aide_sitting_down_crosslegged")
+                        spotanim("spotanim.aide_chalk_circle_static")
+                    }
+                    7 -> {
+                        anim("seq.aide_player_getting_book")
+                        spotanim("spotanim.aide_player_book_get")
+                    }
+                    10 -> {
+                        anim("seq.aide_reciting_incantation")
+                        spotanim("spotanim.aide_player_book_portal")
+                    }
+                    17 -> {
+                        anim("seq.aide_player_teleporting")
+                        spotanim("spotanim.aide_player_teleport")
+                    }
                 }
                 // Unlike delay(), this does not lock movement or new actions while channeling.
                 val cycle = mapClock
                 coroutine.pause { mapClock > cycle }
-                if (recentCombat(player) || coords != origin || player.routeDestination.isNotEmpty()) return false
+                if (
+                    recentCombat(player) || coords != origin || player.routeDestination.isNotEmpty()
+                )
+                    return false
             }
             if (!canTeleport()) return false
             telejump(destination, teleportType)

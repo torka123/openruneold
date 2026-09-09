@@ -27,6 +27,7 @@ import org.rsmod.map.zone.ZoneKey
 import org.rsmod.routefinder.collision.CollisionFlagMap
 import org.rsmod.routefinder.util.Rotations
 
+@OptIn(org.rsmod.annotations.InternalApi::class)
 public class LocRegistryRegion
 @Inject
 constructor(

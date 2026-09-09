@@ -2,6 +2,11 @@ plugins {
     id("base-conventions")
 }
 
+tasks.test {
+    // Cache-backed tests share ServerCacheManager and its game-value maps in this JVM.
+    systemProperty("junit.jupiter.execution.parallel.enabled", "false")
+}
+
 kotlin {
     explicitApi()
 }

@@ -31,8 +31,9 @@ public object CombatEffects {
         val effectiveTicks =
             if (target is Npc) {
                 val resistance = target.visType.paramOrNull(params.freeze_resistance) ?: 0
-                (ticks * (100 - resistance.coerceIn(0, 100)) / 100).coerceAtLeast(1)
+                npcBindDuration(ticks, resistance)
             } else ticks
+        if (effectiveTicks == 0) return false
         target.applyBind(effectiveTicks)
         return true
     }
@@ -72,3 +73,7 @@ public object CombatEffects {
         }
     }
 }
+
+internal fun npcBindDuration(ticks: Int, resistance: Int): Int =
+    if (resistance >= 100) 0
+    else (ticks * (100 - resistance.coerceAtLeast(0)) / 100).coerceAtLeast(1)

@@ -1,0 +1,11 @@
+content/skills/agility/src/main/kotlin/org/rsmod/content/skills/agility/AgilityDefinitions.kt
+content/skills/agility/src/main/kotlin/org/rsmod/content/skills/agility/AgilityObstacles.kt
+content/skills/agility/src/main/kotlin/org/rsmod/content/skills/agility/AgilityRoutes.kt
+content/skills/agility/src/main/kotlin/org/rsmod/content/skills/agility/rooftop/MarksOfGrace.kt
+content/skills/agility/src/main/kotlin/org/rsmod/content/skills/agility/rooftop/RooftopCourse.kt
+content/skills/agility/src/main/kotlin/org/rsmod/content/skills/agility/rooftop/RooftopCourses.kt
+content/skills/agility/src/main/kotlin/org/rsmod/content/skills/agility/rooftop/RooftopScript.kt
+content/skills/agility/src/test/kotlin/org/rsmod/content/skills/agility/AgilityDefinitionsTest.kt
+content/skills/agility/src/test/kotlin/org/rsmod/content/skills/agility/AgilityMapPlacementTest.kt
+content/skills/agility/src/test/kotlin/org/rsmod/content/skills/agility/AgilityRouteCoverageTest.kt
+content/skills/agility/src/test/kotlin/org/rsmod/content/skills/agility/RooftopRuntimeTest.kt

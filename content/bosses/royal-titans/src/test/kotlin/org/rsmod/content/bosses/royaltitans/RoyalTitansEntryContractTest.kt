@@ -1,9 +1,7 @@
 package org.rsmod.content.bosses.royaltitans
 
-import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 import org.rsmod.api.instances.RegionLocal
 import org.rsmod.map.CoordGrid
 
@@ -34,28 +32,5 @@ class RoyalTitansEntryContractTest {
     fun `both titans start at their captured local tiles`() {
         assertEquals(RegionLocal(0, 45, 149, 26, 30), ROYAL_TITANS_BRANDA_SPAWN)
         assertEquals(RegionLocal(0, 45, 149, 34, 30), ROYAL_TITANS_ELDRIC_SPAWN)
-    }
-
-    @Test
-    fun `confirmed entry closes its dialogue before encounter validation`() {
-        val root =
-            generateSequence(File(System.getProperty("user.dir"))) { it.parentFile }
-                .first { File(it, "settings.gradle.kts").isFile }
-        val source =
-            File(
-                    root,
-                    "content/bosses/royal-titans/src/main/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansWorld.kt",
-                )
-                .readText()
-                .substringAfter("private suspend fun ProtectedAccess.entryMenu()")
-                .substringBefore("private fun requireLoc")
-        val closeIndex = source.indexOf("ifClose()")
-        val enterIndex = source.indexOf("encounters.enter(player)")
-
-        assertTrue(closeIndex >= 0, "The confirmation dialogue must be closed before entry.")
-        assertTrue(
-            enterIndex > closeIndex,
-            "Encounter validation must run after the confirmation dialogue releases its modal lock.",
-        )
     }
 }

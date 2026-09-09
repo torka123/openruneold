@@ -86,6 +86,10 @@ public object ClientScripts {
     public fun mesLayerMode7(player: Player, title: String): Unit =
         player.runClientScript(108, title)
 
+    /** Native name input, including the client's remembered-name link (revision-240 script 109). */
+    public fun mesLayerMode8(player: Player, title: String): Unit =
+        player.runClientScript(109, title)
+
     public fun mesLayerMode9(player: Player, title: String, mode: Int = 0): Unit =
         player.runClientScript(110, title, mode)
 

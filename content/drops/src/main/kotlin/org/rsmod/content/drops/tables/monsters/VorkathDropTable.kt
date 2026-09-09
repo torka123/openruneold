@@ -27,7 +27,7 @@ public val vorkathDropTable: RSDropTable<Player, DropRollItem> =
                 "obj.vorkath_head" count
                     1 condition
                     { player ->
-                        player.vars["varp.kc_vorkath"] == 50
+                        player.vars["varp.total_vorkath_kills"] == 50
                     }
                 "obj.dragonhide_blue" count 2
             },
@@ -118,7 +118,7 @@ public val vorkathDropTable: RSDropTable<Player, DropRollItem> =
                     "obj.vorkath_head" count
                     1 condition
                     { player ->
-                        player.vars["varp.kc_vorkath"] != 50
+                        player.vars["varp.total_vorkath_kills"] != 50
                     }
                 onBuilder { brimstoneKeyRoll() }
                 1 outOf 1000 weight "obj.dragonbone_necklace" count 1

@@ -1,9 +1,7 @@
 package org.rsmod.content.bosses.nex
 
 import kotlin.math.ceil
-import kotlin.math.max
 import kotlin.math.min
-import org.rsmod.map.CoordGrid
 
 internal object NexRules {
     private val phaseThreshold =
@@ -79,16 +77,6 @@ internal object NexRules {
     fun eligibleDamage(total: Int): Int = min(100, ceil(total.coerceAtLeast(0) * 0.05).toInt())
 
     fun isEligible(damage: Int, total: Int): Boolean = damage > 0 && damage >= eligibleDamage(total)
-
-    fun wildernessAttack(hasMeleeTarget: Boolean): WildernessNexAttack =
-        if (hasMeleeTarget) WildernessNexAttack.MELEE else WildernessNexAttack.PURPLE_AREA
-
-    fun withinWildernessLeash(spawn: CoordGrid, current: CoordGrid): Boolean =
-        spawn.level == current.level &&
-            max(
-                kotlin.math.abs(spawn.x - current.x),
-                kotlin.math.abs(spawn.z - current.z),
-            ) <= WILDERNESS_NEX_LEASH
 
     fun uniqueRollThreshold(
         damage: Int,

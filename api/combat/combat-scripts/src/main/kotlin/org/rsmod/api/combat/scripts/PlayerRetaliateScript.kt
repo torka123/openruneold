@@ -1,6 +1,7 @@
 package org.rsmod.api.combat.scripts
 
 import jakarta.inject.Inject
+import org.rsmod.api.combat.commons.CombatRetaliation
 import org.rsmod.api.combat.commons.player.combatRetaliate
 import org.rsmod.api.combat.commons.styles.AttackStyle
 import org.rsmod.api.combat.weapon.WeaponSpeeds
@@ -21,12 +22,14 @@ constructor(private val attackStyles: AttackStyles, private val weaponSpeeds: We
         onPlayerQueueWithArgs("queue.com_retaliate_player") { autoRetaliatePlayer(it.args) }
     }
 
-    private fun ProtectedAccess.autoRetaliateNpc(uid: NpcUid) {
+    private fun ProtectedAccess.autoRetaliateNpc(argument: Any) {
+        val uid = retaliationSource(argument) as? NpcUid ?: return
         val flinchDelay = flinchDelay()
         combatRetaliate(uid, flinchDelay)
     }
 
-    private fun ProtectedAccess.autoRetaliatePlayer(uid: PlayerUid) {
+    private fun ProtectedAccess.autoRetaliatePlayer(argument: Any) {
+        val uid = retaliationSource(argument) as? PlayerUid ?: return
         val flinchDelay = flinchDelay()
         combatRetaliate(uid, flinchDelay)
     }
@@ -36,4 +39,10 @@ constructor(private val attackStyles: AttackStyles, private val weaponSpeeds: We
         val attackRate = weaponSpeeds.base(player)
         return (attackRate / 2) - (if (attackStyle == AttackStyle.RapidRanged) 1 else 0)
     }
+
+    private fun retaliationSource(argument: Any): Any? =
+        when (argument) {
+            is CombatRetaliation<*> -> argument.source.takeIf { argument.context.isValid() }
+            else -> argument // Retain compatibility with existing direct queue producers.
+        }
 }

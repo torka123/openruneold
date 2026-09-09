@@ -22,6 +22,7 @@ dependencies {
     testImplementation(projects.api.invtx)
     testImplementation(projects.api.invStorage)
     testImplementation(projects.api.net)
+    testImplementation(projects.api.gameProcess)
     testImplementation(projects.api.spellsAutocast)
     testImplementation("net.rsprot:osrs-240-desktop:${libs.versions.rsprot.get()}")
     testImplementation("org.mockito:mockito-core:5.18.0")

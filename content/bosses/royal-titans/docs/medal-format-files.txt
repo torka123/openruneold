@@ -1,0 +1,13 @@
+api/player/src/main/kotlin/org/rsmod/api/player/events/interact/NpcEvents.kt
+content/bosses/royal-titans/src/main/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansCombat.kt
+content/bosses/royal-titans/src/main/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansEncounterManager.kt
+content/bosses/royal-titans/src/main/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansMovement.kt
+content/bosses/royal-titans/src/main/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansRules.kt
+content/bosses/royal-titans/src/test/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansCombatIntegrationTest.kt
+content/bosses/royal-titans/src/test/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansCorpseInteractionTest.kt
+content/bosses/royal-titans/src/test/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansMovementTest.kt
+content/bosses/royal-titans/src/test/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansRulesTest.kt
+content/bosses/royal-titans/src/test/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansPresentationTest.kt
+content/bosses/royal-titans/src/test/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansElementalMovementTest.kt
+or-cache/src/main/kotlin/dev/openrune/NpcParameterConfigInstaller.kt
+or-cache/src/test/kotlin/dev/openrune/RoyalTitansR240CacheAuditTest.kt

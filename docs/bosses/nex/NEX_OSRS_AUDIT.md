@@ -1,198 +1,629 @@
-# OSRS Nex implementation audit (revision 240)
+# Nex revision-240 evidence ledger and approval mapping
 
-This audit records the production values used by `content/bosses/nex`. Cache-backed values were
-resolved from the active revision-240 LIVE cache and merged gamevals on 2026-08-14. Combat and
-reward rules were checked against the current OSRS Wiki Nex and strategy pages and Jagex's
-25 June 2025 *Summer Sweep Up: Combat* update. Where the live Wiki and that official update
-disagree, the task's explicit requirement is recorded below.
+## Status: approved implementation in progress, 9 September 2026
 
-## Existing project state
+**S02 foundation and M35 removal implemented below; full Nex integration and runtime verification remain incomplete. Not ready for a complete Nex fix commit; not 1:1 OSRS.**
 
-- No Nex encounter, access script, shared encounter state, combat script, or reward service existed.
-- Generated drop files existed for Nex, the four bodyguards, and Blood Reavers. The Nex file was a
-  partial placeholder and did not implement contribution-weighted personal loot.
-- Reusable systems found: normal NPC combat/accuracy, delayed hits, world queues, NPC transforms,
-  public damage contributions, owned ground objects, player kill-count varps, death hooks, collision,
-  exact-coordinate object handlers, and the generic banker content group.
-- The active map already contains the real Ancient Prison bank room, arena, barrier, Zaros altar,
-  reclaim chest, Ancient Forge, and bank NPC. The map is reused unchanged.
-- OpenRune has no complete follower/pet framework or collection-log award service. Nex records the
-  independent Nexling roll and persistent unlock, but follower recall and collection-log display
-  remain an engine/content-system limitation.
+This revision supersedes the earlier draft's unsupported implementation/parity claims. It records
+the existing defects, actual evidence, official/local API distinctions, proposed changes and
+executable verification required before a completion claim. Nothing below marked "planned" has
+been implemented. Root `AGENTS.md` explicitly requires approval of this mapping before combat edits.
 
-## Map and access
+The user has now approved all Nex work and directed that the rune-pouch display correction be
+finished first, followed by Nex. **M01-M36 / S01-S08 are approved**; the same approval will not be
+requested again. Evidence conflicts E01-E09 are not resolved by permission to implement. The audit
+results below describe the pre-implementation checkpoint, not a completed Nex deployment.
 
-| Purpose | Revision-240 value | Evidence | Implementation | Test |
-|---|---:|---|---|---|
-| Safe bank-room teleport | `2900,5203,0` | decoded collision: walkable; inside walls; beside bank NPC/chest area | `NexConfig.kt` / `NexWorld.kt` | startup collision validation |
-| Barrier controller | loc `42967` at `2909,5202,0` | `loc.nex_fight_barrier`, decoded map | `NexWorld.kt` | startup cache/map validation |
-| Busy barrier controller | loc `42968` | `loc.nex_fight_barrier_busy` | `NexWorld.kt` | cache validation |
-| Public barrier transform | loc `42937`, option 1 `Pass`, option 3 `Peek` | LIVE object definition | `NexWorld.kt` | handler-registration assertion at startup |
-| Public/private transform | loc `42938`, options 1/2/3 | LIVE object definition; private rooms intentionally unsupported | only option 1 and 3 registered | cache validation |
-| Busy transforms | locs `42939`, `42940`, `42941` | LIVE object definitions | state varbit blocks entry while active | startup cache validation |
-| Barrier state | varbit `13184` / `varbit.nex_barrier` | merged gamevals | `NexEncounterManager.kt` | runtime state handling |
-| Bank-side return | `2908,5203,0` | decoded collision | `NexWorld.kt` | startup collision validation |
-| Arena entry | `2910,5203,0` | decoded collision; east side of barrier | `NexWorld.kt` | startup collision validation |
-| Arena center/Nex spawn | `2924,5202,0` | decoded map and OSRS arena cross | `NexConfig.kt` | coordinate assertion |
-| Zaros altar/exit | loc `42965` at `2939,5202,0`; option 2 `Teleport` | `loc.nex_zaros_altar`, decoded map/LIVE definition | `NexWorld.kt` | startup validation |
-| Reclaim chest | loc `42854` at `2901,5200,0`; option 1 `Claim` | decoded map | map asset audited; Nex currently uses standard PvM death drops | startup audit |
-| Bank | NPC `npc.nex_story_npc_3op`, option 3 through `content.banker` | `.data/raw-cache/server/banks.toml` | existing generic banker module | startup validation/manual client check |
+The canonical workspace is
+`C:\Users\norma\Documents\Codex\2026-08-10\lets-work-on-the-openrune-server\work\OpenRune-Server`.
+At the initial audit checkpoint, the doctor confirmed server JVM **32336** in this directory, revision **240**,
+server definitions `.data/cache/SERVER`, JS5 `.data/cache/LIVE`, and PostgreSQL `.data/postgres`.
+No cache-path/revision change, deployment, database migration or restart was made during that initial audit.
+Subsequent rune-pouch deployment and the current Nex source-only changes are distinguished below.
 
-The bank room is treated as safe. Encounter targeting is bounded to the arena and never searches
-through the barrier. Public entry is allowed while the chamber is idle/spawning and denied after
-combat begins. Leaving never resets a fight that still has living participants.
+Pre-existing work is not Nex work: all **205** files in the initial dirty/untracked source hash
+snapshot still matched before the initial documentation update. Nex source and this ledger had no
+pre-existing diff. That read-only audit changed only this ledger and focused ignored research evidence.
+No stage, commit, push, PR, source restoration or duplicate Nex implementation.
 
-## NPCs and cache forms
+Evidence directory: [logs/nex-audit-20260909](../../../logs/nex-audit-20260909/).
+Initial doctor: [doctor-before](../../../logs/nex-20260909-doctor-before.log).
+Three explicitly requested **read-only** agents audited architecture, captures, and current Wiki/cache.
+The primary performed evidence acquisition/transcription and owns all integration decisions/edits.
 
-| NPC | ID | Level | HP | Attack/Strength/Defence/Magic/Ranged | Size | Spawn |
-|---|---:|---:|---:|---|---:|---|
-| Nex (normal) | 11278 | 1001 | 3400 | 315/200/260/230/350 | 3 | 2924,5202 |
-| Nex (spawning) | 11279 | 1001 | 3400 | same | 3 | transform |
-| Nex (Soul Split) | 11280 | 1001 | 3400 | same | 3 | transform |
-| Nex (Deflect Melee) | 11281 | 1001 | 3400 | same | 3 | transform |
-| Nex (dying/Wrath) | 11282 | 1001 | 3400 | same | 3 | transform |
-| Fumus | 11283 | 285 | 500 | 1/1/200/200/1 | 1 | 2912,5216 |
-| Umbra | 11284 | 285 | 500 | 1/1/200/200/1 | 1 | 2937,5216 |
-| Cruor | 11285 | 285 | 500 | 1/1/200/200/1 | 1 | 2937,5190 |
-| Glacies | 11286 | 285 | 500 | 1/1/200/200/1 | 1 | 2912,5190 |
-| Prison Blood Reaver | 11293 | 174 | 125 | not used for boss summons | 2 | outside prison |
-| Boss Blood Reaver | 11294 | 161 | 150 | defence 100, magic 190 | 2 | safe arena tiles around Nex |
-| Nexling | 11277 | pet | cache-defined | non-combat | 1 | persistent roll/unlock |
+## Evidence labels and restrictions
 
-Nex aggressive bonuses are melee `+200`, ranged `+100`, magic `+150`, melee strength `+20`,
-ranged strength `+22`, magic damage `+5`. Defences are stab `+40`, slash `+140`, crush `+60`,
-magic `+300`, light ranged `+190`, standard ranged `+190`, heavy ranged `+150`. Fumus defence is
-25/100/100/150; Umbra 100/100/100/150; Cruor 100/25/100/150; Glacies 100/100/25/150.
+- **O**: official Jagex documentation; authoritative for documented changes, not hidden algorithms.
+- **W**: current Wiki documentation, pinned below; conflicts remain explicit.
+- **C-GM**: observed in a decoded Grid Master capture; identities/visible event order are usable
+  research evidence, but normal damage, drop rates and combat timings are **not certified**.
+- **K**: revision-240 cache identity/definition inspection; a cache identity does not prove mechanics.
+- **U**: verified official upstream OpenRune source; architectural evidence, not OSRS proof.
+- **L**: existing local/fork source; never labelled official merely because it lives under `api/`.
+- **I / X / ?**: inferred / contradicted / unresolved.
+- "Tested" and "runtime verified" require their own retained results. Startup, constants and
+  nonempty transcripts do not establish gameplay, visuals or raw packet parity.
 
-All five Nex forms use stand `9177`, walk/run `9175`. Bodyguards use stand `808`, walk `819`,
-turn-back `820`, turn-left `821`, turn-right `822`. Nex/bodyguards/Reavers are poison and venom
-immune for this encounter; Nex Defence may be reduced by at most 10 levels. Encounter-owned
-bodyguards and Reavers suppress independent normal loot.
+### Current external sources
 
-## Animations and graphics
+| Key | Exact reference | Use / limitation |
+|---|---|---|
+| O1 | [Summer Sweep Up: Combat, 25 June 2025](https://secure.runescape.com/m=news/summer-sweep-up-combat?oldschool=1) | Two additional melee attempts while target remains reachable; lower phase floor example 2720 to 2550; final magic late-prayer reduction 25%; Reaver text says 75%, disputed by W1. |
+| O2 | [Nex Drop Table Changes & Monster Examine, 13 January 2022](https://secure.runescape.com/m=news/nex-drop-table-changes--monster-examine?oldschool=1) | Historical drop topology; do not retain subsequently superseded unique rate. |
+| O3 | [Guardians of the Rift Improvements, 30 March 2022](https://secure.runescape.com/m=news/guardians-of-the-rift-improvements?oldschool=1) | Restores unique table chance to 1/43. |
+| W1 | [Nex, revision 15325291](https://oldschool.runescape.wiki/w/Special:PermanentLink/15325291) | Current stats/rewards/history; snapshot dated 30 August 2026. |
+| W2 | [Nex/Strategies, revision 15331654](https://oldschool.runescape.wiki/w/Special:PermanentLink/15331654) | Current phase mechanics/targeting/access; dated 5 September 2026. Some statements conflict with older official updates. |
+| W3 | [Ancient Prison, revision 15205428](https://oldschool.runescape.wiki/w/Special:PermanentLink/15205428) | Access/map context; redirect/transclusion targets require separate verification where applicable. |
+| W4 | [Blood Reaver, revision 15305108](https://oldschool.runescape.wiki/w/Special:PermanentLink/15305108) | Distinguishes prison11293 from encounter11294; current healing text and toxin susceptibility. |
+| W5 | [Nexling, revision 15336495](https://oldschool.runescape.wiki/w/Special:PermanentLink/15336495) | Pet attribution/reclaim context; dated 9 September 2026. |
+| W6 | [Fumus15221135](https://oldschool.runescape.wiki/w/Special:PermanentLink/15221135), [Umbra15221134](https://oldschool.runescape.wiki/w/Special:PermanentLink/15221134), [Cruor15221130](https://oldschool.runescape.wiki/w/Special:PermanentLink/15221130), [Glacies15221131](https://oldschool.runescape.wiki/w/Special:PermanentLink/15221131) | Bodyguard stats and independent ceremonial drops. |
+| W7 | [Ancient Barrier transcript, revision14745459](https://oldschool.runescape.wiki/w/Special:PermanentLink/14745459) | Menu/warning/fee text; older transcript is not proof of every current CA-tier fee. |
 
-| Purpose | ID/key |
+Additional official history inspected:
+
+- [Nex release, 5 January2022](https://secure.runescape.com/m=news/nex-the-fifth-general?oldschool=1): public room cap60, final Soul Split opening, logout/disconnect return and masks.
+- [Nex Changes & Tweaks, 12 January2022](https://secure.runescape.com/m=news/nex-changes--tweaks?oldschool=1): private cap20, creator Hard CA tier, mutual friends online/same world; loot under Nex for teams below20, under players for20+; phase special-order statement.
+- [Easter2022, 13 April](https://secure.runescape.com/m=news/easter-2022?oldschool=1): duo Reaver spawning fix; Nex Master now25KC.
+- [More Poll79 Changes, 21 June2023](https://secure.runescape.com/m=news/more-poll-79-changes?oldschool=1): appropriate masks/Slayer helmets prevent secondary player-to-player cough infection.
+- [While Guthix Sleeps, 10 July2024](https://secure.runescape.com/m=news/while-guthix-sleeps?oldschool=1): invulnerable bodyguards must not accept burn damage.
+- [Renderer beta update, 9 July2025](https://secure.runescape.com/m=news/the-new-renderer-beta-is-out-today?oldschool=1): cough persists into final phase, allowing the doctor CA.
+- [Summer Sweep Up: Miscellaneous, 2 September2026](https://secure.runescape.com/m=news/summer-sweep-up-miscellaneous?oldschool=1): invalid Nex PBs from minion-damage interactions; screen affected historical PB evidence.
+
+W3 is a disambiguation page, not a complete access source. The relevant follow-up is
+[God Wars Dungeon, revision15299834](https://oldschool.runescape.wiki/w/Special:PermanentLink/15299834).
+Natural barrier and altar sources are [Ancient Barrier15333724](https://oldschool.runescape.wiki/w/Special:PermanentLink/15333724)
+and [Altar15329763](https://oldschool.runescape.wiki/w/Special:PermanentLink/15329763).
+Current CA reward pages explicitly distinguish private cost/essence tiers:
+[Hard15321192](https://oldschool.runescape.wiki/w/Special:PermanentLink/15321192),
+[Elite15321189](https://oldschool.runescape.wiki/w/Special:PermanentLink/15321189),
+[Master15329081](https://oldschool.runescape.wiki/w/Special:PermanentLink/15329081),
+[Grandmaster15321195](https://oldschool.runescape.wiki/w/Special:PermanentLink/15321195).
+They document private fees150k/125k/100k/75k and essence35/30/25/15 respectively; base essence40.
+These are Wiki-supported tier rules, not capture-observed transactions. Reclaim100k and subsequent
+unsafe-death item loss likewise require native integration and transaction tests.
+
+Raw Wiki API responses, revision IDs and timestamps are retained in `wiki-*.json` in the evidence
+directory. The browser reader failed on some Wiki pages; the public MediaWiki API succeeded.
+No private-server code is used as behavioral authority.
+
+### Material conflicts / rules not yet approved as constants
+
+| ID | Conflict or missing evidence | Decision |
+|---|---|---|
+| E01 | No complete **normal-game** Nex capture found. | All normal timing/geometry distributions still require corroboration. Never transplant Grid Master damage or timing as normal truth. |
+| E02 | O1 says Reaver healing75%; W1 explicitly annotates50% as a correction of the news-post typo; W2/W4 also say50%. | Prior task-specific75% instruction is superseded. Current target is unresolved at the official-source conflict boundary; proposed50% remains explicitly Wiki-supported until correction/capture proof resolves it. Do not claim the current75% test proves anything. |
+| E03 | Draft soft cap50 plus one-third excess, and10% damage beyond threshold, were not substantiated by current source searches. O1 proves extra floor allowance, not these formulae. | Do not silently carry them forward or infer their removal solely from absence in prose. Obtain impact samples/current authoritative confirmation; test impact pipeline independently meanwhile. |
+| E04 | Older official special-order reset statement conflicts with W2 advanced strategy discussion of cross-phase ordering. | Follow-up: all346 special calls across3284/806/807/808 match encounter-wide alternating parity, zero mismatches, reset at `AT LAST!`, not at phase changes. Strong C-GM support for W2 ordering; not normal-duration or probability proof. |
+| E05 | W2 private fee100k vs W7 transcript125k omitted tier context. | Current CA reward pages above resolve the Wiki-level discrepancy with150k/125k/100k/75k. Do not implement a universal100k fee; runtime fee/CA-boundary verification remains outstanding. |
+| E06 | Common-table weights/quantity lump, MVP ties, eligibility source mix, pet share/bonus and tertiary topology are incomplete. | Native integration can be prepared, but no invented distribution or unconditional1/500 per-player pet roll. |
+| E07 | Retarget probabilities, unreachable behavior, exact dash/drag selection, radius boundaries, prayer snapshots and several durations lack normal-game proof. | Named unresolved rules; no guessed constants presented as confirmed. |
+| E08 | Current PB/start/rounding validity, recent PB correction history, all access/reclaim and public-room scenarios lack complete retained evidence. | Complete source/capture validation before runtime acceptance. |
+| E09 | K identities are inspected, but no executable `NexR240CacheAuditTest` exists yet. | Add it after approval; do not call startup lookup a passed cache audit. |
+
+Follow-up research after approval: the official June2025 Reaver sentence heals **the attacking
+player**, not Nex. An agent's earlier recipient claim was incorrect. Wiki corrections
+[14958162](https://oldschool.runescape.wiki/w/Special:Diff/14938316/14958162) and
+[14990851](https://oldschool.runescape.wiki/w/Special:Diff/14990433/14990851) explicitly replace75%
+with50% as a news-post error, but neither links a measurement or Jagex clarification. Player
+lifesteal must not fail the CA for Nex receiving Siphon healing. E02 remains a rate conflict.
+The [30 May2025 proposal](https://secure.runescape.com/m=news/summer-sweep-up-combat--loot?oldschool=1)
+documents reduced post-threshold damage, but supplies no10% coefficient or crossing-hit rounding.
+Additional local/remote searches found no normal Nex capture or primary proof of the draft soft cap.
+
+Further prison evidence (808, C-GM): target SangKodai/projectile2006 t1935:L49810-12; perimeter42944
+and center26209 t1937:L49827-34; helper destroys only(2935,5195) at t1941:L49885-93, punch422,
+sound5272/range4; remaining ring persists to t1945:L49928-34. Another rescue t1614:L41421 sends
+`<col=229628>You've been freed from the ice prison!</col>`, selected deletion t1615:L41451,
+rest clears t1619:L41525-30. Self-rescue is rejected (806 t364:L10126-31); unsuitable weapons and
+failed eligible attempts are observed (808 t326:L9421-23, t1291:L33039-44). Exact success probability
+remains unverified. Do not delete whole rings, select lowest UID, or infer damage from unrelated
+ordinary ice hits on the expiration tick.
+
+## Capture manifest and packet evidence
+
+All originals are preserved. The primary copied3284 from
+`C:\Users\norma\.rsprox\binary\Old School RuneScape\yama-3284.bin` and downloaded other selected
+submissions to the workspace without overwriting existing raw files. Both raw and matching decoded
+text are under `logs/nex-audit-20260909/captures/`.
+
+[Capture manifest](../../../logs/nex-audit-20260909/capture-manifest.md) contains provenance,
+command and limits; [raw/transcript hashes](../../../logs/nex-audit-20260909/capture-hashes.json)
+contains byte counts and SHA-256. The installed RSProx CLI, not a new decoder, transcribed all six
+successfully to nonempty text. These are **transcript observations plus raw hashing**, not independent
+binary packet verification.
+
+| ID | Date / revision / mode | Covered encounter context | Confidence |
+|---|---|---|---|
+| 3284 | 25 Oct2025 /234.1 /Grid Master | Two complete private solo kills, all phases, private entry, respawn, external Bank Heist exit | C-GM high identification, no normal timing claim |
+| 806 | 19 Oct2025 /234.1 /Grid Master | Twelve complete private solo kills | C-GM |
+| 807 | 20 Oct2025 /234.1 /Grid Master | Nine solo then four duo completions with SangKodai; unfinished later attempt | C-GM |
+| 808 | 20 Oct2025 /234.1 /Grid Master | Eleven complete private duo kills | C-GM |
+| 2960 | 1 Jun2025 /230.1 /normal | **Rejected**: stored Nex KC at login, no Nex actors/fight | Not Nex combat evidence |
+| 3934 | 15 Feb2026 /236.1 /normal | **Rejected**: Ancient Prison music-playlist message | Not Nex combat evidence |
+
+Search scope included every requested local root, contextual Documents/Codex transcripts, and the
+remote submission index. Local inventory:818 raw/726 text; unmatched local raws were OpenRune Server
+captures, not untranscribed normal OSRS Nex. Numeric coincidences, login vars and music messages
+were not classified as encounters.
+
+Reusable tooling inspected: Cerberus search/transcribe, Arceuus search/transcribe/excerpt, and
+Vorkath timeline/excerpt. `arceuus-capture-excerpt.ps1 -TranscriptPath ...` already supports generic
+input; no new Nex-specific decoder/excerpt script is needed. Correct search categories include
+NPC0, LOC2, MAPSQUARE3, MESSAGE_GAME4, SEQ8, SPOTANIM9, TEXT14. TEXT14 alone missed Nex speech.
+
+### Representative capture facts (line numbers refer to retained matching transcript)
+
+| Mechanic | Exact decoded evidence | Supported fact / boundary |
+|---|---|---|
+| Private entry | 3284 t292 L8469; t294 L8492; t299 L8520-8536 | Barrier42967 op2 at2909,5202; private create/join menu; instance11709 and barrier13184; entry2908,5203 to2910,5203. No paid fee proof. |
+| Opening | 3284 t353 L8651-8658 | Spawning11279 at2924,5202 facing west; sequence9182, sound5303, overhead `AT LAST!`; draft uses barrier sequence9203 incorrectly. |
+| Fumus | 3284 t358 L8680-8695 | 11283 at2913,5215 facing southeast. |
+| Umbra | 3284 t362 L8710-8725 | 11284 at2937,5215 facing southwest. |
+| Cruor | 3284 t366 L8739-8754 | 11285 at2937,5191 facing northwest. |
+| Glacies | 3284 t370 L8768-8783 | 11286 at2913,5191 facing northeast. |
+| Opening leech | 3284 L8691-8693 | Projectile2010 start30/end120, angle3, progress0, heights140 to190; sound5286 delay30. Client-cycle units, not game ticks. |
+| Active form / Choke | 3284 t374 L8798-8811; t378 L8870-8879 | Same-index11279 to11278; first Choke precedes five normals, consistent with W2 opening. |
+| Smoke normal | 3284 t382 L8999 onward; t390 L9239 | Projectile1997 sample start46/end146, angle5, progress84, heights100 to96; impact1998. End146 is one distance sample, not universal. |
+| Smoke dash | 3284 t636 L15076; t641 L15215 | Two-stage dialogue; still needs full normal movement/damage timeline. |
+| Shadow | 3284 t408 L9828; t416 L10092-10103; 808 t178 L5128-5130 | Darkness observed with9182; Shadow Smash9186 and loc42942 on both duo target tiles. |
+| Siphon / Reaver | 3284 t444 L10878-10907 | Sequence9183, graphic2015;11294 at2934,5212, spawn graphic2017, sound4497. Healing percentage not established. |
+| Sacrifice | 3284 t477 L11951-11973;808 t258 L7673 | Mark warning, player tint(start0/end210,hue0,saturation6,lightness28,weight112), sound5223; explicit escape message. |
+| Containment | 3284 t494 L12387-12397; t499 L12535-12557 | Sequence9186; loc42943 packet placement/orientations around actual Nex. Sample has11 visible tiles, not proof of universal11. |
+| Prison | 3284 t726 L17708-17725; t729 L17806-17830; t737 L17979 | Projectile2006 sample start46/end96, angle5, progress84, heights30 to20; eight loc42944 around2935,5195; warning then shatter. |
+| Zaros | 3284 t519 L13193-13214; t523 L13327-13328 | Healing511 to1011, sequence9179, graphic2016; music711; same-index Soul Split form11280. |
+| Wrath | 3284 t542 L13917-13927; t543 L13942; t546 L13960-13980 | Dying11282, options0;9184; sounds5236(delay60)/5241(delay90), central2013 and satellite2014 via2012 projectiles. No damage-radius proof. |
+| Completion / loot | 3284 t549 L13987-14024 | KC varp3269, PB1:41 message, MVP message, items under actual Nex2917,5192, reveal100/despawn200 packet fields, barrier3 to2, deletion. Do not substitute boss-local18000-tick lifetime. |
+| Repeat / exit | 3284 t587 L14101; t790 L19471-19474; t807 L19594-19596 | Fresh opening, second completion, then Grid Master external teleport. Does not prove altar exit. |
+| Duo targeting | 807 t6087 L104194, t6091 L104333;808 t139 L3896,t143 L4057 | Projectiles actually target SangKodai, not merely a nearby player-name string. Selection/tie probabilities unresolved. |
+| Reaver movement | 808 t222 L6488;t223/225/227/229 L6506/6518/6556/6603; t236 L6842 | Spawn, observed alternate-tick crawl and removal; normal-mode cadence still unverified. |
+
+Decoder warnings: pure-Java bzip2 fallback in four fight logs;807 additionally reports a Netty
+ByteBuf leak. The installed transcriber catches unsupported packet errors and can continue, so
+successful output is not completeness proof. Private-instance normalization can mix source and
+allocated coordinates on departure. Historical supporting-cache downloads are an automatic RSProx
+CLI side effect (e.g. cache2196 under the existing external RSProx cache); the OpenRune SERVER/LIVE
+paths and revision were not changed.
+
+## Cache audit boundaries and corrections
+
+Server combat definitions must be checked through native `ServerCacheManager.init(240)`, not
+a generic OSRS decoder applied to custom SERVER enums. The generic decoder failed on enum65475;
+that failure is not a reason to alter the active cache. LIVE remains the client/JS5 identity source.
+
+Inspected identities: Nex11278-11282, bodyguards11283-11286, encounter Reaver11294 vs prison11293,
+pet11277; barrier42937-42941/controllers42967-42968, shadow42942, icicles42943-42944, altar42965.
+Full sequence9177-9203, graphics1997-2017, map/options/var/interface/reward audits remain planned.
+
+Native SERVER/LIVE inspection was repeated by the primary using the existing built server jar and
+JShell, exit0 with no reported decoding errors. Retained output:
+[native-cache-inspection.log](../../../logs/nex-audit-20260909/native-cache-inspection.log).
+This is read-only definition evidence, **not** the requested executable regression test.
+The reproducible command is in [cache-inspection.md](../../../logs/nex-audit-20260909/cache-inspection.md).
+
+Concrete inspection findings, **not yet executable-cache-test results**:
+
+- Draft guard coordinates are contradicted by C-GM; update normal arena anchors only with this
+  confidence and corroborating map checks.
+- Current W1 Nex attack bonuses are magic100/ranged150, strength magic22/ranged5; old ledger swapped
+  these categories. Some SERVER params omit melee attack200/ranged defences; patch the intentional
+  server definition source after approval, not runtime stat repair or generated cache files.
+- Modern bodyguard definitions require validation of -2 flat armour and ranged categories.
+- W4 says Reavers are susceptible to poison/venom; blanket encounter immunity is unsupported.
+- Item26356 is **Frozen key**, not the Ecumenical key shard claimed by `NexRewards.commonPool`.
+- The correct Ecumenical key shard identity is **26388**, checked against revision240 game values
+  and Wiki identity. Reaver11294 SERVER stab defence0 conflicts with W4's20.
+- Nex sounds are available. E.g. LIVE sequence9180 frame1 sound5183;9183 frame1 sound5252;
+ 9184 frame1/55/56 sounds5180/5232/5218. These client animation sounds differ from explicit sound
+ packets: avoid double playback. `dbrow.synth_nex`4649 exists.
+- CA tasks410-420, structs4137-4147, varbits13652-13662 were identified. Identity alone neither
+  implements task conditions nor proves current task descriptions/tier thresholds.
+
+Additional K identities: Reaver idle9195/walk9193/attack9194/death9192; Nexling11277 is a follower
+(11276 is the POH variant). Shadow42942 is nonblocking; both icicle forms block, but only42944
+offers Attack. Altar42965 is3x3. Nex statistics interface732 has close2/title6 and personal9/11/13,
+global15/17/19, default best `-`. Barrier varbit13184 is varp3264 bits17-18; KC3269 is persistent.
+Warnings13180/13183; CA total13171; collection completion13191; presentation varcs550/950/951/952
+and clientscript5312 require executable/interface tests before enabling.
+
+Decoded spotanim-to-sequence pairs:1997→1981,1998→1987,1999→7615,2000→1969,2001→1966,
+2002→1969,2003→1967,2004→1958,2005→1965,2006→1960,2007→1980,2008→664,2009→9197,
+2010→9198,2011→9199,2012→9200,2013→9201,2014→9201,2015→8991,2016→9191,2017→9202.
+In particular,2015 is not sequence9190. Definition existence does not establish projectile timing.
+
+### Current documented rules, distinguished from packet-exact proof
+
+W2 documents normal4tick cadence; phase calls2720/2040/1360/680; nearest-target selection with
+current-style defence tie-breaking, not UID. Normal melee protection4/5, final melee2/3, normal
+magic1/2, Blood magic2/3 and Shadow ranged1/2 are documented fractions. W2 gives Ice normal
+freeze15ticks and missiles protection halving Ice special hits. Current draft freeze10 and
+unconditional special bypass therefore need correction once routed through native policy.
+
+W2 also documents Zaros overhead order Soul Split→Deflect Melee→none, four normal attacks each;
+this draft constant is **Wiki-supported**, not disproven merely because no normal capture exists.
+The healing/reflection/stat formulae and precise sampling still need evidence. Nex melee maximum
+27 in W1 versus30 in W2 is another unresolved source distinction; do not silently choose one.
+W2 Wrath maximum50 contradicts draft55, but exact radius/snapshot/seconds-to-ticks remain unverified.
+
+W6 bodyguards:500HP, speed5, maximum29, stationary; Fumus poison4, Umbra Attack drain, Cruor
+self-heal, Glacies freeze6. They have independent ceremonial table1/200, five equal pieces1/1000
+each, citing [Mod Ash, 26 April2022](https://twitter.com/JagexAsh/status/1518900406830653442).
+W4 encounter Reaver:150HP,size2,speed5,max20,Magic190,Defence100; not toxin immune.
+Current manager's generic guard max20 and Reaver max18/animation811 are not those definitions.
+
+Established reward facts from O2/O3/W1: unique denominator43; weights total12 (Torva pieces2each,
+horn2,vambraces3,hilt1); MVP common/unique benefit10% and bones; multiple player uniques possible.
+Contribution includes bodyguards/Reavers and documented thrall damage. Exact eligibility threshold,
+MVP ties, common weights and pet scaling remain E06. W1's blood essence1/82, shards5/82 and8/209,
+rune sword1/209 are listed in the **Other** section, not proven independent tertiary rolls.
+
+### All11 CA contracts to execute after approval
+
+These descriptions come from decoded240 task structs and Wiki; no CA was awarded or tested here.
+Completion varbits13652-13662 map to varp3128 bits26-31 then3387 bits0-4, total56points.
+
+| Task ID | Task / tier | Required event-based test |
+|---|---|---|
+|410|Nex Veteran / Elite|First eligible completion, award once|
+|411|Nex Master / Master|25KC boundary, not old100|
+|412|Nex Survivors / Elite|No participant death|
+|413|A siphon will solve this / Master|No Siphon healing, including leftover Reaver absorption|
+|414|Contain this! / Master|No participant Ice-special damage|
+|415|There is no escape! / Master|No participant Smoke Dash hit|
+|416|Nex Trio / Master|At most3 participants at encounter start|
+|417|Nex Duo / Grandmaster|At most2 participants at encounter start|
+|418|I should see a doctor / Grandmaster|A player coughing at completion, including final-phase persistence|
+|419|Perfect Nex / Grandmaster|Combined Siphon, Ice, Dash and Shadow criteria; shared team attribution|
+|420|Shadows Move... / Master|No participant Shadow Smash hit|
+
+The exact zero-damage/prayer/avoidable-hit semantics and join/leave attribution must be pinned from
+task descriptions/current clarifications, then exercised in T15 rather than guessed from animations.
+
+## Official workflow catalogue (immutable upstream references)
+
+Official repository: `https://github.com/OpenRune/OpenRune-Server`, fetched main
+**61139e76a216592d66c2b20366ef26d48609875d**, 9 September2026. Origin is the user's fork, not
+official upstream. Every **U** link below is pinned to that exact commit.
+
+| API key | Classification and exact upstream source | Local difference / use |
+|---|---|---|
+| A01 | **U** [BossCombat](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/api/bosses/src/main/kotlin/org/rsmod/api/bosses/runtime/BossCombat.kt), [BossEncounter](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/api/bosses/src/main/kotlin/org/rsmod/api/bosses/runtime/BossEncounter.kt) | `projects.api.bosses` is official. Local ownerSlug/identity guard additions are L, not upstream. |
+| A02 | **U** [Effect](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/api/bosses/src/main/kotlin/org/rsmod/api/bosses/spec/Effect.kt), [EffectInterpreter](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/api/bosses/src/main/kotlin/org/rsmod/api/bosses/runtime/EffectInterpreter.kt), [native finishNpcHit](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/api/combat/combat-commons/src/main/kotlin/org/rsmod/api/combat/commons/player/PlayerExtensions.kt) | Native accuracy, projectiles, queued hits and effects. Nex's NpcAttackOverride/NpcProjectile/exposed NvPCombat are L and must not be reused as official APIs. |
+| A03 | **U** [StandardPlayerHitModifier](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/api/player/src/main/kotlin/org/rsmod/api/player/hit/modifier/StandardPlayerHitModifier.kt), [hit queue helpers](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/api/player/src/main/kotlin/org/rsmod/api/player/hit/PlayerExtensions.kt) | queueImpactHit already exists. Partial/calculated/bypass NPC-prayer modifiers currently used by Nex are L. |
+| A04 | **U** [NpcCombatEvents](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/api/npc/src/main/kotlin/org/rsmod/api/npc/events/NpcCombatEvents.kt), [StandardNpcHitProcessor](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/api/npc/src/main/kotlin/org/rsmod/api/npc/hit/processor/StandardNpcHitProcessor.kt), [PlayerHitpointsChangedEvent](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/api/player/src/main/kotlin/org/rsmod/api/player/events/PlayerHitpointsChangedEvent.kt) | Modify is queue-time; Impact is post-resolution. Actual HP delta already available. HitImpactHandler is L; don't invent a second impact bus. |
+| A05 | **U** [RouteFactory](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/api/route/src/main/kotlin/org/rsmod/api/route/RouteFactory.kt), [Scurrius arrival workflow](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/content/bosses/scurrius/src/main/kotlin/org/rsmod/content/bosses/scurrius/Scurrius.kt) | Size-aware native route/reach and arrival callbacks; no new pathfinder or ordinary movement teleports. |
+| A06 | **U** [InstanceScript](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/api/instances/src/main/kotlin/org/rsmod/api/instances/InstanceScript.kt), [InstanceManager](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/api/instances/src/main/kotlin/org/rsmod/api/instances/InstanceManager.kt), [GraardorInstance](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/content/bosses/graardor/src/main/kotlin/org/rsmod/content/bosses/graardor/GraardorInstance.kt) | Public/server-owned and private lifecycle, costs/entry, attachment already exist. Local identity-based attach/detach fixes are pre-existing L changes to preserve. |
+| A07 | **U** [NpcDeath](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/api/death/src/main/kotlin/org/rsmod/api/death/NpcDeath.kt), [NpcDeathKillHook](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/api/death/src/main/kotlin/org/rsmod/api/death/NpcDeathKillHook.kt), [native drop processing](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/content/drops/src/main/kotlin/org/rsmod/content/drops/NpcDropTableKillHook.kt) | Existing one-hero dispatch, native tables/conditions/loot tracker. Local NpcKillRewardContexts metadata isn't durable multi-recipient completion. |
+| A08 | **U** [DamageContributions](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/engine/game/src/main/kotlin/org/rsmod/game/damage/DamageContributions.kt), [NpcDamageContributor](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/api/npc/src/main/kotlin/org/rsmod/api/npc/hit/NpcDamageContributor.kt) | Current rich source attribution and HitContext/HitScope are L additions. Reuse/normalize only as the explicitly proposed S03 extension, no parallel contribution map. |
+| A09 | **U** [CollectionLog.grant](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/content/interfaces/collection-log/src/main/kotlin/org/rsmod/content/interfaces/collectionlog/CollectionLog.kt) | Current authoritative local shared service is **L api/collection-log/CollectionLogService**. Preserve it behind native drop integration; never install a second log implementation. |
+| A10 | **U** [AccountManager](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/api/account/src/main/kotlin/org/rsmod/api/account/AccountManager.kt), [Database transactions](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/api/db/src/main/kotlin/org/rsmod/api/db/Database.kt), [InstanceKillTimer](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/api/instances/src/main/kotlin/org/rsmod/api/instances/timer/InstanceKillTimer.kt) | Persistent attrs/vars are native. Stable per-completion transactional reward dispatch is missing, not solved by transient UID sets. |
+| A11 | **U** [HeronPet TODO](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/content/skills/fishing/src/main/kotlin/org/rsmod/content/skills/fishing/HeronPet.kt), [equipment pet TODO](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/content/interfaces/equipment/src/main/kotlin/org/rsmod/content/interfaces/equipment/EquipmentTabScript.kt) | No complete pet/follower or CA award service found upstream/local. Cache IDs, broadcast enums and persistent booleans are not such services. |
+| A12 | **U** [Demonic Gorilla](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/content/bosses/demonic-gorilla/src/main/kotlin/org/rsmod/content/bosses/demonicgorilla/DemonicGorilla.kt), [General Graardor](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/content/bosses/graardor/src/main/kotlin/org/rsmod/content/bosses/graardor/GeneralGraardor.kt) | Official examples for queued special effects/impact events and lifecycle bodyguard respawn, not proof of Nex mechanics. |
+
+Searches covered the full local tree and `git grep`/`git show` at upstream SHA, including tests,
+special attacks, NPC stat setters, lifecycle, contributions, death/drop services, pets/CAs and account
+persistence. History: official GWD `020be08f0`, Scurrius `cd6cc0467`; many fork extensions originate
+in `f9dd030fc19d17d6476e565383374aa0d33283d5`, newer provenance work remains uncommitted.
+The full relevant shared diff is retained as `relevant-shared-diff-before.patch`.
+
+Local GWD and [Vorkath repair](../vorkath/repair-validation-20260908.md) were inspected as examples.
+Vorkath's native-loop test approach is useful; its fork-only combat override is **not** an approved
+official API for Nex. Its document explicitly leaves graphical verification incomplete.
+
+## Complete mechanic-to-API approval mapping
+
+Each row links its required behavior/evidence confidence, current implementation, official workflow,
+local difference (catalogue above), proposed work, executable tests (below), and missing capability.
+All rows are **approved and planned**, not completed mechanics.
+
+| ID / mechanic | Required target / evidence confidence | Existing Nex defect or limitation | Planned native integration / API keys | Executable tests / gap |
+|---|---|---|---|---|
+| M01 Access / Frozen Door / KC / bank | W1-W3 access rules; exact current options/thresholds to pin; bank safety required | Admin teleport and partial barrier handler; no complete natural route | Existing GWD counters, protected loc interactions, A06; real bank/barrier entry without command | T01; evidence E08, no new entry engine |
+| M02 Public room / busy barrier / peek / late entry / spectators | W2, K; C-GM only private menu and barrier sequence | Debug-like peek; incomplete transforms; access-protected entry guard may reject valid handler | A06 public server-owned room and native object hooks; explicit participant gating, native dialogue/vars | T01,T12; verify public state rules |
+| M03 Private create/join/fees/team cap/friends | W2/W7 and C-GM entry; fee conflict E05 | Unsupported | A06 settings row, private creation/join, native friend/online/fee checks; no new instance manager | T01,T15; E05 resolution first |
+| M04 Altar restoration / cooldown / exit | W1: ten-minute cooldown and Zaros equipment branch; K altar42965 | Prayer-only unlimited restoration, custom teleport | Native stats, vars/timers, special energy and A06 exit; validate all equipment/option branches | T01,T12,T15; E08 |
+| M05 Player death / reclaim chest | W2 reclaim behavior; exact fees/loss/re-entry to pin | Standard ground drops, no chest flow | Existing native player death selection + shared inventory storage/reclaim S05, not Nex codec | T12,T15; S05 |
+| M06 Spawn / facing / guard creation / readiness | C-GM opening coordinates and sequence, K forms; normal timing E01 | Wrong guard coordinates, five-tick opening,9203 instead of9182 | A01/A06 one canonical owner; staged transforms/NPC attachment, packet-backed facing/presentation | T02,T16; S07 RNG only |
+| M07 All phases normal accuracy/max hits/cadence/styles | W1/W2 stats; C-GM identities; O1 extra melee chain | Fork overrides, random secondary damage without accuracy | A01-A03 shared melee/magic/ranged effects/formulae; NPC properties in intentional definitions | T03,T16; S01, E01/E07 |
+| M08 Partial prayer and late final magic | O1 late25%; W2 phase protection; exact snapshot E07 | Fork modifiers and impact callbacks | A03 shared declarative per-attack protection and native impact queue | T04; S01 |
+| M09 Defence limits / armour / toxins / recoil / summons | W1/W4/W6; K omissions; exact floors to substantiate | Post-tick defence repair; non-player damage forced0; blanket Reaver immunity | A04/A08 native resolved damage/provenance, native definition toxin/armour rules, stat floor S08 | T04,T05,T11; S02,S03,S08 |
+| M10 Threshold crossing / bodyguard call / immunity | O1 lower-floor allowance, W2 call order; E03 unresolved formula | Queue-time predicted transition, soft-cap guess, stale-HP races | A04 impact-time policy before HP clamp/contribution; call after accepted impact, non-final lethal prevention | T05; S02 |
+| M11 Every guard vulnerability/death/phase advance | C-GM calls, W2/W6 distinct attacks and status effects; guard cap E03 | Immediate phase advance before death animation; repeated hits risk; generic guard combat omits individual effects | A01/A04/A07 one native guard death, one transition, current-phase gates and native poison/stat-drain/heal/freeze | T05,T06; S02 |
+| M12 Smoke Choke duration/spread/masks/drains | W2 opening Choke; C-GM t378; exact normal tick/source rules pending | Starts after5 normals; global even-tick schedule,100tick duration unproven | Nex phase state + native effects/events/queues, source-specific infection expiry and cleanup | T07; S03; E01/E07 |
+| M13 Smoke Drag and Dash | W2 and C-GM two-stage call; complete route/selection unresolved | Drag never selected; teleports every player and boss, anchor row/column damage | A05 native routing/forced movement and A02 scoped area hits; exact route only from evidence | T07,T12; S03; E07 |
+| M14 Shadow normals / Smash / Darkness | W2; C-GM9182/9186,42942 duo snapshots | Fixed10tick darkness/5tile anchor radius; generic delayed hit | A01/A02/A05 target snapshots, native loc lifecycle/collision, per-participant exposure | T03,T08; S01,S03; E07 |
+| M15 Blood normals / healing / prayer drain | W2; C-GM projectiles | Secondary damage skips accuracy; impact logic diverges | A02-A04 native attacks; heal from actual HP delta and verified source type | T03,T09; S01,S03 |
+| M16 Blood Siphon / incoming hits / absorption | W2; C-GM9183/2015 | Incoming damage heals at queue-time; fixed8tick window; old Reavers not absorbed/cleared correctly | A04 native impact policy and actual damage events; phase-scoped summons/absorption | T05,T09; S02,S03; E07 |
+| M17 Reavers count/spawn/crawl/attacks/death/healing | W4, K11294, C-GM movement; healing E02 | Team size clamped1..8, instant fixed spawns, generic811; pre-hit healing | A05/A06 owned NPCs, native definition/combat/death; resolved player healing, all simultaneous kills | T06,T09; S03; E02/E07 |
+| M18 Blood Sacrifice target/mark/escape/impact | W2, C-GM tint/warning/escape | Unverified+8 and anchor-distance7; no proper marking; delayed-target races | A02/A05 native visuals/movement and scoped impact; target retained by stable identity | T09,T12; S03; E07 |
+| M19 Ice normals / freezing | W2 and K; snapshot details unresolved | Generic freeze/prayer deductions tied to launch assumptions | A02/A03 native combat/freeze and protection policies, correct target validity | T03,T10; S01,S03 |
+| M20 Containment geometry/collision/impact/expiry | C-GM loc42943 placement; W2 | Only anchor-distance area damage, missing real icicles | A02/A05/A06 native loc placement/collision and scoped area hit | T10,T12; S03; E07 |
+| M21 Ice Prison selection/objects/break/escape/prayer | C-GM projectile2006 and eight42944 perimeter; W2 | Click breaks lowest UID rather than selected prison; removed entry still passes damage condition | Associate locs with one prison/target; native collision/protected interactions; resolved expiry state, not missing-map default | T10,T12; S03; E07 |
+| M22 Zaros normal attacks / forced melee | O1 all phases extra attempts; W2 | Fixed melee selection chance and nearest-anchor target, final-specific guesses | A01/A05 readiness/target state; correct footprint reach and scoped native attacks | T03,T04,T11; S01,S03,S07; E07 |
+| M23 Soul Split / Deflect / Turmoil / rotation | W2 four/four/four order; C-GM500heal,9179/2016,11280 transform | Rotation not runtime-tested; reflection/healing formulae and current-overhead impact sampling unproven | A01/A04 transform state and resolved HP events, native recoil/protection; substantiate reflect/heal formula | T11; S01,S02,S03; E07 |
+| M24 Death / Wrath / actual death position | C-GM same-index11282,9184,2012-14, sounds; W2 damage requirement | Native NPC deleted before queued Wrath; explosion uses spawn instead of death tile | A07 native death coroutine waits/orchestration; capture death tile/participants, execute A02 scoped effects before cleanup | T11,T12; S03,S04; E01/E07 |
+| M25 Aggression / target switching / reach / unreachable | W2 and C-GM actual duo target packets | Nearest anchor then UID; wrong3x3 reach | A05 native routing/interaction checks; content target policy only when evidenced | T03,T06,T12; E07 |
+| M26 Empty room / consecutive kills / natural respawn | C-GM two complete3284 kills, A06/A07 | Player-post-tick-driven room; local lists/reset work incomplete | A01/A06/A07 world/instance lifecycle, attached owned NPCs/locs, one next spawn | T02,T12; S03 |
+| M27 Logout/disconnect/teleport/death/generation | Required no stale incoming hit; native lifecycle U | Some special tasks guarded; ordinary/secondary queued hits not guarded | A06/A08 native scopes at hit resolution and lifecycle events; no private cancellation bus | T12; S03 |
+| M28 Contribution/eligibility/MVP/source provenance | W1; detailed algorithm E06 | Boss-local integer map credited before impact, guessed tie rules | A04/A08 resolved source-aware contribution, exclude/weight only evidenced sources; stable participant identity | T13; S03,S04 |
+| M29 Common/unique/personal rolls/tertiaries/bones/drop tiles | O2/O3/W1; C-GM actual loot packets, newer drop-tile rule requires pinning | Uniform pool, wrong26356, common+unique topology and tertiary assumptions,18000tick lifetime | A07 native tables and multi-recipient context, native clue conditions, shared ownership/reveal policy | T13,T14; S04; E06 |
+| M30 KC/PB/persistence/reconnect/idempotency | C-GM3269/KC/PB; W1; E08 clock semantics | Reward-time varp increment and transient rewarded set; disconnected recipient lost | A07/A10 stable completion ID, per-recipient transaction/outbox, native vars/timer and PostgreSQL | T14,T15; S04 |
+| M31 Collection Log / broadcasts / loot tracker | U shared drop pipeline; W1 collection entries | Direct local service and manual chat; old ledger wrongly says no service | A07/A09 authoritative shared drop processing; no second log, event identity from S04 | T14,T15; S04 |
+| M32 Nexling | W1/W5 pet shared contribution rather than universal per-player1/500 | Boolean unlock, no follower; chance unverified | Native rewards -> shared pet service using NPC/inventory/account workflow | T14,T15; S06; E06 |
+| M33 Combat Achievements, all11 | K task IDs410-420, current task text needs full final contract | Flags only; no award service | Shared CA award/persistence/cache task/tier workflow; source-tagged Nex conditions, no animation guesses | T15,T16; S06 |
+| M34 HUD/interface/sounds/all visual parity | C-GM packet rows above + K; raw gaps E01/E09 | Wrong sequences; missing known sounds, guessed projectile timing, no retained client proof | A02 native output; cache metadata plus packets, distinguish sequence sounds from explicit sound packets | T02-T11,T16 plus live clients |
+| M35 Unsupported Wilderness branch | X: custom final-phase snowfield is not canonical Nex | Second wildernessRun autoscheduled, custom attacks/leash/tests | Remove runtime/config/rules/tests and stale mode references within Nex; preserve unrelated wilderness spawns/areas | T01,T12, search regression; no shared combat gap |
+| M36 Statistics interface / personal and global data | K interface732 components; current value/record rules need pinning | No retained native statistics interaction test | A06 protected loc/UI output and A10 committed persistence, no transient scoreboard map | T01,T15,T16; S04, E08 |
+
+## Explicit approved shared capabilities
+
+This is the complete **approved proposed shared API** scope, not permission to edit arbitrary engine files.
+Existing local APIs remain labelled L; approving a proposal does not retroactively make them official.
+Default behavior for non-Nex callers must remain unchanged. Any additional shared change discovered
+later requires its own mapping/checkpoint.
+
+### S01 Native partial/late protection policy
+
+Requirement: O1 final magic late prayer and W2 partial normal protection.
+Search: A02/A03, upstream effect builders, native hit helpers/modifiers and their tests; official
+standard modifier hardcodes100% NPC protection. `queueImpactHit` already provides impact evaluation.
+
+Smallest addition: declarative policy under `api/player/.../hit/modifier/`, passed by
+`api/bosses/.../spec/Effect.kt`, `dsl/EffectBuilders.kt`, `runtime/EffectInterpreter.kt` and
+`api/combat/combat-commons/.../player/PlayerExtensions.kt`. Keep native event/admin/absorption order,
+launch snapshot and optional impact sampling. No Nex-only modifier or direct engine override.
+Tests T04 plus existing player/combat/boss suites.
+
+### S02 Impact-time NPC damage policy
+
+Requirement: threshold floors, siphon windows and simultaneous queued-hit safety.
+Search: A01/A04, `Npc.queueHit` and tests. Modify occurs at queue construction; Impact is too late to
+prevent HP loss. No existing pre-resolution floor/immunity policy found.
+
+Smallest addition in `api/npc/.../events/NpcCombatEvents.kt` and
+`hit/processor/StandardNpcHitProcessor.kt`, registered through A01 (and native script helper if
+needed): a keyed, default-no-op pre-resolution rule before final HP clamp, hitmark and contribution.
+Use existing post-impact events for calls/heals. Preserve current dirty attribution and validity
+checks; don't duplicate processors. Tests T05 with ordinary-NPC and admin-rule regressions.
+
+### S03 Native ownership, attribution and cancellation context
+
+Requirement: accepted indirect damage must not be discarded, and delayed attacks cannot affect
+departed/new-generation participants. Search A04/A06/A08 and queue processing; official upstream
+has limited source-death/melee invalidation but no complete encounter scope.
+
+An implementation already exists **locally**, so do not build another one. Explicitly proposed:
+normalize/complete its integration through native A02/A04/A06 pipelines, preserving dirty hunks.
+In-scope existing files include `engine/game/.../hit/HitContext.kt`, `Hit.kt`, `HitBuilder.kt`,
+`QueueArgumentValidity.kt`, `PathingEntity.kt`, `Npc.kt`, `Player.kt`, native hit queue helpers and
+processors, `DamageContributions.kt`, `NpcDamageContributor.kt`, and instance contribution/lifecycle
+hooks. Adapt declaration/propagation, not arbitrary boss callbacks; prefer official impact events
+over local HitImpactHandler. Tests T04,T05,T12,T13 and existing toxin/recoil/thrall/RT/Vorkath suites.
+
+### S04 Multi-recipient native completion/drop delivery
+
+Requirement: W1 contribution-weighted personal loot, multiple uniques, persistent KC and replay-safe
+rewards. Searches A07-A10 find one `findHero` dispatch; local `NpcKillRewardContexts` is a weak map,
+not recipients or a durable completion ledger. Native drop delivery is private to the shared hook.
+
+Propose a declarative recipient/reward context through `api/death/NpcDeath.kt`,
+`NpcDeathKillHook.kt`, `api/drop-table-plugin/.../KillRollContext.kt` and existing
+`NpcKillRewardContext.kt`, then the **existing** `content/drops/.../NpcDropTableKillHook.kt`.
+Use native tables, conditions, clue transformations, provenance, Collection Log, broadcasts, loot
+tracker and shared ground-object ownership, never `deathNoDrops -> NexRewardService`.
+
+Durability belongs to existing `api/account`/`api/db` transactions and migrations: stable per-life
+completion identity, unique recipient/event constraints, recorded rolls and retryable delivery.
+The existing `api/repo/.../obj/ObjRepository.kt` / native object ownership integration may need a
+stable delivery identifier to prevent replayed ground drops; this is included here, not a second
+object repository. Account/inventory save and delivery recovery must be tested at crash boundaries;
+a database row followed by an unguarded in-memory grant is **not** exactly-once delivery.
+Tests T13-T15, ordinary single-hero drops, rollback/concurrency/restart/idempotent log and pickup.
+
+### S05 Shared death reclaim
+
+Requirement: Nex reclaim behavior must use unsafe-death selection and preserve item variables.
+Search A06/A07 and local Vorkath/Yama/Zulrah storage: local `PlayerDeathStorageHook` exists;
+no complete official generic item-reclaim service. Instance `Reclaim` state is room re-entry grace,
+not an item chest.
+
+Propose smallest reusable storage/reclaim service in `api/death`, using existing `api/inv-storage`,
+`api/invtx`, account persistence and native death hooks. Nex supplies policy/chest identity only.
+Keep pre-existing pouch/storage-hook fixes and other bosses untouched except necessary shared
+default-preserving integration. Persist before clearing inventory; fee/capacity/reclaim transactional.
+Tests T12/T15 plus Vorkath storage and player-death/pouch regression suites.
+
+### S06 Shared pet/follower and Combat Achievement awards
+
+Requirement: actual Nexling and all11 persistent CA awards, not booleans/flags alone.
+Search: full local/upstream pets/followers/CA events/services/tests, A11 explicit TODOs.
+No suitable complete award/lifecycle service found. Existing NPC movement, player vars, cache task
+definitions, account/inventory persistence, UI output and broadcasts remain the owners.
+
+Propose **shared** `api/pets` for owner-bound pet award/follow/recall/despawn/reclaim integration,
+using native NPC/repository movement and account data; no new movement engine. Propose shared
+`api/combat-achievements` for cache-backed task completion/tier queries and notifications using
+native vars/account transactions. Wire through existing project dependency/module registration;
+implement Nex condition evaluators in the existing Nex module only. Do not add unrelated boss tasks,
+a second collection log, or independent flat-file persistence. Exact current Nex pet/task policies
+must be evidence-pinned before enabling them. Tests T14-T16 including same-event awards and restarts.
+
+### S07 Injectable native scheduling RNG
+
+Requirement: deterministic execution tests, not flaky probability tests.
+Search A01: upstream `BossEncounter.randomThreshold/selectWeightedRandom` uses Kotlin Random.
+Inject existing `GameRandom` via `BossEncounter.kt`/`EncounterRegistry.kt`, retain default production
+distribution. No new RNG subsystem. Tests selected branches plus default scheduler regression.
+
+### S08 Native NPC stat-drain floor
+
+Requirement: W1/W2 limited Nex defence reduction; current post-tick restoration is not atomic.
+Search includes upstream `Npc.defenceLvl`, native regeneration, all local special-attack drain
+call sites (Elder Maul, warhammers, bone/dorgeshuun, Ralos etc.). These directly set NPC levels;
+no shared minimum-level rule was found. Existing local setters enforce immunity only.
+
+Propose a default-preserving, data-driven minimum in the **existing NPC stat mutation boundary**
+(`engine/game/.../entity/Npc.kt` and its native definition/config support), not a Nex override or
+per-tick repair. Preserve other stat/immunity behavior. No broad stat-engine redesign. Tests current
+drain weapons at/above/below floor, Turmoil changes and ordinary NPC defaults. Substantiate precise
+Nex floor before configuring it. T04,T05,T16.
+
+## Source edits planned after approval
+
+- Refactor, do not delete/recreate, `content/bosses/nex/`: current module/config/combat/manager/
+  lifecycle/world/rules/rewards and existing tests; add native integration fixtures there.
+- Existing native Nex/bodyguard/Reaver reward tables under `content/drops/`; current Collection Log
+  entries, KC keys and canonical registrations remain authoritative.
+- Intentional NPC/instance/map/gameval configuration only where K/source evidence requires it.
+  SERVER/LIVE paths and revision stay240. No generated output editing.
+- `or-cache/src/test/kotlin/dev/openrune/NexR240CacheAuditTest.kt`.
+- Shared files/modules explicitly listed S01-S08, with prior dirty hunks isolated before edits.
+- Existing ledger and focused evidence. Reuse generic capture tooling; only parameterize it if needed.
+- Remove canonical-module references to `wildernessRun`, `WILDERNESS_NEX_SPAWN/ARENA/ATTACK_RATE/
+  ATTACK_RANGE/LEASH`, `WildernessNexAttack` and their auto-spawn/rules/tests. Outside references found:
+  `.data/raw-cache/map/npcs/wilderness.toml` comment and custom multiway polygon. **Do not restore
+  deleted historical wilderness spawns or change multiway geography as part of this combat fix**;
+  remove stale mode descriptions only if appropriate. Canonical Slayer/Collection Log Nex references stay.
+
+## Executable verification contract
+
+The following test suites are **planned**. Tests must exercise registration, native queues,
+processors, routefinding, instance ownership and transactions with injected clock/RNG. Rule-only
+tests may supplement but cannot satisfy these rows.
+
+| Test group | Required executable coverage |
 |---|---|
-| Nex dash | seq 9178 / `seq.nex_dash_attack` |
-| Nex Turmoil | seq 9179 / `seq.nex_turmoil` |
-| Nex basic/claw attack | seq 9180 / `seq.nex_attack` |
-| Nex blast/drag | seq 9182 / `seq.nex_blast_away` |
-| Blood Siphon | seq 9183 / `seq.nex_blood_siphon` |
-| Death | seq 9184 / `seq.nex_death` |
-| Defence | seq 9185 / `seq.nex_defend` |
-| Smash | seq 9186 / `seq.nex_smash_attack` |
-| Spin/darkness | seq 9187 / `seq.nex_spin_out` |
-| Alternate cast | seq 9188 / `seq.nex_alternate_cast_attack` |
-| Cast | seq 9189 / `seq.nex_cast_attack` |
-| Summon | seq 9202 / `seq.nex_summon` |
-| Barrier | seq 9203 / `seq.nex_prison_barrier` |
-| Smoke projectile/impact | spotanim 1997 / 1998 |
-| Shadow projectile | spotanim 1999 |
-| Blood projectile/impact | spotanim 2000 / 2001 |
-| Blood Siphon projectile/body | spotanim 2002 / 2015 |
-| Ice projectile/impact | spotanim 2004 / 2005 |
-| Ice Prison projectile | spotanim 2006 |
-| Zaros projectile/impact | spotanim 2007 / 2008 |
-| Soul Split projectile | spotanim 2009 |
-| Defence leech projectile/impact | spotanim 2010 / 2011 |
-| Mushroom/smoke cloud projectile/map/small | spotanim 2012 / 2013 / 2014 |
-| Turmoil | spotanim 2016 |
-| Summon | spotanim 2017 |
-| Shadow Smash map loc | loc 42942 / `loc.nex_shadow_smash` |
-| Ice prison icicles | locs 42943, 42944 |
+| T01 access | Real frozen-door/bank/barrier handlers; option1/2/3; public/private state boundaries; fee rollback/tiers/friends/team cap; peek; altar cooldown/restoration/exit; command not required; no Wilderness auto-spawn. |
+| T02 spawn | Exact index/form sequence, Nex/guard positions/facing, barrier vars, spawn readiness, sound/graphic output, initial target, repeated native respawn. |
+| T03 standard combat | All five phases plus guards/Reavers; native accuracy/style/max-hit; normal cycles; forced melee; target switching,3x3 reach, LOS, unreachable targets. |
+| T04 prayer/stats/sources | Launch/impact prayer matrix, final late prayer, native absorption/admin behavior, defence floors, flat armour, poison/venom, recoil/thrall/burn provenance; no global non-player-zero rule. |
+| T05 damage resolution | Threshold crossing/floors/caps once evidenced; same-tick multiple hits, queued phase changes, siphon immunity/healing, bodyguard gating and non-final lethal prevention; overkill only actual damage credited. |
+| T06 guards/Reavers | Every guard call/death, duplicate lethal hits, arrival/death timing; Reaver count/targets/crawl/stacking/pathing, ownership and phase-change cleanup. |
+| T07 smoke | First Choke, spread/retention/mask/drain/expiry; drag targeting; dash launch/route/collision/snapshot/damage; all death/exit cleanup paths. |
+| T08 shadow | Normal ranged; per-player Smash snapshots/tiles/expiry; Darkness evolving radius/visuals and multiple participants. |
+| T09 blood | Siphon start/end and in-flight hit races; prior Reaver absorption; actual player healing and simultaneous deaths; sacrifice tint/target/escape/hit/heal/prayer semantics. |
+| T10 ice | Native freeze; containment shape/collision/delay; prison associated icicle click, all escape/outcome paths, prayer, player death/logout/teleport during prison, full removal. |
+| T11 Zaros/death | Normal/forced melee, Soul Split actual-loss heal, Deflect, Turmoil and overhead rotation; late prayer; Wrath actual death center/radius/timing; bank/outside exclusion; native death once. |
+| T12 lifecycle | Leave/teleport/logout/disconnect/death/empty reset with each delayed mechanic pending; no stale hits/tasks/NPCs/locs/HUD/targets; two consecutive kills and instance entity-count invariants. |
+| T13 rewards | Source eligibility boundaries, team shares, MVP ties, unique/common/tertiary topology and exact weights after proof; guard ceremonial loot; all recipient drop tiles/ownership and multiple uniques. |
+| T14 completion | One native kill dispatch; duplicate callbacks, disconnect/reconnect, stable account identity, no duplicate items/KC/PB/log/broadcast; Nexling native award; shared clue behavior. |
+| T15 persistence/CA/reclaim | PostgreSQL transactions, concurrent/replayed completion, restart recovery, item-var/fee/capacity reclaim; all11 cache-described CA success/failure/team conditions and award idempotency; pet recall/ownership. |
+| T16 cache | SERVER native stats/params and LIVE models/options; NPC11277-11286/11293-11294; all used seq/spot/projanims/sounds/locs/interfaces/vars/reward items and CA rows; aliases must resolve to actual240 definitions. |
 
-The cache has no named Nex synth/gameval entries and the active project has no dialogue-to-sound
-mapping. No unrelated or guessed sound is substituted. Dialogue, animation, projectile, impact and
-map graphics are implemented; verified numeric Nex sound IDs remain a manual cache-audio blocker.
+Required implementation commands (not claimed run yet):
 
-## State machine and combat values
+```powershell
+.\gradlew.bat :content:bosses:nex:test :or-cache:test --tests dev.openrune.NexR240CacheAuditTest --no-daemon --console=plain
+.\gradlew.bat :content:bosses:nex:check --no-daemon --console=plain
+```
 
-States are `IDLE`, `SPAWNING`, `SMOKE`, `FUMUS`, `SHADOW`, `UMBRA`, `BLOOD`, `CRUOR`, `ICE`,
-`GLACIES`, `ZAROS`, `DYING`, and `RESETTING`. Each transition is generation-guarded and one-shot.
+Then all affected shared module suites and appropriate server build/check. Do not deploy a failing
+build or fix unrelated failures. Controlled rebuild and two restarts must retain the custom-build
+marker, doctor identity, cache paths/revision, PostgreSQL and source hashes.
 
-| Call | Threshold | post-2025 lower floor | Called bodyguard |
-|---|---:|---:|---|
-| Smoke end | 2720 | 2550 | Fumus |
-| Shadow end | 2040 | 1870 | Umbra |
-| Blood end | 1360 | 1190 | Cruor |
-| Ice end | 680 | 510 | Glacies |
+Live checklist remains entirely **not completed by this pass**: natural bank/public/private entry,
+solo/team/all phases/specials/guards/targeting/prayer/collision, deaths/disconnects/delayed effects,
+rewards/pet/CA/reclaim/altar, two consecutive kills and two restarts. Capture a real OpenRune fight
+through RSProx where possible; preserve raw/transcript and normalize events against a genuine normal
+OSRS baseline. Record exact matches/mismatches/decoder gaps. No graphical-client or packet-diff
+result is currently claimed.
 
-Damage crossing a call is reduced to 10% beyond the threshold and accepted only to the 170-HP
-lower floor. Further delayed/simultaneous damage is rejected until the bodyguard dies. The official
-2720-to-2550 example is a regression test. Nex uses a 50 soft cap: the part above 50 is reduced to
-one third; bodyguards use the same cap; Reavers have no soft cap. Nex cannot die outside Zaros.
+## Initial read-only audit checkpoint
 
-Normal attack cadence is 4 ticks. Phase special cycles are deterministic:
+- Read root AGENTS/contribution guidance and searched nested instructions; inspected complete Nex
+  source/tests and relevant shared dirty diff; compared pinned official source and local examples.
+- Ran initial doctor and verified canonical running revision240 authority; no restart.
+- Discovered/hashed/transcribed six candidates; four genuine Grid Master fight captures, two rejected.
+  Retained raw Wiki revisions and source/capture provenance.
+- Ran `:content:bosses:nex:test --no-daemon --console=plain`: **PASS,17 tests,0 failures/errors/skips**,
+  23seconds. XML timestamps2026-09-09T09:23:33.434Z; [baseline summary](../../../logs/nex-audit-20260909/baseline-tests.json).
+  These tests verify existing formulas/constants only, including contradicted/unproven assumptions.
+- Final `git diff --check`: **PASS**; all205 baseline dirty/untracked source hashes unchanged;
+  no missing local ledger links. [Checkpoint verification](../../../logs/nex-audit-20260909/checkpoint-verification.json).
+- Repeated doctor with `-SearchRoots @((Get-Location).Path) -SkipGradleVersion`: **PASS**, exit0;
+  same canonical JVM32336, revision240 and SERVER/LIVE fingerprints.
+  [Doctor result](../../../logs/nex-audit-20260909/doctor-checkpoint-canonical.log).
+  An earlier default-root repeat was stopped during its broad Documents duplicate-source scan,
+  after reporting runtime/cache identity; it is not counted as a completed doctor run.
+- Corrected documentation, not gameplay. No new native Nex integration/cache/runtime tests yet.
+  No OpenRune-versus-OSRS event diff, live client verification or parity acceptance.
+- **User approval of M01-M36 / S01-S08 received after this audit.** Approval covers only these
+  native-compatible scopes and evidence-backed rules, not guessed resolutions of E01-E09.
+  Material conflicts and newly discovered shared changes still require a focused follow-up.
 
-- Smoke: five normal attacks, then Choke, five normal attacks, then Smoke Dash with its pull; repeat.
-- Shadow: five normal attacks, Shadow Smash, five normal attacks, Embrace Darkness; repeat.
-- Blood: five normal attacks, Blood Siphon, five normal attacks, Blood Sacrifice; repeat.
-- Ice: five normal attacks, Containment, five normal attacks, Ice Prison; repeat.
-- Zaros: four attacks under Soul Split, four attacks under Deflect Melee, four with no overhead;
-  repeat. Selecting melee forces that attack plus two more melee attempts while the target remains
-  in melee range.
+## Approved implementation progress
 
-Normal prayer reductions are phase-specific: magic 50%, shadow ranged 50%, blood magic 66%, and
-melee 80%. Final-phase melee protection is 66%. Final magic uses 50% when protected at launch and
-25% when Protect from Magic is activated only during projectile travel (the June 2025 late-prayer
-change). Smoke Dash maxes 50; Shadow Smash 50; Blood Sacrifice 80; Containment 60; Ice Prison 75.
-Wrath resolves once after the death animation, within five tiles, and never reaches the bank room.
+### S02: impact-time damage resolution foundation
 
-The task explicitly requires Blood Reaver damage to heal its attacker by 75%, matching Jagex's
-25 June 2025 update text. The current Wiki strategy prose now describes 50%; this implementation
-follows the user's explicit 75% requirement and records the source conflict rather than hiding it.
+Implemented the approved reusable extension in `NpcHitEvents`, `StandardNpcHitProcessor`,
+`NpcScriptEventExtensions` and `BossCombat`. This is an **approved new local shared API**, not an
+API that existed in the pinned upstream revision. Its owning queue/hit/event pipeline is the
+verified upstream workflow identified in S02.
 
-## Contribution and rewards
+- Optional keyed `Resolve` runs at impact after administrative one-hit adjustment and before HP,
+  hitmarks, contribution and native death. No handler preserves the existing processing path.
+- The queued `Hit` stays immutable; requested damage is separately clamped to zero/current HP.
+  Native `Impact` observes accepted damage. Existing source attribution and impact callbacks stay
+  in their original pipeline; no second contribution/death pipeline was added.
+- Existing local `HitScope` validity is checked before resolution and again after the handler.
+  `BossCombat` registers optional resolve/impact handlers only when supplied, retaining existing
+  queue-time `onLethal` behavior for current consumers.
+- `NpcHitResolutionTest` executes the real processor for current-HP races, dynamic immunity,
+  zero/private hitmarks, indirect-source preservation, canceled scopes, bounds, native overkill,
+  and administrator one-hit ordering. Seven new tests plus five existing module tests pass.
+- `NexNativeHitQueueTest` executes native `NpcHitScript`, NPC queue processing and the hit processor
+  for two arriving hits across an immunity change, duplicate lethal hits, and retired burn hits.
+  The injected floor is a **test probe**, not a claim about Nex's unresolved damage formula.
 
-Accepted damage to Nex, each called bodyguard, and encounter-owned Blood Reavers is accumulated per
-player and per encounter generation. Cancelled immune damage, rejected floor damage, outsiders,
-spectators, prior-generation damage, and post-exit damage do not count. Eligibility requires at
-least 5% of the encounter's accepted player damage or 100 accepted damage, whichever is lower.
-Ties for MVP are deterministic: highest contribution, then earliest first contribution, then UID.
+**Integration boundary:** Nex's production combat registration and existing queue-time damage
+policy have not yet been migrated to this API. Passing these tests does not fix or certify Nex
+thresholds, siphon healing, damage caps, rewards, or the complete encounter. E02/E03 remain open.
 
-Every eligible player receives two personal common rolls whose quantities are scaled by their
-contribution share of the encounter's generated loot lump. The MVP gets 10% more common quantity
-and guaranteed Big bones. Each eligible player's unique chance is their contribution share divided
-by 43; the MVP's chance is multiplied by 1.10, allowing multiple uniques in one kill. Unique weights
-are Ancient hilt 1/12, Nihil horn 2/12, each damaged Torva piece 2/12, and Zaryte vambraces 3/12.
-Nexling is an independent 1/500 roll. Rewarded player UIDs are retained in the encounter until reset,
-making kill count, drops, unique broadcasts, and pet rolls idempotent.
+### M35: unsupported Wilderness encounter removed
 
-The two contribution-scaled common rolls draw from blood/death/soul/air/fire/water runes,
-unfinished dragon bolts, enchanted onyx bolts, steel cannonballs, air orbs, coal, runite ore,
-uncut rubies, uncut diamonds, wine of Zamorak, sharks, Saradomin brews, coins, and ecumenical key
-shards. Shark and brew rolls add their paired prayer-potion or super-restore supply. Blood essence,
-the two Nihil-shard rolls, rune sword, and elite clue scroll are separate independent tertiary
-rolls. The generated placeholder TOML is not used for personal Nex loot. The main-category
-selection is uniform in the current implementation and is listed as a fidelity blocker below.
+Removed the second run, automatic spawn/enrollment, custom final-phase attacks, leash correction,
+Wilderness arena constants and their three rules-only tests from the existing Nex module.
+Canonical Ancient Prison entry, targeting and rewards no longer branch on this custom mode.
+No unrelated Wilderness spawn file or multiway geography was changed.
 
-Kill count uses `varp.total_nex_kills` (3269) and increments once for each eligible rewarded player.
-Combat-achievement-ready flags record Smoke Dash, Shadow Smash, Blood Siphon healing, Ice-special
-damage, player death, starting team size, and cough-at-kill.
+`NexStartupTest` executes production manager startup through native world queues and observes
+exactly one canonical Nex plus four bodyguards, with no Wilderness enrollment. Its repository
+is mocked, so this proves the removed branch is not scheduled; it does **not** prove native NPC
+registration, correct OSRS spawn presentation or live room behavior.
 
-## Reset and validation
+Focused command:
 
-Every delayed effect captures the encounter generation and revalidates NPC identity, participant
-membership, life state, arena location, and state before resolving. Death/logout/teleport/exit clear
-only that player's temporary state. Empty active rooms enter reset without affecting the bank room.
-Reset removes Reavers and temporary locs, deletes the old boss/bodyguards, clears rewards and
-contribution, increments generation, then spawns exactly one fresh set after the respawn delay.
+```powershell
+.\gradlew.bat :content:bosses:nex:test :api:npc:test --no-daemon --console=plain
+```
 
-Automated pure-rule coverage is in `NexRulesTest.kt`, `NexRewardRulesTest.kt`, and
-`NexPhaseRulesMatrixTest.kt`; runtime startup validates cache assets and critical walkable tiles.
+Result: **PASS**, Nex 18 tests (14 retained rules tests, three native queue tests, one startup
+test), NPC 12 tests; zero failures/errors/skips. See
+[focused result](../../../logs/nex-audit-20260909/native-foundation-tests-2.log).
+The first run caught a test mock returning Boolean from the void repository `add` method;
+the mock was corrected, with no production workaround or weakened assertion.
 
-## Verification boundary and remaining blockers
+The separate rune-pouch fix completed two controlled restarts before these Nex source changes;
+see [pouch verification](../../pouches/ui-capacity-fix.md). The current canonical live JVM is
+**28712**, revision 240. These Nex/shared changes have **not** been deployed or runtime-verified.
+No Nex client fight or OSRS-versus-OpenRune packet comparison has been completed.
 
-The module is a playable full-phase foundation, but it must not yet be represented as fully verified
-1:1 Nex. The remaining gaps are explicit:
+Broader foundation verification:
 
-- Three-client, two-consecutive-kill timing and disconnect validation has not been performed.
-- Sound IDs were not verifiable in the revision-240 RSCM data, so no guessed sounds were added.
-- OpenRune has no complete follower or collection-log award framework; Nexling is an idempotent
-  persistent unlock only.
-- The project has no complete Combat Achievement award framework; encounter flags are recorded only.
-- Nex deaths use the established standard PvM death-drop handling, not the OSRS 100,000-coin reclaim chest.
-- The altar lacks the ten-minute cooldown and Zaros-item Hitpoints/run/special restoration branch.
-- The exact OSRS team-lump/common-category weighting is not reproduced; category selection is uniform.
-- Full integration tests for commands, live combat timing, prayer timing, cleanup, rewards, and reset
-  remain absent; current tests cover deterministic formulas and phase matrices only.
+```powershell
+.\gradlew.bat -I scripts/format-selected.init.gradle '-PopenruneFormatManifest=docs/bosses/nex/native-foundation-format-files.txt' :api:bosses:spotlessApply :api:npc:spotlessApply :api:script:spotlessApply :content:bosses:nex:spotlessApply :content:bosses:nex:check :api:npc:test :api:script:test :api:bosses:test :content:bosses:royal-titans:test :content:bosses:vorkath:test :server:app:assemble --no-daemon --console=plain
+```
+
+**PASS**, 1m37s, 474 tasks. Nex 18, NPC 12, Royal Titans 97 and Vorkath 103:
+**230 tests, zero failures/errors/skips**. `api:script:test` and `api:bosses:test` are
+`NO-SOURCE`, not additional passing suites. Nex check uses the explicit source-format manifest;
+this is not a repository-wide formatting check. Server assembly succeeded, not deployed.
+[Build log](../../../logs/nex-audit-20260909/native-foundation-regression-build.log).
+
+Reviewed the relevant diff. Removed formatter-only hunks from unrelated functions in
+`NpcScriptEventExtensions` and excluded that file from further bulk formatting; its only
+remaining changes are the new handler and queue-time documentation. `git diff --check` passes;
+LF/CRLF notices are Git conversion warnings, not whitespace-check failures.
+Of the 209 pre-restart dirty/untracked source snapshots, 206 remain byte-identical. The three
+expected differences are this ledger, the S02 processor hunk, and the completed pouch verification
+document. The processor's pre-existing source-attribution hunk is preserved. New Nex/API files
+were separately reviewed; nothing was staged, committed or restored wholesale.

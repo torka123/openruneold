@@ -4,6 +4,8 @@ import com.google.inject.Provider
 import jakarta.inject.Inject
 import org.rsmod.api.player.hook.GroundItemDropResolver
 import org.rsmod.api.player.hook.PlayerGroundItemDropHook
+import org.rsmod.api.player.hook.PlayerObjTakeRedirectHook
+import org.rsmod.api.player.hook.PlayerObjTakeRedirector
 import org.rsmod.api.player.hook.PlayerObjTakeValidateHook
 import org.rsmod.api.player.hook.PlayerObjTakeValidator
 import org.rsmod.api.player.hook.PlayerTeleportHook
@@ -23,6 +25,7 @@ public object PlayerModule : ExtendedModule() {
         newSetBinding<PlayerTeleportValidateHook>()
         newSetBinding<PlayerGroundItemDropHook>()
         newSetBinding<PlayerObjTakeValidateHook>()
+        newSetBinding<PlayerObjTakeRedirectHook>()
         bindInstance<MusicPlayer>()
         bindInstance<ProtectedAccessContextFactory>()
         bindInstance<ProtectedAccessLauncher>()
@@ -30,6 +33,7 @@ public object PlayerModule : ExtendedModule() {
         bindInstance<PlayerTeleportValidator>()
         bindInstance<GroundItemDropResolver>()
         bindInstance<PlayerObjTakeValidator>()
+        bindInstance<PlayerObjTakeRedirector>()
         bindProvider(ShuffledPlayerListProvider::class.java)
     }
 

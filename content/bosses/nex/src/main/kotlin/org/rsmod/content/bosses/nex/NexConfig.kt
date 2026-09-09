@@ -9,9 +9,6 @@ internal const val NEX_REAVER_HITPOINTS = 150
 internal const val NEX_ATTACK_RATE = 4
 internal const val NEX_RESPAWN_TICKS = 50
 internal const val NEX_DROP_DURATION = 18_000
-internal const val WILDERNESS_NEX_ATTACK_RATE = 6
-internal const val WILDERNESS_NEX_ATTACK_RANGE = 12
-internal const val WILDERNESS_NEX_LEASH = 3
 
 internal val NEX_BANK_TELEPORT = CoordGrid(2900, 5203, 0)
 internal val NEX_BANK_RETURN = CoordGrid(2908, 5203, 0)
@@ -20,18 +17,11 @@ internal val NEX_SPAWN = CoordGrid(2924, 5202, 0)
 internal val NEX_BARRIER = CoordGrid(2909, 5202, 0)
 internal val NEX_ALTAR = CoordGrid(2939, 5202, 0)
 
-/**
- * The custom Wilderness encounter runs only Nex's final phase in the open snowfield immediately
- * west of the Wilderness Agility Course.
- */
-internal val WILDERNESS_NEX_SPAWN = CoordGrid(2976, 3952, 0)
-
 internal data class NexArena(
     val name: String,
     val spawn: CoordGrid,
     val xRange: IntRange,
     val zRange: IntRange,
-    val wilderness: Boolean = false,
 ) {
     fun contains(tile: CoordGrid): Boolean =
         tile.level == spawn.level && tile.x in xRange && tile.z in zRange
@@ -39,15 +29,6 @@ internal data class NexArena(
 
 internal val NEX_CHAMBER_ARENA =
     NexArena(name = "Ancient Prison", spawn = NEX_SPAWN, xRange = 2910..2940, zRange = 5189..5217)
-
-internal val WILDERNESS_NEX_ARENA =
-    NexArena(
-        name = "Frozen Waste Plateau",
-        spawn = WILDERNESS_NEX_SPAWN,
-        xRange = 2966..2986,
-        zRange = 3942..3962,
-        wilderness = true,
-    )
 
 internal enum class NexState {
     IDLE,
@@ -81,11 +62,6 @@ internal enum class NexOverhead {
     SOUL_SPLIT,
     DEFLECT_MELEE,
     NONE,
-}
-
-internal enum class WildernessNexAttack {
-    MELEE,
-    PURPLE_AREA,
 }
 
 internal object NexAssets {

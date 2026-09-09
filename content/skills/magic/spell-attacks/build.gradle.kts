@@ -4,6 +4,7 @@ plugins {
 
 dependencies {
     implementation(projects.api.combat.combatManager)
+    implementation(projects.api.combat.combatFormulas)
     implementation(projects.api.combat.combatScripts)
     implementation(projects.api.death)
     implementation(projects.api.mechanics.toxins)
@@ -27,6 +28,7 @@ dependencies {
     testImplementation(projects.api.invtx)
     testImplementation(projects.api.invStorage)
     testImplementation(projects.api.gameProcess)
+    testImplementation(projects.api.hitPlugin)
     testImplementation(projects.api.route)
     testImplementation(projects.api.utils.utilsLogging)
     testImplementation(libs.fastutil)
@@ -37,5 +39,6 @@ dependencies {
 
 tasks.test {
     workingDir = rootProject.projectDir
+    maxHeapSize = "2g"
     systemProperty("junit.jupiter.execution.parallel.enabled", "false")
 }

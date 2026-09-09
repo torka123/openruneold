@@ -49,7 +49,7 @@ internal fun vorkathSpec(activeType: dev.openrune.types.NpcServerType) =
             bossName = "Vorkath",
             recommendedCombat = 100..126,
             teamSize = 1,
-            description = "Private post-quest Vorkath encounter",
+            description = "Instanced Vorkath encounter",
         )
         .withArea(VORKATH_AREA, settingsRowId = 0)
 

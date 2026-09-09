@@ -204,6 +204,7 @@ constructor(
                         PlayerPoison.tryPoisonAfterInterval(
                             target,
                             initialDamage = WebweaverBowSpecialPoison.INITIAL_DAMAGE,
+                            context = impact.hit.context,
                         )
                 }
             }

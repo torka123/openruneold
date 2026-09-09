@@ -1,0 +1,11 @@
+api/bosses/src/main/kotlin/org/rsmod/api/bosses/runtime/BossCombat.kt
+api/npc/src/main/kotlin/org/rsmod/api/npc/events/NpcCombatEvents.kt
+api/npc/src/main/kotlin/org/rsmod/api/npc/hit/processor/StandardNpcHitProcessor.kt
+api/npc/src/test/kotlin/org/rsmod/api/npc/hit/processor/NpcHitResolutionTest.kt
+content/bosses/nex/src/main/kotlin/org/rsmod/content/bosses/nex/NexConfig.kt
+content/bosses/nex/src/main/kotlin/org/rsmod/content/bosses/nex/NexEncounterManager.kt
+content/bosses/nex/src/main/kotlin/org/rsmod/content/bosses/nex/NexLifecycle.kt
+content/bosses/nex/src/main/kotlin/org/rsmod/content/bosses/nex/NexRules.kt
+content/bosses/nex/src/test/kotlin/org/rsmod/content/bosses/nex/NexRulesTest.kt
+content/bosses/nex/src/test/kotlin/org/rsmod/content/bosses/nex/NexNativeHitQueueTest.kt
+content/bosses/nex/src/test/kotlin/org/rsmod/content/bosses/nex/NexStartupTest.kt

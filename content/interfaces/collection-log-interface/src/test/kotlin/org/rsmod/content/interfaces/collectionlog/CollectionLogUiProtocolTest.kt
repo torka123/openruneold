@@ -22,6 +22,77 @@ import org.rsmod.game.entity.Player
 
 class CollectionLogUiProtocolTest {
     @Test
+    fun `every collection section can be selected with empty partial and complete ownership`() {
+        initRevision240()
+        val catalog = CollectionLogCatalogRepository()
+        val service = CollectionLogService(catalog)
+        val ui = CollectionLogUi(service, catalog)
+        ui.validateAssets()
+        val failures = mutableListOf<String>()
+        for (ownership in 0..2) {
+            val client = RecordingClient()
+            val player =
+                Player(client = client).apply {
+                    currentMapClock = 100
+                    processedMapClock = 100
+                }
+            val state = CollectionLogState()
+            catalog.slots.forEachIndexed { index, slot ->
+                if (ownership == 2 || ownership == 1 && index % 2 == 0)
+                    state.quantities[slot.canonicalItemId] = 1
+            }
+            service.save(player, state)
+            catalog.categories.forEachIndexed { categoryIndex, category ->
+                category.sections.forEachIndexed { sectionIndex, section ->
+                    try {
+                        ui.selectCategory(player, categoryIndex)
+                        client.messages.clear()
+                        ui.selectCurrentSection(player, sectionIndex)
+                        assertEquals(
+                            CollectionLogUiSession(categoryIndex, sectionIndex),
+                            ui.session(player),
+                        )
+                        assertTrue(
+                            client.messages.any { it.javaClass.simpleName == "UpdateInvFull" }
+                        )
+                        assertTrue(
+                            client.messages.any { it.javaClass.simpleName == "RunClientScript" }
+                        )
+                    } catch (failure: Throwable) {
+                        failures +=
+                            "${category.name}/${section.name} ownership=$ownership: $failure"
+                    }
+                }
+            }
+        }
+        assertEquals(emptyList(), failures)
+    }
+
+    @Test
+    fun `Vorkath collection reads the real permanent revision 240 kill counter`() {
+        initRevision240()
+        assertEquals(1691, "varp.total_vorkath_kills".asRSCM(RSCMType.VARP))
+        assertEquals(
+            dev.openrune.types.varp.VarpLifetime.Perm,
+            ServerCacheManager.getVarp(1691)?.scope,
+        )
+        val catalog = CollectionLogCatalogRepository()
+        val player =
+            Player(client = RecordingClient()).apply {
+                currentMapClock = 100
+                processedMapClock = 100
+            }
+        val ui = CollectionLogUi(CollectionLogService(catalog), catalog)
+        VarPlayerIntMapSetter.set(player, "varp.total_vorkath_kills", 37)
+        ui.selectCategory(player, 0)
+        ui.selectCurrentSection(
+            player,
+            catalog.categories[0].sections.indexOfFirst { it.name == "Vorkath" },
+        )
+        assertEquals(37, player.vars[CollectionLogUi.COLLECTION_GENERAL_VARP])
+    }
+
+    @Test
     fun `revision 240 uses the collection draw wrapper clientscript`() {
         initRevision240()
         assertEquals(7797, CollectionLogUi.DRAW_SCRIPT)
@@ -202,7 +273,8 @@ class CollectionLogUiProtocolTest {
         val client = RecordingClient()
         val player = Player(client = client)
         val source = CollectionLogAwardSource(CollectionLogAwardKind.AdminTest, "popup-mode-test")
-        val itemId = catalog.catalog.categories.first().sections.first().slots.first().canonicalItemId
+        val itemId =
+            catalog.catalog.categories.first().sections.first().slots.first().canonicalItemId
         VarPlayerIntMapSetter.set(player, CollectionLogUi.COLLECTION_LOG_NOTIFICATION_VARBIT, 1)
         ui.installRecordHook()
 

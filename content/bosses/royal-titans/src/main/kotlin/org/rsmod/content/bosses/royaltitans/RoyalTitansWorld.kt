@@ -3,8 +3,10 @@ package org.rsmod.content.bosses.royaltitans
 import dev.openrune.ServerCacheManager
 import dev.or2.central.account.Rights
 import jakarta.inject.Inject
+import org.rsmod.api.player.input.ResumePNameDialogInput
 import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.protect.ProtectedAccess
+import org.rsmod.api.player.vars.boolVarBit
 import org.rsmod.api.script.onCommand
 import org.rsmod.api.script.onOpLoc1
 import org.rsmod.api.script.onOpLoc2
@@ -12,12 +14,19 @@ import org.rsmod.api.script.onOpLoc3
 import org.rsmod.api.script.onOpNpc1
 import org.rsmod.api.script.onOpNpc3
 import org.rsmod.api.script.onOpNpc4
+import org.rsmod.game.entity.PlayerList
 import org.rsmod.plugin.scripts.PluginScript
 import org.rsmod.plugin.scripts.ScriptContext
 
 internal class RoyalTitansWorld
 @Inject
-constructor(private val encounters: RoyalTitansEncounterManager) : PluginScript() {
+constructor(
+    private val encounters: RoyalTitansEncounterManager,
+    private val scoreboard: RoyalTitansScoreboard,
+    private val players: PlayerList,
+) : PluginScript() {
+    private var ProtectedAccess.warningSuppressed by boolVarBit("varbit.royal_titans_enter_warning")
+
     override fun ScriptContext.startup() {
         encounters.validateAssets()
         val entrance = requireLoc(RoyalTitansAssets.ENTRANCE)
@@ -27,11 +36,11 @@ constructor(private val encounters: RoyalTitansEncounterManager) : PluginScript(
         }
         onOpLoc2(entrance) {
             arriveDelay()
-            entryMenu()
+            joinMenu()
         }
         onOpLoc3(entrance) {
             arriveDelay()
-            encounters.enter(player)
+            startFight()
         }
 
         val exit = requireLoc(RoyalTitansAssets.EXIT)
@@ -48,7 +57,7 @@ constructor(private val encounters: RoyalTitansEncounterManager) : PluginScript(
 
         onOpLoc1(requireLoc(RoyalTitansAssets.SCOREBOARD)) {
             arriveDelay()
-            player.mes(encounters.status(player))
+            scoreboard.show(this)
         }
 
         for (id in listOf(RoyalTitansAssets.BRANDA_CORPSE, RoyalTitansAssets.ELDRIC_CORPSE)) {
@@ -90,19 +99,61 @@ constructor(private val encounters: RoyalTitansEncounterManager) : PluginScript(
     }
 
     private suspend fun ProtectedAccess.entryMenu() {
-        player.mes(
-            "Dying during this encounter is not safe. Use Quick-escape on the tunnel or teleport to leave."
+        when (
+            choice3(
+                "Start a fight (Your friends will be able to join you).",
+                1,
+                "Join a fight.",
+                2,
+                "Do nothing.",
+                3,
+            )
+        ) {
+            1 -> startFight()
+            2 -> joinMenu()
+        }
+    }
+
+    private suspend fun ProtectedAccess.startFight() {
+        if (!confirmUnsafeDeath()) return
+        ifClose()
+        encounters.enter(player)
+    }
+
+    private suspend fun ProtectedAccess.joinMenu() {
+        val result =
+            nameDialog("Whose fight would you like to join? You must be on their friends' list.")
+        val target = (result as? ResumePNameDialogInput.Result.SameWorld)?.uid
+        if (!confirmUnsafeDeath()) return
+        ifClose()
+        // Resolve after the warning as well: a disconnected or reused slot is not the same player.
+        encounters.join(player, target?.resolve(players)?.displayName.orEmpty())
+    }
+
+    private suspend fun ProtectedAccess.confirmUnsafeDeath(): Boolean {
+        if (warningSuppressed) return true
+        mesbox(
+            "You are about to begin an encounter with the Royal Titans. Dying during this encounter " +
+                "will not be considered a safe death. To leave, you'll need to use <col=ff0000>'Quick-escape'</col> " +
+                "via the tunnel or teleport out. Are you sure you wish to proceed?"
         )
-        when (choice3("Start a new encounter.", 1, "Join another player.", 2, "Cancel.", 3)) {
-            1 -> {
-                ifClose()
-                encounters.enter(player)
-            }
+        return when (
+            choice3(
+                "Yes.",
+                1,
+                "Yes, and don't ask again.",
+                2,
+                "No.",
+                3,
+                title = "Are you sure you wish to proceed?",
+            )
+        ) {
+            1 -> true
             2 -> {
-                val name = stringDialog("Enter the player's name:").trim()
-                ifClose()
-                if (name.isNotEmpty()) encounters.join(player, name)
+                warningSuppressed = true
+                true
             }
+            else -> false
         }
     }
 

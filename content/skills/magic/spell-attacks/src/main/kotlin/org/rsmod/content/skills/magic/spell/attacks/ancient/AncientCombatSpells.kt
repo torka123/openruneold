@@ -22,6 +22,7 @@ import org.rsmod.api.spells.attack.SpellAttack
 import org.rsmod.api.spells.attack.SpellAttackManager
 import org.rsmod.api.spells.attack.SpellAttackMap
 import org.rsmod.api.spells.attack.SpellAttackRepository
+import org.rsmod.content.skills.magic.spell.attacks.RoyalTitansWallSpells
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.PathingEntity
 import org.rsmod.game.entity.Player
@@ -38,6 +39,7 @@ constructor(
     private val targets: AncientAreaTargetSelector,
     private val poison: NpcPoisonEffectService,
     private val pvp: PvPAreaAttackManager,
+    private val walls: RoyalTitansWallSpells,
 ) : SpellAttackMap {
     override fun SpellAttackRepository.register(manager: SpellAttackManager) {
         for (definition in AncientSpellRules.definitions) {
@@ -58,6 +60,24 @@ constructor(
         }
 
         private fun ProtectedAccess.cast(primary: PathingEntity, attack: CombatAttack.Spell) {
+            if (RoyalTitansWallSpells.isWall(primary)) {
+                val wall = primary as Npc
+                if (!walls.begin(this, wall, attack)) return
+                player.anim(definition.castAnim, priority = CAST_ANIMATION_PRIORITY)
+                val timing = projectileTiming(wall)
+                walls.finish(
+                    this,
+                    wall,
+                    attack,
+                    timing.serverDelay,
+                    timing.clientDelay,
+                    definition.impact,
+                    definition.impactHeight,
+                    definition.castSound,
+                    definition.hitSound,
+                )
+                return
+            }
             val castResult = manager.attemptCast(this, attack)
             if (castResult.isFailure()) {
                 return

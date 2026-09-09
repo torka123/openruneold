@@ -42,6 +42,9 @@ internal object RoyalTitansAssets {
     const val ELDRIC_ACTIVE = 14147
     const val BRANDA_CORPSE = 14148
     const val ELDRIC_CORPSE = 14149
+    // 2283 landing body customizations, not NPC type replacements.
+    const val BRANDA_ARENA_BODY_MODEL = 55952
+    const val ELDRIC_ARENA_BODY_MODEL = 55940
     const val FIRE_ELEMENTAL = 14150
     const val ICE_ELEMENTAL = 14151
     const val FIRE_WALL_HITBOX = 14152
@@ -82,6 +85,8 @@ internal object RoyalTitansAssets {
     const val ELDRIC_ARENA_SPAWN = 11963
     const val BRANDA_DEATH = 11992
     const val ELDRIC_DEATH = 11987
+    const val BRANDA_INACTIVE = 11990
+    const val ELDRIC_INACTIVE = 11985
     const val FIRE_ELEMENTAL_SPAWN = 11956
     const val FIRE_ELEMENTAL_DEATH = 11957
     const val FIRE_ELEMENTAL_EXPLODE = 11961
@@ -118,8 +123,8 @@ internal object RoyalTitansAssets {
     const val ICE_WALL_FORM_SOUND = 10116
     const val ICE_WALL_ACTIVE_SOUND = 10118
     const val ICE_WALL_BREAK_SOUND = 10119
-    const val FIRE_ELEMENTAL_SPAWN_SOUND = 10172
-    const val ICE_ELEMENTAL_SPAWN_SOUND = 10190
+    const val FIRE_ELEMENTAL_SPAWN_SOUND = 10190
+    const val ICE_ELEMENTAL_SPAWN_SOUND = 10172
     const val AREA_PULSE_SOUND = 10155
     const val BRANDA_STOMP_SOUND = 10157
     const val BRANDA_STOMP_IMPACT_SOUND = 10158

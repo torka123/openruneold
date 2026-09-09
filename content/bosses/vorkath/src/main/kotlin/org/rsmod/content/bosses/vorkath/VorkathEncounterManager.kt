@@ -4,13 +4,13 @@ import com.github.michaelbull.logging.InlineLogger
 import dev.openrune.ServerCacheManager
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
-import dev.openrune.types.ObjectServerType
 import dev.openrune.types.MoveRestrict
+import dev.openrune.types.ObjectServerType
 import dev.openrune.types.aconverted.SpotanimType
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import org.rsmod.api.combat.NpcAttackOverride
 import org.rsmod.api.bossbar.plugin.BossHpBarScript
+import org.rsmod.api.combat.NpcAttackOverride
 import org.rsmod.api.combat.NvPCombat
 import org.rsmod.api.combat.commons.CombatAttack
 import org.rsmod.api.combat.commons.CombatEffects
@@ -37,10 +37,10 @@ import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.stat.hitpoints
 import org.rsmod.api.player.vars.VarPlayerIntMapSetter
 import org.rsmod.api.random.GameRandom
-import org.rsmod.api.route.StepFactory
 import org.rsmod.api.repo.loc.LocRepository
 import org.rsmod.api.repo.npc.NpcRepository
 import org.rsmod.api.repo.world.WorldRepository
+import org.rsmod.api.route.StepFactory
 import org.rsmod.game.MapClock
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
@@ -54,7 +54,6 @@ import org.rsmod.game.loc.LocAngle
 import org.rsmod.game.loc.LocInfo
 import org.rsmod.game.loc.LocShape
 import org.rsmod.game.map.collision.get
-import org.rsmod.game.proj.ProjAnim
 import org.rsmod.map.CoordGrid
 import org.rsmod.routefinder.collision.CollisionFlagMap
 import org.rsmod.routefinder.flag.CollisionFlag
@@ -77,9 +76,8 @@ constructor(
 ) {
     private val log = InlineLogger()
     private val spawnSteps = StepFactory(collision)
-    private val COMBAT_STATES = setOf(
-        VorkathState.ACTIVE, VorkathState.ACID_SPECIAL, VorkathState.ZOMBIFIED_SPAWN_SPECIAL
-    )
+    private val COMBAT_STATES =
+        setOf(VorkathState.ACTIVE, VorkathState.ACID_SPECIAL, VorkathState.ZOMBIFIED_SPAWN_SPECIAL)
     private val runs = mutableMapOf<PlayerUid, Run>()
     private var generation = 1L
 
@@ -232,12 +230,13 @@ constructor(
 
     fun tick(player: Player) {
         val run = runs[player.uid] ?: return
-        if (
-            !player.isSlotAssigned ||
-                player.pendingLogout ||
-                player.loggingOut
-        ) {
-            abort(player, "player unavailable", teleport = false, logout = player.loggingOut || player.pendingLogout)
+        if (!player.isSlotAssigned || player.pendingLogout || player.loggingOut) {
+            abort(
+                player,
+                "player unavailable",
+                teleport = false,
+                logout = player.loggingOut || player.pendingLogout,
+            )
             return
         }
         if (player.hitpoints <= 0) {
@@ -283,8 +282,11 @@ constructor(
             VorkathState.ENDED -> Unit
             VorkathState.AWAKENING -> if (clock.cycle >= run.wakeCycle) activate(run)
             VorkathState.ACTIVE -> {
-                if (run.timeline.attackDue(clock.cycle) &&
-                    run.standardAttacks == VORKATH_STANDARD_ATTACKS) beginSpecial(run)
+                if (
+                    run.timeline.attackDue(clock.cycle) &&
+                        run.standardAttacks == VORKATH_STANDARD_ATTACKS
+                )
+                    beginSpecial(run)
                 else keepAggressive(run)
             }
             VorkathState.ACID_SPECIAL -> tickAcid(run)
@@ -299,7 +301,8 @@ constructor(
 
     fun attack(access: StandardNpcAccess, target: Player) {
         val run = runs[target.uid] ?: return
-        if (run.boss !== access.npc || !validTarget(run) || !run.timeline.attackDue(clock.cycle)) return
+        if (run.boss !== access.npc || !validTarget(run) || !run.timeline.attackDue(clock.cycle))
+            return
         if (run.standardAttacks == VORKATH_STANDARD_ATTACKS) {
             beginSpecial(run)
             return
@@ -351,7 +354,9 @@ constructor(
             val existingValidity = hit.validity
             val epoch = run.hitEpoch
             hit.validity = HitValidity {
-                existingValidity?.isValid() != false && run.hitEpoch == epoch && validTarget(run) &&
+                existingValidity?.isValid() != false &&
+                    run.hitEpoch == epoch &&
+                    validTarget(run) &&
                     (run.state == VorkathState.ACTIVE || run.state == VorkathState.ACID_SPECIAL)
             }
             hit.damage =
@@ -376,8 +381,8 @@ constructor(
         run.player.combatClearQueue()
         clearMechanics(run)
         if (run.rewardEligible) {
-            val newKillcount = run.player.vars["varp.kc_vorkath"] + 1
-            VarPlayerIntMapSetter.set(run.player, "varp.kc_vorkath", newKillcount)
+            val newKillcount = run.player.vars["varp.total_vorkath_kills"] + 1
+            VarPlayerIntMapSetter.set(run.player, "varp.total_vorkath_kills", newKillcount)
             run.killcount = newKillcount
             run.killTicks = (clock.cycle - run.startCycle).coerceAtLeast(0)
         }
@@ -408,8 +413,11 @@ constructor(
 
     fun beginSpawnDeath(npc: Npc) {
         val run = runs.values.firstOrNull { it.spawn === npc } ?: return
-        if (run.state != VorkathState.ZOMBIFIED_SPAWN_SPECIAL ||
-            run.spawnDeathCycle != Int.MAX_VALUE) return
+        if (
+            run.state != VorkathState.ZOMBIFIED_SPAWN_SPECIAL ||
+                run.spawnDeathCycle != Int.MAX_VALUE
+        )
+            return
         npc.movementLocked = true
         npc.mode = null
         npc.hideAllOps()
@@ -418,8 +426,11 @@ constructor(
     }
 
     fun canFinishDeath(run: Run, npc: Npc): Boolean =
-        runs[run.player.uid] === run && run.boss === npc && run.state == VorkathState.DYING &&
-            inArena(run) && run.player.hitpoints > 0
+        runs[run.player.uid] === run &&
+            run.boss === npc &&
+            run.state == VorkathState.DYING &&
+            inArena(run) &&
+            run.player.hitpoints > 0
 
     fun isActive(player: Player): Boolean = runs[player.uid]?.state != null
 
@@ -606,31 +617,34 @@ constructor(
     ): NpcAttackOverride {
         val spec = VorkathProjectiles.standard(attack)
         val projectile = spec?.build(run.boss, target.coords, target)
-        val dragonfire = attack == VorkathStandardAttack.DRAGONFIRE ||
-            attack == VorkathStandardAttack.VENOM_DRAGONFIRE ||
-            attack == VorkathStandardAttack.PRAYER_DRAGONFIRE
+        val dragonfire =
+            attack == VorkathStandardAttack.DRAGONFIRE ||
+                attack == VorkathStandardAttack.VENOM_DRAGONFIRE ||
+                attack == VorkathStandardAttack.PRAYER_DRAGONFIRE
         val protection = VorkathDragonfire.snapshot(target)
-        val baseMaximum = when (attack) {
-            VorkathStandardAttack.MELEE, VorkathStandardAttack.RANGED -> 32
-            VorkathStandardAttack.MAGIC -> 30
-            VorkathStandardAttack.FIREBALL -> 0
-            else -> protection.maximum
-        }
+        val baseMaximum =
+            when (attack) {
+                VorkathStandardAttack.MELEE,
+                VorkathStandardAttack.RANGED -> 32
+                VorkathStandardAttack.MAGIC -> 30
+                VorkathStandardAttack.FIREBALL -> 0
+                else -> protection.maximum
+            }
         return NpcAttackOverride(
-            attackAnimation = if (attack == VorkathStandardAttack.MELEE)
-                VorkathAssets.MELEE_ANIM else VorkathAssets.RANGED_ANIM,
+            attackAnimation =
+                if (attack == VorkathStandardAttack.MELEE) VorkathAssets.MELEE_ANIM
+                else VorkathAssets.RANGED_ANIM,
             maxHit = baseMaximum,
-            inaccurateMaxHit = if (dragonfire)
-                protection.resistedMaximum else null,
+            inaccurateMaxHit = if (dragonfire) protection.resistedMaximum else null,
             projectileFactory = projectile?.let { exact -> { _, _ -> exact } },
             // Player queues count their first processing tick, including this NPC launch tick.
             impactDelay = (projectile?.let { it.endTime / 30 } ?: 0) + 1,
             attackRate = VORKATH_ATTACK_RATE,
             hitValidity = hitValidity(run),
-            damageTransform = if (dragonfire) { rolled ->
-                protection.damage(rolled, attack)
-            } else null,
-            hitModifier = if (dragonfire) NpcBypassProtectionPrayerPlayerHitModifier
+            damageTransform =
+                if (dragonfire) { rolled -> protection.damage(rolled, attack) } else null,
+            hitModifier =
+                if (dragonfire) NpcBypassProtectionPrayerPlayerHitModifier
                 else org.rsmod.api.player.hit.modifier.StandardPlayerHitModifier,
             onAttack = {
                 run.timeline.standardLaunched(clock.cycle)
@@ -660,10 +674,14 @@ constructor(
         for (launch in due) {
             val tile = run.player.coords
             launchTileProjectile(run, tile, VorkathProjectiles.FIREBALL)
-            run.pendingHits += PendingTileHit(
-                clock.cycle + VorkathProjectiles.FIREBALL.impactTicks, tile, 0, 121,
-                VorkathTileAttack.FIREBALL
-            )
+            run.pendingHits +=
+                PendingTileHit(
+                    clock.cycle + VorkathProjectiles.FIREBALL.impactTicks,
+                    tile,
+                    0,
+                    121,
+                    VorkathTileAttack.FIREBALL,
+                )
         }
     }
 
@@ -679,14 +697,17 @@ constructor(
     private fun beginAcid(run: Run) {
         run.boss.anim(VorkathAssets.ACID_ANIM)
         clearAcid(run)
-        val selected = VorkathAcidLayout.select(
-            boss = run.boss.coords,
-            player = run.player.coords,
-            isWalkable = { collision[it] and CollisionFlag.BLOCK_WALK == 0 },
-            choose = { it[random.of(it.size)] },
-        )
-        run.acidSafeLane += VorkathAcidLayout.exitLane(run.boss.coords)
-            .filter { it !in selected && collision[it] and CollisionFlag.BLOCK_WALK == 0 }
+        val selected =
+            VorkathAcidLayout.select(
+                boss = run.boss.coords,
+                player = run.player.coords,
+                isWalkable = { collision[it] and CollisionFlag.BLOCK_WALK == 0 },
+                choose = { it[random.of(it.size)] },
+            )
+        run.acidSafeLane +=
+            VorkathAcidLayout.exitLane(run.boss.coords).filter {
+                it !in selected && collision[it] and CollisionFlag.BLOCK_WALK == 0
+            }
         selected.forEach { tile ->
             launchTileProjectile(run, tile, VorkathProjectiles.ACID)
             run.pendingAcidPools += PendingAcidPool(clock.cycle + 3, tile)
@@ -725,9 +746,7 @@ constructor(
             run.timeline.rapidLaunched(clock.cycle)
             if (run.shotsFired == VORKATH_ACID_SHOTS) clearAcid(run)
         }
-        if (
-            clock.cycle >= run.timeline.specialStartCycle + 33
-        )
+        if (clock.cycle >= run.timeline.specialStartCycle + 33)
             finishSpecial(run, recoveryTicks = 0)
     }
 
@@ -735,8 +754,9 @@ constructor(
         val due = run.pendingHits.filter { it.impactCycle <= clock.cycle }
         run.pendingHits.removeAll(due.toSet())
         for (hit in due) {
-            val graphic = if (hit.kind == VorkathTileAttack.FIREBALL)
-                VorkathAssets.FIREBALL_IMPACT else VorkathAssets.RAPID_FIRE_IMPACT
+            val graphic =
+                if (hit.kind == VorkathTileAttack.FIREBALL) VorkathAssets.FIREBALL_IMPACT
+                else VorkathAssets.RAPID_FIRE_IMPACT
             val height = if (hit.kind == VorkathTileAttack.FIREBALL) 38 else 30
             world.spotanimMap(SpotanimType(graphic), hit.tile, height)
             if (hit.kind == VorkathTileAttack.FIREBALL)
@@ -753,8 +773,9 @@ constructor(
                 source = run.boss,
                 delay = 1,
                 type = HitType.Typeless,
-                damage = if (hit.kind == VorkathTileAttack.FIREBALL)
-                    VorkathRules.fireballDamage(random.of(0..hit.maximum), distance)
+                damage =
+                    if (hit.kind == VorkathTileAttack.FIREBALL)
+                        VorkathRules.fireballDamage(random.of(0..hit.maximum), distance)
                     else random.of(hit.minimum..maximum),
                 modifier = NpcBypassProtectionPrayerPlayerHitModifier,
                 validity = hitValidity(run),
@@ -803,13 +824,17 @@ constructor(
         }
         if (clock.cycle >= run.spawnLaunchCycle) {
             run.spawnLaunchCycle = Int.MAX_VALUE
-            val candidates = arenaTiles(run.session).filter {
-                it.chebyshevDistance(run.player.coords) == VORKATH_SPAWN_DISTANCE &&
-                    !bossOccupies(run, it) && collision[it] and CollisionFlag.BLOCK_WALK == 0 &&
-                    spawnCanReach(run, it)
-            }
+            val candidates =
+                arenaTiles(run.session).filter {
+                    it.chebyshevDistance(run.player.coords) == VORKATH_SPAWN_DISTANCE &&
+                        !bossOccupies(run, it) &&
+                        collision[it] and CollisionFlag.BLOCK_WALK == 0 &&
+                        spawnCanReach(run, it)
+                }
             if (candidates.isEmpty()) {
-                log.error { "[Vorkath] no valid spawn location at distance $VORKATH_SPAWN_DISTANCE for ${run.session.id}" }
+                log.error {
+                    "[Vorkath] no valid spawn location at distance $VORKATH_SPAWN_DISTANCE for ${run.session.id}"
+                }
                 finishSpecial(run)
                 return
             }
@@ -848,7 +873,10 @@ constructor(
             run.spawnExplosionCycle = Int.MAX_VALUE
             val damage = VorkathRules.zombifiedSpawnDamage(spawn.hitpoints)
             run.player.queueHit(
-                source = spawn, delay = 1, type = HitType.Typeless, damage = damage,
+                source = spawn,
+                delay = 1,
+                type = HitType.Typeless,
+                damage = damage,
                 modifier = NpcBypassProtectionPrayerPlayerHitModifier,
                 validity = hitValidity(run),
             )
@@ -870,9 +898,7 @@ constructor(
             // Only the final step may overlap the target. Captures retain boss-body clipping.
             spawn.moveRestrict =
                 if (next == run.player.coords) MoveRestrict.PassThru else MoveRestrict.Normal
-            spawn.walk(next) {
-                beginSpawnExplosion(run, spawn, contactCycle = movementCycle)
-            }
+            spawn.walk(next) { beginSpawnExplosion(run, spawn, contactCycle = movementCycle) }
         }
     }
 
@@ -881,9 +907,10 @@ constructor(
         if (source == target) return target
         if (source.chebyshevDistance(target) == 1 && !bossOccupies(run, target)) {
             val diagonal = source.x != target.x && source.z != target.z
-            val crossesBossCorner = diagonal &&
-                (bossOccupies(run, CoordGrid(source.x, target.z, source.level)) ||
-                    bossOccupies(run, CoordGrid(target.x, source.z, source.level)))
+            val crossesBossCorner =
+                diagonal &&
+                    (bossOccupies(run, CoordGrid(source.x, target.z, source.level)) ||
+                        bossOccupies(run, CoordGrid(target.x, source.z, source.level)))
             if (!crossesBossCorner && spawnSteps.validated(source, target) == target) return target
         }
         return spawnSteps.validated(source, target, extraFlag = CollisionFlag.BLOCK_NPCS)
@@ -909,10 +936,14 @@ constructor(
                 spawn.hitpoints <= 0 ||
                 run.spawnExplosionCycle != Int.MAX_VALUE ||
                 spawn.coords != run.player.coords
-        ) return
+        )
+            return
         spawn.anim(VorkathAssets.SPAWN_ATTACK_ANIM)
         world.spotanimMap(
-            SpotanimType(VorkathAssets.SPAWN_EXPLOSION), spawn.coords, height = 30, delay = 22
+            SpotanimType(VorkathAssets.SPAWN_EXPLOSION),
+            spawn.coords,
+            height = 30,
+            delay = 22,
         )
         releaseFreeze(run)
         spawn.movementLocked = true
@@ -982,8 +1013,7 @@ constructor(
     private fun inArena(run: Run): Boolean {
         if (instances.sessionForPlayer(run.player) !== run.session) return false
         // Session regionIds are allocation IDs, not packed OSRS map-square coordinates.
-        val origin =
-            instances.localCoord(run.session, RegionLocal(0, 35, 63, 0, 0)) ?: return false
+        val origin = instances.localCoord(run.session, RegionLocal(0, 35, 63, 0, 0)) ?: return false
         val tile = run.player.coords
         return tile.level == origin.level &&
             tile.x in origin.x until (origin.x + 64) &&
@@ -991,9 +1021,14 @@ constructor(
     }
 
     private fun validTarget(run: Run): Boolean =
-        runs[run.player.uid] === run && inArena(run) &&
-            run.player.isSlotAssigned && !run.player.pendingLogout && !run.player.loggingOut &&
-            run.player.hitpoints > 0 && run.boss.isSlotAssigned && run.boss.hitpoints > 0 &&
+        runs[run.player.uid] === run &&
+            inArena(run) &&
+            run.player.isSlotAssigned &&
+            !run.player.pendingLogout &&
+            !run.player.loggingOut &&
+            run.player.hitpoints > 0 &&
+            run.boss.isSlotAssigned &&
+            run.boss.hitpoints > 0 &&
             run.state in COMBAT_STATES
 
     private fun hitValidity(run: Run): HitValidity {
@@ -1105,11 +1140,22 @@ constructor(
         val timeline = VorkathTimeline(firstSpecial).also { it.state = initialState }
         var state: VorkathState
             get() = timeline.state
-            set(value) { timeline.state = value }
-        val standardAttacks: Int get() = timeline.standardAttacks
-        val nextSpecial: VorkathSpecial get() = timeline.nextSpecial
-        val wakeCycle: Int get() = timeline.wakeCycle
-        val shotsFired: Int get() = timeline.shotsFired
+            set(value) {
+                timeline.state = value
+            }
+
+        val standardAttacks: Int
+            get() = timeline.standardAttacks
+
+        val nextSpecial: VorkathSpecial
+            get() = timeline.nextSpecial
+
+        val wakeCycle: Int
+            get() = timeline.wakeCycle
+
+        val shotsFired: Int
+            get() = timeline.shotsFired
+
         fun owns(npc: Npc): Boolean = npc === boss || npc === spawn || npc in retiringSpawns
     }
 }

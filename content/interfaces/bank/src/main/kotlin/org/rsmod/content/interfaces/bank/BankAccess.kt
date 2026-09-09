@@ -1,8 +1,8 @@
 package org.rsmod.content.interfaces.bank
 
 import org.rsmod.api.attr.AttributeKey
-import org.rsmod.api.player.isInCombat
 import org.rsmod.api.player.ironman.IronmanRestrictions
+import org.rsmod.api.player.isInCombat
 import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.protect.ProtectedAccess
 import org.rsmod.api.player.ui.ifClose
@@ -36,7 +36,7 @@ fun ProtectedAccess.tryOpenBank(source: Npc? = null): Boolean {
     return true
 }
 
-internal fun ProtectedAccess.validateUnsafeDungeonBankSession(eventBus: EventBus): Boolean {
+public fun ProtectedAccess.validateUnsafeDungeonBankSession(eventBus: EventBus): Boolean {
     if (player.attr[UNSAFE_DUNGEON_BANK_SESSION] != true) {
         return true
     }

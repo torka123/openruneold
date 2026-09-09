@@ -23,6 +23,7 @@ import org.rsmod.api.script.onPlayerLogout
 import org.rsmod.api.script.onPlayerSoftTimer
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
+import org.rsmod.game.entity.PlayerList
 import org.rsmod.game.entity.npc.NpcStateEvents
 import org.rsmod.plugin.scripts.PluginScript
 import org.rsmod.plugin.scripts.ScriptContext
@@ -34,6 +35,7 @@ constructor(
     private val instances: InstanceManager,
     private val contributor: BossHpBarDamageContributor,
     private val protectedAccess: ProtectedAccessLauncher,
+    private val players: PlayerList,
 ) : PluginScript() {
 
     internal var Player.bossHudDisabled by boolVarBit("varbit.hpbar_hud_boss_disabled")
@@ -70,15 +72,12 @@ constructor(
         }
 
         onEvent<NpcStateEvents.Delete> {
-            when (npcBarMode(npc)) {
-                BossHpBarMode.ON_ATTACK -> {
-                    for (player in contributor.removeTrackedForNpc(npc)) {
-                        onClose(player, npc)
-                    }
-                }
-                BossHpBarMode.ON_ENTER -> closeForAllInstancePlayers(npc)
-                BossHpBarMode.NEVER -> Unit
+            val tracked = contributor.removeTrackedForNpc(npc)
+            for (player in tracked) {
+                onClose(player, npc)
             }
+            // A transform may change ON_ENTER/ON_ATTACK to NEVER before deletion.
+            closeForAllInstancePlayers(npc)
             labelOverrides.removeTarget(npc)
         }
 
@@ -232,8 +231,9 @@ constructor(
     }
 
     private fun closeForAllInstancePlayers(npc: Npc) {
-        val instanceId = instances.instanceForNpc(npc) ?: return
-        for (player in contributor.playersInInstance(instanceId)) {
+        // Deletion listeners may already have detached the NPC from its instance. The HUD owns
+        // its displayed-target identity and must close regardless of listener registration order.
+        for (player in players.filter { displayedBars[it.uuid] === npc }) {
             onClose(player, npc)
         }
     }

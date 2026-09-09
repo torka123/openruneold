@@ -5,9 +5,12 @@ import jakarta.inject.Inject
 import org.rsmod.api.death.NpcDeath
 import org.rsmod.api.script.onAiApPlayer2
 import org.rsmod.api.script.onModifyNpcHit
+import org.rsmod.api.script.onNpcHit
 import org.rsmod.api.script.onNpcQueue
+import org.rsmod.api.script.onNpcQueueWithArgs
 import org.rsmod.game.entity.PlayerList
 import org.rsmod.game.entity.player.PlayerUid
+import org.rsmod.game.hit.Hit
 import org.rsmod.plugin.scripts.PluginScript
 import org.rsmod.plugin.scripts.ScriptContext
 
@@ -21,33 +24,44 @@ constructor(
     override fun ScriptContext.startup() {
         for (id in listOf(RoyalTitansAssets.BRANDA_ACTIVE, RoyalTitansAssets.ELDRIC_ACTIVE)) {
             val type = requireNpc(id)
+            // Scripted Titans keep their arrival-driven route when hit. Native hit/contribution
+            // and queue-token processing still run; only the default chase action is consumed.
+            onNpcQueue(type, "queue.com_retaliate_player") {}
             onAiApPlayer2(type) { encounters.attackTitan(this, it.target) }
+            onNpcHit(type) { encounters.npcHit(npc, hit) }
             onModifyNpcHit(type) {
                 val player =
                     if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players)
                     else null
-                if (player == null) hit.damage = 0 else encounters.modifyNpcHit(player, npc, hit)
+                encounters.modifyNpcHit(player, npc, hit)
             }
             onNpcQueue(type, "queue.death") {
-                val run = encounters.beginTitanDeath(npc)
-                death.deathNoDrops(this)
-                if (run != null) encounters.finishTitanDeath(npc)
+                if (encounters.beginTitanDeath(npc) != null) encounters.finishTitanDeath(npc)
             }
+        }
+
+        for (id in listOf(RoyalTitansAssets.BRANDA_CORPSE, RoyalTitansAssets.ELDRIC_CORPSE)) {
+            val type = requireNpc(id)
+            onModifyNpcHit(type) { hit.damage = 0 }
+            // Inactive corpses cannot receive combat hits or HP headbars. Consume the native queue
+            // without calling the living-NPC hit processor. Corpse cache stats are for interaction.
+            onNpcQueue(type, "queue.hit") {}
+            // A projectile already in flight can enqueue another hit after transformation. Never
+            // let a residual death queue fall through to generic drops/deletion for the corpse.
+            onNpcQueue(type, "queue.death") { npc.queueList.clear() }
         }
 
         for (id in listOf(RoyalTitansAssets.FIRE_ELEMENTAL, RoyalTitansAssets.ICE_ELEMENTAL)) {
             val type = requireNpc(id)
             onAiApPlayer2(type) { encounters.attackElemental(this, it.target) }
+            onNpcHit(type) { encounters.npcHit(npc, hit) }
             onModifyNpcHit(type) {
                 val player =
                     if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players)
                     else null
                 if (player == null) hit.damage = 0 else encounters.modifyNpcHit(player, npc, hit)
             }
-            onNpcQueue(type, "queue.death") {
-                death.deathNoDrops(this)
-                encounters.finishAuxiliaryDeath(npc)
-            }
+            onNpcQueue(type, "queue.death") { encounters.finishElementalDeath(npc) }
         }
 
         for (id in listOf(RoyalTitansAssets.FIRE_WALL_HITBOX, RoyalTitansAssets.ICE_WALL_HITBOX)) {
@@ -59,6 +73,7 @@ constructor(
                 if (player == null) hit.damage = 0 else encounters.modifyNpcHit(player, npc, hit)
             }
             onNpcQueue(type, "queue.death") { death.deathNoDrops(this) }
+            onNpcQueueWithArgs<Hit>(type, "queue.hit") { encounters.wallHit(npc, it.args) }
         }
     }
 

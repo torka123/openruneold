@@ -33,7 +33,10 @@ private constructor(
     private val protectedAccess: ProtectedAccessLauncher,
 ) : PluginScript() {
     override fun ScriptContext.startup() {
-        for ((component, prayer) in repo.prayerComponents.map { RSCM.getReverseMapping(RSCMType.COMPONENT,it.key.packed) to it.value }) {
+        for ((component, prayer) in
+            repo.prayerComponents.map {
+                RSCM.getReverseMapping(RSCMType.COMPONENT, it.key.packed) to it.value
+            }) {
             onIfOverlayButton(component) { player.selectPrayer(prayer) }
         }
         onPlayerQueueWithArgs("queue.prayer_toggle") { togglePrayer(it.args) }
@@ -74,6 +77,9 @@ private constructor(
 
     private suspend fun ProtectedAccess.enablePrayer(prayer: Prayer) {
         if (player.prayerLvl == 0) {
+            // The client lit the button when it was clicked; put it back out.
+            player.resyncVar(prayer.enabled)
+            mes("You have run out of prayer points, you can recharge at an altar.")
             // Note: This is probably implicitly called by some other function, but as of now, we do
             // not know what that is.
             ClientScripts.pvpIconsComLevelRange(player, player.combatLevel)

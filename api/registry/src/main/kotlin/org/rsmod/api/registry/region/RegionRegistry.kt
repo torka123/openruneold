@@ -29,6 +29,7 @@ import org.rsmod.routefinder.collision.CollisionFlagMap
 import org.rsmod.routefinder.flag.CollisionFlag
 import org.rsmod.routefinder.util.Rotations
 
+@OptIn(org.rsmod.annotations.InternalApi::class)
 public class RegionRegistry
 @Inject
 constructor(

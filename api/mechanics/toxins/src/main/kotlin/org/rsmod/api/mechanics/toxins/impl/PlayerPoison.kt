@@ -1,5 +1,6 @@
 package org.rsmod.api.mechanics.toxins.impl
 
+import org.rsmod.api.attr.AttributeKey
 import org.rsmod.api.config.refs.done.hitmark_groups
 import org.rsmod.api.config.refs.params
 import org.rsmod.api.mechanics.toxins.Toxin
@@ -11,14 +12,26 @@ import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.vars.VarPlayerIntMapSetter
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
+import org.rsmod.game.hit.HitAttribution
+import org.rsmod.game.hit.HitContext
+import org.rsmod.game.hit.HitOrigin
 import org.rsmod.game.hit.HitType
 import org.rsmod.game.type.getInvObj
 
 public object PlayerPoison {
+    private val CONTEXT = AttributeKey<HitContext>(resetOnDeath = true, temp = true)
+    private val DISCARD_ON_RECONNECT = AttributeKey<Boolean>("scoped_poison")
 
     public const val TICK_INTERVAL: Int = 30
 
-    public fun isPoisoned(player: Player): Boolean = player.vars["varp.poison_severity"] > 0
+    public fun isPoisoned(player: Player): Boolean {
+        prune(player)
+        return player.vars["varp.poison_severity"] > 0
+    }
+
+    private fun prune(player: Player) {
+        if (player.attr[CONTEXT]?.isValid() == false) clear(player)
+    }
 
     public fun damageForSeverity(severity: Int): Int = (severity + 4) / 5
 
@@ -26,6 +39,7 @@ public object PlayerPoison {
         if (initialDamage <= 0) 0 else 5 * initialDamage - 4
 
     public fun reduceSeverity(player: Player, amount: Int): Boolean {
+        prune(player)
         if (amount <= 0) {
             return false
         }
@@ -51,10 +65,17 @@ public object PlayerPoison {
         return true
     }
 
-    internal fun startWithoutInitialHit(player: Player, initialDamage: Int) {
+    internal fun startWithoutInitialHit(
+        player: Player,
+        initialDamage: Int,
+        context: HitContext? = null,
+    ) {
+        val captured = poisonContext(player, context)
+        if (!captured.isValid()) return
         require(initialDamage > 0) { "`initialDamage` must be greater than 0." }
 
         val severity = severityForInitialDamage(initialDamage)
+        storeContext(player, captured)
 
         VarPlayerIntMapSetter.set(player, "varp.poison_severity", severity)
 
@@ -68,11 +89,20 @@ public object PlayerPoison {
 
     public fun tryPoison(player: Player, initialDamage: Int = 0, source: Npc): Boolean {
         val fromParam = source.visType.paramOrNull(params.npc_poison_severity) ?: 0
-        return applyPoison(player, initialDamage, fromParam)
+        return applyPoison(
+            player,
+            initialDamage,
+            fromParam,
+            context = HitContext.capture(source, player),
+        )
     }
 
-    public fun tryPoison(player: Player, initialDamage: Int = 0, severity: Int = 0): Boolean =
-        applyPoison(player, initialDamage, paramSeverity = severity)
+    public fun tryPoison(
+        player: Player,
+        initialDamage: Int = 0,
+        severity: Int = 0,
+        context: HitContext? = null,
+    ): Boolean = applyPoison(player, initialDamage, paramSeverity = severity, context = context)
 
     /**
      * Applies poison status now and schedules its first damage for the standard 30-tick interval.
@@ -81,12 +111,14 @@ public object PlayerPoison {
         player: Player,
         initialDamage: Int = 0,
         severity: Int = 0,
+        context: HitContext? = null,
     ): Boolean =
         applyPoison(
             player = player,
             initialDamage = initialDamage,
             paramSeverity = severity,
             immediateFirstHit = false,
+            context = context,
         )
 
     /**
@@ -95,7 +127,9 @@ public object PlayerPoison {
      */
     public fun incidentalPoisonHit(player: Player, initialDamage: Int): Boolean {
         if (initialDamage <= 0) return false
-        queuePoisonHit(player, initialDamage)
+        val context = poisonContext(player, null)
+        if (!context.isValid()) return false
+        queuePoisonHit(player, initialDamage, context)
         return true
     }
 
@@ -115,7 +149,11 @@ public object PlayerPoison {
         initialDamage: Int,
         paramSeverity: Int,
         immediateFirstHit: Boolean = true,
+        context: HitContext? = null,
     ): Boolean {
+        val captured = poisonContext(player, context)
+        if (!captured.isValid()) return false
+        prune(player)
         if (PlayerVenom.isEnvenomed(player)) {
             return false
         }
@@ -141,6 +179,7 @@ public object PlayerPoison {
             if (incomingDamage == currentDamage && storedSeverity <= current) return false
         }
 
+        storeContext(player, captured)
         VarPlayerIntMapSetter.set(player, "varp.poison_severity", storedSeverity)
         if (immediateFirstHit) {
             val firstHitDamage =
@@ -162,23 +201,51 @@ public object PlayerPoison {
         return true
     }
 
-    private fun queuePoisonHit(player: Player, damage: Int) {
+    private fun poisonContext(player: Player, inherited: HitContext?): HitContext =
+        HitContext.capture(null, player, inherited)
+            .withAttribution(
+                (inherited?.attribution ?: HitAttribution()).copy(origin = HitOrigin.Poison)
+            )
+
+    private fun storeContext(player: Player, context: HitContext) {
+        player.attr[CONTEXT] = context
+        if (context.isScoped) player.attr[DISCARD_ON_RECONNECT] = true
+        else player.attr.remove(DISCARD_ON_RECONNECT)
+    }
+
+    /** Tokens are transient. Persist only the fact that this status cannot survive its activity. */
+    public fun discardScopedStatus(player: Player) {
+        if (player.attr[DISCARD_ON_RECONNECT] == true) clear(player)
+    }
+
+    private fun queuePoisonHit(
+        player: Player,
+        damage: Int,
+        context: HitContext? = player.attr[CONTEXT],
+    ) {
         player.queueHit(
             delay = 1,
             type = HitType.Typeless,
             damage = damage,
             hitmark = hitmark_groups.poison_damage,
             modifier = NoopPlayerHitModifier,
+            context = poisonContext(player, context),
         )
     }
 
     public fun clear(player: Player) {
+        player.attr.remove(CONTEXT)
+        player.attr.remove(DISCARD_ON_RECONNECT)
         VarPlayerIntMapSetter.set(player, "varp.poison_severity", 0)
         player.clearTimer("timer.player_poison")
         Toxin.syncStatusOrbs(player)
     }
 
     public fun onPoisonTimerTick(player: Player) {
+        if (player.attr[CONTEXT]?.isValid() == false) {
+            clear(player)
+            return
+        }
         var severity = player.vars["varp.poison_severity"]
         if (severity <= 0) {
             clear(player)

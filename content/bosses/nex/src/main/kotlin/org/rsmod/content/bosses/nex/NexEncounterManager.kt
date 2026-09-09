@@ -6,7 +6,6 @@ import dev.openrune.rscm.RSCM
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
 import dev.openrune.types.ProjAnimType
-import dev.openrune.types.aconverted.SpotanimType
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlin.math.abs
@@ -49,8 +48,6 @@ import org.rsmod.game.hit.HitType
 import org.rsmod.game.loc.LocAngle
 import org.rsmod.game.loc.LocInfo
 import org.rsmod.game.loc.LocShape
-import org.rsmod.game.map.collision.isWalkBlocked
-import org.rsmod.game.map.collision.isZoneValid
 import org.rsmod.game.queue.WorldQueueList
 import org.rsmod.map.CoordGrid
 import org.rsmod.routefinder.collision.CollisionFlagMap
@@ -74,16 +71,12 @@ constructor(
     private val log = InlineLogger()
     private var generation = 1L
     private var run: Run? = null
-    private var wildernessRun: Run? = null
     private var lastWorldTick = Int.MIN_VALUE
 
     fun startup() {
         validateAssets()
         rewards.validateAssets()
-        worldQueues.add(1) {
-            if (run == null) spawnFresh()
-            if (wildernessRun == null) spawnWildernessFresh()
-        }
+        worldQueues.add(1) { if (run == null) spawnFresh() }
     }
 
     fun teleportBank(player: Player): Boolean {
@@ -109,9 +102,6 @@ constructor(
             player.mes("The barrier is sealed while Nex is being fought.")
             return false
         }
-        wildernessRun
-            ?.takeIf { player.uid in it.participants }
-            ?.let { leave(it, player, teleport = false, reason = "entered the Ancient Prison") }
         prepare(player)
         PathingEntityCommon.telejump(player, collision, NEX_ARENA_ENTRY)
         current.participants += player.uid
@@ -158,17 +148,6 @@ constructor(
             if (!activeParticipant(chamber, player))
                 leave(chamber, player, teleport = false, reason = "left the chamber")
             else tickPlayerEffects(chamber, player)
-        }
-        val wilderness = wildernessRun
-        if (wilderness != null && player.uid !in wilderness.participants && activeParticipant(wilderness, player)) {
-            registerWildernessParticipant(wilderness, player)
-        }
-        if (
-            wilderness != null &&
-                player.uid in wilderness.participants &&
-                !activeParticipant(wilderness, player)
-        ) {
-            leave(wilderness, player, teleport = false, reason = "left the Wilderness Nex arena")
         }
         setBarrierState(player)
         if (lastWorldTick != clock.cycle) {
@@ -251,16 +230,9 @@ constructor(
 
     fun attackDenial(player: Player, npc: Npc): String? {
         val current = encounterFor(npc) ?: return "This Nex encounter is resetting."
-        if (current.arena.wilderness && player.uid !in current.participants) {
-            if (!current.arena.contains(player.coords))
-                return "Enter the Frozen Waste Plateau multi-combat arena before attacking Nex."
-            registerWildernessParticipant(current, player)
-        }
         if (player.uid !in current.participants)
             return "Pass the barrier before attacking this encounter."
-        if (!activeParticipant(current, player))
-            return if (current.arena.wilderness) "You have left the Wilderness Nex arena."
-            else "You are no longer inside Nex's chamber."
+        if (!activeParticipant(current, player)) return "You are no longer inside Nex's chamber."
         if (npc === current.boss) {
             return when (current.state) {
                 NexState.SMOKE,
@@ -315,20 +287,10 @@ constructor(
         if (current.state == NexState.SPAWNING && clock.cycle >= current.stateReadyCycle)
             activateSmoke(current)
         if (current.state == NexState.RESETTING && clock.cycle >= current.resetCycle) reset(current)
-        if (
-            !current.arena.wilderness &&
-                current.state in activeStates &&
-                current.participants.isEmpty()
-        ) {
+        if (current.state in activeStates && current.participants.isEmpty()) {
             current.state = NexState.RESETTING
             current.resetCycle = clock.cycle + 1
         }
-        if (current.arena.wilderness && !NexRules.withinWildernessLeash(current.arena.spawn, current.boss.coords)) {
-            current.boss.mode = null
-            current.boss.routeDestination.clear()
-            current.boss.teleport(collision, current.arena.spawn)
-        }
-        if (current.arena.wilderness && current.participants.isEmpty()) current.boss.mode = null
         if (current.state in combatStates) keepAggressive(current)
         val defenceFloor = current.boss.baseDefenceLvl - 10
         if (current.boss.defenceLvl < defenceFloor) current.boss.defenceLvl = defenceFloor
@@ -372,12 +334,6 @@ constructor(
             }
         }
         if (current.state == NexState.ZAROS) {
-            if (current.arena.wilderness) {
-                setZarosOverhead(current)
-                attackWildernessNex(access, current, target)
-                current.zarosAttackCounter++
-                return
-            }
             setZarosOverhead(current)
             attackZaros(access, current, target)
             current.zarosAttackCounter++
@@ -425,45 +381,6 @@ constructor(
         }
     }
 
-    private fun attackWildernessNex(
-        access: StandardNpcAccess,
-        current: Run,
-        fallbackTarget: Player,
-    ) {
-        val active = participants(current)
-        if (active.isEmpty()) return
-        val meleeTarget =
-            active
-                .filter { current.boss.isWithinDistance(it, 1) }
-                .minWithOrNull(compareBy<Player> { distance(current.boss.coords, it.coords) }.thenBy { it.uid.packed })
-        when (NexRules.wildernessAttack(meleeTarget != null)) {
-            WildernessNexAttack.MELEE -> {
-                current.meleeChainRemaining = 0
-                current.meleeChainTarget = null
-                meleeAttack(
-                    access,
-                    current,
-                    requireNotNull(meleeTarget),
-                    maxHit = 30,
-                    prayerReduction = 66,
-                    attackRate = WILDERNESS_NEX_ATTACK_RATE,
-                )
-            }
-            WildernessNexAttack.PURPLE_AREA -> {
-                val primary = active.firstOrNull { it.uid == fallbackTarget.uid } ?: nearestParticipant(current, current.boss.coords) ?: return
-                magicAttack(
-                    access,
-                    current,
-                    primary,
-                    maxHit = 33,
-                    finalPhase = true,
-                    attackRate = WILDERNESS_NEX_ATTACK_RATE,
-                    areaWide = true,
-                )
-            }
-        }
-    }
-
     private fun meleeAttack(
         access: StandardNpcAccess,
         current: Run,
@@ -493,7 +410,6 @@ constructor(
         maxHit: Int,
         finalPhase: Boolean = false,
         attackRate: Int = NEX_ATTACK_RATE,
-        areaWide: Boolean = false,
     ) {
         val protectedAtLaunch = target.vars["varbit.prayer_protectfrommagic"] == 1
         val stateAtLaunch = current.state
@@ -539,16 +455,7 @@ constructor(
                 },
             ),
         )
-        splashSecondaries(
-            current,
-            target,
-            maxHit,
-            HitType.Magic,
-            reduction,
-            stateAtLaunch,
-            areaWide,
-            projectileId,
-        )
+        splashSecondaries(current, target, maxHit, HitType.Magic, reduction, stateAtLaunch)
     }
 
     private fun rangedAttack(access: StandardNpcAccess, current: Run, target: Player, maxHit: Int) {
@@ -583,22 +490,10 @@ constructor(
         type: HitType,
         reduction: Int,
         stateAtLaunch: NexState,
-        areaWide: Boolean,
-        projectileId: Int,
     ) {
         participants(current)
-            .filter {
-                it !== primary && (areaWide || distance(it.coords, primary.coords) <= 1)
-            }
+            .filter { it !== primary && distance(it.coords, primary.coords) <= 1 }
             .forEach { secondary ->
-                if (areaWide) {
-                    world.projAnim(
-                        current.boss,
-                        secondary,
-                        SpotanimType(projectileId),
-                        "projanim.magic_spell",
-                    )
-                }
                 val protectedAtLaunch = secondary.vars["varbit.prayer_protectfrommagic"] == 1
                 val modifier =
                     if (stateAtLaunch == NexState.ZAROS) finalMagicModifier(protectedAtLaunch)
@@ -611,7 +506,12 @@ constructor(
                     modifier = modifier,
                     impactHandler =
                         HitImpactHandler { impact ->
-                            secondary.spotanim(spotInternal(if (stateAtLaunch == NexState.ZAROS) 2008 else impactFor(stateAtLaunch)))
+                            secondary.spotanim(
+                                spotInternal(
+                                    if (stateAtLaunch == NexState.ZAROS) 2008
+                                    else impactFor(stateAtLaunch)
+                                )
+                            )
                             applyMagicImpact(
                                 current,
                                 secondary,
@@ -1081,10 +981,6 @@ constructor(
                 cleanup(current)
                 spawnFresh()
             }
-            wildernessRun === current -> {
-                cleanup(current)
-                spawnWildernessFresh()
-            }
         }
     }
 
@@ -1121,76 +1017,6 @@ constructor(
         log.info { "[Nex] spawned generation=${run?.generation} state=IDLE" }
     }
 
-    private fun spawnWildernessFresh() {
-        val spawn = resolveWildernessSpawn()
-        val arena = WILDERNESS_NEX_ARENA.copy(spawn = spawn)
-        val boss = spawnNpc(NEX_ID, spawn, NEX_MAX_HITPOINTS)
-        boss.mode = null
-        boss.movementLocked = false
-        boss.apRangeOverride = WILDERNESS_NEX_ATTACK_RANGE
-        boss.apRequiresLineOfSight = true
-        wildernessRun =
-            Run(
-                generation = generation++,
-                arena = arena,
-                boss = boss,
-                bodyguards = linkedMapOf(),
-                state = NexState.ZAROS,
-            )
-        log.info {
-            "[Nex] spawned Wilderness generation=${wildernessRun?.generation} " +
-                "tile=$spawn state=ZAROS attackRate=$WILDERNESS_NEX_ATTACK_RATE " +
-                "leash=$WILDERNESS_NEX_LEASH multi=true"
-        }
-    }
-
-    private fun resolveWildernessSpawn(): CoordGrid {
-        val preferred = WILDERNESS_NEX_ARENA.spawn
-        val candidates =
-            buildList {
-                    for (x in
-                        WILDERNESS_NEX_ARENA.xRange.first..WILDERNESS_NEX_ARENA.xRange.last - 2) {
-                        for (z in
-                            WILDERNESS_NEX_ARENA.zRange.first..WILDERNESS_NEX_ARENA.zRange.last -
-                                    2) {
-                            add(CoordGrid(x, z, preferred.level))
-                        }
-                    }
-                }
-                .sortedWith(
-                    compareBy<CoordGrid>(
-                        { abs(it.x - preferred.x) + abs(it.z - preferred.z) },
-                        { it.x },
-                        { it.z },
-                    )
-                )
-        val resolved =
-            candidates.firstOrNull { candidate -> isWildernessSpawnClear(candidate) }
-                ?: error(
-                    "No walkable 3x3 Wilderness Nex footprint exists in " +
-                        "${WILDERNESS_NEX_ARENA.name} (${WILDERNESS_NEX_ARENA.xRange}, " +
-                        "${WILDERNESS_NEX_ARENA.zRange})"
-                )
-        if (resolved != preferred) {
-            log.warn {
-                "[Nex] preferred Wilderness tile $preferred was blocked; " +
-                    "using nearest clear 3x3 anchor $resolved"
-            }
-        }
-        return resolved
-    }
-
-    private fun isWildernessSpawnClear(anchor: CoordGrid): Boolean {
-        for (dx in 0 until 3) {
-            for (dz in 0 until 3) {
-                val tile = anchor.translate(dx, dz)
-                if (!WILDERNESS_NEX_ARENA.contains(tile)) return false
-                if (!collision.isZoneValid(tile) || collision.isWalkBlocked(tile)) return false
-            }
-        }
-        return true
-    }
-
     private fun spawnNpc(id: Int, tile: CoordGrid, hitpoints: Int): Npc {
         val npc = Npc(requireNpc(id), tile)
         npc.baseHitpointsLvl = hitpoints
@@ -1218,7 +1044,7 @@ constructor(
         current.prisonedUntil.remove(player.uid)
         player.lootDropDuration = null
         prepare(player)
-        if (teleport && !current.arena.wilderness && player.isSlotAssigned)
+        if (teleport && player.isSlotAssigned)
             PathingEntityCommon.telejump(player, collision, NEX_BANK_RETURN)
         setBarrierState(player)
         log.info {
@@ -1231,18 +1057,6 @@ constructor(
         activeRuns()
             .filter { player.uid in it.participants }
             .forEach { leave(it, player, teleport = false, reason = reason) }
-    }
-
-    private fun registerWildernessParticipant(current: Run, player: Player) {
-        check(current.arena.wilderness)
-        if (!current.participants.add(player.uid)) return
-        current.flags.putIfAbsent(player.uid, NexAchievementFlags())
-        player.lootDropDuration = NEX_DROP_DURATION
-        player.mes("<col=ff0000>Nex turns her attention towards you!</col>")
-        log.info {
-            "[Nex:${current.arena.name}] player=${player.displayName} " +
-                "generation=${current.generation} joined"
-        }
     }
 
     private fun keepAggressive(current: Run) {
@@ -1282,9 +1096,9 @@ constructor(
         contribution.firstCycle = minOf(contribution.firstCycle, clock.cycle)
     }
 
-    private fun activeRuns(): List<Run> = listOfNotNull(run, wildernessRun)
+    private fun activeRuns(): List<Run> = listOfNotNull(run)
 
-    private fun isActiveRun(current: Run): Boolean = run === current || wildernessRun === current
+    private fun isActiveRun(current: Run): Boolean = run === current
 
     private fun encounterFor(npc: Npc): Run? =
         activeRuns().firstOrNull { current ->

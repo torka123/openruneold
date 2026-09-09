@@ -4,6 +4,7 @@ import dev.openrune.ServerCacheManager
 import dev.openrune.types.ItemServerType
 import dev.openrune.types.NpcMode
 import kotlin.math.max
+import org.rsmod.api.combat.commons.CombatRetaliation
 import org.rsmod.api.config.constants
 import org.rsmod.api.config.refs.params
 import org.rsmod.api.npc.apPlayer2
@@ -13,6 +14,7 @@ import org.rsmod.api.npc.vars.intVarn
 import org.rsmod.api.npc.vars.typePlayerUidVarn
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
+import org.rsmod.game.hit.HitContext
 import org.rsmod.game.interact.InteractionOp
 
 private var Npc.lastCombat: Int by intVarn("varn.lastcombat")
@@ -20,6 +22,8 @@ private var Npc.aggressivePlayer by typePlayerUidVarn("varn.aggressive_player")
 private var Npc.attackingPlayer by typePlayerUidVarn("varn.attacking_player")
 
 public fun Npc.canRetaliate(): Boolean {
+    if (retaliationContext?.isValid() == false && retaliationSource == aggressivePlayer)
+        return false
     if (retainerUntil > currentMapClock) {
         return false
     }
@@ -32,9 +36,13 @@ public fun Npc.canRetaliate(): Boolean {
     return mode != NpcMode.OpPlayer2 && mode != NpcMode.ApPlayer2 && mode != NpcMode.PlayerEscape
 }
 
-public fun Npc.queueCombatRetaliate(source: Player, delay: Int = 1) {
-    queue("queue.com_retaliate_player", delay)
+public fun Npc.queueCombatRetaliate(source: Player, delay: Int = 1, context: HitContext? = null) {
+    val captured = HitContext.capture(source, this, context)
+    if (!captured.isValid()) return
+    queue("queue.com_retaliate_player", delay, CombatRetaliation(source.uid, captured))
     aggressivePlayer = source.uid
+    retaliationSource = source.uid
+    retaliationContext = captured
     lastCombat = max(lastCombat, currentMapClock)
 }
 

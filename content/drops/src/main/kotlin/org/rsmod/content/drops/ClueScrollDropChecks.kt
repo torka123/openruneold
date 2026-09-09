@@ -25,9 +25,10 @@ public fun Player.hasUnlockedEasyCombat(): Boolean = true
 
 public fun Player.hasUnlockedMediumCombat(): Boolean = true
 
-public fun Player.hasUnlockedHardCombat(): Boolean = true
+/** Status 1 is qualified but unclaimed; status 2 is the active reward (LIVE scripts 4782/4790). */
+public fun Player.hasUnlockedHardCombat(): Boolean = vars["varbit.ca_tier_status_hard"] == 2
 
-public fun Player.hasUnlockedEliteCombat(): Boolean = true
+public fun Player.hasUnlockedEliteCombat(): Boolean = vars["varbit.ca_tier_status_elite"] == 2
 
 public fun Player.hasUnlockedMasterCombat(): Boolean = true
 

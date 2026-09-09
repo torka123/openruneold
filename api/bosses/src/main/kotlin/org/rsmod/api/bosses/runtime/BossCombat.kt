@@ -14,6 +14,8 @@ import org.rsmod.api.script.onAiApPlayer2
 import org.rsmod.api.script.onAiOpPlayer2
 import org.rsmod.api.script.onEvent
 import org.rsmod.api.script.onModifyNpcHit
+import org.rsmod.api.script.onNpcHit
+import org.rsmod.api.script.onResolveNpcHit
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.npc.NpcStateEvents
@@ -29,6 +31,8 @@ object BossCombat {
         onLethal: ((Npc) -> Unit)? = null,
         beforeModifyHit: (NpcHitEvents.Modify.() -> Unit)? = null,
         onModifyHit: (NpcHitEvents.Modify.() -> Unit)? = null,
+        onResolveHit: (NpcHitEvents.Resolve.() -> Unit)? = null,
+        onImpactHit: (NpcHitEvents.Impact.() -> Unit)? = null,
         onAbilityCommitted: (suspend (Npc, Player, BossEncounter) -> Unit)? = null,
     ) {
         val errors = SpecValidator.validate(spec)
@@ -51,6 +55,8 @@ object BossCombat {
             for (npcType in npcTypes) {
                 onAiOpPlayer2(npcType) { runCombatTick(it.target, spec, deps, onAbilityCommitted) }
                 onAiApPlayer2(npcType) { runCombatTick(it.target, spec, deps, onAbilityCommitted) }
+                if (onResolveHit != null) onResolveNpcHit(npcType, onResolveHit)
+                if (onImpactHit != null) onNpcHit(npcType, onImpactHit)
                 onModifyNpcHit(npcType) {
                     val encounter = deps.encounterRegistry.of(npc)
                     beforeModifyHit?.invoke(this)

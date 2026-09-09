@@ -11,8 +11,13 @@ internal var Player.musicClocks by intVarBit("varbit.music_curr_clocks")
 
 /** @see [MidiJingle] */
 public fun Player.midiJingle(jingle: String) {
+    midiJingle(jingle.asRSCM(RSCMType.JINGLE))
+}
+
+/** Plays an already resolved jingle archive group, retaining the normal music restart behavior. */
+public fun Player.midiJingle(jingle: Int) {
     musicClocks = 0 // Client restarts music when a jingle is played.
-    client.write(MidiJingle(jingle.asRSCM(RSCMType.JINGLE)))
+    client.write(MidiJingle(jingle))
 }
 
 /** @see [MidiSongV2] */

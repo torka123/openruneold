@@ -1,0 +1,27 @@
+// Explicit formatting only: never added to the normal build or startup dependencies.
+// Usage: gradlew -I scripts/format-selected.init.gradle -PopenruneFormatManifest=<path> <module>:spotlessApply
+gradle.projectsEvaluated {
+    // Init scripts also run in included builds (for example build-logic).
+    if (gradle.parent != null) return
+    def root = gradle.rootProject
+    def manifest = root.findProperty('openruneFormatManifest')
+    if (manifest == null) throw new GradleException('An explicit source-file manifest is required')
+    def rootPath = root.projectDir.toPath().toRealPath()
+    def selected = root.file(manifest).readLines('UTF-8').findAll { !it.isBlank() }.collect {
+        def path = root.file(it).toPath().toRealPath()
+        if (!path.startsWith(rootPath) || !path.toString().endsWith('.kt')) {
+            throw new GradleException("Not a Kotlin source within this project: $path")
+        }
+        def relative = rootPath.relativize(path).toString().replace('\\', '/')
+        if (relative.tokenize('/').any { it in ['build', 'out', '.gradle', '.kotlin'] }) {
+            throw new GradleException("Generated output cannot be selected: $path")
+        }
+        path.toFile()
+    }
+    root.allprojects { p ->
+        p.tasks.matching { it.name == 'spotlessKotlin' }.configureEach { task ->
+            // Intersect with the format's existing source target, never broaden it.
+            task.target = p.files(selected.findAll { task.target.contains(it) })
+        }
+    }
+}

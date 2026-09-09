@@ -5,11 +5,13 @@ import org.rsmod.events.EventBus
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.NpcList
 import org.rsmod.game.entity.PathingEntity.Companion.INVALID_SLOT
+import org.rsmod.game.entity.npc.NoopNpcInfo
 import org.rsmod.game.entity.npc.NpcStateEvents
 import org.rsmod.map.CoordGrid
 import org.rsmod.map.zone.ZoneKey
 import org.rsmod.routefinder.collision.CollisionFlagMap
 
+@OptIn(org.rsmod.annotations.InternalApi::class)
 public class NpcRegistry
 @Inject
 constructor(
@@ -42,13 +44,16 @@ constructor(
             return NpcRegistryResult.Delete.ListSlotMismatch(npcList[slot])
         }
         npcList.remove(npc.slotId)
+        // Clear retained appearance before listeners release/recycle the protocol avatar.
+        npc.resetBodyModels()
+        npc.disableAvatar()
         eventBus.publish(NpcStateEvents.Delete(npc))
         npc.removeBlockWalkCollision(collision, npc.coords)
         zoneDel(npc, npc.lastProcessedZone)
         npc.slotId = INVALID_SLOT
         npc.clearUid()
         npc.destroy()
-        npc.disableAvatar()
+        npc.infoProtocol = NoopNpcInfo
         return NpcRegistryResult.Delete.Success
     }
 

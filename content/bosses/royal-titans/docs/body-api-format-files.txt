@@ -1,0 +1,14 @@
+engine/game/src/main/kotlin/org/rsmod/game/entity/Npc.kt
+engine/game/src/main/kotlin/org/rsmod/game/entity/NpcAvatar.kt
+engine/game/src/main/kotlin/org/rsmod/game/entity/npc/NpcInfoProtocol.kt
+engine/game/src/test/kotlin/org/rsmod/game/entity/NpcBodyModelsTest.kt
+api/net/src/main/kotlin/org/rsmod/api/net/rsprot/RspNpcInfo.kt
+api/net/src/test/kotlin/org/rsmod/api/net/rsprot/RspNpcBodyModelsTest.kt
+api/registry/src/main/kotlin/org/rsmod/api/registry/loc/LocRegistryRegion.kt
+api/registry/src/main/kotlin/org/rsmod/api/registry/region/RegionRegistry.kt
+api/registry/src/main/kotlin/org/rsmod/api/registry/npc/NpcRegistry.kt
+api/registry/src/test/kotlin/org/rsmod/api/registry/npc/NpcBodyModelsLifecycleTest.kt
+content/bosses/royal-titans/src/main/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansConfig.kt
+content/bosses/royal-titans/src/main/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansEncounterManager.kt
+content/bosses/royal-titans/src/test/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansBodyModelsTest.kt
+or-cache/src/test/kotlin/dev/openrune/RoyalTitansR240CacheAuditTest.kt

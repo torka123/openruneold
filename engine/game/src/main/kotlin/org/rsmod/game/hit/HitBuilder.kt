@@ -26,6 +26,9 @@ public class HitBuilder(
     /** Optional callback preserved on the built [Hit] and invoked after it is processed. */
     public var impactHandler: HitImpactHandler? = null
     public var validity: HitValidity? = null
+    public var context: HitContext = HitContext.EMPTY
+
+    public fun isValidNow(): Boolean = context.isValid() && (validity?.isValid() ?: true)
 
     public fun isRighthandObj(type: ItemServerType): Boolean = type.id == righthandType
 
@@ -56,6 +59,7 @@ public class HitBuilder(
             secondaryObj = secondaryType,
             impactHandler = impactHandler,
             validity = validity,
+            context = context,
         )
     }
 

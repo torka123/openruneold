@@ -4,6 +4,7 @@ import dev.openrune.ServerCacheManager
 import jakarta.inject.Inject
 import org.rsmod.api.config.Constants
 import org.rsmod.api.invtx.invAdd
+import org.rsmod.api.player.hook.PlayerObjTakeRedirector
 import org.rsmod.api.player.hook.PlayerObjTakeValidator
 import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.protect.ProtectedAccess
@@ -21,6 +22,7 @@ public class ObjTakePlugin
 constructor(
     private val repo: ObjRepository,
     private val takeValidator: PlayerObjTakeValidator,
+    private val takeRedirector: PlayerObjTakeRedirector,
 ) : PluginScript() {
     override fun ScriptContext.startup() {
         onDefaultOpObj3 { triggerTake(it.obj) }
@@ -33,7 +35,7 @@ constructor(
             mes(denial)
             return
         }
-        if (!player.hasInvSpace(obj)) {
+        if (takeRedirector.prepare(player, obj, type) == null && !player.hasInvSpace(obj)) {
             player.mes(Constants.dm_take_invspace)
             return
         }
@@ -54,17 +56,25 @@ constructor(
     }
 
     private fun Player.takeClose(obj: Obj) {
+        val type = ServerCacheManager.getItem(obj.type) ?: return
+        val denial = takeValidator.validate(this, obj, type)
+        if (denial != null) {
+            mes(denial)
+            return
+        }
+        val redirect = takeRedirector.prepare(this, obj, type)
+        val take = redirect?.transaction ?: transaction(obj)
+        if (take.failure) {
+            mes(Constants.dm_take_invspace)
+            return
+        }
         val removed = repo.del(obj)
         if (!removed) {
             mes(Constants.dm_take_taken)
             return
         }
-        val take = transaction(obj)
-        if (take.failure) {
-            mes(Constants.dm_take_invspace)
-        } else {
-            take.commitAll()
-        }
+        take.commitAll()
+        redirect?.hook?.onTake(this)
     }
 
     private fun Player.hasInvSpace(obj: Obj): Boolean = transaction(obj).success

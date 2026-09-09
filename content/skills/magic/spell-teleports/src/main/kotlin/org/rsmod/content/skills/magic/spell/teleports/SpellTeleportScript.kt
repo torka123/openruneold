@@ -23,9 +23,9 @@ import org.rsmod.api.player.protect.ProtectedAccess
 import org.rsmod.api.script.onIfOverlayButton
 import org.rsmod.api.script.onPlayerQueueWithArgs
 import org.rsmod.api.spells.MagicSpellRegistry
-import org.rsmod.content.skills.magic.spell.teleports.HomeTeleport.castHome
 import org.rsmod.content.quest.manager.Quest
 import org.rsmod.content.skills.construction.ConstructionHouseService
+import org.rsmod.content.skills.magic.spell.teleports.HomeTeleport.castHome
 import org.rsmod.game.inv.isType
 import org.rsmod.map.CoordGrid
 import org.rsmod.plugin.scripts.PluginScript
@@ -43,7 +43,10 @@ constructor(
     override fun ScriptContext.startup() {
         for (teleport in StandardSpellTeleport.entries) {
             val spell = teleport.resolveSpell() ?: continue
-            onIfOverlayButton(spell.component, ignoreRepeatedClicks = teleport == StandardSpellTeleport.Home) {
+            onIfOverlayButton(
+                spell.component,
+                ignoreRepeatedClicks = teleport == StandardSpellTeleport.Home,
+            ) {
                 castSpellTeleport(spell, teleport, it.op)
             }
         }
@@ -62,7 +65,7 @@ constructor(
         teleport: StandardSpellTeleport,
         op: IfButtonOp,
     ) {
-        if (actionDelay > mapClock) {
+        if (teleport != StandardSpellTeleport.Home && actionDelay > mapClock) {
             return
         }
 
@@ -94,7 +97,7 @@ constructor(
         }
 
         if (teleport == StandardSpellTeleport.Home) {
-            castHome(requireNotNull(destination), { canTeleport() })
+            castHome(requireNotNull(destination), { canTeleport() }, areaChecker)
             return
         }
 
@@ -304,15 +307,15 @@ constructor(
         val missingDestinationMessage: String = "That teleport is not implemented yet.",
     )
 
-    private companion object {
-        private val TeleportStartAnim = RSCM.getReverseMapping(RSCMType.SEQ, 714)
-        private val TeleportEndAnim = RSCM.getReverseMapping(RSCMType.SEQ, 715)
-        private val TeleportSpotanim = RSCM.getReverseMapping(RSCMType.SPOTANIM, 111)
+    internal companion object {
+        val TeleportStartAnim = RSCM.getReverseMapping(RSCMType.SEQ, 714)
+        val TeleportEndAnim = RSCM.getReverseMapping(RSCMType.SEQ, 715)
+        val TeleportSpotanim = RSCM.getReverseMapping(RSCMType.SPOTANIM, 111)
         private const val Banana = "obj.banana"
-        private const val TeleportQueue = "queue.spell_teleport"
-        private const val TeleportSound = "synth.teleport_all"
-        private const val TeleportSpotanimHeight = 92
+        const val TeleportQueue = "queue.spell_teleport"
+        const val TeleportSound = "synth.teleport_all"
+        const val TeleportSpotanimHeight = 92
         private const val TeleportDelay = 4
-        private const val TeleportActionDelay = 5
+        const val TeleportActionDelay = 5
     }
 }

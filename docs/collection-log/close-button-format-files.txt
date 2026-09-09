@@ -1,0 +1,2 @@
+content/interfaces/collection-log-interface/src/main/kotlin/org/rsmod/content/interfaces/collectionlog/CollectionLogScript.kt
+content/interfaces/collection-log-interface/src/test/kotlin/org/rsmod/content/interfaces/collectionlog/CollectionLogClickTest.kt

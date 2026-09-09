@@ -13,6 +13,9 @@ import org.rsmod.api.npc.hit.queueHit
 import org.rsmod.api.npc.isValidTarget
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
+import org.rsmod.game.hit.HitAttribution
+import org.rsmod.game.hit.HitContext
+import org.rsmod.game.hit.HitOrigin
 import org.rsmod.game.hit.HitType
 import org.rsmod.game.queue.WorldQueueList
 
@@ -60,6 +63,7 @@ constructor(
         initialDamage: Int,
         immediateFirstHit: Boolean,
     ): Boolean {
+        prune(target)
         if (initialDamage <= 0 || !target.isPoisonable() || venomActive.containsKey(target)) {
             return false
         }
@@ -70,7 +74,9 @@ constructor(
             return false
         }
 
-        val poison = Poison(source = source, target = target, severity = incomingSeverity)
+        val poison =
+            Poison(source, target, incomingSeverity, toxinContext(source, target, HitOrigin.Poison))
+        if (!poison.context.isValid()) return false
         active[target] = poison
         if (immediateFirstHit) {
             queuePoisonHit(poison, initialDamage)
@@ -91,6 +97,7 @@ constructor(
      * rejects it. This keeps the existing toxin service as the sole owner of NPC toxin state.
      */
     public fun applyVenom(source: Player, target: Npc): Boolean {
+        prune(target)
         if (!target.isPoisonable() || venomActive.containsKey(target)) {
             return false
         }
@@ -100,8 +107,9 @@ constructor(
                 return apply(source, target, PlayerVenom.damageForStrikeIndex(0))
         }
 
+        val venom = Venom(source, target, toxinContext(source, target, HitOrigin.Venom))
+        if (!venom.context.isValid()) return false
         active.remove(target)
-        val venom = Venom(source = source, target = target)
         venomActive[target] = venom
         queueVenomHit(venom, PlayerVenom.damageForStrikeIndex(0))
         arm(venom)
@@ -109,17 +117,28 @@ constructor(
     }
 
     /** Returns whether [target] currently has an active poison sequence. */
-    public fun isPoisoned(target: Npc): Boolean = active.containsKey(target)
+    public fun isPoisoned(target: Npc): Boolean {
+        prune(target)
+        return active.containsKey(target)
+    }
 
     /** Returns whether [target] currently has an active venom sequence. */
-    public fun isEnvenomed(target: Npc): Boolean = venomActive.containsKey(target)
+    public fun isEnvenomed(target: Npc): Boolean {
+        prune(target)
+        return venomActive.containsKey(target)
+    }
+
+    private fun prune(target: Npc) {
+        if (active[target]?.context?.isValid() == false) active.remove(target)
+        if (venomActive[target]?.context?.isValid() == false) venomActive.remove(target)
+    }
 
     private fun arm(poison: Poison) {
         worldQueues.add(TICK_INTERVAL) { tick(poison) }
     }
 
     private fun tick(poison: Poison) {
-        if (!isActive(poison) || !poison.target.isPoisonable()) {
+        if (!isActive(poison) || !poison.context.isValid() || !poison.target.isPoisonable()) {
             remove(poison)
             return
         }
@@ -138,7 +157,7 @@ constructor(
     }
 
     private fun tick(venom: Venom) {
-        if (!isActive(venom) || !venom.target.isPoisonable()) {
+        if (!isActive(venom) || !venom.context.isValid() || !venom.target.isPoisonable()) {
             remove(venom)
             return
         }
@@ -155,6 +174,7 @@ constructor(
             damage = damage,
             hitmark = hitmark_groups.poison_damage,
             modifier = npcHitModifier,
+            context = poison.context,
         )
     }
 
@@ -166,6 +186,7 @@ constructor(
             damage = damage,
             hitmark = hitmark_groups.venom,
             modifier = npcHitModifier,
+            context = venom.context,
         )
     }
 
@@ -186,13 +207,24 @@ constructor(
     }
 
     private fun Npc.isPoisonable(): Boolean =
-        !combatImmunities.toxins &&
-            isValidTarget() &&
-            visType.param(params.poison_immunity) == 0
+        !combatImmunities.toxins && isValidTarget() && visType.param(params.poison_immunity) == 0
 
-    private class Poison(val source: Player, val target: Npc, var severity: Int)
+    private fun toxinContext(source: Player, target: Npc, origin: HitOrigin): HitContext =
+        HitContext.capture(source, target).withAttribution(HitAttribution(origin, source.uuid))
 
-    private class Venom(val source: Player, val target: Npc, var strikesCompleted: Int = 1)
+    private class Poison(
+        val source: Player,
+        val target: Npc,
+        var severity: Int,
+        val context: HitContext,
+    )
+
+    private class Venom(
+        val source: Player,
+        val target: Npc,
+        val context: HitContext,
+        var strikesCompleted: Int = 1,
+    )
 
     public companion object {
         public const val DEFAULT_INITIAL_DAMAGE: Int = 4

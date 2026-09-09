@@ -7,25 +7,39 @@ import jakarta.inject.Inject
 import org.rsmod.api.combat.commons.CombatAttack
 import org.rsmod.api.combat.commons.magic.MagicSpellChecks
 import org.rsmod.api.combat.commons.magic.TomeOfFireState
+import org.rsmod.api.combat.formulas.AccuracyFormulae
 import org.rsmod.api.combat.manager.MagicRuneManager.Companion.isFailure
 import org.rsmod.api.config.constants
 import org.rsmod.api.config.refs.params
+import org.rsmod.api.player.bonus.WornBonuses
+import org.rsmod.api.player.hands
+import org.rsmod.api.player.hat
+import org.rsmod.api.player.legs
 import org.rsmod.api.player.protect.ProtectedAccess
 import org.rsmod.api.player.stat.magicLvl
+import org.rsmod.api.player.torso
 import org.rsmod.api.player.worn.EquipmentChecks
+import org.rsmod.api.random.GameRandom
 import org.rsmod.api.spells.MagicSpellRegistry
 import org.rsmod.api.spells.attack.SpellAttack
 import org.rsmod.api.spells.attack.SpellAttackManager
 import org.rsmod.api.spells.attack.SpellAttackMap
 import org.rsmod.api.spells.attack.SpellAttackRepository
+import org.rsmod.content.skills.magic.spell.attacks.RoyalTitansWallSpells
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.PathingEntity
 import org.rsmod.game.entity.Player
 import org.rsmod.game.hit.HitImpactHandler
 import org.rsmod.game.type.getOrNull
 
-class ElementalSpells @Inject constructor(private val spellRegistry: MagicSpellRegistry) :
-    SpellAttackMap {
+class ElementalSpells
+@Inject
+constructor(
+    private val spellRegistry: MagicSpellRegistry,
+    private val random: GameRandom,
+    private val wornBonuses: WornBonuses,
+    private val walls: RoyalTitansWallSpells,
+) : SpellAttackMap {
     private val registeredSpells by lazy {
         spellRegistry.allSpells().associateBy { RSCM.getReverseMapping(RSCMType.OBJ, it.obj.id) }
     }
@@ -432,6 +446,10 @@ class ElementalSpells @Inject constructor(private val spellRegistry: MagicSpellR
             selectedAttack: CombatAttack.Spell,
         ) {
             val attack = resolveTwinflameSpell(target, selectedAttack)
+            if (RoyalTitansWallSpells.isWall(target)) {
+                castWall(target as Npc, selectedAttack, attack)
+                return
+            }
             val castResult = manager.attemptCast(this, attack)
             if (castResult.isFailure()) {
                 return
@@ -447,7 +465,21 @@ class ElementalSpells @Inject constructor(private val spellRegistry: MagicSpellR
             val (serverDelay, clientDelay) = proj.durations
             val spell = attack.spell.obj
 
-            val splash = manager.rollSplash(this, target, attack, castResult)
+            val specialChance =
+                RoyalTitansElementalAccuracy.hitChance(
+                    targetId = (target as? Npc)?.visType?.id,
+                    waterSpell = MagicSpellChecks.isWaterSpell(spell),
+                    fireSpell = MagicSpellChecks.isFireSpell(spell),
+                    magicBonus = wornBonuses.offensiveMagicBonus(player),
+                    voidMage =
+                        EquipmentChecks.isVoidMageHelm(player.hat) &&
+                            EquipmentChecks.isVoidTop(player.torso) &&
+                            EquipmentChecks.isVoidRobe(player.legs) &&
+                            EquipmentChecks.isVoidGloves(player.hands),
+                )
+            val splash =
+                if (specialChance == null) manager.rollSplash(this, target, attack, castResult)
+                else !AccuracyFormulae.isSuccessfulHit(specialChance, this@ElementalSpells.random)
             if (splash) {
                 manager.playSplashFx(this, target, clientDelay, fx.castSound, soundRadius = 8)
                 manager.queueSplashHit(this, target, spell, clientDelay, serverDelay)
@@ -493,6 +525,31 @@ class ElementalSpells @Inject constructor(private val spellRegistry: MagicSpellR
                 effectHandler = echoHandler,
             )
             manager.continueCombatIfAutocast(this, target)
+        }
+
+        private fun ProtectedAccess.castWall(
+            target: Npc,
+            selected: CombatAttack.Spell,
+            attack: CombatAttack.Spell,
+        ) {
+            if (!walls.begin(this, target, attack)) return
+            val fx = spellFx(selected, attack)
+            player.anim(getOrNull(attack.weapon).castStrikeAnim(), priority = 6)
+            spotanim(fx.launch, height = 92)
+            val (serverDelay, clientDelay) =
+                manager.spawnProjectile(this, target, fx.travel, "projanim.magic_spell").durations
+            consumeTomeCharge(attack)
+            walls.finish(
+                this,
+                target,
+                attack,
+                serverDelay,
+                clientDelay,
+                fx.impact,
+                124,
+                fx.castSound,
+                fx.hitSound,
+            )
         }
 
         private fun ProtectedAccess.resolveTwinflameSpell(
@@ -594,6 +651,7 @@ class ElementalSpells @Inject constructor(private val spellRegistry: MagicSpellR
                     // This queue is created while the target's hit queues are already being
                     // processed. A value of one would therefore expire in the first hit's cycle.
                     hitDelay = TwinflameStaffRules.ECHO_IMPACT_QUEUE_DELAY_CYCLES,
+                    context = impact.hit.context,
                 )
             }
         }

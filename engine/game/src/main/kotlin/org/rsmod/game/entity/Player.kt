@@ -40,9 +40,9 @@ import org.rsmod.game.inv.InventoryMap
 import org.rsmod.game.movement.MoveSpeed
 import org.rsmod.game.queue.EngineQueueList
 import org.rsmod.game.queue.EngineQueueType
-import org.rsmod.game.queue.StatXpMilestone
 import org.rsmod.game.queue.PlayerQueueList
 import org.rsmod.game.queue.QueueCategory
+import org.rsmod.game.queue.StatXpMilestone
 import org.rsmod.game.seq.EntitySeq
 import org.rsmod.game.shop.Shop
 import org.rsmod.game.spot.EntitySpotanim
@@ -188,9 +188,9 @@ public class Player(
     public val visibleZoneKeys: IntList = IntArrayList()
 
     /**
-     * The root-world view zone most recently processed for this player. This normally matches
-     * the player's zone; aboard a world entity it follows the entity's projected root position.
-     * Real zone occupancy remains tracked separately by `lastProcessedZone`.
+     * The root-world view zone most recently processed for this player. This normally matches the
+     * player's zone; aboard a world entity it follows the entity's projected root position. Real
+     * zone occupancy remains tracked separately by `lastProcessedZone`.
      */
     public var lastProcessedViewZone: ZoneKey = ZoneKey.NULL
 
@@ -264,9 +264,24 @@ public class Player(
     public var clientDisconnectedCycles: Int = 0
 
     public var forceDisconnect: Boolean = false
+        set(value) {
+            field = value
+            if (value) combatHitScope?.close()
+        }
+
     public var manualLogout: Boolean = false
     public var pendingLogout: Boolean = false
+        set(value) {
+            field = value
+            if (value) combatHitScope?.close()
+        }
+
     public var loggingOut: Boolean = false
+        set(value) {
+            field = value
+            if (value) combatHitScope?.close()
+        }
+
     public var pendingCloseClient: Boolean = false
     public var closeClient: Boolean = false
     /** This flag should only be set when the game server is in the process of shutting down. */

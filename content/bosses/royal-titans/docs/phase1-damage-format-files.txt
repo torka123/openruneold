@@ -1,0 +1,5 @@
+content/bosses/royal-titans/src/main/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansEncounterManager.kt
+content/bosses/royal-titans/src/test/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansCombatIntegrationTest.kt
+content/bosses/royal-titans/src/test/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansPhaseOneDamageTest.kt
+content/bosses/royal-titans/src/test/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansMovementTest.kt
+content/bosses/royal-titans/src/test/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansElementalMovementTest.kt

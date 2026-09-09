@@ -49,6 +49,11 @@ object Music {
                 )
                 column(2, true)
             }
+            row("dbrow.music_modern_grand_exchange") {
+                column(0, "grand_exchange")
+                columnRSCM(1, "dbrow.music_the_trade_parade")
+                column(2, true)
+            }
         }
 
     fun musicClassic() =

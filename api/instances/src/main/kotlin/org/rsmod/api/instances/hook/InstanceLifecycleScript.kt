@@ -4,10 +4,12 @@ import jakarta.inject.Inject
 import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.player.forceDisconnect
 import org.rsmod.api.player.hook.PlayerPostTickHook
+import org.rsmod.api.script.onEvent
 import org.rsmod.api.script.onPlayerCoordsChanged
 import org.rsmod.api.script.onPlayerLogout
 import org.rsmod.game.MapClock
 import org.rsmod.game.entity.Player
+import org.rsmod.game.entity.npc.NpcStateEvents
 import org.rsmod.plugin.scripts.PluginScript
 import org.rsmod.plugin.scripts.ScriptContext
 
@@ -20,6 +22,10 @@ constructor(private val manager: InstanceManager, private val worldClock: MapClo
             manager.leaveForExternalTeleport(player, player.coords, worldClock.cycle)
         }
         onPlayerLogout { manager.handleLogout(player, worldClock.cycle) }
+        // Registry deletion publishes before clearing the UID. Despawn/respawn retains ownership.
+        onEvent<NpcStateEvents.Delete> {
+            manager.instanceForNpc(npc)?.let { manager.detachNpc(it, npc) }
+        }
     }
 
     override fun onPostTick(player: Player) {

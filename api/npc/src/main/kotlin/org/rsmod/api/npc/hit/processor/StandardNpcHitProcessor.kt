@@ -43,10 +43,16 @@ constructor(
             } else {
                 hit
             }
-        var changedDamage: Int? = null
-        if (processedHit.damage > npc.hitpoints) {
-            changedDamage = npc.hitpoints
-        }
+        val resolveKey = npc.visType.id.toLong()
+        val resolvedDamage =
+            if (eventBus.keyed[NpcHitEvents.Resolve::class.java, resolveKey] != null) {
+                val event = NpcHitEvents.Resolve(npc, hit, processedHit.damage, resolveKey)
+                eventBus.publish(event)
+                // A content rule may retire the encounter while resolving this queued hit.
+                if (!hit.isValidNow()) return
+                event.damage.coerceIn(0, npc.hitpoints.coerceAtLeast(0))
+            } else processedHit.damage.coerceAtMost(npc.hitpoints)
+        val changedDamage = resolvedDamage.takeIf { it != processedHit.damage }
 
         if (changedDamage == 0) {
             val zeroDamageHitmark = hitmark_groups.zero_damage
@@ -95,12 +101,21 @@ constructor(
         npc.hitpoints -= hit.damage
 
         if (hit.damage > 0) {
-            if (hit.isFromPlayer) {
-                hit.resolvePlayerSource(playerList)?.let { source ->
-                    npc.recordDamage(source, hit.damage)
-                    for (contributor in damageContributors) {
-                        contributor.onPlayerDamageNpc(npc, source, hit.damage)
-                    }
+            val attribution = hit.context.attribution
+            val source =
+                if (attribution.ownerUuid != null) {
+                    playerList.firstOrNull { it.uuid == attribution.ownerUuid }
+                } else if (hit.isFromPlayer) hit.resolvePlayerSource(playerList) else null
+            val owner = attribution.ownerUuid ?: source?.uuid
+            if (owner != null) {
+                npc.recordDamage(owner, hit.damage, attribution.origin)
+                for (contributor in damageContributors) {
+                    contributor.onPlayerDamageNpc(
+                        npc,
+                        source,
+                        hit.damage,
+                        attribution.copy(ownerUuid = owner),
+                    )
                 }
             } else if (hit.isFromNpc) {
                 npc.recordFinalNonPlayerDamage(hit.damage)

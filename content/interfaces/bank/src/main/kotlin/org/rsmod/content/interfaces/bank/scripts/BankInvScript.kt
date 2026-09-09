@@ -43,13 +43,13 @@ import org.rsmod.content.interfaces.bank.leftClickQtyMode
 import org.rsmod.content.interfaces.bank.selectedTab
 import org.rsmod.content.interfaces.bank.setBankWornBonuses
 import org.rsmod.content.interfaces.bank.setBanksideExtraOps
-import org.rsmod.content.interfaces.bank.validateUnsafeDungeonBankSession
 import org.rsmod.content.interfaces.bank.util.BankSlots
 import org.rsmod.content.interfaces.bank.util.bulkShift
 import org.rsmod.content.interfaces.bank.util.leftShift
 import org.rsmod.content.interfaces.bank.util.offset
 import org.rsmod.content.interfaces.bank.util.rightShift
 import org.rsmod.content.interfaces.bank.util.shiftInsert
+import org.rsmod.content.interfaces.bank.validateUnsafeDungeonBankSession
 import org.rsmod.content.interfaces.bank.withdrawCert
 import org.rsmod.events.EventBus
 import org.rsmod.game.entity.Player
@@ -236,8 +236,9 @@ constructor(
                     input
                 }
                 IfButtonOp.Op8 -> Int.MAX_VALUE
+                IfButtonOp.Op1,
                 IfButtonOp.Op9 -> {
-                    clickBanksideExtraOp(slot)
+                    clickBanksideExtraOp(slot, op)
                     return
                 }
                 else -> throw IllegalStateException("Invalid main inv op: $op")
@@ -263,7 +264,8 @@ constructor(
         val tab = selectedTab
 
         val placeholder = placeholder(objType)
-        val containedObjSlot = bank.indexOfFirst { it?.id == storedObj.id || it?.id == placeholder.id }
+        val containedObjSlot =
+            bank.indexOfFirst { it?.id == storedObj.id || it?.id == placeholder.id }
         val prioritySlot =
             if (containedObjSlot != -1) {
                 containedObjSlot
@@ -442,7 +444,10 @@ constructor(
 
         val uniqueInvObjs = mutableSetOf<Int>()
         for (invObj in from) {
-            val type = invObj?.let { getInvObj(org.rsmod.game.obj.EnsouledHeadProvenance.normalizeStored(it)) } ?: continue
+            val type =
+                invObj?.let {
+                    getInvObj(org.rsmod.game.obj.EnsouledHeadProvenance.normalizeStored(it))
+                } ?: continue
             val uncert = uncert(type)
             if (uncert.param(params.no_bank) != 0) {
                 continue
@@ -1134,7 +1139,7 @@ constructor(
         player.setBankWornBonuses(wornBonuses, weaponSpeeds)
     }
 
-    private suspend fun ProtectedAccess.clickBanksideExtraOp(slot: Int) {
+    private suspend fun ProtectedAccess.clickBanksideExtraOp(slot: Int, op: IfButtonOp) {
         val obj = inv[slot] ?: return resendSlot(inv, 0)
         val type = getInvObj(obj)
 
@@ -1163,7 +1168,7 @@ constructor(
             return
         }
 
-        val event = HeldBanksideEvents.Type(player, slot, type)
+        val event = HeldBanksideEvents.Type(player, slot, type, op)
         publish(event)
     }
 

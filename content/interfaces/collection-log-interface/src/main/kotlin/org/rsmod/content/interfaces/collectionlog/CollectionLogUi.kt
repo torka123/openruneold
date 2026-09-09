@@ -68,6 +68,81 @@ constructor(
         resolveItemsContentsComponent()
         resolveSearchResultsClickzone()
         resolveCloseComponent()
+        validateCatalogAssets()
+        SPECIAL_COUNTER_VARPS.values.forEach { counter ->
+            requireNotNull(ServerCacheManager.getVarp(counter.asRSCM(RSCMType.VARP))) {
+                "Missing Collection Log counter $counter"
+            }
+        }
+        SPECIAL_COUNTER_VARP_IDS.values.forEach { counter ->
+            requireNotNull(ServerCacheManager.getVarp(counter)) {
+                "Missing Collection Log counter $counter"
+            }
+        }
+    }
+
+    private fun validateCatalogAssets() {
+        require(catalog.categories.size == CATEGORY_COMPONENTS.size)
+        val collection =
+            requireNotNull(ServerCacheManager.getInterface(INTERFACE.asRSCM(RSCMType.INTERFACE)))
+        (CATEGORY_COMPONENTS +
+                SECTION_COMPONENTS +
+                SEARCH_INPUT_COMPONENTS +
+                listOf(SEARCH_RESULTS_COMPONENT, COMBAT_ACHIEVEMENTS_COMPONENT, ITEMS_COMPONENT))
+            .forEach { name ->
+                val packed = name.asRSCM(RSCMType.COMPONENT)
+                require(
+                    packed ushr 16 == collection.id &&
+                        collection.components[packed and 0xFFFF] != null
+                ) {
+                    "Collection Log control $name is not in interface ${collection.id}"
+                }
+            }
+        catalog.categories.forEach { category ->
+            val params = requireNotNull(ServerCacheManager.getStruct(category.structId)?.params)
+            require(params[683] == category.sectionEnumId && params[684] == category.order) {
+                "Collection Log category ${category.name} differs from the active cache"
+            }
+            (685..688).forEach { param ->
+                require(params[param] == category.clientParams[param]) {
+                    "Collection Log category ${category.name} has incorrect draw parameter $param"
+                }
+                val packed = requireNotNull(category.clientParams[param])
+                require(
+                    packed ushr 16 == collection.id &&
+                        collection.components[packed and 0xFFFF] != null
+                )
+            }
+            val sections = requireNotNull(ServerCacheManager.getEnum(category.sectionEnumId))
+            require(
+                sections.values.toSortedMap().values.toList() ==
+                    category.sections.sortedBy { it.order }.map { it.structId }
+            ) {
+                "Collection Log section order differs from the active cache for ${category.name}"
+            }
+            category.sections.forEach { section ->
+                val sectionParams =
+                    requireNotNull(ServerCacheManager.getStruct(section.structId)?.params)
+                require(
+                    sectionParams[690] == section.itemEnumId &&
+                        sectionParams[2519] == section.linkedCounter?.cacheId
+                ) {
+                    "Collection Log section ${section.name} differs from the active cache"
+                }
+                val items = requireNotNull(ServerCacheManager.getEnum(section.itemEnumId))
+                require(
+                    items.values.toSortedMap().values.toList() ==
+                        section.slots.sortedBy { it.order }.map { it.displayItemId }
+                ) {
+                    "Collection Log item order differs from the active cache for ${section.name}"
+                }
+                section.slots.forEach { slot ->
+                    requireNotNull(ServerCacheManager.getItem(slot.displayItemId)) {
+                        "Collection Log section ${section.name} has missing display item ${slot.displayItemId}"
+                    }
+                }
+            }
+        }
     }
 
     public fun installRecordHook() {
@@ -139,8 +214,14 @@ constructor(
         }
     }
 
-    public fun selectCurrentSection(player: Player, sectionIndex: Int) {
-        val session = player.attr[SESSION] ?: CollectionLogUiSession()
+    public fun selectCurrentSection(
+        player: Player,
+        sectionIndex: Int,
+        sourceCategoryIndex: Int? = null,
+    ) {
+        val session = player.attr[SESSION] ?: return
+        // A click queued before a tab change must not reinterpret its index in the new tab.
+        if (sourceCategoryIndex != null && sourceCategoryIndex != session.categoryIndex) return
         val state = readyState(player) ?: return
         selectSection(player, session.categoryIndex, sectionIndex, state)
     }
@@ -514,7 +595,7 @@ constructor(
             mapOf(
                 "Nex" to "varp.total_nex_kills",
                 "Phantom Muspah" to "varp.total_muspah_kills",
-                "Vorkath" to "varp.kc_vorkath",
+                "Vorkath" to "varp.total_vorkath_kills",
                 "Zulrah" to "varp.total_snakeboss_kills",
             )
         public val SPECIAL_COUNTER_VARP_IDS: Map<String, Int> =

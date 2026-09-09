@@ -15,6 +15,8 @@ import org.rsmod.game.entity.util.EntityExactMove
 import org.rsmod.game.entity.util.EntityFaceAngle
 import org.rsmod.game.entity.util.EntityFaceTarget
 import org.rsmod.game.hero.HeroPoints
+import org.rsmod.game.hit.HitOrigin
+import org.rsmod.game.hit.HitScope
 import org.rsmod.game.interact.Interaction
 import org.rsmod.game.loc.BoundLocInfo
 import org.rsmod.game.loc.LocInfo
@@ -47,6 +49,14 @@ public sealed class PathingEntity {
     public abstract val heroPoints: HeroPoints
 
     public abstract val damageContributions: DamageContributions
+
+    /** Optional encounter/membership scope captured by the shared hit queue entry points. */
+    public var combatHitScope: HitScope? = null
+        set(value) {
+            if (field !== value) field?.close()
+            field = value
+            value?.observePosition(coords)
+        }
 
     public var slotId: Int = INVALID_SLOT
 
@@ -258,24 +268,25 @@ public sealed class PathingEntity {
         get() = avatar.coords
         set(value) {
             avatar.coords = value
+            combatHitScope?.observePosition(value)
         }
 
     public var x: Int
         get() = avatar.coords.x
         set(value) {
-            avatar.coords = avatar.coords.copy(x = value)
+            coords = avatar.coords.copy(x = value)
         }
 
     public var z: Int
         get() = avatar.coords.z
         set(value) {
-            avatar.coords = avatar.coords.copy(z = value)
+            coords = avatar.coords.copy(z = value)
         }
 
     public var level: Int
         get() = avatar.coords.level
         set(value) {
-            avatar.coords = avatar.coords.copy(level = value)
+            coords = avatar.coords.copy(level = value)
         }
 
     public var previousCoords: CoordGrid
@@ -584,21 +595,28 @@ public sealed class PathingEntity {
         }
     }
 
-    public fun recordDamage(source: Player, damage: Int) {
+    public fun recordDamage(source: Player, damage: Int, origin: HitOrigin = HitOrigin.Direct) {
         if (damage <= 0) {
             return
         }
-        recordFinalPlayerDamage(source, damage)
-        damageContributions.record(source, damage)
-        heroPoints(source, damage)
+        val uuid = source.uuid ?: error("Unexpected null uuid for player: $source")
+        recordDamage(uuid, damage, origin)
     }
 
-    public fun recordDamage(source: Npc, damage: Int) {
+    /** Preserve owner attribution even when a delayed hit's owner no longer has a live slot. */
+    public fun recordDamage(ownerUuid: Long, damage: Int, origin: HitOrigin = HitOrigin.Direct) {
+        if (damage <= 0) return
+        lastDamagingPlayerUuid = ownerUuid
+        damageContributions.recordPlayer(ownerUuid, damage, origin)
+        heroPoints.add(ownerUuid, damage)
+    }
+
+    public fun recordDamage(source: Npc, damage: Int, origin: HitOrigin = HitOrigin.Direct) {
         if (damage <= 0) {
             return
         }
         recordFinalNonPlayerDamage(damage)
-        damageContributions.record(source, damage)
+        damageContributions.record(source, damage, origin)
     }
 
     public fun findHero(playerList: PlayerList): Player? {

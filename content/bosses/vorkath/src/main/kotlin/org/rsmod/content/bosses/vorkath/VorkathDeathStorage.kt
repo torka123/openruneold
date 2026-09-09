@@ -30,15 +30,29 @@ constructor(private val encounters: VorkathEncounterManager) : PlayerDeathStorag
         result: PlayerDeathDrops.DeathDropResult,
     ): Boolean {
         val player = context.player
+        val hadStoredItems = player.attr.has(VORKATH_DEATH_STORAGE)
         if (!encounters.isActive(player)) {
-            if (player.attr.has(VORKATH_DEATH_STORAGE)) {
+            if (hadStoredItems) {
                 player.attr.remove(VORKATH_DEATH_STORAGE)
+                player.attr.remove(VORKATH_STORAGE_REMINDER_SHOWN)
                 player.mes("Your items held by Torfinn were lost because you died an unsafe death.")
             }
             return false
         }
         val lost = result.supplyPile + result.lostTradeable + result.lostUntradeable
-        if (lost.isEmpty()) return false
+        if (lost.isEmpty()) {
+            if (hadStoredItems) {
+                player.attr.remove(VORKATH_DEATH_STORAGE)
+                player.attr.remove(VORKATH_STORAGE_REMINDER_SHOWN)
+                player.mes(
+                    "Your items held by Torfinn were lost because you died again before reclaiming them."
+                )
+            }
+            return false
+        }
+        if (hadStoredItems) {
+            player.mes("Your previously stored items were lost.")
+        }
         player.attr[VORKATH_DEATH_STORAGE] = VorkathStorageCodec.encode(lost)
         player.attr.remove(VORKATH_STORAGE_REMINDER_SHOWN)
         player.mes("Torfinn has collected your items. He will return them for 100,000 coins.")

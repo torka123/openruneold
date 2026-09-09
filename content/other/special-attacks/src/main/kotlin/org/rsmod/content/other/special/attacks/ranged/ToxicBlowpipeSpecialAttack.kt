@@ -137,7 +137,8 @@ constructor(private val random: GameRandom, private val poisons: NpcPoisonEffect
                             if (venom && it.damage > 0) {
                                 when (val impactTarget = it.target) {
                                     is Npc -> poisons.applyVenom(player, impactTarget)
-                                    is Player -> PlayerVenom.tryVenom(impactTarget)
+                                    is Player ->
+                                        PlayerVenom.tryVenom(impactTarget, context = it.hit.context)
                                 }
                             }
                         }

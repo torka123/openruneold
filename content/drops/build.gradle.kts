@@ -2,6 +2,12 @@ plugins {
     id("base-conventions")
 }
 
+tasks.test {
+    workingDir = rootProject.projectDir
+    // Cache-backed tests share ServerCacheManager and its decoders within the test JVM.
+    systemProperty("junit.jupiter.execution.parallel.enabled", "false")
+}
+
 dependencies {
     implementation(libs.guice)
     implementation(projects.api.areaChecker)

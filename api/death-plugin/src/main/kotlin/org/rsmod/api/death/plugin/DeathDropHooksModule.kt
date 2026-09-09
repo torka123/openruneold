@@ -3,10 +3,11 @@ package org.rsmod.api.death.plugin
 import org.rsmod.api.death.NpcDeathDropHook
 import org.rsmod.api.death.NpcDeathKillHook
 import org.rsmod.api.death.PlayerDeathCleanupHook
+import org.rsmod.api.death.PlayerDeathDropLocationHook
 import org.rsmod.api.death.PlayerDeathDropTransformHook
 import org.rsmod.api.death.PlayerDeathHook
+import org.rsmod.api.death.PlayerDeathItemHook
 import org.rsmod.api.death.PlayerDeathNoticeHook
-import org.rsmod.api.death.PlayerDeathDropLocationHook
 import org.rsmod.api.death.PvPAttackValidateHook
 import org.rsmod.api.death.PvPPlayerHitHook
 import org.rsmod.api.death.PvPPlayerImpactHook
@@ -21,6 +22,7 @@ public class DeathDropHooksModule : PluginModule() {
         newSetBinding<PlayerDeathCleanupHook>()
         newSetBinding<PlayerDeathDropTransformHook>()
         newSetBinding<PlayerDeathHook>()
+        newSetBinding<PlayerDeathItemHook>()
         newSetBinding<PlayerDeathNoticeHook>()
         newSetBinding<PlayerDeathDropLocationHook>()
         newSetBinding<PvPAttackValidateHook>()

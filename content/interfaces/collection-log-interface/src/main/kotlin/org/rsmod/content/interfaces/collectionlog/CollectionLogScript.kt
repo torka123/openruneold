@@ -6,6 +6,7 @@ import jakarta.inject.Inject
 import org.rsmod.api.collectionlog.CollectionLogRanks
 import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.ui.ifClose
+import org.rsmod.api.player.ui.ifCloseOverlay
 import org.rsmod.api.script.onIfClose
 import org.rsmod.api.script.onIfModalButton
 import org.rsmod.api.script.onIfOpen
@@ -24,7 +25,9 @@ import org.rsmod.plugin.scripts.ScriptContext
 public class CollectionLogScript @Inject constructor(private val ui: CollectionLogUi) :
     PluginScript() {
     override fun ScriptContext.startup() {
-        onIfOverlayButton(CollectionLogUi.CLOSE_COMPONENT) { player.ifClose(eventBus) }
+        onIfOverlayButton(CollectionLogUi.CLOSE_COMPONENT) {
+            player.ifCloseOverlay(CollectionLogUi.INTERFACE, eventBus)
+        }
         onIfModalButton(CollectionLogUi.CLOSE_COMPONENT) { player.ifClose(eventBus) }
         ui.validateAssets()
         ui.installRecordHook()
@@ -37,9 +40,13 @@ public class CollectionLogScript @Inject constructor(private val ui: CollectionL
             onIfOverlayButton(component) { ui.selectCategory(player, index) }
             onIfModalButton(component) { ui.selectCategory(player, index) }
         }
-        CollectionLogUi.SECTION_COMPONENTS.forEach { component ->
-            onIfOverlayButton(component) { event -> ui.selectCurrentSection(player, event.comsub) }
-            onIfModalButton(component) { event -> ui.selectCurrentSection(player, event.comsub) }
+        CollectionLogUi.SECTION_COMPONENTS.forEachIndexed { categoryIndex, component ->
+            onIfOverlayButton(component) { event ->
+                ui.selectCurrentSection(player, event.comsub, categoryIndex)
+            }
+            onIfModalButton(component) { event ->
+                ui.selectCurrentSection(player, event.comsub, categoryIndex)
+            }
         }
         onIfOverlayButton(CollectionLogUi.SEARCH_RESULTS_COMPONENT) { event ->
             ui.selectSearchResult(player, event.comsub)

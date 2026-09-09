@@ -12,7 +12,9 @@ import org.rsmod.api.death.PlayerDeathHandling
 import org.rsmod.api.death.PlayerDeathHook
 import org.rsmod.api.death.UntradeableHandling
 import org.rsmod.api.game.process.GameLifecycle
+import org.rsmod.api.instances.events.InstanceEndedEvent
 import org.rsmod.api.instances.events.InstancePlayerExternalTeleportEvent
+import org.rsmod.api.instances.events.instanceEventId
 import org.rsmod.api.script.onEvent
 import org.rsmod.api.script.onPlayerLogout
 import org.rsmod.game.entity.Npc
@@ -57,7 +59,8 @@ internal class RoyalTitansDeathCleanup
 @Inject
 constructor(private val encounters: RoyalTitansEncounterManager) : PlayerDeathCleanupHook {
     override fun cleanup(player: Player) {
-        encounters.removeParticipant(player, "player death", teleport = true)
+        // PlayerDeath has already delivered the outside pile and selected the normal respawn.
+        encounters.removeParticipant(player, "player death", teleport = false)
     }
 }
 
@@ -66,6 +69,9 @@ internal class RoyalTitansLifecycle
 constructor(private val encounters: RoyalTitansEncounterManager) : PluginScript() {
     override fun ScriptContext.startup() {
         onEvent<GameLifecycle.LateCycle> { encounters.tickAll() }
+        onEvent<InstanceEndedEvent>(instanceEventId(ROYAL_TITANS_INSTANCE_KEY)) {
+            encounters.instanceEnded(instanceId)
+        }
         onEvent<InstancePlayerExternalTeleportEvent> {
             if (key == ROYAL_TITANS_INSTANCE_KEY) encounters.externalTeleport(player, instanceId)
         }

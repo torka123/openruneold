@@ -180,9 +180,11 @@ constructor(
             consume += invObj.copy(count = required)
         }
 
-        val transaction = player.invDelAll(player.inv, consume, strict = true)
-        if (!transaction.success) {
-            return CastResult.Failure.NotEnoughInvObj
+        if (consume.isNotEmpty()) {
+            val transaction = player.invDelAll(player.inv, consume, strict = true)
+            if (!transaction.success) {
+                return CastResult.Failure.NotEnoughInvObj
+            }
         }
 
         for (source in varbitSources) {

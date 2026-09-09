@@ -9,6 +9,7 @@ import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
 import org.rsmod.game.entity.npc.NpcUid
 import org.rsmod.game.entity.player.PlayerUid
+import org.rsmod.game.queue.QueueArgumentValidity
 
 public data class Hit(
     public val type: HitType,
@@ -18,9 +19,12 @@ public data class Hit(
     private val secondaryObj: Int?,
     private val impactHandler: HitImpactHandler? = null,
     private val validity: HitValidity? = null,
-) {
+    public val context: HitContext = HitContext.EMPTY,
+) : QueueArgumentValidity {
     /** Optional encounter/lifecycle guard evaluated before any impact side effects. */
-    public fun isValidNow(): Boolean = validity?.isValid() ?: true
+    public fun isValidNow(): Boolean = context.isValid() && (validity?.isValid() ?: true)
+
+    override fun isQueueArgumentValid(): Boolean = context.isValid()
 
     public val damage: Int
         get() = hitmark.damage

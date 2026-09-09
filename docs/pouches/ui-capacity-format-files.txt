@@ -1,0 +1,3 @@
+content/other/pouches/src/main/kotlin/org/rsmod/content/other/pouches/runepouch/RunePouchScript.kt
+content/other/pouches/src/test/kotlin/org/rsmod/content/other/pouches/PouchesIntegrationTest.kt
+content/other/pouches/src/test/kotlin/org/rsmod/content/other/pouches/RunePouchClientSlots.kt

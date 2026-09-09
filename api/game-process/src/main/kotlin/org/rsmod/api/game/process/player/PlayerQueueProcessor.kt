@@ -7,17 +7,29 @@ import org.rsmod.api.player.ui.ifClose
 import org.rsmod.events.EventBus
 import org.rsmod.game.entity.Player
 import org.rsmod.game.queue.PlayerQueueList
+import org.rsmod.game.queue.QueueArgumentValidity
 import org.rsmod.game.queue.QueueCategory
 
 public class PlayerQueueProcessor
 @Inject
 constructor(private val eventBus: EventBus, private val protectedAccess: ProtectedAccessLauncher) {
     public fun process(player: Player) {
+        player.queueList.pruneInvalidPayloads()
+        player.weakQueueList.pruneInvalidPayloads()
         if (player.queueList.strongQueues > 0) {
             player.ifClose(eventBus)
         }
         player.publishExpiredQueues()
         player.publishExpiredWeakQueues()
+    }
+
+    private fun PlayerQueueList.pruneInvalidPayloads() {
+        val iterator = iterator() ?: return
+        while (iterator.hasNext()) {
+            if ((iterator.next().args as? QueueArgumentValidity)?.isQueueArgumentValid() == false)
+                iterator.remove()
+        }
+        iterator.cleanUp()
     }
 
     private fun Player.publishExpiredQueues() {
@@ -27,6 +39,11 @@ constructor(private val eventBus: EventBus, private val protectedAccess: Protect
             val iterator = queueList.iterator() ?: break
             while (iterator.hasNext()) {
                 val queue = iterator.next()
+
+                if ((queue.args as? QueueArgumentValidity)?.isQueueArgumentValid() == false) {
+                    iterator.remove()
+                    continue
+                }
 
                 if (queue.shouldCloseModals()) {
                     ifClose(eventBus)
@@ -87,6 +104,11 @@ constructor(private val eventBus: EventBus, private val protectedAccess: Protect
             val iterator = weakQueueList.iterator() ?: break
             while (iterator.hasNext()) {
                 val queue = iterator.next()
+
+                if ((queue.args as? QueueArgumentValidity)?.isQueueArgumentValid() == false) {
+                    iterator.remove()
+                    continue
+                }
 
                 if (queue.processedCycle != currentMapClock) {
                     queue.processedCycle = currentMapClock

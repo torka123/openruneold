@@ -7,7 +7,8 @@ import org.rsmod.events.EventBus
 import org.rsmod.game.entity.Npc
 
 public sealed class NpcEvents {
-    public sealed class Op(public val npc: Npc) : OpEvent(npc.id.toLong())
+    // Explicit transmogs are resolved using visType by the native dispatcher, not the spawn id.
+    public sealed class Op(public val npc: Npc) : OpEvent(npc.visType.id.toLong())
 
     public class Op1(npc: Npc) : Op(npc)
 
@@ -19,7 +20,7 @@ public sealed class NpcEvents {
 
     public class Op5(npc: Npc) : Op(npc)
 
-    public sealed class Ap(public val npc: Npc) : ApEvent(npc.id.toLong())
+    public sealed class Ap(public val npc: Npc) : ApEvent(npc.visType.id.toLong())
 
     public class Ap1(npc: Npc) : Ap(npc)
 
@@ -85,7 +86,7 @@ public sealed class NpcDefaultEvents {
 }
 
 public sealed class NpcUnimplementedEvents {
-    public sealed class Op(public val npc: Npc) : OpEvent(npc.id.toLong())
+    public sealed class Op(public val npc: Npc) : OpEvent(npc.visType.id.toLong())
 
     public class Op1(npc: Npc) : Op(npc)
 

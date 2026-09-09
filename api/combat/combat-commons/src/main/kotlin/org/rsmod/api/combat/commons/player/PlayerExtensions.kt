@@ -6,6 +6,7 @@ import dev.openrune.rscm.RSCM
 import dev.openrune.rscm.RSCMType
 import dev.openrune.types.ItemServerType
 import kotlin.math.min
+import org.rsmod.api.combat.commons.CombatRetaliation
 import org.rsmod.api.config.refs.params
 import org.rsmod.api.player.lefthand
 import org.rsmod.api.player.protect.ProtectedAccess
@@ -15,12 +16,15 @@ import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.npc.NpcUid
 import org.rsmod.game.entity.player.PlayerUid
+import org.rsmod.game.hit.HitContext
 import org.rsmod.game.type.getOrNull
 
 private val ProtectedAccess.autoRetaliateDisabled by boolVarp("varp.option_nodef")
 
-public fun Player.queueCombatRetaliate(source: Npc, delay: Int = 1) {
-    strongQueue("queue.com_retaliate_npc", delay, source.uid)
+public fun Player.queueCombatRetaliate(source: Npc, delay: Int = 1, context: HitContext? = null) {
+    val captured = HitContext.capture(source, this, context)
+    if (captured.isValid())
+        strongQueue("queue.com_retaliate_npc", delay, CombatRetaliation(source.uid, captured))
 }
 
 public fun ProtectedAccess.combatRetaliate(uid: NpcUid, flinchDelay: Int) {
@@ -36,8 +40,14 @@ public fun ProtectedAccess.combatRetaliate(uid: NpcUid, flinchDelay: Int) {
     opNpc2(source)
 }
 
-public fun Player.queueCombatRetaliate(source: Player, delay: Int = 1) {
-    strongQueue("queue.com_retaliate_player", delay, source.uid)
+public fun Player.queueCombatRetaliate(
+    source: Player,
+    delay: Int = 1,
+    context: HitContext? = null,
+) {
+    val captured = HitContext.capture(source, this, context)
+    if (captured.isValid())
+        strongQueue("queue.com_retaliate_player", delay, CombatRetaliation(source.uid, captured))
 }
 
 public fun ProtectedAccess.combatRetaliate(uid: PlayerUid, flinchDelay: Int) {

@@ -33,8 +33,7 @@ internal class NexAttackHook @Inject constructor(private val encounters: NexEnco
 internal class NexPlayerDeathHook @Inject constructor(private val encounters: NexEncounterManager) :
     PlayerDeathHook {
     override fun handleDeath(context: PlayerDeathContext): PlayerDeathHandling? {
-        // Wilderness Nex deaths must continue through the Wilderness death pipeline so PvP
-        // ownership, item protection, and killer attribution are not replaced by chamber rules.
+        // This policy belongs only to registered participants in the Ancient Prison chamber.
         if (!encounters.isChamberParticipant(context.player)) return null
         return PlayerDeathHandling(
             keepCount = standardKeepCount(context.hasProtectItem),

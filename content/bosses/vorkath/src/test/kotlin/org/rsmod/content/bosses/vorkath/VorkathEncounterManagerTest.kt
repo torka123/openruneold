@@ -16,11 +16,11 @@ import org.rsmod.api.npc.hit.modifier.StandardNpcHitModifier
 import org.rsmod.api.npc.interact.AiPlayerInteractions
 import org.rsmod.api.npc.owner.assignSpawnOwner
 import org.rsmod.api.random.DefaultGameRandom
-import org.rsmod.api.route.StepFactory
 import org.rsmod.api.registry.npc.NpcRegistry
 import org.rsmod.api.repo.loc.LocRepository
 import org.rsmod.api.repo.npc.NpcRepository
 import org.rsmod.api.repo.world.WorldRepository
+import org.rsmod.api.route.StepFactory
 import org.rsmod.events.EventBus
 import org.rsmod.game.MapClock
 import org.rsmod.game.entity.Npc
@@ -46,7 +46,9 @@ class VorkathEncounterManagerTest {
     fun nativeSpawnRequiresCrumbleIdentityException() {
         val spawn = assertNotNull(ServerCacheManager.getNpc(8063))
         val undead = spawn.param(params.undead)
-        println("VORKATH_CRUMBLE_CONTRACT id=${spawn.id} internalName=${spawn.internalName} undead=$undead")
+        println(
+            "VORKATH_CRUMBLE_CONTRACT id=${spawn.id} internalName=${spawn.internalName} undead=$undead"
+        )
         assertTrue(spawn.isType("npc.vorkath_spawn"))
         assertEquals("npc.vorkath_spawn", spawn.internalName)
         assertEquals(0, undead, "The native spawn needs its explicit Crumble Undead exception")
@@ -117,8 +119,14 @@ class VorkathEncounterManagerTest {
     fun wakeRejectsCoordinatesOutsideMappedArenaAndWrongPlane() {
         val f = VorkathFixture()
         assertTrue(f.manager.debugReset(f.player))
-        for (tile in listOf(CoordGrid(2239, 4057), CoordGrid(2304, 4057),
-            CoordGrid(2272, 4031), CoordGrid(2272, 4096), CoordGrid(2272, 4057, 1))) {
+        for (tile in
+            listOf(
+                CoordGrid(2239, 4057),
+                CoordGrid(2304, 4057),
+                CoordGrid(2272, 4031),
+                CoordGrid(2272, 4096),
+                CoordGrid(2272, 4057, 1),
+            )) {
             f.player.coords = tile
             assertFalse(f.manager.poke(f.player, f.run.boss), "$tile must not wake this instance")
             assertEquals(VorkathState.SLEEPING, f.run.state)
@@ -129,8 +137,16 @@ class VorkathEncounterManagerTest {
     fun wakeRejectsAnotherSessionEvenWithMatchingMappedCoordinates() {
         val f = VorkathFixture()
         assertTrue(f.manager.debugReset(f.player))
-        val other = InstanceSession(InstanceId(2), mutableSetOf(0), 2L,
-            f.session.key, f.session.spec, f.session.placement, InstanceAccess.Private)
+        val other =
+            InstanceSession(
+                InstanceId(2),
+                mutableSetOf(0),
+                2L,
+                f.session.key,
+                f.session.spec,
+                f.session.placement,
+                InstanceAccess.Private,
+            )
         `when`(f.instances.sessionForPlayer(f.player)).thenReturn(other)
         assertFalse(f.manager.poke(f.player, f.run.boss))
         assertEquals(VorkathState.SLEEPING, f.run.state)
@@ -257,6 +273,7 @@ class VorkathEncounterManagerTest {
         assertEquals(VorkathState.SLEEPING, f.run.state)
         assertTrue(f.playerHits().isEmpty())
     }
+
     @Test
     fun lethalSpawnHitAfterContactCancelsThePendingExplosion() {
         val f = VorkathFixture()
@@ -406,6 +423,22 @@ class VorkathEncounterManagerTest {
     }
 
     @Test
+    fun eligibleDeathUpdatesTheNativeCollectionCounterExactlyOnce() {
+        val f = VorkathFixture()
+        org.rsmod.api.player.vars.VarPlayerIntMapSetter.set(
+            f.player,
+            "varp.total_vorkath_kills",
+            49,
+        )
+        f.run.rewardEligible = true
+        assertSame(f.run, f.manager.beginBossDeath(f.run.boss))
+        assertEquals(50, f.player.vars["varp.total_vorkath_kills"])
+        assertEquals(50, f.run.killcount)
+        assertNull(f.manager.beginBossDeath(f.run.boss))
+        assertEquals(50, f.player.vars["varp.total_vorkath_kills"])
+    }
+
+    @Test
     fun lethalBossDamageCancelsDueEffectsBeforeTheLaterDeathQueueRuns() {
         val f = VorkathFixture()
         val oldHit = f.seedMechanics()
@@ -431,6 +464,7 @@ class VorkathEncounterManagerTest {
         assertTrue(f.projectiles().isEmpty())
         assertTrue(f.playerHits().isEmpty())
     }
+
     @Test
     fun resetAndReawakeningStartAFreshBossWithoutOldSpecialState() {
         val f = VorkathFixture()
@@ -557,6 +591,7 @@ private class VorkathFixture {
         npc.routeDestination.clear()
         npc.processArrivalAction()
     }
+
     fun launchSpawn(): Int {
         assertTrue(manager.debugSpecial(player, VorkathSpecial.ZOMBIFIED_SPAWN))
         val launch = run.spawnLaunchCycle

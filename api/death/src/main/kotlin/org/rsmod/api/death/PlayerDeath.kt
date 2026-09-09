@@ -39,6 +39,7 @@ constructor(
     private val storageHooks: Set<PlayerDeathStorageHook>,
     private val noticeHooks: Set<PlayerDeathNoticeHook>,
     private val dropLocationHooks: Set<PlayerDeathDropLocationHook> = emptySet(),
+    private val itemHooks: Set<PlayerDeathItemHook> = emptySet(),
 ) {
     private var Player.specialAttackType by intVarp("varp.sa_attack")
     private var Player.inInstance by boolVarBit("varbit.player_in_instance")
@@ -101,8 +102,15 @@ constructor(
         noticeHooks.forEach { it.onDeath(context) }
         val handling = handlingResolver.resolve(context)
 
+        for (hook in itemHooks) {
+            hook.beforeDrops(context, handling)
+        }
+
         val selected = drops.selectDrops(player, context, handling)
-        val stored = storageHooks.any { it.store(context, selected) }
+        var stored = false
+        for (hook in storageHooks) {
+            if (hook.store(context, selected)) stored = true
+        }
         val applied =
             if (stored) {
                 selected.copy(
@@ -112,7 +120,8 @@ constructor(
                     coinsForKiller = 0L,
                 )
             } else selected
-        val dropCoords = dropLocationHooks.firstNotNullOfOrNull { it.dropLocation(context) } ?: deathCoords
+        val dropCoords =
+            dropLocationHooks.firstNotNullOfOrNull { it.dropLocation(context) } ?: deathCoords
         drops.applyDrops(player, applied, handling, dropCoords)
         drops.spawnRemains(dropCoords, handling)
 

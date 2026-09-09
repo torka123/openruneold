@@ -27,7 +27,7 @@ public val brandaTheFireQueenDropTable: RSDropTable<Player, DropRollItem> =
                         // Drops Need Manual: No longer dropped after reading the scroll.
                         true
                     }
-                1 outOf 16 weight "obj.giantsoul_amulet_charged" count 1
+                1 outOf 16 weight "obj.giantsoul_amulet_uncharged" count 1
             },
         mainTable =
             rsPlayerWeightedTable(total = 55) {

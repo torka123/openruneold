@@ -4,6 +4,7 @@ import dev.openrune.rscm.RSCM
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
 import dev.openrune.types.ItemServerType
+import dev.openrune.types.aconverted.interf.IfButtonOp
 import dev.openrune.util.Wearpos
 import org.rsmod.api.player.protect.ProtectedAccess
 import org.rsmod.events.EventBus
@@ -20,8 +21,9 @@ public class HeldBanksideEvents {
         public val player: Player,
         public val slot: Int,
         public val type: ItemServerType,
+        public val op: IfButtonOp = IfButtonOp.Op9,
         override val id: Long = type.id.toLong(),
-    ) : KeyedEvent
+    ) : SuspendEvent<ProtectedAccess>
 }
 
 public class HeldDropEvents {

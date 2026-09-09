@@ -32,9 +32,9 @@ import org.rsmod.api.combat.formulas.MaxHitFormulae
 import org.rsmod.api.config.refs.params
 import org.rsmod.api.death.PvPPlayerHitHook
 import org.rsmod.api.death.PvPPlayerImpactHook
+import org.rsmod.api.npc.hit.NpcAttackLaunchHook
 import org.rsmod.api.npc.hit.modifier.NpcHitModifier
 import org.rsmod.api.npc.hit.queueHit
-import org.rsmod.api.npc.hit.NpcAttackLaunchHook
 import org.rsmod.api.player.cheat.adminMaxHit
 import org.rsmod.api.player.hit.modifier.PlayerHitModifier
 import org.rsmod.api.player.hit.modifier.StandardPlayerHitModifier
@@ -56,6 +56,7 @@ import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.PathingEntity
 import org.rsmod.game.entity.Player
 import org.rsmod.game.hit.Hit
+import org.rsmod.game.hit.HitContext
 import org.rsmod.game.hit.HitImpactHandler
 import org.rsmod.game.hit.HitType
 import org.rsmod.game.interact.InteractionOp
@@ -1263,13 +1264,12 @@ constructor(
         source: Player,
         target: Player,
         delegate: HitImpactHandler?,
-    ): HitImpactHandler =
-        HitImpactHandler { impact ->
-            delegate?.onImpact(impact)
-            for (hook in pvpPlayerImpactHooks) {
-                hook.onPlayerImpact(source, target, impact)
-            }
+    ): HitImpactHandler = HitImpactHandler { impact ->
+        delegate?.onImpact(impact)
+        for (hook in pvpPlayerImpactHooks) {
+            hook.onPlayerImpact(source, target, impact)
         }
+    }
 
     /**
      * Queues a ranged hit on [target], applying damage after the specified [hitDelay].
@@ -1731,6 +1731,7 @@ constructor(
         impactHandler: HitImpactHandler? = null,
         modifier: PlayerHitModifier = StandardPlayerHitModifier,
         notifyAttackLaunch: Boolean = true,
+        context: HitContext? = null,
     ): Hit =
         when (target) {
             is Npc ->
@@ -1744,6 +1745,7 @@ constructor(
                     retaliationDelay = retaliationDelay,
                     impactHandler = impactHandler,
                     notifyAttackLaunch = notifyAttackLaunch,
+                    context = HitContext.capture(source, target, context),
                 )
             is Player ->
                 queueMagicHit(
@@ -1756,6 +1758,7 @@ constructor(
                     retaliationDelay = retaliationDelay,
                     impactHandler = impactHandler,
                     modifier = modifier,
+                    context = HitContext.capture(source, target, context),
                 )
         }
 
@@ -1769,11 +1772,12 @@ constructor(
         retaliationDelay: Int,
         impactHandler: HitImpactHandler?,
         notifyAttackLaunch: Boolean,
+        context: HitContext,
     ): Hit {
         // Note: Retaliation must be queued _before_ the hit. If queued after, every hit would
         // trigger the "speed-up" death mechanic, since the hit queues would no longer be the
         // last entries in the queue list at the time of processing.
-        target.queueCombatRetaliate(source, retaliationDelay)
+        target.queueCombatRetaliate(source, retaliationDelay, context)
 
         val hit =
             target.queueHit(
@@ -1784,7 +1788,9 @@ constructor(
                 modifier = npcHitModifier,
                 sourceSecondary = spell,
                 impactHandler = impactHandler,
+                context = context,
             )
+        if (!hit.context.isValid()) return hit
         if (notifyAttackLaunch) npcAttackLaunchHooks.forEach { it.onAttackLaunched(source, target) }
         target.combatPlayDefendAnim(clientDelay)
         return hit
@@ -1800,11 +1806,12 @@ constructor(
         retaliationDelay: Int,
         impactHandler: HitImpactHandler?,
         modifier: PlayerHitModifier,
+        context: HitContext,
     ): Hit {
         // Note: Retaliation must be queued _before_ the hit. If queued after, every hit would
         // trigger the "speed-up" death mechanic, since the hit queues would no longer be the
         // last entries in the queue list at the time of processing.
-        target.queueCombatRetaliate(source, retaliationDelay)
+        target.queueCombatRetaliate(source, retaliationDelay, context)
 
         val hit =
             target.queueHit(
@@ -1815,7 +1822,9 @@ constructor(
                 sourceSecondary = spell,
                 impactHandler = playerImpactHandler(source, target, impactHandler),
                 modifier = modifier,
+                context = context,
             )
+        if (!hit.context.isValid()) return hit
         notifyPlayerHit(source, target)
         target.combatPlayDefendAnim(clientDelay)
         return hit

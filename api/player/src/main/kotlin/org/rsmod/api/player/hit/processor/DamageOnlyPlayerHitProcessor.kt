@@ -29,6 +29,7 @@ constructor(
     private val playerList: PlayerList,
 ) : InstantPlayerHitProcessor {
     override fun Player.process(hit: Hit) {
+        if (!hit.isValidNow()) return
         if (adminGodMode) {
             return
         }
@@ -48,6 +49,7 @@ constructor(
                 statSub("stat.hitpoints", constant = damage, percent = 0)
                 currentHitpoints = hitpoints
             }
+            if (currentHitpoints == 0) combatHitScope?.close()
             hit.recordDamageOn(this, damage, playerList, npcList)
             val event =
                 PlayerHitpointsChangedEvent(
@@ -57,6 +59,12 @@ constructor(
                     maxHitpoints =
                         if (godHitpoints != null) ADMIN_GOD_HITPOINTS_MAX else baseHitpointsLvl,
                     hit = hit,
+                    source =
+                        when {
+                            hit.isFromNpc -> hit.resolveNpcSource(npcList)
+                            hit.isFromPlayer -> hit.resolvePlayerSource(playerList)
+                            else -> null
+                        },
                 )
             eventBus.publish(event)
         }

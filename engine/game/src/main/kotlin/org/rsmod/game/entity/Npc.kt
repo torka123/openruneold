@@ -220,6 +220,8 @@ public class Npc(
     public var huntLoc: LocInfo? = null
     public var huntNpc: NpcUid = NpcUid.NULL
     public var huntPlayer: PlayerUid = PlayerUid.NULL
+    public var retaliationSource: PlayerUid = PlayerUid.NULL
+    public var retaliationContext: org.rsmod.game.hit.HitContext? = null
 
     public var spawnOwner: PlayerUid = PlayerUid.NULL
 
@@ -411,6 +413,8 @@ public class Npc(
 
     @InternalApi
     public fun resetDefaults() {
+        retaliationSource = PlayerUid.NULL
+        retaliationContext = null
         clearInteraction()
         resetFaceEntity()
         resetHunt()
@@ -421,6 +425,7 @@ public class Npc(
     public fun setRespawnValues() {
         pendingTelejump = true
         transmog = null
+        resetBodyModels()
         cachedHitmark = null
         retainerUntil = -1
         mode = defaultMode
@@ -609,6 +614,12 @@ public class Npc(
         lifecycleChangeCycle = -1
         infoProtocol.resetTransmog(originalType = id)
     }
+
+    /** Body-only presentation override, independent of [visType] and occupied size. */
+    public fun setBodyModels(models: List<Int>): Unit = avatar.setBodyModels(models)
+
+    /** Restores the current visible type's cache models. */
+    public fun resetBodyModels(): Unit = avatar.resetBodyModels()
 
     public fun copyStats(from: NpcServerType) {
         copyBaseStats(from)

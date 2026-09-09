@@ -15,6 +15,8 @@ import org.rsmod.api.random.GameRandom
 import org.rsmod.api.script.onPlayerHitpointsChanged
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
+import org.rsmod.game.hit.HitAttribution
+import org.rsmod.game.hit.HitOrigin
 import org.rsmod.game.hit.HitType
 import org.rsmod.plugin.scripts.PluginScript
 import org.rsmod.plugin.scripts.ScriptContext
@@ -52,6 +54,7 @@ constructor(private val random: GameRandom, private val npcHitModifier: Standard
                 return@onPlayerHitpointsChanged
             }
 
+            val context = hit.context.withAttribution(HitAttribution(HitOrigin.Recoil, player.uuid))
             when (attacker) {
                 is Npc ->
                     attacker.queueHit(
@@ -60,6 +63,7 @@ constructor(private val random: GameRandom, private val npcHitModifier: Standard
                         type = HitType.Typeless,
                         damage = recoil,
                         modifier = npcHitModifier,
+                        context = context,
                     )
                 is Player ->
                     attacker.queueHit(
@@ -68,6 +72,7 @@ constructor(private val random: GameRandom, private val npcHitModifier: Standard
                         type = HitType.Typeless,
                         damage = recoil,
                         modifier = BypassProtectionPrayerPlayerHitModifier,
+                        context = context,
                     )
             }
         }

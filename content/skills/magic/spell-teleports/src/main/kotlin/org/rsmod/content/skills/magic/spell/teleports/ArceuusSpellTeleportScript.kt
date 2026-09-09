@@ -36,7 +36,9 @@ constructor(
     override fun ScriptContext.startup() {
         for (teleport in ArceuusTeleport.entries) {
             val spell = teleport.resolveSpell() ?: continue
-            onIfOverlayButton(spell.component, ignoreRepeatedClicks = true) { cast(spell, teleport) }
+            onIfOverlayButton(spell.component, ignoreRepeatedClicks = true) {
+                cast(spell, teleport)
+            }
         }
     }
 
@@ -46,7 +48,7 @@ constructor(
     }
 
     internal suspend fun ProtectedAccess.cast(spell: MagicSpell, teleport: ArceuusTeleport) {
-        if (actionDelay > mapClock) return
+        if (teleport != ArceuusTeleport.Home && actionDelay > mapClock) return
         val destination =
             when (teleport) {
                 ArceuusTeleport.Respawn -> realm.config.respawnCoord
@@ -58,7 +60,7 @@ constructor(
         }
         if (teleport == ArceuusTeleport.Home) {
             if (consume(spell)) {
-                castHome(destination, { canTeleport() }, sequence = { performTeleport(spell, destination) })
+                castHome(destination, { canTeleport() }, areaChecker)
             }
             return
         }
@@ -66,7 +68,10 @@ constructor(
         performTeleport(spell, destination)
     }
 
-    private suspend fun ProtectedAccess.performTeleport(spell: MagicSpell, destination: CoordGrid): Boolean {
+    private suspend fun ProtectedAccess.performTeleport(
+        spell: MagicSpell,
+        destination: CoordGrid,
+    ): Boolean {
         actionDelay = mapClock + ACTION_DELAY
         try {
             player.anim(ANIMATION, priority = 6)
@@ -97,10 +102,7 @@ constructor(
         return false
     }
 
-    internal enum class ArceuusTeleport(
-        val spellObj: String,
-        val destination: CoordGrid? = null,
-    ) {
+    internal enum class ArceuusTeleport(val spellObj: String, val destination: CoordGrid? = null) {
         Home("obj.deadman_level99_lamp", CoordGrid(3087, 3495, 0)),
         Library("obj.br_mithril_platebody"),
         DraynorManor("obj.br_mithril_platelegs"),

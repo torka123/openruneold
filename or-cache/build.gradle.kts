@@ -33,6 +33,22 @@ tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
 }
 
 tasks {
+    register<JavaExec>("installGrandExchangeConfig") {
+        group = "cache"
+        description = "Installs only GE staff movement, music row/index and area into SERVER"
+        classpath = sourceSets["main"].runtimeClasspath
+        mainClass.set("dev.openrune.GrandExchangeConfigInstallerKt")
+        workingDir = rootProject.projectDir
+        dependsOn("classes")
+    }
+    register<JavaExec>("installLootingBagConfig") {
+        group = "cache"
+        description = "Clears only the looting-bag modal transaction block in the SERVER cache"
+        classpath = sourceSets["main"].runtimeClasspath
+        mainClass.set("dev.openrune.LootingBagConfigInstallerKt")
+        workingDir = rootProject.projectDir
+        dependsOn("classes")
+    }
     register<JavaExec>("installArceuusSpellAccess") {
         group = "openrune"
         description = "Removes only Arceuus spell quest locks from the existing revision-240 caches"
@@ -45,6 +61,17 @@ tasks {
         description = "Applies only canonical Cerberus NPC parameters to the existing SERVER cache"
         classpath = sourceSets["main"].runtimeClasspath
         mainClass.set("dev.openrune.CerberusConfigInstallerKt")
+        workingDir = rootProject.projectDir
+        dependsOn("classes")
+    }
+
+    register<JavaExec>("installRoyalTitansConfig") {
+        group = "cache"
+        description = "Applies canonical Royal Titans NPC parameters to SERVER only; no source regeneration"
+        classpath = sourceSets["main"].runtimeClasspath
+        mainClass.set("dev.openrune.NpcParameterConfigInstallerKt")
+        args("npc.rt_fire_queen", "npc.rt_ice_king",
+            "npc.rt_summon_elemental_fire", "npc.rt_summon_elemental_ice")
         workingDir = rootProject.projectDir
         dependsOn("classes")
     }

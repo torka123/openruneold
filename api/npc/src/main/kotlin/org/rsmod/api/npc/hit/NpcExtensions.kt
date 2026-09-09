@@ -16,6 +16,7 @@ import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
 import org.rsmod.game.hit.Hit
 import org.rsmod.game.hit.HitBuilder
+import org.rsmod.game.hit.HitContext
 import org.rsmod.game.hit.HitImpactHandler
 import org.rsmod.game.hit.HitType
 
@@ -69,6 +70,7 @@ public fun Npc.queueHit(
     sourceWeapon: ItemServerType? = null,
     sourceSecondary: ItemServerType? = null,
     impactHandler: HitImpactHandler? = null,
+    context: HitContext? = null,
 ): Hit {
     val builder =
         InternalNpcHits.createBuilder(
@@ -80,6 +82,7 @@ public fun Npc.queueHit(
             hitmark = hitmark,
             clientDelay = 0,
         )
+    builder.context = HitContext.capture(source, this, context)
     return modifyAndQueueHit(delay, builder, modifier, impactHandler)
 }
 
@@ -135,6 +138,7 @@ public fun Npc.queueHit(
     specific: Boolean = false,
     sourceSecondary: ItemServerType? = null,
     impactHandler: HitImpactHandler? = null,
+    context: HitContext? = null,
 ): Hit {
     val builder =
         InternalNpcHits.createBuilder(
@@ -146,6 +150,7 @@ public fun Npc.queueHit(
             clientDelay = 0,
             specific = specific,
         )
+    builder.context = HitContext.capture(source, this, context)
     return modifyAndQueueHit(delay, builder, modifier, impactHandler)
 }
 
@@ -190,6 +195,7 @@ public fun Npc.queueHit(
     modifier: NpcHitModifier,
     hitmark: HitmarkTypeGroup = visHitmark(),
     impactHandler: HitImpactHandler? = null,
+    context: HitContext? = null,
 ): Hit {
     val builder =
         InternalNpcHits.createBuilder(
@@ -200,6 +206,7 @@ public fun Npc.queueHit(
             hitmark = hitmark,
             clientDelay = 0,
         )
+    builder.context = HitContext.capture(null, this, context)
     return modifyAndQueueHit(delay, builder, modifier, impactHandler)
 }
 
@@ -234,6 +241,7 @@ private fun Npc.modifyAndQueueHit(
     impactHandler: HitImpactHandler?,
 ): Hit {
     builder.impactHandler = impactHandler
+    if (!builder.context.isValid()) return builder.build()
     modifier.modify(builder, this)
     val hit = builder.build()
     queue("queue.hit", delay, hit)
@@ -245,5 +253,6 @@ private fun NpcHitModifier.modify(builder: HitBuilder, target: Npc): Unit = buil
 
 /* Hit processor helper functions. */
 internal fun NpcHitProcessor.process(access: StandardNpcAccess, hit: Hit) {
+    if (!hit.isValidNow()) return
     access.process(hit)
 }

@@ -7,6 +7,7 @@ import org.rsmod.api.npc.events.NpcQueueEvents
 import org.rsmod.events.EventBus
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.queue.NpcQueueList
+import org.rsmod.game.queue.QueueArgumentValidity
 
 public class NpcQueueProcessor
 @Inject
@@ -22,6 +23,11 @@ constructor(private val eventBus: EventBus, private val accessLauncher: Standard
             val iterator = queueList.iterator() ?: break
             while (iterator.hasNext()) {
                 val queue = iterator.next()
+
+                if ((queue.args as? QueueArgumentValidity)?.isQueueArgumentValid() == false) {
+                    iterator.remove()
+                    continue
+                }
 
                 if (queue.processedCycle != currentMapClock) {
                     queue.processedCycle = currentMapClock

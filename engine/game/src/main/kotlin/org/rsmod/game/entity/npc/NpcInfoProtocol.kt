@@ -27,6 +27,11 @@ public interface NpcInfoProtocol {
 
     public fun resetTransmog(originalType: Int)
 
+    /** Replaces body models only; does not change NPC identity, stats or collision. */
+    public fun setBodyModels(models: List<Int>)
+
+    public fun resetBodyModels()
+
     public fun showHeadbar(headbar: Headbar)
 
     public fun showHitmark(hitmark: Hitmark)
@@ -88,6 +93,10 @@ public data object NoopNpcInfo : NpcInfoProtocol {
     override fun setTransmog(type: Int) {}
 
     override fun resetTransmog(originalType: Int) {}
+
+    override fun setBodyModels(models: List<Int>) {}
+
+    override fun resetBodyModels() {}
 
     override fun showHeadbar(headbar: Headbar) {}
 

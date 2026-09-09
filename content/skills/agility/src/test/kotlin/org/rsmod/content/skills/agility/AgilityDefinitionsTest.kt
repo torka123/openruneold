@@ -22,21 +22,7 @@ class AgilityDefinitionsTest {
 
     @Test
     fun `current OSRS full lap base XP totals are retained`() {
-        val expected =
-            mapOf(
-                "gnome" to 110.5,
-                "barbarian" to 153.3,
-                "draynor" to 120.0,
-                "al_kharid" to 216.0,
-                "varrock" to 269.7,
-                "canifis" to 240.0,
-                "falador" to 586.0,
-                "seers" to 570.0,
-                "pollnivneach" to 890.0,
-                "rellekka" to 780.0,
-                "ardougne" to 889.0,
-                "prifddinas" to 1285.2,
-            )
+        val expected = mapOf("gnome" to 110.5, "barbarian" to 153.3, "prifddinas" to 1285.2)
         assertEquals(expected.keys, AgilityDefinitions.courses.map { it.key }.toSet())
         for ((key, xp) in expected) {
             val course = AgilityDefinitions.courses.single { it.key == key }
@@ -76,7 +62,7 @@ class AgilityDefinitionsTest {
     }
 
     @Test
-    fun `rooftop and regular mark rates are valid`() {
+    fun `regular mark rates are valid`() {
         for (course in AgilityDefinitions.courses) {
             assertTrue(course.markNumerator > 0, course.key)
             assertTrue(course.markDenominator >= course.markNumerator, course.key)

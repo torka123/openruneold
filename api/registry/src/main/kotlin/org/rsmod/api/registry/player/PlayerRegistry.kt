@@ -4,9 +4,11 @@ import jakarta.inject.Inject
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
+import org.rsmod.annotations.InternalApi
 import org.rsmod.api.player.output.mes
 import org.rsmod.api.registry.zone.ZonePlayerActivityBitSet
 import org.rsmod.events.EventBus
+import org.rsmod.game.MapClock
 import org.rsmod.game.entity.PathingEntity.Companion.INVALID_SLOT
 import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
@@ -14,6 +16,7 @@ import org.rsmod.game.entity.player.SessionStateEvent
 import org.rsmod.map.zone.ZoneKey
 import org.rsmod.routefinder.collision.CollisionFlagMap
 
+@OptIn(InternalApi::class)
 public class PlayerRegistry
 @Inject
 constructor(
@@ -21,6 +24,7 @@ constructor(
     private val collision: CollisionFlagMap,
     private val zoneActivity: ZonePlayerActivityBitSet,
     private val eventBus: EventBus,
+    private val clock: MapClock,
 ) {
     public val zones: ZonePlayerMap = ZonePlayerMap()
 
@@ -36,6 +40,7 @@ constructor(
         playerList[slot] = player
         player.slotId = slot
         player.assignUid()
+        player.statMap.bindObservations(player, eventBus, clock)
         eventBus.publish(SessionStateEvent.Initialize(player))
         return PlayerRegistryResult.Add.Success
     }
@@ -48,7 +53,11 @@ constructor(
             return PlayerRegistryResult.Delete.ListSlotMismatch(playerList[slot])
         }
         playerList.remove(slot)
-        eventBus.publish(SessionStateEvent.Delete(player))
+        try {
+            eventBus.publish(SessionStateEvent.Delete(player))
+        } finally {
+            player.statMap.unbindObservations()
+        }
         player.removeBlockWalkCollision(collision, player.coords)
         zoneDel(player, ZoneKey.from(player.coords))
         player.slotId = INVALID_SLOT

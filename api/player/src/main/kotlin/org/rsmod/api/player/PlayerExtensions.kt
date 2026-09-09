@@ -52,6 +52,10 @@ public fun Player.disablePrayers() {
     clearQueue("queue.preserve_activation")
     clearSoftTimer("timer.prayer_drain")
     clearSoftTimer("timer.rapidrestore_regen")
+    // Rapid Heal accelerates healing; Preserve slows boosted-stat decay. Restore their normal
+    // intervals when all prayers stop, including when prayer points run out.
+    softTimer("timer.health_regen", constants.health_regen_interval)
+    softTimer("timer.stat_boost_restore", constants.stat_boost_restore_interval)
 }
 
 public fun Player.deathResetTimers() {

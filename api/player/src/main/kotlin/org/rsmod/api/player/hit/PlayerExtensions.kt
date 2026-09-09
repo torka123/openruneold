@@ -18,6 +18,7 @@ import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
 import org.rsmod.game.hit.Hit
 import org.rsmod.game.hit.HitBuilder
+import org.rsmod.game.hit.HitContext
 import org.rsmod.game.hit.HitImpactHandler
 import org.rsmod.game.hit.HitType
 
@@ -71,6 +72,7 @@ public fun Player.queueHit(
     modifier: PlayerHitModifier = StandardPlayerHitModifier,
     impactHandler: HitImpactHandler? = null,
     validity: org.rsmod.game.hit.HitValidity? = null,
+    context: HitContext? = null,
 ): Hit {
     val cappedDamage = min(hitpoints, damage)
     val builder =
@@ -84,6 +86,7 @@ public fun Player.queueHit(
             clientDelay = 0,
             specific = specific,
         )
+    builder.context = HitContext.capture(source, this, context)
     builder.impactHandler = impactHandler
     builder.validity = validity
     return modifyAndStrongQueueHit(delay, builder, modifier)
@@ -132,6 +135,7 @@ public fun Player.queueHit(
     sourceSecondary: ItemServerType? = null,
     modifier: PlayerHitModifier = StandardPlayerHitModifier,
     impactHandler: HitImpactHandler? = null,
+    context: HitContext? = null,
 ): Hit {
     val builder =
         InternalPlayerHits.createBuilder(
@@ -144,6 +148,7 @@ public fun Player.queueHit(
             clientDelay = 0,
             specific = false,
         )
+    builder.context = HitContext.capture(source, this, context)
     builder.impactHandler = impactHandler
     return modifyAndStrongQueueHit(delay, builder, modifier)
 }
@@ -190,6 +195,7 @@ public fun Player.queueHit(
     modifier: PlayerHitModifier = StandardPlayerHitModifier,
     strongQueue: Boolean = true,
     impactHandler: HitImpactHandler? = null,
+    context: HitContext? = null,
 ): Hit {
     val builder =
         InternalPlayerHits.createBuilder(
@@ -201,6 +207,7 @@ public fun Player.queueHit(
             clientDelay = 0,
             specific = specific,
         )
+    builder.context = HitContext.capture(null, this, context)
     builder.impactHandler = impactHandler
     return if (strongQueue) {
         modifyAndStrongQueueHit(delay, builder, modifier)
@@ -214,6 +221,7 @@ private fun Player.modifyAndStrongQueueHit(
     builder: HitBuilder,
     modifier: PlayerHitModifier,
 ): Hit {
+    if (!builder.context.isValid()) return builder.build()
     modifier.modify(builder, this)
     val hit = builder.build()
     strongQueue("queue.hit", delay, hit)
@@ -225,6 +233,7 @@ private fun Player.modifyAndQueueHit(
     builder: HitBuilder,
     modifier: PlayerHitModifier,
 ): Hit {
+    if (!builder.context.isValid()) return builder.build()
     modifier.modify(builder, this)
     val hit = builder.build()
     queue("queue.hit", delay, hit)
@@ -259,6 +268,7 @@ public fun Player.takeInstantHit(
     specific: Boolean = false,
     modifier: PlayerHitModifier = NoopPlayerHitModifier,
     impactHandler: HitImpactHandler? = null,
+    context: HitContext? = null,
 ): Hit {
     val builder =
         InternalPlayerHits.createBuilder(
@@ -270,12 +280,14 @@ public fun Player.takeInstantHit(
             clientDelay = 0,
             specific = specific,
         )
+    builder.context = HitContext.capture(null, this, context)
     builder.impactHandler = impactHandler
 
+    if (!builder.isValidNow()) return builder.build()
     modifier.modify(builder, this)
 
     val hit = builder.build()
-    processor.process(this, hit)
+    if (hit.isValidNow()) processor.process(this, hit)
     return hit
 }
 
@@ -329,6 +341,7 @@ public fun Player.queueImpactHit(
     modifier: PlayerHitModifier = StandardPlayerHitModifier,
     impactHandler: HitImpactHandler? = null,
     validity: org.rsmod.game.hit.HitValidity? = null,
+    context: HitContext? = null,
 ) {
     val builder =
         InternalPlayerHits.createBuilder(
@@ -341,6 +354,7 @@ public fun Player.queueImpactHit(
             clientDelay = 0,
             specific = specific,
         )
+    builder.context = HitContext.capture(source, this, context)
     builder.impactHandler = impactHandler
     builder.validity = validity
     strongQueueImpactHit(delay, builder, modifier)
@@ -390,6 +404,7 @@ public fun Player.queueImpactHit(
     sourceSecondary: ItemServerType? = null,
     modifier: PlayerHitModifier = StandardPlayerHitModifier,
     impactHandler: HitImpactHandler? = null,
+    context: HitContext? = null,
 ) {
     val builder =
         InternalPlayerHits.createBuilder(
@@ -402,6 +417,7 @@ public fun Player.queueImpactHit(
             clientDelay = 0,
             specific = false,
         )
+    builder.context = HitContext.capture(source, this, context)
     builder.impactHandler = impactHandler
     strongQueueImpactHit(delay, builder, modifier)
 }
@@ -446,6 +462,7 @@ public fun Player.queueImpactHit(
     modifier: PlayerHitModifier = StandardPlayerHitModifier,
     strongQueue: Boolean = true,
     impactHandler: HitImpactHandler? = null,
+    context: HitContext? = null,
 ) {
     val builder =
         InternalPlayerHits.createBuilder(
@@ -457,6 +474,7 @@ public fun Player.queueImpactHit(
             clientDelay = 0,
             specific = specific,
         )
+    builder.context = HitContext.capture(null, this, context)
     builder.impactHandler = impactHandler
     if (strongQueue) {
         strongQueueImpactHit(delay, builder, modifier)
@@ -481,6 +499,7 @@ private fun Player.queueImpactHit(delay: Int, builder: HitBuilder, modifier: Pla
 
 /* Internal functions. */
 internal fun ProtectedAccess.processQueuedHit(hit: Hit, processor: QueuedPlayerHitProcessor) {
+    if (!hit.isValidNow()) return
     processor.process(this, hit)
 }
 
@@ -489,6 +508,7 @@ internal fun ProtectedAccess.processQueuedHit(
     modifier: PlayerHitModifier,
     processor: QueuedPlayerHitProcessor,
 ) {
+    if (!builder.isValidNow()) return
     modifier.modify(builder, player)
 
     val hit = builder.build()
