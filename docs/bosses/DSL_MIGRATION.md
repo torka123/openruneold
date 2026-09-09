@@ -2,8 +2,12 @@
 
 ## Authority and preservation
 
-Requested scope: architecture migration, not a combat rebalance. No deployment, server restart,
-remote push, merge or PR action is authorized in this pass. The current user instruction authorizes
+Requested scope: architecture migration, not a combat rebalance. The user's later instruction
+conditionally authorizes local deployment/restarts at about 5% remaining Codex plan allowance,
+after finishing and testing the current migration and preparing a change/testing/continuation
+handoff. That cutoff has not been reported or established; no deployment has occurred. Account
+allowance is not the model's context/token counter. No remote push, merge or PR is authorized.
+The current user instruction authorizes
 the listed shared repairs and routine migrations; the older AGENTS combat checkpoint is satisfied
 by recording the mapping before implementation. New behavior conflicts must still be reported.
 
@@ -768,3 +772,21 @@ Two generic integration gaps are now demonstrated before implementation:
 
 These are the smallest local shared extensions under the user's framework-repair authorization,
 not official upstream APIs. Add failing API regressions before enabling either capability.
+
+`zulrah-shared-lifetime-seed-red.log`: exactly the two new API regressions fail (41 tests).
+`zulrah-outside-death-red.log`: exactly the new outside-shrine activation test fails (30 tests).
+`zulrah-shared-lifetime-seed-green-2.log`: all 41 API and 30 Zulrah tests pass, scoped API check
+38s/168 tasks, exit0. The initial green run exposed a fixture RNG exhaustion (one scripted draw
+was supplied for two selections); adding the second explicit draw corrected the test, not behavior.
+The opt-in lifetime still refuses dead-source launches and invalidates on departure and native
+teardown; subsequent registry lookup does not reseed the existing encounter. Outside-shrine death
+storage activation is now false. Earlier five migrated boss regression tasks also passed in the
+first green run; that invocation overall failed only on the RNG fixture and was not deployed.
+
+The user-requested resumable handoff is `MIGRATION_HANDOFF.md`; `scripts/resume-boss-migration.ps1`
+prints it with current Git identity. Its default read-only execution passed
+(`logs/boss-migration-resume-script-check.log`). Optional verification uses existing doctor/check/test
+workflows; it never deploys, restarts, switches branches or commits. The account allowance cutoff is
+not observable through the tools available in this session; the user must report it. Official
+[usage guidance](https://learn.chatgpt.com/docs/pricing) points to the usage display and `/status`,
+not an agent-side subscription balance tool. No account credentials were read.
