@@ -11,6 +11,7 @@ import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.instances.region.InstanceAreaResolver
 import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.api.npc.access.StandardNpcAccessContext
+import org.rsmod.api.npc.events.NpcHitEvents
 import org.rsmod.api.npc.events.interact.AiPlayerEvents
 import org.rsmod.api.npc.hit.modifier.StandardNpcHitModifier
 import org.rsmod.api.npc.hit.processor.StandardNpcHitProcessor
@@ -29,6 +30,7 @@ import org.rsmod.game.entity.NpcList
 import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
 import org.rsmod.game.hit.Hit
+import org.rsmod.game.hit.HitBuilder
 import org.rsmod.game.hit.HitType
 import org.rsmod.game.proj.ProjAnim
 import org.rsmod.game.queue.EngineQueueCache
@@ -151,6 +153,37 @@ class AlchemicalHydraNativeTest {
         assertEquals(listOf(17, 17), f.hits().takeLast(2).map { it.second.damage })
     }
 
+    @Test
+    fun `native damage resolution caps all transitions and restores the next form after four ticks`() {
+        val f = HydraFixture()
+        f.activate()
+        f.attackAt(101)
+        f.damage(160)
+        assertEquals(1060, f.npc.hitpoints)
+        for ((index, threshold) in listOf(825, 550, 275).withIndex()) {
+            val start = 101 + index * 5
+            f.clock.cycle = start
+            f.npc.hitpoints = threshold + 15
+            f.damage(1000)
+            assertEquals(threshold, f.npc.hitpoints)
+            assertEquals(listOf(8616, 8617, 8618)[index], f.npc.visType.id)
+            val before = f.hits().size
+            f.attackAt(start + 3)
+            f.encounters.tickAll()
+            assertEquals(before, f.hits().size)
+            f.clock.cycle = start + 4
+            f.encounters.tickAll()
+            assertEquals(listOf(8619, 8620, 8621)[index], f.npc.visType.id)
+            assertEquals(threshold, f.npc.hitpoints)
+            assertEquals(1100, f.npc.baseHitpointsLvl)
+            f.attackAt(start + 5)
+            assertEquals(listOf(2, 1, 1)[index], f.hits().size - before)
+            assertEquals(listOf(26, 52, 55)[index], f.hits().last().second.damage)
+        }
+        assertEquals(HitType.Ranged, f.hits().last().second.type)
+        assertEquals(120, f.npc.actionDelay)
+    }
+
     companion object {
         @BeforeAll
         @JvmStatic
@@ -250,6 +283,44 @@ private class HydraFixture(ranged: Boolean = false, accuracyResults: List<Boolea
 
     fun activate() {
         assertTrue(encounters.crossDoor(player))
+    }
+
+    fun damage(amount: Int) {
+        val builder =
+            HitBuilder(
+                type = HitType.Typeless,
+                damage = amount,
+                sourceUid = player.uid.packed,
+                sourceSlot = player.slotId,
+                isFromNpc = false,
+                isFromPlayer = true,
+                clientDelay = 0,
+                righthandType = null,
+                secondaryType = null,
+                targetHitmark = 0,
+                sourceHitmark = 0,
+                publicHitmark = null,
+                zeroDamageHitmarkLit = null,
+                zeroDamageHitmarkTint = null,
+                maxDamageHitmarkLit = null,
+                targetMaxDamageThreshold = Int.MAX_VALUE,
+                sourceMaxDamageThreshold = Int.MAX_VALUE,
+            )
+        events.publish(NpcHitEvents.Modify(npc, builder))
+        npc.currentMapClock = clock.cycle
+        npc.processedMapClock = clock.cycle
+        npc.launch {
+            StandardNpcAccess(
+                    npc,
+                    this,
+                    StandardNpcAccessContext(
+                        { random },
+                        { StandardNpcHitModifier(events) },
+                        { StandardNpcHitProcessor(players, events, emptySet()) },
+                    ),
+                )
+                .processQueuedHit(builder.build())
+        }
     }
 
     fun attackAt(tick: Int) {
