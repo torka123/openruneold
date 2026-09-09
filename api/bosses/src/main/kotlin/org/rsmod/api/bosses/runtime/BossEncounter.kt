@@ -246,7 +246,8 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
         val attackForced = phase.forceAbilities.firstOrNull { it.attackMin != null }
         if (attackForced != null) {
             if (forceAttackThreshold < 0) {
-                forceAttackThreshold = randomThreshold(attackForced)
+                forceAttackThreshold =
+                    attackForced.firstAttackCount ?: randomThreshold(attackForced)
             }
             if (basicAttackCount >= forceAttackThreshold) {
                 basicAttackCount = 0

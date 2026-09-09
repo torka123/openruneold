@@ -114,16 +114,27 @@ constructor(
         if (!beginAttack(target, override)) return
         playAttackFx(target, override)
         override.onAttack?.invoke(this, target)
-        val successfulHit =
-            override.forceAccurate || accuracy.rollMeleeAccuracy(npc, target, attack.type, random)
-        val maxHit = override.maxHit ?: maxHits.getMeleeMaxHit(npc, target, attack.type)
-        val damage = override.rollDamage(maxHit, successfulHit, random)
-        val projectileDelay =
-            if (override.projectile != null || override.projectileFactory != null)
-                spawnProjectile(target, override)
-            else MELEE_HIT_DELAY
-        val hitDelay = override.impactDelay ?: projectileDelay
-        finishAttack(target, hitDelay, HitType.Melee, damage, successfulHit, override)
+        repeat(override.hitCount ?: 1) { index ->
+            val successfulHit =
+                override.forceAccurate ||
+                    accuracy.rollMeleeAccuracy(npc, target, attack.type, random)
+            val maxHit = override.maxHit ?: maxHits.getMeleeMaxHit(npc, target, attack.type)
+            val damage = override.rollDamage(maxHit, successfulHit, random)
+            val projectileDelay =
+                if (override.projectile != null || override.projectileFactory != null)
+                    spawnProjectile(target, override)
+                else MELEE_HIT_DELAY
+            val hitDelay = override.impactDelay ?: projectileDelay
+            finishAttack(
+                target,
+                hitDelay,
+                HitType.Melee,
+                damage,
+                successfulHit,
+                override,
+                index == 0,
+            )
+        }
     }
 
     private fun StandardNpcAccess.attackRanged(
@@ -134,13 +145,23 @@ constructor(
         if (!beginAttack(target, override)) return
         playAttackFx(target, override)
         override.onAttack?.invoke(this, target)
-        val projectileDelay = spawnProjectile(target, override)
-        val hitDelay = override.impactDelay ?: projectileDelay
-        val successfulHit =
-            override.forceAccurate || accuracy.rollRangedAccuracy(npc, target, random)
-        val maxHit = override.maxHit ?: maxHits.getRangedMaxHit(npc, target)
-        val damage = override.rollDamage(maxHit, successfulHit, random)
-        finishAttack(target, hitDelay, HitType.Ranged, damage, successfulHit, override)
+        repeat(override.hitCount ?: 1) { index ->
+            val projectileDelay = spawnProjectile(target, override)
+            val hitDelay = override.impactDelay ?: projectileDelay
+            val successfulHit =
+                override.forceAccurate || accuracy.rollRangedAccuracy(npc, target, random)
+            val maxHit = override.maxHit ?: maxHits.getRangedMaxHit(npc, target)
+            val damage = override.rollDamage(maxHit, successfulHit, random)
+            finishAttack(
+                target,
+                hitDelay,
+                HitType.Ranged,
+                damage,
+                successfulHit,
+                override,
+                index == 0,
+            )
+        }
     }
 
     private fun StandardNpcAccess.attackMagic(
@@ -151,15 +172,25 @@ constructor(
         if (!beginAttack(target, override)) return
         playAttackFx(target, override)
         override.onAttack?.invoke(this, target)
-        val projectileDelay = spawnProjectile(target, override)
-        val hitDelay = override.impactDelay ?: projectileDelay
-        val maxHit =
-            override.maxHit
-                ?: if (attack.maxHit > 0) attack.maxHit else maxHits.getMagicMaxHit(npc, target)
-        val successfulHit =
-            override.forceAccurate || accuracy.rollMagicAccuracy(npc, target, random)
-        val damage = override.rollDamage(maxHit, successfulHit, random)
-        finishAttack(target, hitDelay, HitType.Magic, damage, successfulHit, override)
+        repeat(override.hitCount ?: 1) { index ->
+            val projectileDelay = spawnProjectile(target, override)
+            val hitDelay = override.impactDelay ?: projectileDelay
+            val maxHit =
+                override.maxHit
+                    ?: if (attack.maxHit > 0) attack.maxHit else maxHits.getMagicMaxHit(npc, target)
+            val successfulHit =
+                override.forceAccurate || accuracy.rollMagicAccuracy(npc, target, random)
+            val damage = override.rollDamage(maxHit, successfulHit, random)
+            finishAttack(
+                target,
+                hitDelay,
+                HitType.Magic,
+                damage,
+                successfulHit,
+                override,
+                index == 0,
+            )
+        }
     }
 
     /** Shared attack gating and attack-rate arming. */
@@ -238,9 +269,12 @@ constructor(
         damage: Int,
         successfulHit: Boolean,
         override: NpcAttackOverride,
+        firstHit: Boolean,
     ) {
-        setAttackVars(target)
-        target.queueCombatRetaliate(npc, context = override.hitContext)
+        if (firstHit) {
+            setAttackVars(target)
+            target.queueCombatRetaliate(npc, context = override.hitContext)
+        }
         val impactHandler =
             override.onImpact?.let { effect -> HitImpactHandler { impact -> effect(npc, impact) } }
         if (override.applyModifierOnImpact) {
@@ -266,7 +300,7 @@ constructor(
                 context = override.hitContext,
             )
         }
-        target.combatPlayDefendAnim()
+        if (firstHit) target.combatPlayDefendAnim()
         if (successfulHit) override.onSuccessfulAttack?.invoke(this, target, delay)
     }
 

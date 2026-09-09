@@ -77,6 +77,7 @@ class EffectInterpreter(
                             supplied.forceAccurate || effect.accuracy == AccuracyMode.Always,
                         projectile = supplied.projectile ?: effect.projectile,
                         impactDelay = supplied.impactDelay ?: effect.impactDelay,
+                        hitCount = supplied.hitCount ?: effect.hitCount,
                         attackRate = encounter.expectedAttackRate(),
                         hitModifier =
                             if (effect.protectionPrayer == ProtectionPrayer.Standard)

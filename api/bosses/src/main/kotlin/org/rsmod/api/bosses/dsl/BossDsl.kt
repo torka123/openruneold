@@ -413,14 +413,19 @@ class PhaseBuilder(private val name: String) {
         forceAbilities += ForcedAbility(period, ability.name)
     }
 
-    fun forceEveryAttacks(min: Int, max: Int, ability: String) {
+    fun forceEveryAttacks(min: Int, max: Int, ability: String, first: Int? = null) {
         forceAbilities +=
-            ForcedAbility(period = 0, ability = ability, attackMin = min, attackMax = max)
+            ForcedAbility(
+                period = 0,
+                ability = ability,
+                attackMin = min,
+                attackMax = max,
+                firstAttackCount = first,
+            )
     }
 
-    fun forceEveryAttacks(min: Int, max: Int, ability: AbilityRef) {
-        forceAbilities +=
-            ForcedAbility(period = 0, ability = ability.name, attackMin = min, attackMax = max)
+    fun forceEveryAttacks(min: Int, max: Int, ability: AbilityRef, first: Int? = null) {
+        forceEveryAttacks(min, max, ability.name, first)
     }
 
     fun weightedSelectorRandom(

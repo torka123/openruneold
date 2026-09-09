@@ -431,3 +431,16 @@ Other APIs remain as classified above; specialized handlers must not select ordi
 
 Read-only doctor: `logs/boss-dsl-migration-doctor-hydra.log`, JVM PID 41396 reports the canonical
 working directory, cache revision 240, SERVER/LIVE paths and project PostgreSQL unchanged. No restart.
+
+Hydra characterization: `hydra-characterization-before-2.log` passes 13 tests (six native + seven
+rules), after correcting a fixture reference to the native pending sequence. A seventh native test
+then exercised StandardNpcHitProcessor across all three threshold transitions and the final-phase
+style change, bringing Hydra to 14 passing tests while the old manager is still authoritative.
+`boss-volley-first-cadence-red-4.log`: exactly three shared regressions fail among 33 tests; Hydra
+passes. Earlier red runs exposed fixture compilation mistakes and retained inline Mockito answers
+holding full collision maps; after-test mock cleanup fixes the latter, with a 1 GiB test heap.
+`boss-volley-first-cadence-green.log` passes 33 boss API, 14 Hydra, 12 Kraken, 110 Vorkath, 24 Corp
+tests, combat-scripts tests and scoped checks/formatting (58s, 187 tasks). Native volley defaults
+remain one hit; supplied counts take precedence. Animation, retaliation and cadence are armed
+once; accuracy, damage, projectile and impact callbacks are per hit. Forced first-use thresholds
+reset with the native phase identity. No live runtime verification is implied.
