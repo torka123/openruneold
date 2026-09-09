@@ -53,6 +53,16 @@ import org.rsmod.routefinder.collision.CollisionFlagMap
 @OptIn(InternalApi::class)
 class ZulrahNativeTest {
     @Test
+    fun `players outside the shrine are not handled by Zulrah death storage`() {
+        val f = ZulrahFixture()
+        assertFalse(f.encounters.isActive(f.player))
+        f.start(1)
+        assertTrue(f.encounters.isActive(f.player))
+        f.encounters.abort(f.player, "fixture exit", teleport = false)
+        assertFalse(f.encounters.isActive(f.player))
+    }
+
+    @Test
     fun `native entry owns one actor and opening cloud packets preserve captured cadence`() {
         val f = ZulrahFixture()
         f.start(1)
