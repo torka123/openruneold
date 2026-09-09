@@ -789,11 +789,103 @@ class BossRuntimeRegressionTest {
         assertFalse(retiring.isQueueArgumentValid())
     }
 
+    @Test
+    fun `native volley rolls hits independently without double arming the attack gate`() {
+        for (attack in
+            listOf(
+                CombatAttack.NpcMagic(28),
+                CombatAttack.NpcRanged(
+                    org.rsmod.api.combat.commons.types.RangedAttackType.Standard
+                ),
+                CombatAttack.NpcMelee(org.rsmod.api.combat.commons.types.MeleeAttackType.Crush),
+            )) {
+            val f =
+                Fixture(
+                    random = Rolls(17),
+                    nativeCombat = true,
+                    accuracyResults = listOf(true, false),
+                )
+            f.npc.mode = NpcMode.ApPlayer2
+            var launches = 0
+            f.extensions.registerAttackParameters("volley") { _, _, _ ->
+                NpcAttackOverride(
+                    hitCount = 2,
+                    maxHit = 28,
+                    impactDelay = 3,
+                    onAttack = { launches++ },
+                )
+            }
+            f.run(Effect.NpcAttack(attack, parameters = "volley"))
+            assertEquals(listOf(17, 0), f.queuedHits().map { it.second.damage })
+            assertEquals(listOf(3, 3), f.queuedHits().map { it.first })
+            assertEquals(1, launches)
+            assertEquals(2, f.accuracyRolls)
+            assertEquals(104, f.npc.actionDelay)
+            f.run(Effect.NpcAttack(attack, parameters = "volley"))
+            assertEquals(2, f.queuedHits().size)
+            assertEquals(1, launches)
+            f.registry.remove(f.npc)
+            assertTrue(f.queuedHits().all { !it.second.isQueueArgumentValid() })
+        }
+    }
+
+    @Test
+    fun `declarative volley emits every projectile and parameter snapshot can reduce count`() {
+        val f = Fixture(random = Rolls(7, 13), nativeCombat = true)
+        f.npc.mode = NpcMode.ApPlayer2
+        val projectile =
+            NpcProjectile(
+                "spotanim.firewave_travel",
+                assertNotNull(
+                    ServerCacheManager.getProjectile(
+                        "projanim.magic_spell".asRSCM(RSCMType.PROJANIM)
+                    )
+                ),
+            )
+        f.run(Effect.NpcAttack(CombatAttack.NpcMagic(28), projectile = projectile, hitCount = 2))
+        assertEquals(listOf(7, 13), f.queuedHits().map { it.second.damage })
+        assertEquals(2, f.projectiles().size)
+        assertTrue(f.queuedHits().all { it.first == f.projectiles().first().serverCycles })
+        val single = Fixture(random = Rolls(8), nativeCombat = true)
+        single.npc.mode = NpcMode.ApPlayer2
+        single.extensions.registerAttackParameters("single") { _, _, _ ->
+            NpcAttackOverride(hitCount = 1)
+        }
+        single.run(Effect.NpcAttack(CombatAttack.NpcMagic(28), hitCount = 2, parameters = "single"))
+        assertEquals(1, single.queuedHits().size)
+        assertFailsWith<IllegalArgumentException> { NpcAttackOverride(hitCount = 0) }
+        assertFailsWith<IllegalArgumentException> {
+            Effect.NpcAttack(CombatAttack.NpcMagic(28), hitCount = -1)
+        }
+    }
+
+    @Test
+    fun `first forced threshold differs from repeat threshold and resets with phase`() {
+        val phase =
+            PhaseSpec(
+                "main",
+                forceAbilities = listOf(ForcedAbility(0, "special", 9, 9, firstAttackCount = 3)),
+            )
+        val f = Fixture(phase = phase)
+        val selector = Selector.Rotation(listOf("basic"))
+        val result = (1..24).map { f.encounter.selectAbility(selector, 100 + it) }
+        assertEquals(
+            listOf(4, 14, 24),
+            result.mapIndexedNotNull { index, name -> if (name == "special") index + 1 else null },
+        )
+        f.encounter.transitionTo("main", 130)
+        assertEquals(
+            listOf("basic", "basic", "basic", "special"),
+            (1..4).map { f.encounter.selectAbility(selector, 130 + it) },
+        )
+    }
+
     private class Fixture(
         phase: PhaseSpec = PhaseSpec("main"),
         val random: GameRandom = DefaultGameRandom(42L),
         nativeCombat: Boolean = false,
         accurate: Boolean = true,
+        accuracyResults: List<Boolean>? = null,
     ) {
         val clock = MapClock().apply { cycle = 100 }
         val speech = mutableListOf<Pair<Int, String>>()
@@ -851,10 +943,13 @@ class BossRuntimeRegressionTest {
         val encounter = registry.of(npc)
         val extensions = BossExtensionRegistry()
         val world = mock(WorldRepository::class.java)
+        var accuracyRolls = 0
         val accuracy =
             mock(AccuracyFormulae::class.java) { invocation ->
-                if (invocation.method.name.startsWith("roll")) accurate
-                else Answers.RETURNS_DEFAULTS.answer(invocation)
+                if (invocation.method.name.startsWith("roll")) {
+                    val index = accuracyRolls++
+                    accuracyResults?.get(index.coerceAtMost(accuracyResults.lastIndex)) ?: accurate
+                } else Answers.RETURNS_DEFAULTS.answer(invocation)
             }
         val deps =
             BossDeps(
@@ -929,5 +1024,11 @@ class BossRuntimeRegressionTest {
         fun cache() {
             if (ServerCacheManager.objectSize() == 0) ServerCacheManager.init(240).close()
         }
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    fun releaseNativeFixtures() {
+        // Inline mock answers reference complete fixtures, including the native collision map.
+        org.mockito.Mockito.framework().clearInlineMocks()
     }
 }

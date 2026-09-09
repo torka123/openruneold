@@ -62,7 +62,13 @@ public data class NpcAttackOverride(
     public val damageTransform: ((Int) -> Int)? = null,
     /** Optional native lifecycle scope; queued hits retire when their encounter ends. */
     public val hitContext: HitContext? = null,
-)
+    /** Simultaneous independently rolled hits under one native attack gate; null means one. */
+    public val hitCount: Int? = null,
+) {
+    init {
+        require(hitCount == null || hitCount > 0) { "Hit count must be positive." }
+    }
+}
 
 internal fun NpcAttackOverride.rollDamage(
     accurateMaxHit: Int,

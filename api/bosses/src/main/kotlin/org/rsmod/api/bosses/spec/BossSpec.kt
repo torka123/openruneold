@@ -35,7 +35,15 @@ data class ForcedAbility(
     val ability: String,
     val attackMin: Int? = null,
     val attackMax: Int? = null,
-)
+    /** Exact first-use threshold; later uses retain attackMin/attackMax and injected randomness. */
+    val firstAttackCount: Int? = null,
+) {
+    init {
+        require(firstAttackCount == null || (attackMin != null && firstAttackCount > 0)) {
+            "First attack count requires an attack-based forced ability and a positive count."
+        }
+    }
+}
 
 data class TriggerSpec(val condition: Condition, val effect: Effect)
 

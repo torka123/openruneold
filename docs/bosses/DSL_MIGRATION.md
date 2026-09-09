@@ -395,3 +395,39 @@ The native death/drop registration remains unchanged apart from retiring the sha
 24 test passes do not verify disputed OSRS rules or new public/private instance behavior.
 The 502-line manager is recoverable from baseline commit `798b8c320`; no evidence or unrelated
 source was removed. Dependency waiver removed; seven reviewed specialized-combat matches remain.
+
+## Alchemical Hydra mapping (before migration)
+
+Reference remains official upstream `61139e76a216592d66c2b20366ef26d48609875d`:
+`api/bosses` (BossSpec, BossEncounter, EffectInterpreter), `api/combat/combat-scripts/.../NvPCombat.kt`,
+`api/instances/.../InstanceScript.kt`, and `content/bosses/scurrius/.../ScurriusInstance.kt`.
+The 858-line Hydra manager is the characterization baseline, not independent OSRS evidence.
+The existing seven rules tests and revision-240 mappings are preserved. No balancing changes are
+authorized by this migration; uncertain threshold, hazard and targeting rules remain uncertain.
+
+| Preserved behavior | Current ownership | Planned established pipeline | Tests / confidence |
+|---|---|---|---|
+| Observation entry, exact movement, chamber door, private solo region | PlayerUid runs map; direct create/teleport/finalize | Official InstanceScript keyed entry/leave; existing local source-settings constructor and native NPC ownership | Native entry, coordinates, door gating, two rooms; baseline characterization |
+| Random opening style, three attacks per style, final alternation | Manager counters and selector | Declarative rotation/forced abilities on BossEncounter; named parameter snapshot for vent-dependent maxima/count | Native registered attacks, style and special launch ticks; existing code, not new OSRS proof |
+| Simultaneous two-hit normal attacks | Manager repeats projectile/accuracy/hit calls | Native NvPCombat volley under one attack gate, exposed through existing Effect.NpcAttack parameters | Independent accuracy/damage rolls, two projectiles, one cadence, launch prayer, teardown cancellation |
+| First special after three basics, later after nine | Manager total-basic/special counters | Small generic first-use threshold on existing ForcedAbility, phase-owned reset | Injected RNG, first/repeated/phase-reset cadence |
+| Four HP phases, capped crossing hits, four-tick transforms | Manager phase/state deadlines and hit mutation | BossEncounter phases plus native modify/impact callbacks; named transition presentation | All threshold crossings, queued races, stats/HP preservation, exact transform ticks |
+| Poison pools, vents, lightning currents and flame trails/burns | Manager LateCycle hazard lists | Focused external handlers; same native LateCycle timing with session/encounter-owned resources | Tile/impact snapshots, expiry, vent footprint, native queued-hit invalidation |
+| Final native death/drops, KC, 43-tick reform | Manager manually replaces NPC and tracks deadline | Native death/drop and instance-owned spawn/respawn workflow, no duplicate respawn authority | Death queue, one KC, two kills, actor detach and fresh encounter state |
+| Logout, death, teleport and leave | Multiple private hooks and membership checks | InstanceLifecycleScript and keyed resource cleanup | Native lifecycle events, no stale player/run map or effects |
+
+Shared gaps searched locally and in the pinned official upstream combat/boss sources (including
+`git grep` for volley, hitCount, multiHit, forced attack thresholds, and comparable boss usages):
+NvPCombat presently admits only one projectile/hit per attack gate. Repeating Effect.NpcAttack in
+the same tick fails the gate on the second hit; using a boss-local normal attack handler would
+retain the duplication this task removes. Add a positive hit count to that existing native attack
+configuration, default one, with independent rolls/projectiles and the existing hit scope on each
+hit. This is a **proposed local shared extension**, not an official upstream multi-hit API. It owns
+no new scheduler. The existing NpcAttackOverride adapter itself is a documented local extension.
+ForcedAbility has only a repeating threshold, not a distinct first-use threshold; extend that same
+phase-owned selector minimally rather than keep Hydra's private counter engine. Both changes are
+within the user's requested generic framework repairs and receive shared regression tests first.
+Other APIs remain as classified above; specialized handlers must not select ordinary attacks.
+
+Read-only doctor: `logs/boss-dsl-migration-doctor-hydra.log`, JVM PID 41396 reports the canonical
+working directory, cache revision 240, SERVER/LIVE paths and project PostgreSQL unchanged. No restart.

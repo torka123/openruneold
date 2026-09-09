@@ -63,7 +63,12 @@ sealed interface Effect {
         /** Optional named parameter resolver; attack execution and cadence remain native/DSL. */
         val parameters: String? = null,
         val parameterData: Any? = null,
-    ) : Effect
+        val hitCount: Int = 1,
+    ) : Effect {
+        init {
+            require(hitCount > 0) { "Hit count must be positive." }
+        }
+    }
 
     data class Anim(val seq: String, val delay: Int = 0) : Effect
 

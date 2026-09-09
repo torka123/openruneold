@@ -26,5 +26,7 @@ dependencies {
 
 tasks.test {
     workingDir = rootProject.projectDir
+    // Native combat fixtures load the complete revision-240 definitions and protocol adapters.
+    maxHeapSize = "1g"
     systemProperty("junit.jupiter.execution.parallel.enabled", "false")
 }
