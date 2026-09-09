@@ -1050,7 +1050,7 @@ class BossRuntimeRegressionTest {
         val f = Fixture(random = Rolls(0))
         val registry = EncounterRegistry(f.random)
         registry.register(f.npc.type.id, f.spec, "seeded")
-        val selected = registry.of(f.npc, Rolls(1))
+        val selected = registry.of(f.npc, Rolls(1, 1))
         val choice = Selector.WeightedRandom(WeightedRef("a", 1), WeightedRef("b", 1))
         assertEquals("b", selected.selectAbility(choice, 100))
         assertSame(selected, registry.of(f.npc, Rolls(0)))

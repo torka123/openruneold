@@ -65,7 +65,7 @@ class EffectInterpreter(
                             effect.parameterData,
                         )
                     } ?: NpcAttackOverride()
-                val encounterValidity = validity(target)
+                val encounterValidity = validity(target, effect.survivesSourceDeath)
                 deps.npcCombat.attack(
                     access,
                     target,
@@ -278,9 +278,13 @@ class EffectInterpreter(
         }
     }
 
-    private fun validity(player: Player): HitValidity = HitValidity {
-        deps.encounterRegistry.isCurrent(npc, encounter) && eligible(player)
-    }
+    private fun validity(player: Player, survivesSourceDeath: Boolean = false): HitValidity =
+        HitValidity {
+            val attached =
+                if (survivesSourceDeath) deps.encounterRegistry.isAttached(npc, encounter)
+                else deps.encounterRegistry.isCurrent(npc, encounter)
+            attached && eligible(player)
+        }
 
     private fun impactHandler(
         player: Player,

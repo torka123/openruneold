@@ -32,21 +32,25 @@ class EncounterRegistry @Inject constructor(private val random: GameRandom) {
 
     fun registeredSpec(npc: Npc): BossSpec? = specs[npc.type.id] ?: specs[npc.visType.id]
 
+    /** Selection RNG belongs to first creation; lookups never reseed a running encounter. */
     fun of(npc: Npc, selectionRandom: GameRandom = random): BossEncounter {
         return encounters.getOrPut(npc.uid) {
             val spec =
                 requireNotNull(registeredSpec(npc)) {
                     "NPC type ${npc.type.id}/${npc.visType.id} has no registered boss combat owner."
                 }
-            BossEncounter(npc, spec, random)
+            BossEncounter(npc, spec, selectionRandom)
         }
     }
 
     fun isCurrent(npc: Npc, encounter: BossEncounter): Boolean =
-        npc.isSlotAssigned &&
-            npc.hitpoints > 0 &&
-            !encounter.isEnded &&
-            encounters[npc.uid] === encounter
+        npc.hitpoints > 0 && isAttached(npc, encounter)
+
+    /**
+     * Identity/lifecycle check for already-launched hits whose declared lifetime includes death.
+     */
+    fun isAttached(npc: Npc, encounter: BossEncounter): Boolean =
+        npc.isSlotAssigned && !encounter.isEnded && encounters[npc.uid] === encounter
 
     fun existing(npc: Npc): BossEncounter? = encounters[npc.uid]
 
