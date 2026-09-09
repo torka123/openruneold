@@ -226,7 +226,7 @@ Diagnostic-only modules are excluded. Zero manager lines is not proof of archite
 | Kraken | private per-player run, native combat wrapper; 363 → 0 manager lines | Boss/tentacle specifications; ordinary attacks delegated to native NvPCombat by DSL | Source InstanceScript; native spawns, keyed joins, session state and lifecycle | KrakenWhirlpools (171 lines): dormant activation, one-shot completion/drop tile; native attack-validation hook | 12 passing tests, including 8 native integration/characterization tests | No live deployment/client verification; no new OSRS parity claim |
 | Vorkath | managers/timing; 1,254 -> 426 coordinator lines | BossSpec/BossCombat normal attacks, weights, forced cadence, phases; old timeline test-only | InstanceScript source arena, keyed join/leave, native ownership and cleanup | Arena effects (344 lines), spawn collision/contact (228), session data (71), no-reward diagnostics (105), existing reclaim storage | 110 passing module tests; all boss/shared regressions and server classes pass; revision-240 cache audit passes | Not deployed; PR unsubmitted. Inferred selection/path rules and original non-player damage exclusion retained, not certified as OSRS-correct |
 | Corporeal Beast | manager; 502 -> 0 | BossSpec normal attacks, weighted styles/animations/cadence, native NvPCombat; old selector test-only | Public lairs retained, so no InstanceScript required; native NPC/encounter lifecycle | Room recovery/stomp (161 lines), core (114), split area (95), drain impact parameters (29), state (49) | 24 tests pass (17 native fixture + 7 prior rules/oracle); all boss/shared tests and server classes pass | Existing third-party projectile provenance, core poison stun and live visuals remain unverified |
-| Alchemical Hydra | manager; 858 | Ordinary native volleys, rotation and forced cadence wired | In progress | Vents/hazards and transition presentation | 14 baseline/new-wiring tests pass | Lifecycle and live verification pending |
+| Alchemical Hydra | manager; 858 | Ordinary native volleys, rotation, forced cadence and phase identity | Native InstanceScript, typed session state and native same-actor respawn | 260-line observation/form coordinator; 317-line arena hazards; 71-line transform presentation; parameter/hit-policy adapters | 22 deterministic tests pass, including native lifecycle and two kills | No live verification; baseline-only hazard/pathing constants, non-player damage exclusion and natural exterior entrance remain uncertified |
 | Grotesque Guardians | manager; 945 | Pending | Pending | Paired mechanics | Pending | Detailed mapping pending |
 | Zulrah | manager; 993 | Pending | Pending | Positions/clouds/snakes | Pending | Detailed mapping pending |
 | Muspah | manager; 1,088 | Pending | Pending | Spikes/pathing/shield | Pending | Detailed mapping pending |
@@ -469,3 +469,56 @@ NpcRevealProcessor; default/custom timing, same-actor respawn, temporary deletio
 are covered. Earlier fixture iterations needed direct test dependencies, the real death plugin,
 and the native lifecycle sentinel/deadline semantics. One unscoped check encountered existing
 formatting violations; unrelated files were not reformatted. This is headless evidence only.
+
+Hydra lifecycle/extraction: `hydra-native-lifecycle-tests.log` passes 18 tests (38s, 166 tasks).
+The production instance now creates the single authoritative actor from InstanceArea, uses
+InstanceScript entry/leave and typed session state, and relies on InstanceLifecycleScript for
+teleport/logout/disconnect/death detachment. The native 43-tick respawn reuses that actor and creates
+a fresh BossEncounter. The old player-to-run map, duplicate spawn/reform timer and private teardown
+hooks are removed. A narrow native Respawn listener defers presentation to LateCycle so native
+stat reset and BossCombat cleanup complete regardless of listener registration order.
+
+Confirmed defects tested separately from balancing:
+
+- Observation detection formerly masked coordinates with 63, incorrectly treating the actual
+  nine-zone template's observation tile as inside the chamber. Native localCoord mapping now
+  supplies the template origin; the safety test holds the player there for 12 ticks.
+- `hydra-native-killcount-audit.log` fails the two-kill test with the real generic kill-count hook:
+  the manager increments KC twice. Only native NpcDeath/KillcountNpcKillHook now increments it.
+  The content messages read the committed native varp. No shared kill-count code was changed.
+- `hydra-queued-threshold-red.log` fails on two precomputed crossing hits (825 becomes 810).
+  Existing native Resolve/Impact events through BossCombat now enforce the current phase floor
+  at impact and observe accepted damage; no boss-local HitImpactHandler mutation remains. The
+  original threshold values and calculation-time weakness behavior are unchanged. Incoming and
+  outgoing queued hits also carry the existing session/encounter validity, excluding later runs.
+
+`hydra-extracted-handlers-check.log` passes 18 tests after extraction and native KC correction
+(39s, 168 tasks). `hydra-final-native-check-2.log` passes 22 Hydra tests plus boss API, instance,
+death and combat-scripts regressions/scoped check (38s, 176 tasks). The preceding iteration had one
+fixture expectation at the clamped arena edge; the final test moves its flame scenario to an
+unclamped interior tile and keeps the production geometry unchanged. Tests cover poison projectile
+impact, pool expiry, lightning movement/lifetime, flame tracking and five two-tick burns, scoped
+hazard cancellation, independent simultaneous rooms, re-entry, phase-hit races, native kill credit,
+playertile death context and two respawns without NPC growth. Drops are intercepted by a native
+test hook; this is not a full reward-table or live-client verification.
+
+Retained specialized responsibilities: poison/vent/lightning/flame LateCycle geometry and hazard
+snapshots; four-tick transform presentation and HP/stat preservation; observation/door presentation.
+BossEncounter alone owns phase names/ordinary rotation/forced cadence; no second attack loop exists.
+The transform completion intentionally remains LateCycle: moving it to a pre-input world callback
+would change which same-tick queued player hits encounter invulnerability. Remaining uncertainties
+are not architecture excuses or new OSRS claims: inherited non-player-damage suppression, hazard
+movement geometry and timing, and the pre-existing lack of a natural exterior rock entrance must
+receive separate evidence verification. This migration has not invented an entrance loc or access
+requirement. The admin command and existing interior doors remain functional through native flows.
+
+`hydra-broad-regression.log`: **BUILD SUCCESSFUL**, every non-diagnostic boss module test,
+affected shared tests and server app classes (1m36s, 505 tasks). Hydra XML: 15 native tests and
+seven rules tests, zero failures/errors. This is a compile/headless integration result, not live
+deployment or persistence through two restarts. The live JVM, PostgreSQL and cache paths were not
+changed. The command's PowerShell wrapper reported exit 1 after native JVM warning output despite
+Gradle's successful result; subsequent verification uses explicit Gradle exit-code propagation.
+`hydra-final-check-explicit-exit.log` confirms scoped formatting/check success with process exit 0
+(24s, 168 tasks). Architecture check and `git diff --check` pass. No new secret-pattern candidates
+were found in the focused source/doc changes. Doctor before the next migration again identifies
+the unchanged canonical PID 41396, cache fingerprints and PostgreSQL authority.

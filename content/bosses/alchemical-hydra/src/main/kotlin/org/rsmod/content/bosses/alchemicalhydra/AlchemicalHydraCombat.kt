@@ -18,10 +18,12 @@ constructor(
     private val death: NpcDeath,
     private val players: PlayerList,
     private val deps: BossDeps,
+    private val parameters: AlchemicalHydraAttackParameters,
+    private val damageRules: AlchemicalHydraDamageRules,
 ) : PluginScript() {
     override fun ScriptContext.startup() {
         deps.extensionRegistry.registerAttackParameters("hydra.normal") { npc, target, data ->
-            encounters.normalParameters(npc, target, data as HydraAttackStyle)
+            parameters.snapshot(npc, target, data as HydraAttackStyle)
         }
         HydraSpecial.entries.forEach { special ->
             deps.extensionRegistry.register("hydra.${special.name.lowercase()}") { _, npc, target, _
@@ -38,8 +40,10 @@ constructor(
                 val player =
                     if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players)
                     else null
-                if (player == null) hit.damage = 0 else encounters.modifyNpcHit(player, npc, hit)
+                if (player == null) hit.damage = 0 else damageRules.modify(player, npc, hit)
             },
+            onResolveHit = { damage = damageRules.resolve(npc, damage) },
+            onImpactHit = { damageRules.impact(npc, hit.damage) },
             canTarget = encounters::canAttack,
         )
         AlchemicalHydraAssets.activeForms.forEach { id ->
@@ -49,7 +53,7 @@ constructor(
                 if (dropTile == null) {
                     death.deathNoDrops(this)
                 } else {
-                    death.deathWithDrops(this, dropTile)
+                    death.deathWithDrops(this, dropTile, respawnDelay = HYDRA_RESPAWN_TICKS)
                     encounters.finishBossDeath(npc)
                 }
             }

@@ -1,8 +1,11 @@
 package org.rsmod.content.bosses.alchemicalhydra
 
+import dev.openrune.rscm.RSCM
+import dev.openrune.rscm.RSCMType
 import dev.openrune.types.NpcServerType
 import dev.openrune.types.ProjAnimType
 import org.rsmod.api.instances.InstanceArea
+import org.rsmod.api.instances.InstanceNpc
 import org.rsmod.api.instances.InstanceSettings
 import org.rsmod.api.instances.RegionLocal
 import org.rsmod.api.repo.region.RegionTemplate
@@ -13,7 +16,6 @@ internal const val HYDRA_MAX_HITPOINTS = 1_100
 internal const val HYDRA_RESPAWN_TICKS = 43
 internal const val HYDRA_ENTRY_CLIENT_CYCLES = 60
 internal const val HYDRA_ENTRY_ANGLE = 1024
-internal const val HYDRA_NPC_LIFETIME = Int.MAX_VALUE
 
 internal const val HYDRA_SOURCE_ZONE_X = 165
 internal const val HYDRA_SOURCE_ZONE_Z = 1278
@@ -41,6 +43,8 @@ internal val HYDRA_AREA =
         template = HYDRA_TEMPLATE,
         enterCoord = HYDRA_OBSERVATION_ENTRY,
         exitCoord = HYDRA_PUBLIC_EXIT,
+        npcSpawns =
+            listOf(InstanceNpc(RSCM.getReverseMapping(RSCMType.NPC, 8615), HYDRA_BOSS_SPAWN)),
     )
 
 internal fun hydraSpec(activeType: NpcServerType) =

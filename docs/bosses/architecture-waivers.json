@@ -1,33 +1,9 @@
 [
   {
     "boss": "alchemical-hydra",
-    "rule": "boss-api-dependency",
-    "maximum": 1,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "alchemical-hydra",
-    "rule": "global-runs-map",
-    "maximum": 1,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "alchemical-hydra",
-    "rule": "manual-lifecycle",
-    "maximum": 3,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "alchemical-hydra",
     "rule": "direct-combat-review",
-    "maximum": 6,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "alchemical-hydra",
-    "rule": "instance-script",
-    "maximum": 1,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+    "maximum": 5,
+    "reason": "Reviewed poison, lightning and flame tile projectiles and scoped hazard hits; normal attack override is parameters only. BossSpec owns ordinary volleys, rotation, cadence and phase identity. InstanceScript owns membership and NPC lifetime; the four-tick transform presentation retains the native LateCycle snapshot stage. No private attack loop, membership map or respawn timer remains."
   },
   {
     "boss": "cerberus",

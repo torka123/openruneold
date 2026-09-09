@@ -1,6 +1,10 @@
 package org.rsmod.content.bosses.alchemicalhydra
 
+import com.google.inject.AbstractModule
+import com.google.inject.Guice
 import dev.openrune.ServerCacheManager
+import dev.openrune.rscm.RSCM.asRSCM
+import dev.openrune.rscm.RSCMType
 import kotlin.test.*
 import org.junit.jupiter.api.BeforeAll
 import org.mockito.Mockito.*
@@ -10,21 +14,37 @@ import org.rsmod.api.combat.NvPCombat
 import org.rsmod.api.combat.formulas.AccuracyFormulae
 import org.rsmod.api.combat.formulas.MaxHitFormulae
 import org.rsmod.api.death.NpcDeath
+import org.rsmod.api.death.NpcDeathDropHook
+import org.rsmod.api.death.NpcDeathKillContext
+import org.rsmod.api.death.NpcDeathKillHook
+import org.rsmod.api.death.plugin.NpcDeathScript
+import org.rsmod.api.instances.BossInstanceRegistry
 import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.instances.region.InstanceAreaResolver
 import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.api.npc.access.StandardNpcAccessContext
 import org.rsmod.api.npc.events.NpcHitEvents
+import org.rsmod.api.npc.events.NpcQueueEvents
 import org.rsmod.api.npc.events.interact.AiPlayerEvents
 import org.rsmod.api.npc.hit.modifier.StandardNpcHitModifier
 import org.rsmod.api.npc.hit.processor.StandardNpcHitProcessor
 import org.rsmod.api.npc.interact.AiPlayerInteractions
+import org.rsmod.api.player.events.PlayerMovementEvent
+import org.rsmod.api.player.hook.PlayerPostTickHook
+import org.rsmod.api.player.hook.PlayerTeleportHooks
+import org.rsmod.api.player.hook.PlayerTeleportValidator
+import org.rsmod.api.player.protect.ProtectedAccess
+import org.rsmod.api.player.protect.ProtectedAccessContext
+import org.rsmod.api.player.protect.ProtectedAccessLauncher
 import org.rsmod.api.player.vars.VarPlayerIntMapSetter
 import org.rsmod.api.random.GameRandom
 import org.rsmod.api.registry.npc.NpcRegistry
+import org.rsmod.api.repo.NpcRevealProcessor
 import org.rsmod.api.repo.npc.NpcRepository
+import org.rsmod.api.repo.obj.ObjRepository
 import org.rsmod.api.repo.region.RegionRepository
 import org.rsmod.api.repo.world.WorldRepository
+import org.rsmod.content.generic.killcount.KillcountNpcKillHook
 import org.rsmod.events.EventBus
 import org.rsmod.game.MapClock
 import org.rsmod.game.cheat.CheatCommandMap
@@ -32,6 +52,7 @@ import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.NpcList
 import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
+import org.rsmod.game.entity.player.SessionStateEvent
 import org.rsmod.game.hit.Hit
 import org.rsmod.game.hit.HitBuilder
 import org.rsmod.game.hit.HitType
@@ -42,6 +63,7 @@ import org.rsmod.game.region.Region
 import org.rsmod.game.region.zone.RegionZoneCopy
 import org.rsmod.map.CoordGrid
 import org.rsmod.map.zone.ZoneKey
+import org.rsmod.plugin.scripts.PluginScript
 import org.rsmod.plugin.scripts.ScriptContext
 import org.rsmod.routefinder.collision.CollisionFlagMap
 
@@ -197,10 +219,232 @@ class AlchemicalHydraNativeTest {
     }
 
     @Test
+    fun `observation room stays safe at the actual mapped template offset`() {
+        val f = HydraFixture()
+        repeat(12) { f.idleTick() }
+        assertTrue(f.encounters.status(f.player).contains("state=OBSERVATION"))
+        assertNotNull(f.encounters.attackDenial(f.player, f.npc))
+        assertTrue(f.npc.movementLocked)
+        assertTrue(f.hits().isEmpty())
+    }
+
+    @Test
+    fun `simultaneous queued crossing hits cannot skip a gated phase`() {
+        val f = HydraFixture()
+        f.activate()
+        f.npc.hitpoints = 840
+        val first = f.buildDamage(1000)
+        val second = f.buildDamage(1000)
+        f.processDamage(first)
+        assertEquals(825, f.npc.hitpoints)
+        f.processDamage(second)
+        assertEquals(825, f.npc.hitpoints)
+        repeat(4) { f.idleTick() }
+        assertEquals(8619, f.npc.visType.id)
+        assertEquals(825, f.npc.hitpoints)
+    }
+
+    @Test
+    fun `native exits invalidate every queued volley and detach the owned actor`() {
+        for (ending in listOf("exit", "teleport", "logout", "disconnect", "death")) {
+            val f = HydraFixture()
+            f.activate()
+            f.attackAt(101)
+            val session = assertNotNull(f.instances.sessionForPlayer(f.player))
+            val pending = f.hits().map { it.second }
+            assertEquals(2, pending.size)
+            when (ending) {
+                "exit" -> f.leave()
+                "teleport" -> {
+                    val previous = f.player.coords
+                    f.player.coords = HYDRA_PUBLIC_EXIT
+                    f.events.publish(PlayerMovementEvent.CoordsMovedEvent(f.player, previous))
+                }
+                "logout" -> f.events.publish(SessionStateEvent.Logout(f.player))
+                "disconnect" -> {
+                    f.player.clientDisconnected.set(true)
+                    f.lifecycle.onPostTick(f.player)
+                }
+                "death" -> f.instances.handleDeath(f.player, f.clock.cycle)
+            }
+            assertTrue(pending.all { !it.isQueueArgumentValid() }, ending)
+            f.instances.tickReclaim(f.clock.cycle + 1)
+            assertTrue(session.isEnded, ending)
+            assertFalse(f.npc.isSlotAssigned, ending)
+            assertTrue(f.instances.npcsForInstance(session.id).isEmpty(), ending)
+            assertNull(f.instances.sessionForPlayer(f.player), ending)
+            assertNull(f.deps.encounterRegistry.existing(f.npc), ending)
+        }
+    }
+
+    @Test
+    fun `two complete kills use one native actor and the 43 tick reform cadence`() {
+        val f = HydraFixture()
+        val session = assertNotNull(f.instances.sessionForPlayer(f.player))
+        repeat(2) { completion ->
+            f.activate()
+            f.attackAt(f.clock.cycle + 1)
+            for (threshold in listOf(825, 550, 275)) {
+                f.npc.hitpoints = threshold + 1
+                f.damage(4)
+                repeat(4) { f.idleTick() }
+            }
+            assertEquals(8621, f.npc.visType.id)
+            val encounter = f.deps.encounterRegistry.of(f.npc)
+            f.damage(f.npc.hitpoints)
+            f.killQueue()
+            var guard = 30
+            while (f.npc.activeCoroutine != null && guard-- > 0) f.idleTick()
+            assertTrue(guard > 0)
+            assertTrue(f.npc.hidden)
+            assertTrue(encounter.isEnded)
+            assertEquals(completion + 1, f.player.vars["varp.total_hydraboss_kills"])
+            assertEquals(completion + 1, f.kills.size)
+            assertEquals(f.player.coords, f.kills.last().dropCoords)
+            assertEquals(f.clock.cycle + 43, f.npc.lifecycleRespawnCycle)
+            repeat(42) { f.idleTick() }
+            assertTrue(f.npc.hidden)
+            f.idleTick()
+            assertFalse(f.npc.hidden)
+            assertEquals(8615, f.npc.visType.id)
+            assertEquals(1100, f.npc.hitpoints)
+            assertTrue(f.encounters.status(f.player).contains("state=OBSERVATION"))
+            assertEquals(listOf(f.npc), f.instances.npcsForInstance(session.id))
+            assertEquals(1, f.npcList.count())
+            assertNotSame(encounter, f.deps.encounterRegistry.of(f.npc))
+        }
+    }
+
+    @Test
     fun `cache default differs from the characterized encounter reform delay`() {
         // Read-only cache evidence, not gameplay parity: native death needs an explicit override.
         assertEquals(50, assertNotNull(ServerCacheManager.getNpc(8615)).respawnRate)
         assertEquals(43, HYDRA_RESPAWN_TICKS)
+    }
+
+    @Test
+    fun `two native instances isolate attacks ownership cleanup and reentry`() {
+        val f = HydraFixture()
+        f.activate()
+        f.attackAt(101)
+        val first = assertNotNull(f.instances.sessionForPlayer(f.player))
+        val partner =
+            Player().apply {
+                slotId = 2
+                uuid = 2L
+                assignUid()
+                coords = HYDRA_PUBLIC_EXIT
+                statMap.setBaseLevel("stat.hitpoints", 99)
+                statMap.setCurrentLevel("stat.hitpoints", 99)
+                inv = invMap.getOrPut("inv.inv")
+                worn = invMap.getOrPut("inv.worn")
+            }
+        f.players[2] = partner
+        val other = f.enter(partner)
+        val second = assertNotNull(f.instances.sessionForPlayer(partner))
+        assertNotEquals(first.id, second.id)
+        assertNotEquals(other.coords, f.npc.coords)
+        assertNotSame(f.instances.hydraState(f.player), f.instances.hydraState(partner))
+        f.activate(partner)
+        assertFalse(f.encounters.canAttack(other, f.player))
+        assertFalse(f.encounters.canAttack(f.npc, partner))
+        f.attackAt(102, other, partner)
+        f.leave(partner)
+        f.instances.tickReclaim(103)
+        assertTrue(second.isEnded)
+        assertFalse(other.isSlotAssigned)
+        assertTrue(f.hits().all { it.second.isQueueArgumentValid() })
+        assertEquals(listOf(f.npc), f.instances.npcsForInstance(first.id))
+        val replacement = f.enter(partner)
+        assertNotSame(other, replacement)
+        assertNotEquals(second.id, f.instances.sessionForPlayer(partner)?.id)
+        assertEquals(2, f.npcList.count())
+        assertNotNull(f.encounters.attackDenial(partner, replacement))
+    }
+
+    @Test
+    fun `poison lands at projectile impact and expires then cannot survive teardown`() {
+        val f = HydraFixture()
+        f.activate()
+        listOf(101, 107, 113, 119).forEach { f.attackAt(it) }
+        val run = assertNotNull(f.instances.hydraState(f.player))
+        assertEquals(
+            listOf(
+                f.player.coords,
+                f.player.coords.translate(2, 0),
+                f.player.coords.translate(0, 2),
+            ),
+            run.pendingPoison.map { it.tile },
+        )
+        val impact = run.pendingPoison.minOf { it.impactCycle }
+        val expiry = run.pendingPoison.maxOf { it.impactCycle } + 20
+        while (f.clock.cycle < impact - 1) f.idleTick()
+        assertTrue(run.poisonPools.isEmpty())
+        f.idleTick()
+        assertTrue(run.poisonPools.isNotEmpty())
+        assertTrue(f.hits().any { it.second.type == HitType.Typeless && it.second.damage == 7 })
+        assertTrue(f.hits().any { it.second.type == HitType.Typeless && it.second.damage == 12 })
+        while (f.clock.cycle < expiry) f.idleTick()
+        assertTrue(run.poisonPools.isEmpty())
+        f.encounters.launchSpecial(f.npc, f.player, HydraSpecial.POISON)
+        assertTrue(run.pendingPoison.isNotEmpty())
+        val before = f.projectiles().size
+        val incoming = f.buildDamage(40)
+        f.leave()
+        f.instances.tickReclaim(f.clock.cycle + 1)
+        repeat(30) { f.idleTick() }
+        assertTrue(run.pendingPoison.isEmpty())
+        assertTrue(run.poisonPools.isEmpty())
+        assertEquals(before, f.projectiles().size)
+        assertFalse(incoming.isValidNow())
+        assertTrue(f.hits().all { !it.second.isQueueArgumentValid() })
+    }
+
+    @Test
+    fun `lightning and flame retain native late-cycle movement and teardown resources`() {
+        val f = HydraFixture()
+        f.activate()
+        f.npc.hitpoints = 826
+        f.damage(4)
+        repeat(4) { f.idleTick() }
+        val run = assertNotNull(f.instances.hydraState(f.player))
+        val launch = f.clock.cycle
+        f.encounters.launchSpecial(f.npc, f.player, HydraSpecial.LIGHTNING)
+        f.idleTick()
+        assertTrue(run.lightningCurrents.isEmpty())
+        f.idleTick()
+        val origin = f.instances.hydraCoord(run.session, HYDRA_CHAMBER_ENTRY)
+        assertEquals(
+            listOf(14 to 4, 14 to 13, 4 to 4, 3 to 13).map { (x, z) -> origin.translate(x, z) },
+            run.lightningCurrents.map { it.tile },
+        )
+        assertTrue(run.lightningCurrents.all { it.endCycle == launch + 2 + 18 })
+        f.npc.hitpoints = 551
+        f.damage(4)
+        assertTrue(run.lightningCurrents.isEmpty())
+        repeat(4) { f.idleTick() }
+        f.player.coords = origin.translate(8, 4)
+        f.encounters.launchSpecial(f.npc, f.player, HydraSpecial.FLAME)
+        assertEquals(10, run.flameTiles.size)
+        assertTrue(f.npc.movementLocked)
+        val tracker = assertNotNull(run.trackingFlame)
+        f.idleTick()
+        assertEquals(tracker.translate(-1, -1), run.trackingFlame)
+        val lastTile = assertNotNull(run.trackingFlame)
+        f.player.coords = lastTile
+        f.idleTick()
+        assertEquals(5, run.fireBurnsRemaining)
+        assertTrue(f.hits().any { it.second.type == HitType.Typeless && it.second.damage == 25 })
+        repeat(10) { f.idleTick() }
+        assertEquals(0, run.fireBurnsRemaining)
+        assertEquals(
+            5,
+            f.hits().count { it.second.type == HitType.Typeless && it.second.damage == 5 },
+        )
+        f.leave()
+        assertTrue(run.flameTiles.isEmpty())
+        assertNull(run.trackingFlame)
+        assertTrue(f.hits().all { !it.second.isQueueArgumentValid() })
     }
 
     @org.junit.jupiter.api.AfterEach
@@ -293,29 +537,125 @@ private class HydraFixture(ranged: Boolean = false, accuracyResults: List<Boolea
         AlchemicalHydraEncounterManager(
             clock,
             instances,
-            npcs,
             AiPlayerInteractions(events, players),
-            collision,
             random,
             deps,
-            world,
+            AlchemicalHydraHazards(clock, instances, collision, random, deps, world),
+            AlchemicalHydraTransforms(clock),
         )
     val npc: Npc
+    val kills = mutableListOf<NpcDeathKillContext>()
+    val death =
+        NpcDeath(
+            npcs,
+            players,
+            mock(ObjRepository::class.java),
+            setOf(NpcDeathDropHook { true }),
+            setOf(KillcountNpcKillHook(), NpcDeathKillHook { kills += it }),
+        )
+    val instanceScript =
+        AlchemicalHydraWorld(
+            BossInstanceRegistry(),
+            encounters,
+            mock(ProtectedAccessLauncher::class.java),
+        )
+    val accessContext =
+        mock(ProtectedAccessContext::class.java) { call ->
+            when (call.method.name) {
+                "getCollision" -> collision
+                "getEventBus" -> events
+                "getTeleportHooks" -> PlayerTeleportHooks.EMPTY
+                "getTeleportValidator" -> PlayerTeleportValidator(emptySet())
+                "getAreaChecker" -> mock(call.method.returnType)
+                else -> RETURNS_DEFAULTS.answer(call)
+            }
+        }
+    val lifecycle: PlayerPostTickHook
 
     init {
         collision.allocateIfAbsent(player.coords.x, player.coords.z, 0)
-        val combat = AlchemicalHydraCombat(encounters, mock(NpcDeath::class.java), players, deps)
-        with(combat) { ScriptContext(events, CheatCommandMap(), EngineQueueCache()).startup() }
-        assertTrue(encounters.enter(player))
-        npc =
-            instances.npcsForInstance(assertNotNull(instances.sessionForPlayer(player)).id).single()
+        val combat =
+            AlchemicalHydraCombat(
+                encounters,
+                death,
+                players,
+                deps,
+                AlchemicalHydraAttackParameters(instances),
+                AlchemicalHydraDamageRules(instances, deps, AlchemicalHydraTransforms(clock)),
+            )
+        val context = ScriptContext(events, CheatCommandMap(), EngineQueueCache())
+        with(NpcDeathScript(death)) { context.startup() }
+        with(combat) { context.startup() }
+        val injector =
+            Guice.createInjector(
+                object : AbstractModule() {
+                    override fun configure() {
+                        bind(InstanceManager::class.java).toInstance(instances)
+                        bind(MapClock::class.java).toInstance(clock)
+                    }
+                }
+            )
+        injector.injectMembers(instanceScript)
+        with(instanceScript) { context.startup() }
+        with(AlchemicalHydraLifecycle(encounters)) { context.startup() }
+        val plugin =
+            injector.getInstance(
+                Class.forName("org.rsmod.api.instances.hook.InstanceLifecycleScript")
+                    .asSubclass(PluginScript::class.java)
+            )
+        with(plugin) { context.startup() }
+        lifecycle = plugin as PlayerPostTickHook
+        npc = enter(player)
     }
 
-    fun activate() {
-        assertTrue(encounters.crossDoor(player))
+    fun enter(who: Player): Npc {
+        who.launch {
+            with(instanceScript) { ProtectedAccess(who, this@launch, accessContext).enterHydra() }
+        }
+        return instances.npcsForInstance(assertNotNull(instances.sessionForPlayer(who)).id).single()
+    }
+
+    fun activate(who: Player = player) {
+        who.launch { assertTrue(encounters.crossDoor(ProtectedAccess(who, this, accessContext))) }
+    }
+
+    fun leave(who: Player = player) {
+        who.launch {
+            with(instanceScript) { ProtectedAccess(who, this@launch, accessContext).leaveHydra() }
+        }
+    }
+
+    fun idleTick() {
+        clock.cycle++
+        npc.currentMapClock = clock.cycle
+        npc.processedMapClock = clock.cycle
+        if (npc.activeCoroutine != null) npc.advanceActiveCoroutine()
+        NpcRevealProcessor(npcs).process(npc)
+        encounters.tickAll()
+    }
+
+    fun killQueue() {
+        npc.launch {
+            events.publish(
+                StandardNpcAccess(
+                    npc,
+                    this,
+                    StandardNpcAccessContext(
+                        { random },
+                        { StandardNpcHitModifier(events) },
+                        { StandardNpcHitProcessor(players, events, emptySet()) },
+                    ),
+                ),
+                NpcQueueEvents.Type(npc, null, "queue.death".asRSCM(RSCMType.QUEUE)),
+            )
+        }
     }
 
     fun damage(amount: Int) {
+        processDamage(buildDamage(amount))
+    }
+
+    fun buildDamage(amount: Int): Hit {
         val builder =
             HitBuilder(
                 type = HitType.Typeless,
@@ -337,6 +677,10 @@ private class HydraFixture(ranged: Boolean = false, accuracyResults: List<Boolea
                 sourceMaxDamageThreshold = Int.MAX_VALUE,
             )
         events.publish(NpcHitEvents.Modify(npc, builder))
+        return builder.build()
+    }
+
+    fun processDamage(hit: Hit) {
         npc.currentMapClock = clock.cycle
         npc.processedMapClock = clock.cycle
         npc.launch {
@@ -349,18 +693,18 @@ private class HydraFixture(ranged: Boolean = false, accuracyResults: List<Boolea
                         { StandardNpcHitProcessor(players, events, emptySet()) },
                     ),
                 )
-                .processQueuedHit(builder.build())
+                .processQueuedHit(hit)
         }
     }
 
-    fun attackAt(tick: Int) {
+    fun attackAt(tick: Int, actor: Npc = npc, target: Player = player) {
         clock.cycle = tick
-        npc.currentMapClock = tick
-        npc.processedMapClock = tick
-        npc.launch {
+        actor.currentMapClock = tick
+        actor.processedMapClock = tick
+        actor.launch {
             events.publish(
                 StandardNpcAccess(
-                    npc,
+                    actor,
                     this,
                     StandardNpcAccessContext(
                         { random },
@@ -368,7 +712,7 @@ private class HydraFixture(ranged: Boolean = false, accuracyResults: List<Boolea
                         { StandardNpcHitProcessor(players, events, emptySet()) },
                     ),
                 ),
-                AiPlayerEvents.Ap2(player, npc),
+                AiPlayerEvents.Ap2(target, actor),
             )
         }
     }

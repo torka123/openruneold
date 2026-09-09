@@ -25,6 +25,8 @@ dependencies {
     testImplementation(projects.engine.coroutine)
     testImplementation(projects.engine.events)
     testImplementation(projects.api.registry)
+    testImplementation(projects.api.deathPlugin)
+    testImplementation(projects.content.generic.killcount)
 }
 
 tasks.test {
