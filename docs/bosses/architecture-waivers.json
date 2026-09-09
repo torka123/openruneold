@@ -265,39 +265,15 @@
   },
   {
     "boss": "vorkath",
-    "rule": "boss-api-dependency",
-    "maximum": 1,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "vorkath",
-    "rule": "private-timeline",
-    "maximum": 1,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "vorkath",
-    "rule": "global-runs-map",
-    "maximum": 1,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "vorkath",
     "rule": "manual-lifecycle",
-    "maximum": 7,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+    "maximum": 4,
+    "reason": "Reviewed native PlayerPostTickHook imports/binding and Torfinn reclaim reminder only. Membership/teleport/logout/death cleanup is InstanceScript/InstanceLifecycleScript; keyed leave releases resources before persistence."
   },
   {
     "boss": "vorkath",
     "rule": "direct-combat-review",
     "maximum": 8,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "vorkath",
-    "rule": "instance-script",
-    "maximum": 1,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+    "reason": "Reviewed fireball/acid/contact tile effects, facing-dependent native attack parameters and explicitly no-reward diagnostics. Ordinary attacks and cadence use BossSpec/NpcAttack; absolute callbacks use native encounter-owned world queues. See DSL_MIGRATION.md."
   },
   {
     "boss": "wilderness",

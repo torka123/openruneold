@@ -2,6 +2,11 @@
 
 ## Scope and status
 
+This is the historical 8 September repair/deployment record. The subsequent
+[boss DSL migration](../DSL_MIGRATION.md) replaces its private timeline and instance wiring;
+that migration has **not** been deployed or live-verified. The runtime claims below apply only
+to the earlier build, not the current source. Its capture evidence and mechanical findings remain.
+
 Canonical source: `<repo-root>`. Native revision **240**, SERVER and LIVE cache paths retained. The initial doctor confirmed JVM **19780** in this tree. Existing uncommitted source, player persistence and reward tables were preserved.
 
 **Implemented, deployed and live engine audit passed:** 99 Vorkath, 60 spell, 25 shared combat/player and one native-cache test passed. Restart35 completed the full live engine/protocol audit with75 assertions. Two final controlled restarts passed doctor/startup checks, and all24 source/test hashes survived both unchanged. The active server is JVM38808 from the canonical tree. Rendered-client and complete 1:1 verification are not claimed.

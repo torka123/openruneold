@@ -55,6 +55,7 @@ internal class VorkathLiveAudit
 @Inject
 constructor(
     private val encounters: VorkathEncounterManager,
+    private val diagnostics: VorkathDiagnostics,
     private val arena: VorkathWorld,
     private val registry: PlayerRegistry,
     private val instances: InstanceManager,
@@ -97,7 +98,7 @@ constructor(
     private var fireballImpactSeen = false
     private var walkEndpoint: CoordGrid? = null
     private val acidWalkTiles = mutableSetOf<CoordGrid>()
-    private var retainedRun: VorkathEncounterManager.Run? = null
+    private var retainedRun: VorkathArenaState? = null
     private var wakeTick = 0
     private var deathStarted = false
     private var deathBoss: Npc? = null
@@ -208,7 +209,7 @@ constructor(
                 }
             "spawn-success" ->
                 if (run?.state == VorkathState.ACTIVE) {
-                    check(encounters.debugSpecial(audit, VorkathSpecial.ZOMBIFIED_SPAWN))
+                    check(diagnostics.debugSpecial(audit, VorkathSpecial.ZOMBIFIED_SPAWN))
                     next("spawn-success-wait")
                 }
             "spawn-success-wait" ->
@@ -253,7 +254,7 @@ constructor(
                         VarPlayerIntMapSetter.set(audit, "varbit.prayer_protectfrommagic", 1)
                         prayerImpact = -1
                     }
-                    check(encounters.debugAttack(audit, attack))
+                    check(diagnostics.debugAttack(audit, attack))
                     attackIssued = true
                     prayerImpact = -1
                     fireballLaunch = -1
@@ -265,23 +266,23 @@ constructor(
                 }
             "reset-acid" ->
                 if (run?.state == VorkathState.ACTIVE) {
-                    check(encounters.debugSpecial(audit, VorkathSpecial.ACID))
+                    check(diagnostics.debugSpecial(audit, VorkathSpecial.ACID))
                     next("reset-acid-wait")
                 }
             "reset-spawn" ->
                 if (run?.state == VorkathState.ACTIVE) {
-                    check(encounters.debugSpecial(audit, VorkathSpecial.ZOMBIFIED_SPAWN))
+                    check(diagnostics.debugSpecial(audit, VorkathSpecial.ZOMBIFIED_SPAWN))
                     next("reset-spawn-wait")
                 }
             "reset-fireball" ->
                 if (run?.state == VorkathState.ACTIVE) {
-                    check(encounters.debugAttack(audit, VorkathStandardAttack.FIREBALL))
+                    check(diagnostics.debugAttack(audit, VorkathStandardAttack.FIREBALL))
                     next("reset-fireball-wait")
                 }
             "boss-death" ->
                 if (run?.state == VorkathState.ACTIVE && !deathStarted) {
                     deathBoss = run.boss
-                    check(encounters.debugKill(audit))
+                    check(diagnostics.debugKill(audit))
                     deathStarted = true
                     stageTick = clock.cycle
                 }
@@ -489,7 +490,7 @@ constructor(
             audit.statMap.setCurrentLevel("stat.hitpoints", 99)
     }
 
-    private fun observeNatural(run: VorkathEncounterManager.Run, tick: Int) {
+    private fun observeNatural(run: VorkathArenaState, tick: Int) {
         if (run.standardAttacks > previousNormals) {
             normalTicks += tick
             log("NORMAL index=${run.standardAttacks} tick=$tick anim=${run.boss.pendingSequence}")
@@ -572,7 +573,7 @@ constructor(
         previousNormals = run.standardAttacks
     }
 
-    private fun observePackets(run: VorkathEncounterManager.Run, tick: Int) {
+    private fun observePackets(run: VorkathArenaState, tick: Int) {
         val origin = requireNotNull(instances.localCoord(run.session, RegionLocal(0, 35, 63, 0, 0)))
         for (entry in updates.updatedZones.int2ObjectEntrySet()) {
             val zoneOrigin = ZoneKey(entry.intKey).toCoords()
@@ -667,7 +668,7 @@ constructor(
 
     private fun resetWake(audit: Player) {
         val run = requireNotNull(encounters.auditRun(audit))
-        check(encounters.debugReset(audit))
+        check(diagnostics.debugReset(audit))
         requireClean(run, "reset")
         requireAudit(
             run.state == VorkathState.SLEEPING && run.boss.visType.id == 8059,
@@ -677,7 +678,7 @@ constructor(
         wakeTick = clock.cycle
     }
 
-    private fun requireClean(run: VorkathEncounterManager.Run, reason: String) {
+    private fun requireClean(run: VorkathArenaState, reason: String) {
         requireAudit(
             run.acidTiles.isEmpty() &&
                 run.acidVisuals.isEmpty() &&
@@ -691,7 +692,7 @@ constructor(
         )
     }
 
-    private fun requireRemoved(run: VorkathEncounterManager.Run, reason: String) {
+    private fun requireRemoved(run: VorkathArenaState, reason: String) {
         requireClean(run, reason)
         requireAudit(
             encounters.auditRun(requireNotNull(player)) == null && !run.boss.isSlotAssigned,

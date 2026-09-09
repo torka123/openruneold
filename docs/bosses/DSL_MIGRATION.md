@@ -213,8 +213,9 @@ work. Pending collections are audit metadata, no longer polled to execute hits/p
 `vorkath-dsl-production-test.log`: 105 tests pass. `vorkath-scoped-special-effects-test-2.log`:
 107 tests pass (34s/162 tasks), including native six-normal/acid/six-normal/spawn rotation against
 the old cadence, all 25 rapid shots at +4..+28, zero world tasks after exit during each special or
-wake, and collision/queued-hit races. Arena effects still need separation into focused handlers
-before this migration is accepted; live packet/visual comparisons remain unperformed.
+wake, and collision/queued-hit races. The subsequent handler-extraction commit separates arena
+effects, spawn collision/contact, session data and no-reward diagnostics. Live packet/visual
+comparisons remain unperformed.
 
 Initial line-count definition: main Kotlin files ending in `Manager.kt` or `Timeline.kt`, excluding
 generated output. Includes specialized manager files (therefore not all counted lines are duplication).
@@ -223,7 +224,7 @@ Diagnostic-only modules are excluded. Zero manager lines is not proof of archite
 | Boss | Original architecture / manager lines | DSL conversion | Instance conversion | External handlers retained | Tests | Remaining uncertainty |
 |---|---|---|---|---|---|---|
 | Kraken | private per-player run, native combat wrapper; 363 → 0 manager lines | Boss/tentacle specifications; ordinary attacks delegated to native NvPCombat by DSL | Source InstanceScript; native spawns, keyed joins, session state and lifecycle | KrakenWhirlpools (171 lines): dormant activation, one-shot completion/drop tile; native attack-validation hook | 12 passing tests, including 8 native integration/characterization tests | No live deployment/client verification; no new OSRS parity claim |
-| Vorkath | managers/timing; 1,254 | Pending | Pending | Acid/spawn/death storage | Existing tests preserved | PR remains unsubmitted |
+| Vorkath | managers/timing; 1,254 -> 426 coordinator lines | BossSpec/BossCombat normal attacks, weights, forced cadence, phases; old timeline test-only | InstanceScript source arena, keyed join/leave, native ownership and cleanup | Arena effects (344 lines), spawn collision/contact (228), session data (71), no-reward diagnostics (105), existing reclaim storage | 110 passing module tests; all boss/shared regressions and server classes pass; revision-240 cache audit passes | Not deployed; PR unsubmitted. Inferred selection/path rules and original non-player damage exclusion retained, not certified as OSRS-correct |
 | Corporeal Beast | manager; 502 | Pending | Pending | Core behavior | Pending | Detailed mapping pending |
 | Alchemical Hydra | manager; 858 | Pending | Pending | Vents/hazards | Pending | Detailed mapping pending |
 | Grotesque Guardians | manager; 945 | Pending | Pending | Paired mechanics | Pending | Detailed mapping pending |
@@ -313,8 +314,20 @@ Kree'arra, K'ril, Obor, Scorpia, Scurrius, Wilderness, Zilyana) must be regressi
   `vorkath-dsl-characterization-2.log` passes: 26 boss API tests and 105 Vorkath tests. The first
   combined run exposed concurrent initialization of the shared revision-240 test cache; Vorkath's
   tests now run serially like Kraken and the shared API fixtures. No gameplay timing changed.
-- Vorkath's new specification is currently exercised by characterization only, not registered beside
+- At the characterization checkpoint, Vorkath's new specification was test-only, not registered beside
   the old combat in production. It reproduces six native attacks and the following special deadline,
   exact ranged projectile fields and queue delays, all selection weight boundaries including
   underfoot exclusion, and retirement of queued hits. Existing special/capture tests still run
-  against the old wiring until each specialized/lifecycle path is migrated and compared.
+  against the old wiring until each specialized/lifecycle path was migrated and compared.
+- Final Vorkath handler extraction: `vorkath-final-handler-check.log` passes scoped formatting,
+  Vorkath check (110 tests), boss API, instance and Kraken tests (40s, 174 tasks). Native death
+  queue, two consecutive completions, multi-instance isolation and logout resource restoration
+  before deferred map destruction are executed in headless native fixtures.
+- `vorkath-migration-broad-regression.log`: all boss module test tasks, boss/instance/NPC/game-process/
+  combat/game tests and `:server:app:classes` pass (1m37s, 503 tasks). Existing modules without tests
+  are compilation-only coverage. `vorkath-migration-cache-audit.log`: one executable revision-240
+  Vorkath cache audit passes (21s, 18 tasks). No cache path, definition or live runtime changed.
+- Vorkath no longer needs dependency, private-timeline, global-run or InstanceScript waivers.
+  Remaining reviewed exceptions are specialized area/contact effects and the Torfinn reclaim
+  reminder hook. The latter does not manage encounter membership or cleanup. The manager retains
+  presentation, attack eligibility, native KC/PB and reclaim coordination, not ordinary scheduling.

@@ -35,6 +35,7 @@ constructor(
     private val encounters: VorkathEncounterManager,
     private val storage: VorkathDeathStorage,
     private val access: VorkathAccessPolicy,
+    private val diagnostics: VorkathDiagnostics,
 ) :
     InstanceScript(
         registry,
@@ -44,6 +45,9 @@ constructor(
     override fun ScriptContext.configure() {
         onInstancePlayerJoin {
             manager.sessionForId(instanceId)?.let { encounters.onJoin(player, it) }
+        }
+        onInstancePlayerLeave {
+            manager.sessionForId(instanceId)?.let { encounters.onLeave(player, it) }
         }
         onEvent<InstanceLeaveRequestEvent>(instanceEventId(VORKATH_INSTANCE_KEY)) {
             if (manager.sessionForPlayer(player)?.id == instanceId) {
@@ -121,7 +125,7 @@ constructor(
             requiredRights = Rights.ADMINISTRATOR
             desc = "Show the current private Vorkath encounter state"
             invalidArgs = "Use as ::vorkathdebug"
-            cheat { if (args.isEmpty()) player.mes(encounters.debugStatus(player)) }
+            cheat { if (args.isEmpty()) player.mes(diagnostics.debugStatus(player)) }
         }
         onCommand("vorkathdev") {
             requiredRights = Rights.ADMINISTRATOR
@@ -134,14 +138,14 @@ constructor(
                     )
                 }
                 when (args.firstOrNull()?.lowercase()) {
-                    "status" -> player.mes(encounters.debugStatus(player))
-                    "wake" -> encounters.debugWake(player)
+                    "status" -> player.mes(diagnostics.debugStatus(player))
+                    "wake" -> diagnostics.debugWake(player)
                     "special" ->
                         when (args.getOrNull(1)?.lowercase()) {
-                            "acid" -> encounters.debugSpecial(player, VorkathSpecial.ACID)
+                            "acid" -> diagnostics.debugSpecial(player, VorkathSpecial.ACID)
                             "spawn",
                             "zombified" ->
-                                encounters.debugSpecial(player, VorkathSpecial.ZOMBIFIED_SPAWN)
+                                diagnostics.debugSpecial(player, VorkathSpecial.ZOMBIFIED_SPAWN)
                             else -> usage()
                         }
                     "attack" -> {
@@ -161,10 +165,10 @@ constructor(
                                 "bomb" -> VorkathStandardAttack.FIREBALL
                                 else -> null
                             }
-                        if (attack == null) usage() else encounters.debugAttack(player, attack)
+                        if (attack == null) usage() else diagnostics.debugAttack(player, attack)
                     }
-                    "reset" -> encounters.debugReset(player)
-                    "kill" -> encounters.debugKill(player)
+                    "reset" -> diagnostics.debugReset(player)
+                    "kill" -> diagnostics.debugKill(player)
                     else -> usage()
                 }
             }
