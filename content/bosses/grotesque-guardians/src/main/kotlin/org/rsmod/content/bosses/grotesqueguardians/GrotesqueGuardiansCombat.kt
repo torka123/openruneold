@@ -56,7 +56,7 @@ constructor(
                 if (dropTile == null) {
                     death.deathNoDrops(this)
                 } else {
-                    death.deathWithDrops(this, dropTile)
+                    death.deathWithDrops(this, dropTile, respawnDelay = Int.MAX_VALUE)
                     encounters.finishDuskDeath(npc)
                 }
             }

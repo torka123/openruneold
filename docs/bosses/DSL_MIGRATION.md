@@ -628,3 +628,10 @@ will be suppressed through the existing native death delay parameter. No new lif
 reset scenarios. `guardians-instance-reset-green.log`: all 34 pass and scoped check succeeds
 (39s, 148 tasks, process exit 0). The overload delegates to the pre-existing reset implementation;
 no new allocation, NPC construction, ownership map or session lifetime was introduced.
+
+Guardians native-instance wiring now executes all original 12 characterization cases. The added
+13th test fails as expected (`guardians-threshold-race-red.log`, 36s): calculating the first queued
+threshold-crossing hit immediately transforms Dawn before accepted damage. Correct this through
+the already-mapped native Resolve/Impact callbacks, preserving 247/9 HP floors and all form delays.
+This is a demonstrated pipeline timing defect, not an invented OSRS rebalance. Initial instance
+test compilation required correcting fixture imports; no production mechanic changed for that.

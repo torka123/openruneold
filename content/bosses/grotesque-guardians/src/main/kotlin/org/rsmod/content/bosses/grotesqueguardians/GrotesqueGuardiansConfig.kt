@@ -1,7 +1,10 @@
 package org.rsmod.content.bosses.grotesqueguardians
 
+import dev.openrune.rscm.RSCM
+import dev.openrune.rscm.RSCMType
 import dev.openrune.types.NpcServerType
 import org.rsmod.api.instances.InstanceArea
+import org.rsmod.api.instances.InstanceNpc
 import org.rsmod.api.instances.InstanceSettings
 import org.rsmod.api.instances.RegionLocal
 import org.rsmod.map.CoordGrid
@@ -40,6 +43,29 @@ internal val GROTESQUE_AREA =
                 GROTESQUE_ENTRY_LOCAL_Z,
             ),
         exitCoord = GROTESQUE_PUBLIC_EXIT,
+        npcSpawns =
+            listOf(
+                InstanceNpc(
+                    RSCM.getReverseMapping(RSCMType.NPC, GrotesqueAssets.DAWN_PHASE_ONE),
+                    RegionLocal(
+                        0,
+                        GROTESQUE_SOURCE_MAP_X,
+                        GROTESQUE_SOURCE_MAP_Z,
+                        GROTESQUE_DAWN_LOCAL_X,
+                        GROTESQUE_DAWN_LOCAL_Z,
+                    ),
+                ),
+                InstanceNpc(
+                    RSCM.getReverseMapping(RSCMType.NPC, GrotesqueAssets.DUSK_PHASE_ONE),
+                    RegionLocal(
+                        0,
+                        GROTESQUE_SOURCE_MAP_X,
+                        GROTESQUE_SOURCE_MAP_Z,
+                        GROTESQUE_DUSK_LOCAL_X,
+                        GROTESQUE_DUSK_LOCAL_Z,
+                    ),
+                ),
+            ),
     )
 
 internal fun grotesqueSpec(dawn: NpcServerType, dusk: NpcServerType) =

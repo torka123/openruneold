@@ -4,14 +4,8 @@ import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import org.rsmod.api.death.NpcAttackValidateHook
 import org.rsmod.api.death.NpcAttackValidateResult
-import org.rsmod.api.death.PlayerDeathCleanupHook
 import org.rsmod.api.game.process.GameLifecycle
-import org.rsmod.api.instances.events.InstanceLeaveRequestEvent
-import org.rsmod.api.instances.events.InstancePlayerExternalTeleportEvent
-import org.rsmod.api.instances.events.InstancePlayerLeaveEvent
-import org.rsmod.api.instances.events.instanceEventId
 import org.rsmod.api.script.onEvent
-import org.rsmod.api.script.onPlayerLogout
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
 import org.rsmod.plugin.scripts.PluginScript
@@ -32,27 +26,10 @@ constructor(private val encounters: GrotesqueGuardiansEncounterManager) : NpcAtt
     }
 }
 
-@Singleton
-internal class GrotesqueDeathCleanup
-@Inject
-constructor(private val encounters: GrotesqueGuardiansEncounterManager) : PlayerDeathCleanupHook {
-    override fun cleanup(player: Player) = encounters.playerDied(player)
-}
-
 internal class GrotesqueGuardiansLifecycle
 @Inject
 constructor(private val encounters: GrotesqueGuardiansEncounterManager) : PluginScript() {
     override fun ScriptContext.startup() {
         onEvent<GameLifecycle.LateCycle> { encounters.tickAll() }
-        onEvent<InstanceLeaveRequestEvent>(instanceEventId(GROTESQUE_INSTANCE_KEY)) {
-            result = encounters.leaveFromLogoutTab(player, instanceId)
-        }
-        onEvent<InstancePlayerLeaveEvent>(instanceEventId(GROTESQUE_INSTANCE_KEY)) {
-            encounters.membershipEnded(player, instanceId)
-        }
-        onEvent<InstancePlayerExternalTeleportEvent> {
-            if (key == GROTESQUE_INSTANCE_KEY) encounters.externalTeleport(player, instanceId)
-        }
-        onPlayerLogout { encounters.logout(player) }
     }
 }

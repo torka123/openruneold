@@ -1,5 +1,7 @@
 package org.rsmod.content.bosses.grotesqueguardians
 
+import com.google.inject.AbstractModule
+import com.google.inject.Guice
 import dev.openrune.ServerCacheManager
 import dev.openrune.types.ProjAnimType
 import kotlin.test.*
@@ -17,6 +19,7 @@ import org.rsmod.api.death.NpcDeathDropHook
 import org.rsmod.api.death.NpcDeathKillHook
 import org.rsmod.api.death.plugin.NpcDeathScript
 import org.rsmod.api.game.process.world.WorldQueueListProcess
+import org.rsmod.api.instances.BossInstanceRegistry
 import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.instances.region.InstanceAreaResolver
 import org.rsmod.api.npc.access.StandardNpcAccess
@@ -26,6 +29,12 @@ import org.rsmod.api.npc.events.interact.AiPlayerEvents
 import org.rsmod.api.npc.hit.modifier.StandardNpcHitModifier
 import org.rsmod.api.npc.hit.processor.StandardNpcHitProcessor
 import org.rsmod.api.npc.interact.AiPlayerInteractions
+import org.rsmod.api.player.hook.PlayerPostTickHook
+import org.rsmod.api.player.hook.PlayerTeleportHooks
+import org.rsmod.api.player.hook.PlayerTeleportValidator
+import org.rsmod.api.player.protect.ProtectedAccess
+import org.rsmod.api.player.protect.ProtectedAccessContext
+import org.rsmod.api.player.protect.ProtectedAccessLauncher
 import org.rsmod.api.player.vars.VarPlayerIntMapSetter
 import org.rsmod.api.random.GameRandom
 import org.rsmod.api.registry.npc.NpcRegistry
@@ -51,6 +60,7 @@ import org.rsmod.game.region.zone.RegionZoneCopy
 import org.rsmod.game.seq.EntitySeq
 import org.rsmod.map.CoordGrid
 import org.rsmod.map.zone.ZoneKey
+import org.rsmod.plugin.scripts.PluginScript
 import org.rsmod.plugin.scripts.ScriptContext
 import org.rsmod.routefinder.collision.CollisionFlagMap
 
@@ -210,6 +220,28 @@ class GrotesqueGuardiansNativeTest {
         assertEquals(listOf(1), f.rolls.drop(before))
     }
 
+    @Test
+    fun `threshold transition waits for accepted native impact and simultaneous crossings stop at floor`() {
+        val f = GuardiansFixture()
+        f.ring()
+        val first = f.calculate(f.dawn, 500, HitType.Ranged)
+        val second = f.calculate(f.dawn, 500, HitType.Ranged)
+        assertEquals(7852, f.dawn.visType.id, "Calculating a projectile must not transform Dawn")
+        assertEquals(450, f.dawn.hitpoints)
+        f.apply(f.dawn, first)
+        assertEquals(247, f.dawn.hitpoints)
+        assertEquals(7853, f.dawn.visType.id)
+        f.apply(f.dawn, second)
+        assertEquals(247, f.dawn.hitpoints, "A second queued hit cannot bypass the new phase gate")
+        val duskFirst = f.calculate(f.dusk, 500, HitType.Melee)
+        val duskSecond = f.calculate(f.dusk, 500, HitType.Melee)
+        assertEquals(7882, f.dusk.visType.id)
+        f.apply(f.dusk, duskFirst)
+        f.apply(f.dusk, duskSecond)
+        assertEquals(247, f.dusk.hitpoints)
+        assertEquals(7855, f.dusk.visType.id)
+    }
+
     companion object {
         @BeforeAll
         @JvmStatic
@@ -309,13 +341,10 @@ private class GuardiansFixture(accurate: Boolean = true) {
         GrotesqueGuardiansEncounterManager(
             clock,
             instances,
-            npcs,
             AiPlayerInteractions(events, players),
-            collision,
-            random,
             deps,
             queues,
-            world,
+            GuardiansArenaEffects(clock, instances, random, deps, queues, world),
         )
     val death =
         NpcDeath(
@@ -327,6 +356,24 @@ private class GuardiansFixture(accurate: Boolean = true) {
         )
     val dawn: Npc
     val dusk: Npc
+    val instanceScript =
+        GrotesqueGuardiansWorld(
+            BossInstanceRegistry(),
+            encounters,
+            mock(ProtectedAccessLauncher::class.java),
+        )
+    val accessContext =
+        mock(ProtectedAccessContext::class.java) { call ->
+            when (call.method.name) {
+                "getCollision" -> collision
+                "getEventBus" -> events
+                "getTeleportHooks" -> PlayerTeleportHooks.EMPTY
+                "getTeleportValidator" -> PlayerTeleportValidator(emptySet())
+                "getAreaChecker" -> mock(call.method.returnType)
+                else -> RETURNS_DEFAULTS.answer(call)
+            }
+        }
+    val lifecycle: PlayerPostTickHook
 
     init {
         collision.allocateIfAbsent(player.coords.x, player.coords.z, player.coords.level)
@@ -343,10 +390,44 @@ private class GuardiansFixture(accurate: Boolean = true) {
         ) {
             context.startup()
         }
-        with(GrotesqueGuardiansWorld(encounters)) { context.startup() }
-        assertTrue(encounters.enter(player))
+        val injector =
+            Guice.createInjector(
+                object : AbstractModule() {
+                    override fun configure() {
+                        bind(InstanceManager::class.java).toInstance(instances)
+                        bind(MapClock::class.java).toInstance(clock)
+                    }
+                }
+            )
+        injector.injectMembers(instanceScript)
+        with(instanceScript) { context.startup() }
+        with(GrotesqueGuardiansLifecycle(encounters)) { context.startup() }
+        val plugin =
+            injector.getInstance(
+                Class.forName("org.rsmod.api.instances.hook.InstanceLifecycleScript")
+                    .asSubclass(PluginScript::class.java)
+            )
+        with(plugin) { context.startup() }
+        lifecycle = plugin as PlayerPostTickHook
+        enter(player)
         dawn = npcList.single { it.type.id == 7852 }
         dusk = npcList.single { it.type.id == 7851 }
+    }
+
+    fun enter(who: Player) {
+        who.launch {
+            with(instanceScript) {
+                ProtectedAccess(who, this@launch, accessContext).enterGuardians()
+            }
+        }
+    }
+
+    fun leave() {
+        player.launch {
+            with(instanceScript) {
+                ProtectedAccess(player, this@launch, accessContext).leaveGuardians()
+            }
+        }
     }
 
     fun ring() {
@@ -398,7 +479,9 @@ private class GuardiansFixture(accurate: Boolean = true) {
         npcList.forEach { it.pendingSequence = EntitySeq.NULL }
     }
 
-    fun damage(npc: Npc, amount: Int, type: HitType) {
+    fun damage(npc: Npc, amount: Int, type: HitType) = apply(npc, calculate(npc, amount, type))
+
+    fun calculate(npc: Npc, amount: Int, type: HitType): Hit {
         val builder =
             HitBuilder(
                 type,
@@ -420,6 +503,10 @@ private class GuardiansFixture(accurate: Boolean = true) {
                 Int.MAX_VALUE,
             )
         events.publish(NpcHitEvents.Modify(npc, builder))
+        return builder.build()
+    }
+
+    fun apply(npc: Npc, hit: Hit) {
         npc.currentMapClock = clock.cycle
         npc.processedMapClock = clock.cycle
         npc.launch {
@@ -432,7 +519,7 @@ private class GuardiansFixture(accurate: Boolean = true) {
                         { StandardNpcHitProcessor(players, events, emptySet()) },
                     ),
                 )
-                .processQueuedHit(builder.build())
+                .processQueuedHit(hit)
         }
     }
 
