@@ -692,3 +692,14 @@ grave pipeline remain **not performed**, not implied by these headless tests.
 `guardians-broad-regression.log`: all applicable boss-module tests, drops, bosses/instances/NPC/death/
 game-process/combat-scripts/engine-game tests and server app classes pass (1m44s, 507 tasks,
 process exit 0). Modules reporting NO-SOURCE do not provide encounter gameplay coverage.
+
+## Architecture check build integration
+
+The existing `scripts/check-boss-architecture.ps1` already owns the detector and reviewed waiver
+budgets; local root/build-logic searches find no Gradle invocation. Wire its existing self-test and
+repository check into root `check` using Gradle Exec tasks. This is build integration, not a new
+combat API/detector. Use Windows PowerShell on Windows and `pwsh` elsewhere; absence of that explicit
+prerequisite must fail visibly, not silently skip enforcement. No task writes source, cache or data.
+
+`boss-architecture-gradle-check.log`: both detector self-tests and repository enforcement pass
+through Gradle (24s, 11 tasks, exit 0). Root `check` now depends on that same task.

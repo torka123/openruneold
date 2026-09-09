@@ -13,6 +13,38 @@ dependencies {
     implementation(projects.server.install)
 }
 
+val bossArchitectureShell =
+    if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) "powershell.exe"
+    else "pwsh"
+
+val bossArchitectureSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs the existing boss architecture detector's deterministic self-tests."
+    workingDir(rootDir)
+    commandLine(
+        bossArchitectureShell,
+        "-NoProfile",
+        "-File",
+        "scripts/check-boss-architecture.ps1",
+        "-SelfTest",
+    )
+}
+
+val bossArchitectureCheck by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Checks boss architecture against explicitly reviewed migration waivers."
+    dependsOn(bossArchitectureSelfTest)
+    workingDir(rootDir)
+    commandLine(
+        bossArchitectureShell,
+        "-NoProfile",
+        "-File",
+        "scripts/check-boss-architecture.ps1",
+    )
+}
+
+tasks.named("check") { dependsOn(bossArchitectureCheck) }
+
 tasks.register("run") {
     group = "application"
     description = "Runs the RS Mod game server"
