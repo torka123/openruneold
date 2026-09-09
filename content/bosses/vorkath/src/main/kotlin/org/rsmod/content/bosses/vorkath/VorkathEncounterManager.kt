@@ -16,9 +16,9 @@ import org.rsmod.api.combat.commons.CombatAttack
 import org.rsmod.api.combat.commons.CombatEffects
 import org.rsmod.api.combat.commons.types.MeleeAttackType
 import org.rsmod.api.combat.commons.types.RangedAttackType
-import org.rsmod.api.instances.InstanceAccess
 import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.instances.InstanceSession
+import org.rsmod.api.instances.InstanceStateKey
 import org.rsmod.api.instances.RegionLocal
 import org.rsmod.api.mechanics.toxins.impl.PlayerVenom
 import org.rsmod.api.npc.access.StandardNpcAccess
@@ -46,7 +46,6 @@ import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.npc.NpcUid
 import org.rsmod.game.entity.player.PlayerUid
-import org.rsmod.game.entity.util.PathingEntityCommon
 import org.rsmod.game.hit.HitBuilder
 import org.rsmod.game.hit.HitType
 import org.rsmod.game.hit.HitValidity
@@ -78,8 +77,16 @@ constructor(
     private val spawnSteps = StepFactory(collision)
     private val COMBAT_STATES =
         setOf(VorkathState.ACTIVE, VorkathState.ACID_SPECIAL, VorkathState.ZOMBIFIED_SPAWN_SPECIAL)
-    private val runs = mutableMapOf<PlayerUid, Run>()
-    private var generation = 1L
+    internal val stateKey = InstanceStateKey<Run>("vorkath-arena")
+
+    private fun runFor(player: Player): Run? =
+        instances
+            .sessionForPlayer(player)
+            ?.takeIf { it.key == VORKATH_INSTANCE_KEY }
+            ?.stateOrNull(stateKey)
+
+    private fun runFor(npc: Npc): Run? =
+        instances.instanceForNpc(npc)?.let(instances::sessionForId)?.stateOrNull(stateKey)
 
     fun validateAssets() {
         listOf(
@@ -129,87 +136,46 @@ constructor(
         acidPoolType()
     }
 
-    fun teleportOutside(player: Player): Boolean {
-        val current = instances.sessionForPlayer(player)
-        if (current != null && current.key != VORKATH_INSTANCE_KEY) {
-            player.mes("Leave your current instance before travelling to Ungael.")
-            return false
-        }
-        runs[player.uid]?.let { abort(player, "staff travel command", teleport = false) }
-        if (current != null) instances.leave(player, current, clock.cycle)
-        prepare(player)
-        PathingEntityCommon.telejump(player, collision, VORKATH_OUTSIDE)
-        player.mes("You arrive outside Vorkath's arena. Climb over the ice chunks to enter.")
-        return true
-    }
-
-    fun teleportRellekka(player: Player): Boolean {
-        runs[player.uid]?.let { abort(player, "Torfinn travel", teleport = false) }
-        val current = instances.sessionForPlayer(player)
-        if (current != null && current.key == VORKATH_INSTANCE_KEY) {
-            instances.leave(player, current, clock.cycle)
-        }
-        prepare(player)
-        PathingEntityCommon.telejump(player, collision, VORKATH_RELLEKKA)
-        player.mes("Torfinn sails you back to Rellekka.")
-        return true
-    }
-
-    fun enter(player: Player, wallLocalX: Int): Boolean {
-        if (player.hitpoints <= 0 || player.isAccessProtected) {
-            player.mes("Finish what you are doing before entering Vorkath's arena.")
-            return false
-        }
-        if (runs.containsKey(player.uid) || instances.sessionForPlayer(player) != null) {
-            player.mes("You already have an active instance.")
-            return false
-        }
-        val activeType = requireNpc(VorkathAssets.ACTIVE)
-        requireNpc(VorkathAssets.SLEEPING)
-        requireNpc(VorkathAssets.SPAWN)
-        val result =
-            instances.create(
-                owner = player,
-                key = VORKATH_INSTANCE_KEY,
-                spec = vorkathSpec(activeType),
-                access = InstanceAccess.Private,
-                currentTick = clock.cycle,
-            )
-        if (result !is InstanceManager.Result.Created) {
-            player.mes(
-                (result as? InstanceManager.Result.Failed)?.reason ?: "The arena is unavailable."
-            )
-            return false
-        }
-        prepare(player)
-        val entry = wallTile(result.session, wallLocalX, inside = false) ?: result.enter
-        PathingEntityCommon.telejump(player, collision, entry)
-        instances.finalizeEntry(player, result.session, clock.cycle)
-        player.lootDropDuration?.let { player.attr[VORKATH_PREVIOUS_DROP_DURATION] = it }
-        player.lootDropDuration = VORKATH_DROP_DURATION
+    fun onJoin(player: Player, session: InstanceSession) {
+        if (session.stateOrNull(stateKey) != null) return
         val sleeping =
-            spawnNpc(player, result.session, VorkathAssets.SLEEPING, bossCoord(result.session))
+            instances.npcsForInstance(session.id).single {
+                it.type.internalName == VorkathAssets.SLEEPING
+            }
+        sleeping.assignSpawnOwner(player, clock.cycle)
+        sleeping.mode = null
         sleeping.movementLocked = true
         val run =
-            Run(
-                player = player,
-                session = result.session,
-                generation = generation++,
-                firstSpecial = VorkathRules.firstSpecial(random.of(2)),
-                boss = sleeping,
-                initialState = VorkathState.ENTERING,
-            )
-        runs[player.uid] = run
-        run.state = VorkathState.SLEEPING
+            session.state(stateKey) {
+                Run(
+                    player,
+                    session,
+                    session.id.value,
+                    sleeping,
+                    firstSpecial = VorkathRules.firstSpecial(random.of(2)),
+                )
+            }
+        ownResources(run)
+        player.lootDropDuration?.let { player.attr[VORKATH_PREVIOUS_DROP_DURATION] = it }
+        player.lootDropDuration = VORKATH_DROP_DURATION
         player.mes("Vorkath is sleeping. Poke him when you are ready.")
-        log.info {
-            "[Vorkath] player=${player.displayName} generation=${run.generation} instance=${result.session.id}"
+        log.info { "[Vorkath] player=${player.displayName} instance=${session.id}" }
+    }
+
+    /** Only arena resources: native InstanceManager owns membership and entity retirement. */
+    internal fun ownResources(run: Run) {
+        run.session.onCleanup {
+            run.state = VorkathState.ENDED
+            clearMechanics(run)
+            bossBars.onClose(run.player, run.boss, instant = true)
+            run.player.lootDropDuration = run.player.attr[VORKATH_PREVIOUS_DROP_DURATION]
+            run.player.attr.remove(VORKATH_PREVIOUS_DROP_DURATION)
+            prepare(run.player)
         }
-        return true
     }
 
     fun poke(player: Player, npc: Npc): Boolean {
-        val run = runs[player.uid] ?: return false
+        val run = runFor(player) ?: return false
         if (!inArena(run) || !player.isSlotAssigned || player.hitpoints <= 0) return false
         if (run.state != VorkathState.SLEEPING || run.boss !== npc || !npc.isSpawnOwnedBy(player))
             return false
@@ -223,22 +189,20 @@ constructor(
     }
 
     fun tickAll() {
-        runs.values.toList().forEach { tick(it.player) }
+        instances
+            .sessionsForKey(VORKATH_INSTANCE_KEY)
+            .toList()
+            .mapNotNull { it.stateOrNull(stateKey) }
+            .forEach { tick(it.player) }
     }
 
-    internal fun auditRun(player: Player): Run? = runs[player.uid]
+    internal fun auditRun(player: Player): Run? = runFor(player)
 
     fun tick(player: Player) {
-        val run = runs[player.uid] ?: return
-        if (!player.isSlotAssigned || player.pendingLogout || player.loggingOut) {
-            abort(
-                player,
-                "player unavailable",
-                teleport = false,
-                logout = player.loggingOut || player.pendingLogout,
-            )
-            return
-        }
+        val run = runFor(player) ?: return
+        // Membership cleanup belongs to InstanceLifecycleScript. Guard effects during the
+        // interval before its logout/death/teleport hook retires the native session.
+        if (!player.isSlotAssigned || player.pendingLogout || player.loggingOut) return
         if (player.hitpoints <= 0) {
             // Keep membership until the death hook chooses the existing Vorkath reclaim behavior.
             if (run.state != VorkathState.ENDED) {
@@ -248,12 +212,9 @@ constructor(
             }
             return
         }
-        if (!inArena(run)) {
-            abort(player, "left arena", teleport = false)
-            return
-        }
+        if (!inArena(run)) return
         if (run.state in COMBAT_STATES && !run.boss.isSlotAssigned) {
-            abort(player, "boss removed", teleport = false)
+            instances.terminate(run.session)
             return
         }
         if (run.state in COMBAT_STATES && run.boss.hitpoints <= 0) {
@@ -300,7 +261,7 @@ constructor(
     }
 
     fun attack(access: StandardNpcAccess, target: Player) {
-        val run = runs[target.uid] ?: return
+        val run = runFor(target) ?: return
         if (run.boss !== access.npc || !validTarget(run) || !run.timeline.attackDue(clock.cycle))
             return
         if (run.standardAttacks == VORKATH_STANDARD_ATTACKS) {
@@ -322,13 +283,13 @@ constructor(
         combat.attack(access, target, style, override)
     }
 
-    fun isEncounterNpc(npc: Npc): Boolean = runs.values.any { it.owns(npc) }
+    fun isEncounterNpc(npc: Npc): Boolean = runFor(npc)?.owns(npc) == true
 
     fun isOwnedBy(player: Player, npc: Npc): Boolean =
-        runs[player.uid]?.let { it.owns(npc) && npc.isSpawnOwnedBy(player) } == true
+        runFor(player)?.let { it.owns(npc) && npc.isSpawnOwnedBy(player) } == true
 
     fun attackDenial(player: Player, npc: Npc): String? {
-        val run = runs[player.uid] ?: return "You do not have an active Vorkath encounter."
+        val run = runFor(player) ?: return "You do not have an active Vorkath encounter."
         if (!run.owns(npc)) return "That creature belongs to another encounter."
         if (
             npc === run.boss &&
@@ -345,7 +306,7 @@ constructor(
     }
 
     fun modifyNpcHit(player: Player, npc: Npc, hit: HitBuilder) {
-        val run = runs[player.uid]
+        val run = runFor(player)
         if (run == null || !run.owns(npc) || !npc.isSpawnOwnedBy(player)) {
             hit.damage = 0
             return
@@ -369,7 +330,7 @@ constructor(
     }
 
     fun beginBossDeath(npc: Npc): Run? {
-        val run = runs.values.firstOrNull { it.boss === npc } ?: return null
+        val run = runFor(npc)?.takeIf { it.boss === npc } ?: return null
         if (
             run.state == VorkathState.DYING ||
                 run.state == VorkathState.LOOTABLE ||
@@ -390,8 +351,8 @@ constructor(
     }
 
     fun finishBossDeath(npc: Npc) {
-        val run = runs.values.firstOrNull { it.boss === npc } ?: return
-        if (runs[run.player.uid] !== run) return
+        val run = runFor(npc)?.takeIf { it.boss === npc } ?: return
+        if (runFor(run.player) !== run) return
         if (run.rewardEligible) {
             val oldPb = run.player.attr[VORKATH_PERSONAL_BEST_TICKS]
             val personalBest = oldPb == null || run.killTicks < oldPb
@@ -412,7 +373,7 @@ constructor(
     }
 
     fun beginSpawnDeath(npc: Npc) {
-        val run = runs.values.firstOrNull { it.spawn === npc } ?: return
+        val run = runFor(npc)?.takeIf { it.spawn === npc } ?: return
         if (
             run.state != VorkathState.ZOMBIFIED_SPAWN_SPECIAL ||
                 run.spawnDeathCycle != Int.MAX_VALUE
@@ -426,29 +387,13 @@ constructor(
     }
 
     fun canFinishDeath(run: Run, npc: Npc): Boolean =
-        runs[run.player.uid] === run &&
+        runFor(run.player) === run &&
             run.boss === npc &&
             run.state == VorkathState.DYING &&
             inArena(run) &&
             run.player.hitpoints > 0
 
-    fun isActive(player: Player): Boolean = runs[player.uid]?.state != null
-
-    fun escape(player: Player, localX: Int): Boolean {
-        if (!runs.containsKey(player.uid)) return false
-        val publicWallTile =
-            CoordGrid(
-                x = (VORKATH_SOURCE_REGION_X * 64) + localX,
-                z = (VORKATH_SOURCE_REGION_Z * 64) + VORKATH_WALL_OUTSIDE_LOCAL_Z,
-                level = 0,
-            )
-        abort(player, "left through the ice chunks", teleport = false)
-        if (player.isSlotAssigned) {
-            PathingEntityCommon.telejump(player, collision, publicWallTile)
-        }
-        player.mes("You leave Vorkath's arena.")
-        return true
-    }
+    fun isActive(player: Player): Boolean = runFor(player)?.state != null
 
     fun wallTile(player: Player, localX: Int, inside: Boolean): CoordGrid? {
         val session = instances.sessionForPlayer(player) ?: return null
@@ -456,35 +401,14 @@ constructor(
         return wallTile(session, localX, inside)
     }
 
-    private fun wallTile(session: InstanceSession, localX: Int, inside: Boolean): CoordGrid? {
+    internal fun wallTile(session: InstanceSession, localX: Int, inside: Boolean): CoordGrid? {
         if (localX !in VORKATH_WALL_MIN_LOCAL_X..VORKATH_WALL_MAX_LOCAL_X) return null
         val localZ = if (inside) VORKATH_WALL_INSIDE_LOCAL_Z else VORKATH_WALL_OUTSIDE_LOCAL_Z
         return instances.localCoord(session, RegionLocal(0, 35, 63, localX, localZ))
     }
 
-    fun abort(player: Player, reason: String, teleport: Boolean, logout: Boolean = false) {
-        val run = runs.remove(player.uid) ?: return
-        run.state = VorkathState.ENDED
-        clearMechanics(run)
-        bossBars.onClose(player, run.boss, instant = true)
-        if (run.boss.isSlotAssigned) npcs.del(run.boss, Int.MAX_VALUE)
-        player.lootDropDuration = player.attr[VORKATH_PREVIOUS_DROP_DURATION]
-        player.attr.remove(VORKATH_PREVIOUS_DROP_DURATION)
-        if (logout) {
-            instances.handleLogout(player, clock.cycle)
-        } else {
-            val exit = instances.leave(player, run.session, clock.cycle)
-            if (teleport && player.isSlotAssigned)
-                PathingEntityCommon.telejump(player, collision, exit)
-        }
-        prepare(player)
-        log.info {
-            "[Vorkath] player=${player.displayName} generation=${run.generation} abort=$reason"
-        }
-    }
-
     fun debugStatus(player: Player): String {
-        val run = runs[player.uid] ?: return "Vorkath: no active encounter."
+        val run = runFor(player) ?: return "Vorkath: no active encounter."
         return "Vorkath generation=${run.generation} state=${run.state} hp=${run.boss.hitpoints} " +
             "attacks=${run.standardAttacks}/$VORKATH_STANDARD_ATTACKS next=${run.nextSpecial} " +
             "acid=${run.acidTiles.size} lane=${run.acidSafeLane.size} " +
@@ -493,7 +417,7 @@ constructor(
     }
 
     fun debugWake(player: Player): Boolean {
-        val run = runs[player.uid] ?: return debugMissing(player)
+        val run = runFor(player) ?: return debugMissing(player)
         run.rewardEligible = false
         if (run.state != VorkathState.SLEEPING) {
             player.mes("Vorkath must be sleeping to force the wake-up.")
@@ -531,7 +455,7 @@ constructor(
     }
 
     fun debugReset(player: Player): Boolean {
-        val run = runs[player.uid] ?: return debugMissing(player)
+        val run = runFor(player) ?: return debugMissing(player)
         run.rewardEligible = false
         run.state = VorkathState.RESETTING
         clearMechanics(run)
@@ -559,7 +483,7 @@ constructor(
     }
 
     private fun activeDebugRun(player: Player): Run? {
-        val run = runs[player.uid] ?: return debugMissing(player).let { null }
+        val run = runFor(player) ?: return debugMissing(player).let { null }
         if (run.state != VorkathState.ACTIVE) {
             player.mes("Wake Vorkath and wait until he is active before forcing this mechanic.")
             return null
@@ -574,6 +498,8 @@ constructor(
 
     private fun activate(run: Run) {
         val sleeping = run.boss
+        // Retire the old footprint before flagging the active NPC on the same tiles.
+        if (sleeping.isSlotAssigned) npcs.del(sleeping, Int.MAX_VALUE)
         val active = spawnNpc(run.player, run.session, VorkathAssets.ACTIVE, bossCoord(run.session))
         active.baseHitpointsLvl = VORKATH_MAX_HITPOINTS
         active.hitpoints = VORKATH_MAX_HITPOINTS
@@ -586,7 +512,6 @@ constructor(
         run.timeline.activate(clock.cycle)
         active.actionDelay = run.timeline.nextAttackCycle
         run.startCycle = clock.cycle
-        if (sleeping.isSlotAssigned) npcs.del(sleeping, Int.MAX_VALUE)
         active.apPlayer2(run.player, interactions)
         bossBars.onOpen(run.player, active)
     }
@@ -1021,7 +946,7 @@ constructor(
     }
 
     private fun validTarget(run: Run): Boolean =
-        runs[run.player.uid] === run &&
+        runFor(run.player) === run &&
             inArena(run) &&
             run.player.isSlotAssigned &&
             !run.player.pendingLogout &&

@@ -2,6 +2,7 @@ package org.rsmod.content.bosses.vorkath
 
 import org.rsmod.api.attr.AttributeKey
 import org.rsmod.api.instances.InstanceArea
+import org.rsmod.api.instances.InstanceNpc
 import org.rsmod.api.instances.InstanceSettings
 import org.rsmod.api.instances.RegionLocal
 import org.rsmod.map.CoordGrid
@@ -39,6 +40,7 @@ internal val VORKATH_AREA =
         regionIds = listOf(9023),
         enterCoord = VORKATH_DEFAULT_ENTRY,
         exitCoord = VORKATH_OUTSIDE,
+        npcSpawns = listOf(InstanceNpc(VorkathAssets.SLEEPING, CoordGrid(2269, 4062))),
     )
 
 internal fun vorkathSpec(activeType: dev.openrune.types.NpcServerType) =

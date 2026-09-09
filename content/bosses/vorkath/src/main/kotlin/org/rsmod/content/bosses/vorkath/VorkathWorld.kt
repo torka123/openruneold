@@ -4,10 +4,19 @@ import dev.openrune.ServerCacheManager
 import dev.or2.central.account.Rights
 import jakarta.inject.Inject
 import org.rsmod.api.config.constants
+import org.rsmod.api.instances.BossInstanceRegistry
+import org.rsmod.api.instances.InstanceAccess
+import org.rsmod.api.instances.InstanceManager
+import org.rsmod.api.instances.InstanceScript
+import org.rsmod.api.instances.RaidLeaveResult
+import org.rsmod.api.instances.events.InstanceLeaveRequestEvent
+import org.rsmod.api.instances.events.instanceEventId
 import org.rsmod.api.player.dialogue.Dialogue
 import org.rsmod.api.player.hook.TeleportType
 import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.protect.ProtectedAccess
+import org.rsmod.api.player.protect.ProtectedAccessLauncher
+import org.rsmod.api.player.stat.hitpoints
 import org.rsmod.api.script.onCommand
 import org.rsmod.api.script.onEvent
 import org.rsmod.api.script.onOpLoc1
@@ -15,17 +24,34 @@ import org.rsmod.api.script.onOpNpc1
 import org.rsmod.api.script.onOpNpc3
 import org.rsmod.api.script.onOpNpc4
 import org.rsmod.game.entity.npc.NpcStateEvents
-import org.rsmod.plugin.scripts.PluginScript
+import org.rsmod.map.CoordGrid
 import org.rsmod.plugin.scripts.ScriptContext
 
 internal class VorkathWorld
 @Inject
 constructor(
+    registry: BossInstanceRegistry,
+    private val protectedAccess: ProtectedAccessLauncher,
     private val encounters: VorkathEncounterManager,
     private val storage: VorkathDeathStorage,
     private val access: VorkathAccessPolicy,
-) : PluginScript() {
-    override fun ScriptContext.startup() {
+) :
+    InstanceScript(
+        registry,
+        VORKATH_INSTANCE_KEY,
+        vorkathSpec(requireNotNull(ServerCacheManager.getNpc(8061))),
+    ) {
+    override fun ScriptContext.configure() {
+        onInstancePlayerJoin {
+            manager.sessionForId(instanceId)?.let { encounters.onJoin(player, it) }
+        }
+        onEvent<InstanceLeaveRequestEvent>(instanceEventId(VORKATH_INSTANCE_KEY)) {
+            if (manager.sessionForPlayer(player)?.id == instanceId) {
+                result =
+                    if (protectedAccess.launch(player) { leaveVorkath(32) }) RaidLeaveResult.Left
+                    else RaidLeaveResult.Busy
+            }
+        }
         encounters.validateAssets()
         onEvent<NpcStateEvents.Create> {
             if (
@@ -69,7 +95,7 @@ constructor(
             onOpNpc1(torfinn) { talkToTorfinn(it.npc) }
             onOpNpc3(torfinn) {
                 arriveDelay()
-                encounters.teleportRellekka(player)
+                travelVorkath(VORKATH_RELLEKKA)
             }
             onOpNpc4(torfinn) { reclaimFromTorfinn(it.npc) }
         }
@@ -77,7 +103,7 @@ constructor(
             onOpNpc1(torfinn) { talkToTorfinn(it.npc) }
             onOpNpc3(torfinn) {
                 arriveDelay()
-                encounters.teleportOutside(player)
+                travelVorkath(VORKATH_OUTSIDE)
             }
             onOpNpc4(torfinn) { reclaimFromTorfinn(it.npc) }
         }
@@ -86,7 +112,10 @@ constructor(
             requiredRights = Rights.ADMINISTRATOR
             desc = "Teleport outside the real Ungael Vorkath arena"
             invalidArgs = "Use as ::vorkath"
-            cheat { if (args.isEmpty()) encounters.teleportOutside(player) }
+            cheat {
+                if (args.isEmpty())
+                    protectedAccess.launch(player) { travelVorkath(VORKATH_OUTSIDE) }
+            }
         }
         onCommand("vorkathdebug") {
             requiredRights = Rights.ADMINISTRATOR
@@ -159,17 +188,18 @@ constructor(
                 teleportType = TeleportType.Exempt,
             )
             delay(2)
-            encounters.escape(player, localX)
+            leaveVorkath(localX)
             return
         }
         if (!access.canAccess(player)) {
             player.mes("You must complete Dragon Slayer II before fighting Vorkath.")
             return
         }
-        if (!encounters.enter(player, localX)) return
+        enterVorkath(localX)
+        if (!encounters.isActive(player)) return
         val destination = encounters.wallTile(player, localX, inside = true)
         if (destination == null) {
-            encounters.abort(player, "ice-wall crossing failed", teleport = true)
+            defaultLeaveFlow()
             return
         }
         anim(VorkathAssets.ICE_WALL_JUMP_ANIM)
@@ -182,6 +212,58 @@ constructor(
             teleportType = TeleportType.Exempt,
         )
         delay(2)
+    }
+
+    internal suspend fun ProtectedAccess.enterVorkath(localX: Int) {
+        if (player.hitpoints <= 0) {
+            mes("Finish what you are doing before entering Vorkath's arena.")
+            return
+        }
+        if (manager.sessionForPlayer(player) != null) {
+            mes("You already have an active instance.")
+            return
+        }
+        val result =
+            manager.create(player, key, buildSpec(), InstanceAccess.Private, worldClock.cycle)
+        val entry =
+            if (result is InstanceManager.Result.Created) {
+                result.copy(
+                    enter =
+                        encounters.wallTile(result.session, localX, inside = false) ?: result.enter
+                )
+            } else result
+        completeInstanceEntry(entry)
+    }
+
+    internal suspend fun ProtectedAccess.leaveVorkath(localX: Int) {
+        if (manager.sessionForPlayer(player)?.key != key) return
+        // Keep the clicked wall's X coordinate. The native teleport hook retires membership.
+        val exit =
+            CoordGrid(
+                VORKATH_SOURCE_REGION_X * 64 + localX,
+                VORKATH_SOURCE_REGION_Z * 64 + VORKATH_WALL_OUTSIDE_LOCAL_Z,
+            )
+        telejump(exit)
+        if (coords != exit) return
+        manager.sessionForPlayer(player)?.let { manager.leave(player, it, worldClock.cycle) }
+        mes("You leave Vorkath's arena.")
+    }
+
+    private suspend fun ProtectedAccess.travelVorkath(destination: CoordGrid) {
+        val current = manager.sessionForPlayer(player)
+        if (current != null && current.key != key) {
+            mes("Leave your current instance before travelling to Ungael.")
+            return
+        }
+        telejump(destination)
+        if (coords != destination) return
+        if (current != null && manager.sessionForPlayer(player) === current)
+            manager.leave(player, current, worldClock.cycle)
+        mes(
+            if (destination == VORKATH_OUTSIDE)
+                "You arrive outside Vorkath's arena. Climb over the ice chunks to enter."
+            else "Torfinn sails you back to Rellekka."
+        )
     }
 
     private suspend fun ProtectedAccess.talkToTorfinn(npc: org.rsmod.game.entity.Npc) =

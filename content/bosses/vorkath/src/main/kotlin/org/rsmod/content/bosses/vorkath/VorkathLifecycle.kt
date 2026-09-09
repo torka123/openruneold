@@ -4,21 +4,16 @@ import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import org.rsmod.api.death.NpcAttackValidateHook
 import org.rsmod.api.death.NpcAttackValidateResult
-import org.rsmod.api.death.PlayerDeathCleanupHook
 import org.rsmod.api.death.PlayerDeathContext
 import org.rsmod.api.death.PlayerDeathDrops.Companion.DROP_DURATION_STANDARD
 import org.rsmod.api.death.PlayerDeathDrops.Companion.standardKeepCount
 import org.rsmod.api.death.PlayerDeathHandling
 import org.rsmod.api.death.PlayerDeathHook
 import org.rsmod.api.death.UntradeableHandling
-import org.rsmod.api.player.hook.PlayerPostTickHook
 import org.rsmod.api.game.process.GameLifecycle
-import org.rsmod.api.instances.events.InstancePlayerExternalTeleportEvent
-import org.rsmod.api.instances.events.InstancePlayerLeaveEvent
-import org.rsmod.api.instances.events.instanceEventId
-import org.rsmod.api.script.onEvent
+import org.rsmod.api.player.hook.PlayerPostTickHook
 import org.rsmod.api.player.output.mes
-import org.rsmod.api.script.onPlayerLogout
+import org.rsmod.api.script.onEvent
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
 import org.rsmod.plugin.scripts.PluginScript
@@ -58,15 +53,6 @@ constructor(private val encounters: VorkathEncounterManager) : PlayerDeathHook {
     }
 }
 
-@Singleton
-internal class VorkathDeathCleanup
-@Inject
-constructor(private val encounters: VorkathEncounterManager) : PlayerDeathCleanupHook {
-    override fun cleanup(player: Player) {
-        encounters.abort(player, "player death", teleport = false)
-    }
-}
-
 internal class VorkathLifecycle
 @Inject
 constructor(
@@ -76,16 +62,6 @@ constructor(
     override fun ScriptContext.startup() {
         // Encounter visuals must be produced before zone/player update buffers are sent.
         onEvent<GameLifecycle.StartCycle> { encounters.tickAll() }
-        onEvent<InstancePlayerExternalTeleportEvent> {
-            if (key == VORKATH_INSTANCE_KEY)
-                encounters.abort(player, "external teleport", teleport = false)
-        }
-        onEvent<InstancePlayerLeaveEvent>(instanceEventId(VORKATH_INSTANCE_KEY)) {
-            encounters.abort(player, "instance membership ended", teleport = false)
-        }
-        onPlayerLogout {
-            encounters.abort(player, "logout or disconnect", teleport = false, logout = true)
-        }
     }
 
     override fun onPostTick(player: Player) {
