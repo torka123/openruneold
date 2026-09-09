@@ -16,4 +16,14 @@ dependencies {
     implementation(projects.engine.map)
     implementation(projects.engine.plugin)
     implementation(projects.engine.coroutine)
+    testImplementation(kotlin("test"))
+    testImplementation("org.mockito:mockito-core:5.18.0")
+    testImplementation(projects.engine.events)
+    testImplementation(projects.engine.routefinder)
+    testImplementation(projects.api.config)
+}
+
+tasks.test {
+    workingDir = rootProject.projectDir
+    systemProperty("junit.jupiter.execution.parallel.enabled", "false")
 }
