@@ -623,3 +623,8 @@ validation and two-instance isolation. This is a local shared adapter approved b
 task, not an official upstream API. Guardians' specialized pair reset will use Dawn's still-live
 BossEncounter-scoped native world queue; instance teardown cancels it. Dusk's individual respawn
 will be suppressed through the existing native death delay parameter. No new lifecycle scheduler.
+
+`guardians-instance-reset-red.log`: 34 instance tests, two expected failures from the new actor
+reset scenarios. `guardians-instance-reset-green.log`: all 34 pass and scoped check succeeds
+(39s, 148 tasks, process exit 0). The overload delegates to the pre-existing reset implementation;
+no new allocation, NPC construction, ownership map or session lifetime was introduced.
