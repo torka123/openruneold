@@ -522,3 +522,48 @@ Gradle's successful result; subsequent verification uses explicit Gradle exit-co
 (24s, 168 tasks). Architecture check and `git diff --check` pass. No new secret-pattern candidates
 were found in the focused source/doc changes. Doctor before the next migration again identifies
 the unchanged canonical PID 41396, cache fingerprints and PostgreSQL authority.
+
+## Grotesque Guardians mapping (before migration)
+
+Baseline manager: 945 lines, two actors and one private PlayerUid map. The six existing rules
+tests are characterization, not independent OSRS verification. Official architecture reference
+remains upstream `61139e76a216592d66c2b20366ef26d48609875d` BossSpec/BossCombat/BossEncounter,
+NvPCombat, InstanceScript and ScurriusInstance (links above). All existing cache IDs, research
+and thresholds are preserved; no new OSRS parity claim or balance change is implied.
+
+| Characterized responsibility | Existing ownership | Migration mapping / API classification | Required executable tests |
+|---|---|---|---|
+| Roof entry, bell, solo ownership, exits and replacement actors | Direct create/finalize, PlayerUid runs, private logout/death/teleport hooks | Official InstanceScript/InstanceManager plus previously tested local source-settings and session state | Natural entry registration, bell, two rooms, teardown/re-entry, two kills |
+| Dawn twin ranged hits, alternating nearby melee, fourth stone ball | Private attack count, direct accuracy/projectile/hit loop | Official DSL rotation/conditions/forced abilities; existing local native NvPCombat adapter | Exact 6-tick launch rotation, footprint selection, independent rolls, one-tick component impact separation |
+| Dusk phase-two alternating melee/explosion; final prison and melee/range | Private counters/deadlines and selector | BossEncounter selector and declarative phase abilities; named arena handlers only for specials | Phase-specific cadence, delayed readiness, prison timing, animation ordering |
+| Dusk final fixed first ranged component and nested-uniform second component | Boss-local damage rolls | Native damage calculation configured through a minimal generic per-strike parameter extension if needed | Accurate/missed and launch-prayer combinations, exact RNG calls and staggered impact |
+| Alternating vulnerable guardian, HP floors, hammer finish and transforms | Manager phase engine and pre-resolution transitions | BossEncounter phase identity; native Resolve/Impact callbacks; focused paired-form presentation | Threshold races, each form, 12-tick lightning and five-tick death presentation |
+| Stone ball/debris, lightning tiles, energy spheres and prison | World queues with local generation plus LateCycle lists | Named external handlers; native scoped world queue, BossEncounter/session-owned resources, existing loc APIs | Tile snapshots, expiry, sphere heal/absorb, prison heal, queued-hit and callback cancellation |
+| Dusk native drops and both-actor reform after 17 ticks | Native death plus manual delete/recreate/reset deadline | Existing NpcDeath cadence and instance-owned actor reset/respawn; no private spawn authority | Native death/drop context, KC once, fresh encounter identities and no entity-list growth |
+
+Pre-edit searches: full local native attack override/roll implementation, boss Effect and
+BossEncounter selectors, instance actor spawn/reset APIs and comparable Scurrius/Corp/Hydra wiring;
+`git grep` on upstream for hitCount, damageTransform, inaccurateMaxHit and projectileFactory finds
+no equivalent per-strike adapter. Local shared volley support permits homogeneous simultaneous
+hits only. Repeating ordinary NpcAttack effects loses the second attack to the native cadence gate.
+If characterization confirms the draft's staggered heterogeneous components, extend that same
+native volley with a non-empty per-strike parameter list (impact offset, modifier, pure damage-roll
+policy). Keep animation/cadence/retaliation once, accuracy/projectile/hit per component and native
+cancellation between components. This is a proposed **local shared extension**, not an upstream API
+or a replacement scheduler. Add shared regressions before implementation. Do not silently change
+the draft's RNG draw order or give the content a second normal attack loop.
+
+Paired phase coordination and arena geometry remain legitimate specialized handlers, not permission
+to preserve a general manager. The initial mapping may be refined by executable characterization;
+any additional shared capability must be listed here before implementation. Inherited damage-source
+exclusions and uncertain collision/OSRS values remain explicit evidence gaps, not approved rebalances.
+
+`guardians-characterization-before-2.log`: 12 tests pass (six native + six rules), scoped check
+32s/152 tasks. The first fixture iteration needed named ProjAnimType fields and client-frame sequence
+cleanup between ticks; native animation priority must not retain an already-emitted spawn sequence
+in every later test frame. No production animation or projectile constants were changed. The tests
+confirm native registration, two-tick bell readiness, six-tick attacks, two projectiles with hit
+offsets 0/1, 80% launch-prayer reduction, fourth Dawn stone ball, third Dusk explosion, all paired
+forms/HP gates, 12-tick lightning, five-tick hammer death, and the final ranged components' exact
+RNG usage (no roll for the fixed accurate first component; nested two rolls for the second; one
+zero-range draw for the missed second component). This is preserved draft behavior, not packet proof.
