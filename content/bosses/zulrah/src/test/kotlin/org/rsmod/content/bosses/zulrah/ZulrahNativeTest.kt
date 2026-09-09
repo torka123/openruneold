@@ -6,6 +6,7 @@ import kotlin.test.*
 import org.junit.jupiter.api.BeforeAll
 import org.mockito.Mockito.*
 import org.rsmod.annotations.InternalApi
+import org.rsmod.api.bosses.runtime.*
 import org.rsmod.api.combat.NvPCombat
 import org.rsmod.api.combat.formulas.AccuracyFormulae
 import org.rsmod.api.combat.formulas.MaxHitFormulae
@@ -41,6 +42,7 @@ import org.rsmod.game.hit.HitType
 import org.rsmod.game.loc.LocInfo
 import org.rsmod.game.proj.ProjAnim
 import org.rsmod.game.queue.EngineQueueCache
+import org.rsmod.game.queue.WorldQueueList
 import org.rsmod.game.region.Region
 import org.rsmod.game.region.zone.RegionZoneCopy
 import org.rsmod.game.seq.EntitySeq
@@ -354,6 +356,21 @@ private class ZulrahFixture(accurate: Boolean = true) {
             mock(MaxHitFormulae::class.java),
             world,
         )
+    val registry = EncounterRegistry(random)
+    val deps =
+        BossDeps(
+            random,
+            mock(AccuracyFormulae::class.java),
+            world,
+            npcs,
+            players,
+            clock,
+            WorldQueueList(),
+            collision,
+            registry,
+            BossExtensionRegistry(),
+            combat,
+        )
     val encounters =
         ZulrahEncounterManager(
             clock,
@@ -362,7 +379,7 @@ private class ZulrahFixture(accurate: Boolean = true) {
             AiPlayerInteractions(events, players),
             collision,
             random,
-            combat,
+            registry,
             world,
         )
     val death =
@@ -382,7 +399,9 @@ private class ZulrahFixture(accurate: Boolean = true) {
         collision.allocateIfAbsent(player.coords.x, player.coords.z, player.coords.level)
         val ctx = ScriptContext(events, CheatCommandMap(), EngineQueueCache())
         with(NpcDeathScript(death)) { ctx.startup() }
-        with(ZulrahCombat(encounters, death, players)) { ctx.startup() }
+        with(ZulrahCombat(encounters, death, players, deps, ZulrahAttackParameters(encounters))) {
+            ctx.startup()
+        }
     }
 
     fun start(rotation: Int, phase: Int = 1) {

@@ -2,6 +2,7 @@ plugins { id("base-conventions") }
 
 dependencies {
     implementation(libs.guice)
+    implementation(projects.api.bosses)
     implementation(projects.api.attr)
     implementation(projects.api.combat.combatCommons)
     implementation(projects.api.combat.combatScripts)

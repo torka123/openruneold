@@ -799,3 +799,12 @@ three ticks early each. The existing declared three-tick action cadence is bypas
 does not check `nextActionCycle`. Correct both readiness gates before replacing the manager's selector;
 the DSL already owns these gates. This is a demonstrated implementation-vs-declared-program defect,
 not new normal-OSRS capture proof. Preserve counts, weights, IDs and all declared rotation timings.
+
+`zulrah-all-rotations-gates-green.log`: 31 tests pass, 38s/166 tasks after readiness correction.
+`zulrah-native-dsl-first.log`: the same 31 tests pass, 40s/166 tasks through BossCombat registration.
+ZulrahSpec derives all four action programs from the unchanged rotation data; Selector.Rotation,
+weighted blue choice and exitAfter/nextPhase now own ordinary sequencing. Pure ZulrahAttackParameters
+preserve native projectile geometry, launch prayer, venom and sounds. Snakeling attacks use their own
+registered BossSpecs. Removed the manager's ordinary attack functions and action/phase tick engine;
+this is an intermediate strangler checkpoint, not a completed instance/hazard migration. Spatial
+pending work and private membership/respawn remain for the next focused change. Nothing deployed.

@@ -4,34 +4,28 @@ import com.github.michaelbull.logging.InlineLogger
 import dev.openrune.ServerCacheManager
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
-import dev.openrune.types.ProjAnimType
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import kotlin.random.Random
-import org.rsmod.api.combat.NpcAttackOverride
-import org.rsmod.api.combat.NvPCombat
-import org.rsmod.api.combat.commons.CombatAttack
-import org.rsmod.api.combat.commons.types.MeleeAttackType
-import org.rsmod.api.combat.commons.types.RangedAttackType
+import org.rsmod.api.bosses.runtime.BossEncounter
+import org.rsmod.api.bosses.runtime.EncounterRegistry
 import org.rsmod.api.config.refs.done.hitmark_groups
 import org.rsmod.api.instances.InstanceAccess
 import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.instances.InstanceSession
 import org.rsmod.api.instances.RegionLocal
 import org.rsmod.api.mechanics.toxins.impl.PlayerVenom
-import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.api.npc.apPlayer2
 import org.rsmod.api.npc.interact.AiPlayerInteractions
 import org.rsmod.api.npc.owner.assignSpawnOwner
 import org.rsmod.api.npc.owner.isSpawnOwnedBy
 import org.rsmod.api.player.combatClearQueue
 import org.rsmod.api.player.hit.modifier.NpcBypassProtectionPrayerPlayerHitModifier
-import org.rsmod.api.player.hit.modifier.NpcCalculatedProtectionPrayerPlayerHitModifier
 import org.rsmod.api.player.hit.queueHit
 import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.output.soundSynth
 import org.rsmod.api.player.stat.hitpoints
 import org.rsmod.api.player.vars.VarPlayerIntMapSetter
+import org.rsmod.api.random.DefaultGameRandom
 import org.rsmod.api.random.GameRandom
 import org.rsmod.api.repo.npc.NpcRepository
 import org.rsmod.api.repo.world.WorldRepository
@@ -62,7 +56,7 @@ constructor(
     private val interactions: AiPlayerInteractions,
     private val collision: CollisionFlagMap,
     private val random: GameRandom,
-    private val combat: NvPCombat,
+    private val encounters: EncounterRegistry,
     private val world: WorldRepository,
 ) {
     private val log = InlineLogger()
@@ -164,6 +158,13 @@ constructor(
         boss.apRequiresLineOfSight = true
         boss.anim(if (phaseIndex == 0) ZulrahAssets.SPAWN else ZulrahAssets.EMERGE)
         faceForPhase(result.session, boss, phaseData.position)
+        val selectionRandom = seed?.let(::DefaultGameRandom) ?: random
+        val encounter = encounters.of(boss, selectionRandom)
+        encounter.transitionTo(
+            "r${rotation.number}-p${phaseIndex + 1}-${if (phaseIndex == 0) "spawning" else "emerging"}",
+            clock.cycle,
+        )
+        boss.apPlayer2(player, interactions)
         val run =
             Run(
                 player = player,
@@ -174,13 +175,10 @@ constructor(
                 phaseIndex = phaseIndex,
                 runtimePhase = phaseData,
                 state = ZulrahState.EMERGING,
-                transitionCycle =
-                    clock.cycle +
-                        if (phaseIndex == 0) ZULRAH_INITIAL_EMERGE_TICKS else ZULRAH_EMERGE_TICKS,
-                nextActionCycle = clock.cycle,
+                encounter = encounter,
                 startCycle = clock.cycle,
                 debug = forcedRotation != null,
-                seededRandom = seed?.let(::Random),
+                selectionRandom = selectionRandom,
             )
         runs[player.uid] = run
         player.mes("Zulrah emerges from the swamp.")
@@ -217,135 +215,60 @@ constructor(
         processPendingHazards(run)
         processCloudDamage(run)
         processSnakelingExpiry(run)
-        when (run.state) {
-            ZulrahState.EMERGING -> if (clock.cycle >= run.transitionCycle) finishEmerge(run)
-            ZulrahState.ACTIVE -> tickPhase(run)
-            ZulrahState.DIVING -> if (clock.cycle >= run.transitionCycle) finishDive(run)
-            ZulrahState.RESPAWNING -> if (clock.cycle >= run.transitionCycle) respawn(run)
-            ZulrahState.DYING,
-            ZulrahState.COMPLETED,
-            ZulrahState.DISPOSED -> Unit
-        }
+        if (run.state == ZulrahState.RESPAWNING && clock.cycle >= run.transitionCycle) respawn(run)
     }
 
-    private fun finishEmerge(run: Run) {
-        run.state = ZulrahState.ACTIVE
-        run.actionIndex = 0
-        run.actionProgress = 0
-        run.nextActionCycle = clock.cycle
-        run.boss.apPlayer2(run.player, interactions)
-        tickPhase(run)
+    fun canAttack(npc: Npc, target: Player): Boolean =
+        runs[target.uid]?.let { run ->
+            run.owns(npc) &&
+                npc.isSpawnOwnedBy(target) &&
+                run.state !in
+                    setOf(
+                        ZulrahState.DYING,
+                        ZulrahState.RESPAWNING,
+                        ZulrahState.COMPLETED,
+                        ZulrahState.DISPOSED,
+                    )
+        } == true
+
+    fun validHit(npc: Npc, target: Player): Boolean =
+        runs[target.uid]?.let { run ->
+            run.owns(npc) &&
+                instances.sessionForPlayer(target) === run.session &&
+                inArena(run, target.coords) &&
+                run.state != ZulrahState.DISPOSED
+        } == true
+
+    fun onAbility(npc: Npc, target: Player, encounter: BossEncounter) {
+        val run = runs[target.uid]?.takeIf { it.boss === npc } ?: return
+        run.state =
+            if (encounter.currentPhaseName.endsWith("-diving")) ZulrahState.DIVING
+            else if (encounter.currentPhaseName.endsWith("-emerging")) ZulrahState.EMERGING
+            else ZulrahState.ACTIVE
     }
 
-    private fun tickPhase(run: Run) {
-        if (clock.cycle < run.nextActionCycle) return
-        if (run.actionIndex >= run.runtimePhase.actions.size) {
-            beginDive(run)
-            return
-        }
-        when (val action = run.runtimePhase.actions[run.actionIndex]) {
-            is ZulrahAction.Delay -> {
-                run.actionIndex++
-                run.nextActionCycle = clock.cycle + action.ticks
-            }
-            is ZulrahAction.StandardAttack,
-            is ZulrahAction.JadAttack -> keepAggressive(run)
-            is ZulrahAction.TailSwipe -> launchTail(run, action)
+    fun present(npc: Npc, target: Player, surface: ZulrahSurface) {
+        val run = runs[target.uid]?.takeIf { it.boss === npc } ?: return
+        if (run.rotation.number != surface.rotation || surface.phase <= run.phaseIndex)
+            run.completedRotations++
+        run.rotation = ZulrahRotations.byNumber(surface.rotation)
+        run.phaseIndex = surface.phase - 1
+        run.runtimePhase = surface.data
+        npc.transmog(requireNpc(internalFor(surface.data.form)), Int.MAX_VALUE)
+        npc.teleport(collision, phaseCoord(run.session, surface.data))
+        faceForPhase(run.session, npc, surface.data.position)
+        npc.anim(ZulrahAssets.EMERGE)
+        run.state = ZulrahState.EMERGING
+    }
+
+    fun launchSpecial(npc: Npc, target: Player, action: Any) {
+        val run = runs[target.uid]?.takeIf { it.boss === npc } ?: return
+        when (action) {
             is ZulrahAction.VenomCloudVolley -> launchCloudVolley(run, action)
             is ZulrahAction.SnakelingVolley -> launchSnakelingVolley(run, action)
+            is ZulrahTail -> launchTail(run, action)
+            else -> error("Unknown Zulrah arena action: $action")
         }
-    }
-
-    fun attack(access: StandardNpcAccess, target: Player) {
-        val run = runs[target.uid] ?: return
-        if (run.state != ZulrahState.ACTIVE || run.boss !== access.npc) return
-        if (clock.cycle < run.nextActionCycle || access.npc.actionDelay > clock.cycle) return
-        val action = run.runtimePhase.actions.getOrNull(run.actionIndex) ?: return
-        val style =
-            when (action) {
-                is ZulrahAction.StandardAttack ->
-                    when (run.runtimePhase.form) {
-                        ZulrahForm.SERPENTINE -> ZulrahAttackStyle.RANGED
-                        ZulrahForm.TANZANITE -> ZulrahRules.blueStyle(roll(run, 3))
-                        ZulrahForm.MAGMA -> return
-                    }
-                is ZulrahAction.JadAttack ->
-                    ZulrahRules.jadStyles(action.count, action.startsWith)[run.actionProgress]
-                else -> return
-            }
-        directAttack(access, run, target, style)
-    }
-
-    private fun directAttack(
-        access: StandardNpcAccess,
-        run: Run,
-        target: Player,
-        style: ZulrahAttackStyle,
-    ) {
-        val protectedAtLaunch =
-            target.vars[
-                    if (style == ZulrahAttackStyle.MAGIC) "varbit.prayer_protectfrommagic"
-                    else "varbit.prayer_protectfrommissiles"] == 1
-        val projectile =
-            playerProjectile(
-                run.boss,
-                target,
-                if (style == ZulrahAttackStyle.MAGIC) ZulrahAssets.MAGIC_PROJECTILE
-                else ZulrahAssets.RANGED_PROJECTILE,
-                ZulrahAssets.ATTACK_PROJECTILE_CONTROLLER,
-            )
-        var accurateAtLaunch = false
-        val combatAttack =
-            if (style == ZulrahAttackStyle.MAGIC) CombatAttack.NpcMagic(ZULRAH_MAX_HIT)
-            else CombatAttack.NpcRanged(RangedAttackType.Standard)
-        combat.attack(
-            access,
-            target,
-            combatAttack,
-            NpcAttackOverride(
-                attackAnimation = ZulrahAssets.ATTACK,
-                maxHit = ZULRAH_MAX_HIT,
-                attackRate = ZULRAH_ATTACK_RATE,
-                impactDelay = projectile.serverCycles,
-                hitModifier =
-                    NpcCalculatedProtectionPrayerPlayerHitModifier(
-                        protectedAtLaunch,
-                        reductionPercent = 100,
-                    ),
-                onAttack = {
-                    world.projAnim(projectile)
-                    target.soundSynth(
-                        if (style == ZulrahAttackStyle.MAGIC) ZULRAH_MAGIC_SEND_SOUND
-                        else ZULRAH_RANGED_SEND_SOUND
-                    )
-                    advanceDirectAttack(run)
-                },
-                onSuccessfulAttack = { _, _ -> accurateAtLaunch = true },
-                onImpact = { _, _ ->
-                    target.soundSynth(
-                        if (style == ZulrahAttackStyle.MAGIC) ZULRAH_MAGIC_IMPACT_SOUND
-                        else ZULRAH_RANGED_IMPACT_SOUND
-                    )
-                    if (accurateAtLaunch) PlayerVenom.tryVenom(target)
-                },
-            ),
-        )
-    }
-
-    private fun advanceDirectAttack(run: Run) {
-        val action = run.runtimePhase.actions.getOrNull(run.actionIndex) ?: return
-        val total =
-            when (action) {
-                is ZulrahAction.StandardAttack -> action.count
-                is ZulrahAction.JadAttack -> action.count
-                else -> return
-            }
-        run.actionProgress++
-        if (run.actionProgress >= total) {
-            run.actionProgress = 0
-            run.actionIndex++
-        }
-        armNextAction(run, ZULRAH_ATTACK_RATE)
     }
 
     private fun launchCloudVolley(run: Run, action: ZulrahAction.VenomCloudVolley) {
@@ -392,8 +315,6 @@ constructor(
                 secondary,
                 HazardKind.CLOUD,
             )
-        run.actionIndex++
-        armNextAction(run, ZULRAH_ATTACK_RATE)
     }
 
     private fun launchSnakelingVolley(run: Run, action: ZulrahAction.SnakelingVolley) {
@@ -414,23 +335,13 @@ constructor(
                 tile,
                 HazardKind.SNAKELING,
             )
-        run.actionIndex++
-        armNextAction(run, ZULRAH_ATTACK_RATE)
     }
 
-    private fun launchTail(run: Run, action: ZulrahAction.TailSwipe) {
+    private fun launchTail(run: Run, action: ZulrahTail) {
         val target = run.player.coords
         run.boss.faceSquare(target)
-        run.boss.anim(
-            if (run.actionProgress % 2 == 0) ZulrahAssets.TAIL_LEFT else ZulrahAssets.TAIL_RIGHT
-        )
+        run.boss.anim(if (action.left) ZulrahAssets.TAIL_LEFT else ZulrahAssets.TAIL_RIGHT)
         run.pendingTails += PendingTail(clock.cycle + ZULRAH_TAIL_WINDUP_TICKS, target)
-        run.actionProgress++
-        if (run.actionProgress >= action.count) {
-            run.actionProgress = 0
-            run.actionIndex++
-        }
-        run.nextActionCycle = clock.cycle + ZULRAH_TAIL_WINDUP_TICKS + ZULRAH_TAIL_RECOVERY_TICKS
     }
 
     private fun processPendingHazards(run: Run) {
@@ -544,48 +455,6 @@ constructor(
         npc.apPlayer2(run.player, interactions)
     }
 
-    fun attackSnakeling(access: StandardNpcAccess, target: Player) {
-        val run = runs[target.uid] ?: return
-        val state = run.snakelings[access.npc] ?: return
-        if (!access.npc.isSpawnOwnedBy(target)) return
-        var accurate = false
-        val projectile =
-            if (state.magic) {
-                ProjAnim.fromNpcToPlayer(
-                    access.npc,
-                    target,
-                    ZulrahAssets.SNAKELING_MAGIC_PROJECTILE.asRSCM(RSCMType.SPOTANIM),
-                    projectileType(ZulrahAssets.SNAKELING_MAGIC_PROJECTILE_CONTROLLER),
-                )
-            } else null
-        val attack =
-            if (state.magic) CombatAttack.NpcMagic(ZULRAH_SNAKELING_MAX_HIT)
-            else CombatAttack.NpcMelee(MeleeAttackType.Stab)
-        combat.attack(
-            access,
-            target,
-            attack,
-            NpcAttackOverride(
-                attackAnimation = ZulrahAssets.SNAKELING_ATTACK,
-                maxHit = ZULRAH_SNAKELING_MAX_HIT,
-                attackRate = ZULRAH_SNAKELING_ATTACK_RATE,
-                impactDelay = projectile?.serverCycles,
-                onAttack = {
-                    if (projectile != null) world.projAnim(projectile)
-                    target.soundSynth(
-                        if (state.magic) ZULRAH_RANGED_IMPACT_SOUND
-                        else ZULRAH_SNAKELING_IMPACT_SOUND
-                    )
-                },
-                onSuccessfulAttack = { _, _ -> accurate = true },
-                onImpact = { _, _ ->
-                    if (state.magic) target.soundSynth(ZULRAH_SNAKELING_IMPACT_SOUND)
-                    if (accurate) PlayerVenom.tryVenom(target)
-                },
-            ),
-        )
-    }
-
     private fun processSnakelingExpiry(run: Run) {
         val expired =
             run.snakelings.filter { (npc, state) ->
@@ -595,30 +464,6 @@ constructor(
             run.snakelings.remove(npc)
             if (npc.isSlotAssigned && npc.hitpoints > 0) npcs.del(npc, Int.MAX_VALUE)
         }
-    }
-
-    private fun beginDive(run: Run) {
-        run.state = ZulrahState.DIVING
-        run.boss.anim(ZulrahAssets.DIVE)
-        run.boss.mode = null
-        run.transitionCycle = clock.cycle + ZULRAH_DIVE_TICKS
-    }
-
-    private fun finishDive(run: Run) {
-        run.phaseIndex++
-        if (run.phaseIndex >= run.rotation.phases.size) {
-            run.completedRotations++
-            run.rotation = ZulrahRotations.byNumber(roll(run, ZulrahRotations.all.size) + 1)
-            // The final green phase is also phase one of the next rotation.
-            run.phaseIndex = 1
-        }
-        run.runtimePhase = run.rotation.phases[run.phaseIndex]
-        run.boss.transmog(requireNpc(internalFor(run.runtimePhase.form)), Int.MAX_VALUE)
-        run.boss.teleport(collision, phaseCoord(run.session, run.runtimePhase))
-        faceForPhase(run.session, run.boss, run.runtimePhase.position)
-        run.boss.anim(ZulrahAssets.EMERGE)
-        run.state = ZulrahState.EMERGING
-        run.transitionCycle = clock.cycle + ZULRAH_EMERGE_TICKS
     }
 
     fun isEncounterNpc(npc: Npc): Boolean = runs.values.any { it.owns(npc) }
@@ -754,10 +599,9 @@ constructor(
 
     fun debugStatus(player: Player): String {
         val run = runs[player.uid] ?: return "Zulrah: no active encounter."
-        val action =
-            run.runtimePhase.actions.getOrNull(run.actionIndex)?.javaClass?.simpleName ?: "none"
+        val action = run.encounter.lastAbilityName ?: "none"
         return "Zulrah rotation=${run.rotation.number} phase=${run.phaseIndex + 1}/${run.rotation.phases.size} " +
-            "form=${run.runtimePhase.form} state=${run.state} action=$action:${run.actionProgress} " +
+            "form=${run.runtimePhase.form} state=${run.state} action=$action " +
             "tick=${clock.cycle - run.startCycle} hp=${run.boss.hitpoints} clouds=${run.clouds.size} snakelings=${run.snakelings.size}"
     }
 
@@ -795,10 +639,10 @@ constructor(
         run.runtimePhase = phaseData
         run.state = ZulrahState.EMERGING
         run.transitionCycle = clock.cycle + ZULRAH_INITIAL_EMERGE_TICKS
-        run.nextActionCycle = clock.cycle
+        run.encounter = encounters.of(boss)
+        run.encounter.transitionTo("r${rotation.number}-p1-spawning", clock.cycle)
+        boss.apPlayer2(run.player, interactions)
         run.startCycle = clock.cycle
-        run.actionIndex = 0
-        run.actionProgress = 0
         run.completedRotations = 0
         run.killTicks = 0
         run.pendingHazards.clear()
@@ -826,12 +670,6 @@ constructor(
         boss.apRequiresLineOfSight = true
         boss.anim(if (initial) ZulrahAssets.SPAWN else ZulrahAssets.EMERGE)
         faceForPhase(session, boss, phase.position)
-    }
-
-    private fun keepAggressive(run: Run) {
-        if (run.boss.isSlotAssigned && run.boss.mode == null) {
-            run.boss.apPlayer2(run.player, interactions)
-        }
     }
 
     private fun spawnNpc(
@@ -872,19 +710,6 @@ constructor(
             tile.z in minOf(southWest.z, northEast.z)..maxOf(southWest.z, northEast.z)
     }
 
-    private fun playerProjectile(
-        source: Npc,
-        target: Player,
-        graphic: String,
-        controller: String,
-    ): ProjAnim =
-        ProjAnim.fromBoundsToPlayer(
-            source.bounds(),
-            target,
-            graphic.asRSCM(RSCMType.SPOTANIM),
-            controller,
-        )
-
     private fun launchTileProjectile(
         source: Npc,
         tile: CoordGrid,
@@ -902,18 +727,6 @@ constructor(
         return projectile
     }
 
-    private fun armNextAction(run: Run, regularDelay: Int) {
-        val delay =
-            if (run.actionIndex >= run.runtimePhase.actions.size) ZULRAH_PHASE_END_TICKS
-            else regularDelay
-        run.nextActionCycle = clock.cycle + delay
-    }
-
-    private fun projectileType(internal: String): ProjAnimType =
-        requireNotNull(ServerCacheManager.getProjectile(internal.asRSCM(RSCMType.PROJANIM))) {
-            "Missing Zulrah projectile controller: $internal"
-        }
-
     private fun internalFor(form: ZulrahForm): String =
         when (form) {
             ZulrahForm.SERPENTINE -> ZulrahAssets.GREEN
@@ -926,8 +739,7 @@ constructor(
             "Missing Zulrah npc definition: $internal"
         }
 
-    private fun roll(run: Run, bound: Int): Int =
-        run.seededRandom?.nextInt(bound) ?: random.of(bound)
+    private fun roll(run: Run, bound: Int): Int = run.selectionRandom.of(bound)
 
     private fun prepare(player: Player) {
         player.combatClearQueue()
@@ -944,13 +756,11 @@ constructor(
         var phaseIndex: Int,
         var runtimePhase: ZulrahPhase,
         var state: ZulrahState,
-        var transitionCycle: Int,
-        var nextActionCycle: Int,
+        var encounter: BossEncounter,
         var startCycle: Int,
         val debug: Boolean,
-        val seededRandom: Random?,
-        var actionIndex: Int = 0,
-        var actionProgress: Int = 0,
+        val selectionRandom: GameRandom,
+        var transitionCycle: Int = 0,
         var completedRotations: Int = 0,
         var killcount: Int = 0,
         var killTicks: Int = 0,
