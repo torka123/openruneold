@@ -790,3 +790,12 @@ workflows; it never deploys, restarts, switches branches or commits. The account
 not observable through the tools available in this session; the user must report it. Official
 [usage guidance](https://learn.chatgpt.com/docs/pricing) points to the usage display and `/status`,
 not an agent-side subscription balance tool. No account credentials were read.
+
+The complete-program native characterization found two draft scheduler defects
+(`zulrah-all-rotations-before-2.log`, 31 tests / two failures). Cooldown-blocked blue attacks consume
+selection RNG before NvPCombat rejects the launch. Rotation 4 also launches its first standard shot
+on the final egg-volley tick, overwriting that frame's presentation and advancing phase 2 and phase 4
+three ticks early each. The existing declared three-tick action cadence is bypassed because `attack`
+does not check `nextActionCycle`. Correct both readiness gates before replacing the manager's selector;
+the DSL already owns these gates. This is a demonstrated implementation-vs-declared-program defect,
+not new normal-OSRS capture proof. Preserve counts, weights, IDs and all declared rotation timings.

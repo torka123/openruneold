@@ -125,9 +125,8 @@ class ZulrahNativeTest {
     fun `prayer is snapshotted at launch and already fired standard hits survive boss death`() {
         val f = ZulrahFixture()
         f.start(1, 4)
-        f.until(103)
         VarPlayerIntMapSetter.set(f.player, "varbit.prayer_protectfrommissiles", 1)
-        f.attack()
+        f.until(103)
         val hit = f.hits().single().second
         assertEquals(0, hit.damage)
         VarPlayerIntMapSetter.set(f.player, "varbit.prayer_protectfrommissiles", 0)
@@ -143,7 +142,6 @@ class ZulrahNativeTest {
         blue.start(1, 3)
         for (tick in listOf(103, 106, 109, 112)) {
             blue.until(tick)
-            blue.attack()
         }
         val seed = Random(0)
         assertEquals(
@@ -154,10 +152,7 @@ class ZulrahNativeTest {
             listOf(listOf(1, 9, 1044, 10), listOf(3, 10, 1046, 10), listOf(4, 11, 1046, 8))) {
             val jad = ZulrahFixture()
             jad.start(rotation, phase)
-            repeat(count) { index ->
-                jad.until(103 + index * 3)
-                jad.attack()
-            }
+            repeat(count) { index -> jad.until(103 + index * 3) }
             assertEquals(
                 List(count) { if (it % 2 == 0) first else if (first == 1044) 1046 else 1044 },
                 jad.projectiles.map { it.second.spotanim },
@@ -197,6 +192,76 @@ class ZulrahNativeTest {
         assertEquals(15, f.hits().last().second.damage)
     }
 
+    @Test
+    fun `all four complete programs execute their actions forms coordinates and intermission ticks`() {
+        for (rotation in ZulrahRotations.all) {
+            val f = ZulrahFixture()
+            f.start(rotation.number)
+            val expected = mutableListOf<SurfaceSample>()
+            var tick = 111
+            for (phase in rotation.phases) {
+                val npcId =
+                    when (phase.form) {
+                        ZulrahForm.SERPENTINE -> 2042
+                        ZulrahForm.MAGMA -> 2043
+                        ZulrahForm.TANZANITE -> 2044
+                    }
+                val position = f.local(phase.position.x, phase.position.z)
+                for ((actionIndex, action) in phase.actions.withIndex()) {
+                    if (action is ZulrahAction.Delay) {
+                        tick += action.ticks
+                        continue
+                    }
+                    val count =
+                        when (action) {
+                            is ZulrahAction.StandardAttack -> action.count
+                            is ZulrahAction.JadAttack -> action.count
+                            is ZulrahAction.TailSwipe -> action.count
+                            else -> 1
+                        }
+                    repeat(count) { component ->
+                        val animation =
+                            if (action is ZulrahAction.TailSwipe) {
+                                if (component % 2 == 0) 5806 else 5807
+                            } else 5069
+                        expected += SurfaceSample(tick, npcId, animation, position)
+                        tick +=
+                            if (action is ZulrahAction.TailSwipe) 7
+                            else if (
+                                actionIndex == phase.actions.lastIndex && component == count - 1
+                            )
+                                4
+                            else 3
+                    }
+                }
+                expected += SurfaceSample(tick, npcId, 5072, position)
+                if (phase != rotation.phases.last()) {
+                    val next = rotation.phases[phase.number]
+                    val nextId =
+                        when (next.form) {
+                            ZulrahForm.SERPENTINE -> 2042
+                            ZulrahForm.MAGMA -> 2043
+                            ZulrahForm.TANZANITE -> 2044
+                        }
+                    expected +=
+                        SurfaceSample(
+                            tick + 3,
+                            nextId,
+                            5073,
+                            f.local(next.position.x, next.position.z),
+                        )
+                }
+                tick += 6
+            }
+            f.until(tick - 6)
+            assertEquals(
+                expected,
+                f.samples,
+                "Rotation ${rotation.number}: ${f.encounters.debugStatus(f.player)}",
+            )
+        }
+    }
+
     companion object {
         @BeforeAll
         @JvmStatic
@@ -213,6 +278,13 @@ class ZulrahNativeTest {
     private fun ProjAnim.profile() =
         listOf(spotanim, startHeight, endHeight, startTime, endTime, angle)
 }
+
+private data class SurfaceSample(
+    val tick: Int,
+    val npc: Int,
+    val animation: Int,
+    val tile: CoordGrid,
+)
 
 @OptIn(InternalApi::class)
 private class ZulrahFixture(accurate: Boolean = true) {
@@ -304,6 +376,8 @@ private class ZulrahFixture(accurate: Boolean = true) {
     val boss
         get() = npcList.first { it.type.id in 2042..2044 }
 
+    val samples = mutableListOf<SurfaceSample>()
+
     init {
         collision.allocateIfAbsent(player.coords.x, player.coords.z, player.coords.level)
         val ctx = ScriptContext(events, CheatCommandMap(), EngineQueueCache())
@@ -327,6 +401,18 @@ private class ZulrahFixture(accurate: Boolean = true) {
                 if (it.canProcess && it.activeCoroutine != null) it.advanceActiveCoroutine()
             }
             encounters.tickAll()
+            // Invoke the registered native handler at this clock value after the preceding
+            // LateCycle state update, as the next GameCycle pre-input/NPC stage would do.
+            if (boss.hitpoints > 0 && boss.activeCoroutine == null) attack()
+            if (boss.pendingSequence != EntitySeq.NULL) {
+                samples +=
+                    SurfaceSample(
+                        clock.cycle,
+                        boss.visType.id,
+                        boss.pendingSequence.id,
+                        boss.coords,
+                    )
+            }
         }
     }
 
