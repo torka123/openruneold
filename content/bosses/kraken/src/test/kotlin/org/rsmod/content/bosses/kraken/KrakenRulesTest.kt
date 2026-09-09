@@ -36,12 +36,10 @@ class KrakenRulesTest {
     }
 
     @Test
-    fun `awakening and membership cleanup are deterministic`() {
+    fun `only the dormant phase can awaken`() {
         assertTrue(KrakenRules.canAwaken(KrakenPhase.DORMANT))
         assertFalse(KrakenRules.canAwaken(KrakenPhase.ACTIVE))
-        assertFalse(KrakenRules.shouldDiscardRun(42L, 42L))
-        assertTrue(KrakenRules.shouldDiscardRun(42L, 43L))
-        assertTrue(KrakenRules.shouldDiscardRun(42L, null))
+        assertFalse(KrakenRules.canAwaken(KrakenPhase.COMPLETE))
     }
 
     @Test

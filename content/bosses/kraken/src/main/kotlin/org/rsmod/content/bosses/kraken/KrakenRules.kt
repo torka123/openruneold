@@ -11,9 +11,6 @@ internal object KrakenRules {
 
     fun canAwaken(phase: KrakenPhase): Boolean = phase == KrakenPhase.DORMANT
 
-    fun shouldDiscardRun(expectedSession: Long, actualSession: Long?): Boolean =
-        actualSession != expectedSession
-
     fun chebyshevDistance(firstX: Int, firstZ: Int, secondX: Int, secondZ: Int): Int =
         maxOf(abs(firstX - secondX), abs(firstZ - secondZ))
 }

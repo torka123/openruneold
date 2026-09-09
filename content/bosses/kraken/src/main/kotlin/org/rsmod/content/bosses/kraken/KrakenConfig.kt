@@ -2,6 +2,7 @@ package org.rsmod.content.bosses.kraken
 
 import dev.openrune.types.NpcServerType
 import org.rsmod.api.instances.InstanceArea
+import org.rsmod.api.instances.InstanceNpc
 import org.rsmod.api.instances.InstanceSettings
 import org.rsmod.api.instances.RegionLocal
 import org.rsmod.map.CoordGrid
@@ -19,6 +20,8 @@ internal const val KRAKEN_BOSS_LOCAL_Z = 50
 /** Public-side approach tile immediately south of cache loc 537 (Enter/Private/Peek). */
 internal val KRAKEN_PUBLIC_EXIT = CoordGrid(2280, 10016, 0)
 
+internal val KRAKEN_TENTACLE_SPAWNS = listOf(35 to 50, 35 to 54, 44 to 50, 44 to 54)
+
 internal val KRAKEN_AREA =
     InstanceArea.copyRegions(
         regionIds = listOf(KRAKEN_SOURCE_REGION),
@@ -31,6 +34,22 @@ internal val KRAKEN_AREA =
                 KRAKEN_ENTRY_LOCAL_Z,
             ),
         exitCoord = KRAKEN_PUBLIC_EXIT,
+        npcSpawns =
+            listOf(
+                InstanceNpc(
+                    KrakenAssets.BOSS_WHIRLPOOL,
+                    CoordGrid(
+                        KRAKEN_SOURCE_MAP_X * 64 + KRAKEN_BOSS_LOCAL_X,
+                        KRAKEN_SOURCE_MAP_Z * 64 + KRAKEN_BOSS_LOCAL_Z,
+                    ),
+                )
+            ) +
+                KRAKEN_TENTACLE_SPAWNS.map { (x, z) ->
+                    InstanceNpc(
+                        KrakenAssets.TENTACLE_WHIRLPOOL,
+                        CoordGrid(KRAKEN_SOURCE_MAP_X * 64 + x, KRAKEN_SOURCE_MAP_Z * 64 + z),
+                    )
+                },
     )
 
 internal fun krakenSpec(activeType: NpcServerType) =
@@ -49,7 +68,6 @@ internal enum class KrakenPhase {
     DORMANT,
     ACTIVE,
     COMPLETE,
-    INVALIDATED,
 }
 
 internal object KrakenAssets {
@@ -67,5 +85,3 @@ internal object KrakenAssets {
     const val TENTACLE_PROJECTILE = "spotanim.waterstrike_travel"
     const val TENTACLE_IMPACT = "spotanim.waterstrike_impact"
 }
-
-internal val KRAKEN_TENTACLE_SPAWNS = listOf(35 to 50, 35 to 54, 44 to 50, 44 to 54)

@@ -133,7 +133,7 @@ Diagnostic-only modules are excluded. Zero manager lines is not proof of archite
 
 | Boss | Original architecture / manager lines | DSL conversion | Instance conversion | External handlers retained | Tests | Remaining uncertainty |
 |---|---|---|---|---|---|---|
-| Kraken | private per-player run, native combat wrapper; 363 | Pending golden migration | Pending | Whirlpool activation/drop tile | Baseline rules; native characterization pending | Preserve current behavior; no new OSRS parity claim |
+| Kraken | private per-player run, native combat wrapper; 363 → 0 manager lines | Boss/tentacle specifications; ordinary attacks delegated to native NvPCombat by DSL | Source InstanceScript; native spawns, keyed joins, session state and lifecycle | KrakenWhirlpools (171 lines): dormant activation, one-shot completion/drop tile; native attack-validation hook | 12 passing tests, including 8 native integration/characterization tests | No live deployment/client verification; no new OSRS parity claim |
 | Vorkath | managers/timing; 1,254 | Pending | Pending | Acid/spawn/death storage | Existing tests preserved | PR remains unsubmitted |
 | Corporeal Beast | manager; 502 | Pending | Pending | Core behavior | Pending | Detailed mapping pending |
 | Alchemical Hydra | manager; 858 | Pending | Pending | Vents/hazards | Pending | Detailed mapping pending |
@@ -189,3 +189,25 @@ Kree'arra, K'ril, Obor, Scorpia, Scurrius, Wilderness, Zilyana) must be regressi
 - `boss-instance-entry-red-2.log`: all three entry safety regression tests fail against the old
   shared flow. `boss-instance-entry-green.log`: 29 instance tests pass after guarding failed entry,
   destroyed-session callbacks and refused exits. This does not bypass native teleport validation.
+- Kraken baseline characterization commit `b11c13366`: 7 tests passed before migration
+  (`kraken-characterization-before.log`). The same entry/awakening/completion assertions passed
+  after migration (`kraken-characterization-after.log`).
+- Native combat regression exposed a real baseline registration defect, separate from architecture
+  debt: AiPlayerEvents and NpcQueueEvents dispatch by original `npc.id`, but the old handlers only
+  registered active forms while instances created whirlpools. Both original and active forms now
+  register through the single specification/native death workflow. No IDs or transformations changed.
+- `kraken-native-lifecycle-test-2.log`: 12 tests pass. Runtime objects and native coroutine/event
+  dispatch verify attacks at 101/105/109, 28/2 maxima, magic/ranged types, prayer bypass, projectile
+  travel queue delays, death/loot hooks at the owner's tile, one-shot completion, two private rooms,
+  fresh re-entry, normal exit and external teleport/logout/disconnect/death cancellation.
+  The test fixture records repositories and advances native coroutines; it is not a live client.
+- `kraken-golden-check.log`: scoped formatting, Kraken check and shared boss/instance/combat tests
+  pass (34s, 170 tasks). All Kraken architecture waivers are removed; detector and self-tests pass.
+- Golden-pattern review: no private combat scheduler, membership map, manual instance spawning,
+  polling cleanup or replacement reward pipeline remains. Only dormant presentation/awakening and
+  completion coordination are session-owned specialized state. The native no-natural-respawn
+  baseline is intentionally unchanged; consecutive test kills use exit and fresh instance entry.
+  Existing research remains authoritative for future mechanical corrections, not proof of parity.
+- `kraken-golden-broad-regression.log`: all boss module tests plus boss/instance/NPC/combat/game API
+  tests pass (1m10s, 316 tasks). `git diff --check` passes. `.data` edits remain deliberately
+  uncommitted and untouched. No live deployment/restart was performed.
