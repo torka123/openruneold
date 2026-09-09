@@ -5,7 +5,10 @@ import kotlin.test.*
 import org.junit.jupiter.api.BeforeAll
 import org.mockito.Mockito.*
 import org.rsmod.annotations.InternalApi
+import org.rsmod.api.bosses.runtime.*
+import org.rsmod.api.combat.NvPCombat
 import org.rsmod.api.combat.formulas.AccuracyFormulae
+import org.rsmod.api.combat.formulas.MaxHitFormulae
 import org.rsmod.api.death.NpcDeath
 import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.instances.region.InstanceAreaResolver
@@ -34,6 +37,7 @@ import org.rsmod.game.hit.HitBuilder
 import org.rsmod.game.hit.HitType
 import org.rsmod.game.proj.ProjAnim
 import org.rsmod.game.queue.EngineQueueCache
+import org.rsmod.game.queue.WorldQueueList
 import org.rsmod.game.region.Region
 import org.rsmod.game.region.zone.RegionZoneCopy
 import org.rsmod.map.CoordGrid
@@ -191,6 +195,18 @@ class AlchemicalHydraNativeTest {
             if (ServerCacheManager.objectSize() == 0) ServerCacheManager.init(240).close()
         }
     }
+
+    @Test
+    fun `cache default differs from the characterized encounter reform delay`() {
+        // Read-only cache evidence, not gameplay parity: native death needs an explicit override.
+        assertEquals(50, assertNotNull(ServerCacheManager.getNpc(8615)).respawnRate)
+        assertEquals(43, HYDRA_RESPAWN_TICKS)
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    fun releaseNativeFixtures() {
+        framework().clearInlineMocks()
+    }
 }
 
 @OptIn(InternalApi::class)
@@ -259,6 +275,20 @@ private class HydraFixture(ranged: Boolean = false, accuracyResults: List<Boolea
                 accuracyResults[(accuracyRolls++).coerceAtMost(accuracyResults.lastIndex)]
             } else RETURNS_DEFAULTS.answer(call)
         }
+    val deps =
+        BossDeps(
+            random,
+            accuracy,
+            world,
+            npcs,
+            players,
+            clock,
+            WorldQueueList(),
+            collision,
+            EncounterRegistry(random),
+            BossExtensionRegistry(),
+            NvPCombat(accuracy, mock(MaxHitFormulae::class.java), world),
+        )
     val encounters =
         AlchemicalHydraEncounterManager(
             clock,
@@ -267,14 +297,14 @@ private class HydraFixture(ranged: Boolean = false, accuracyResults: List<Boolea
             AiPlayerInteractions(events, players),
             collision,
             random,
-            accuracy,
+            deps,
             world,
         )
     val npc: Npc
 
     init {
         collision.allocateIfAbsent(player.coords.x, player.coords.z, 0)
-        val combat = AlchemicalHydraCombat(encounters, mock(NpcDeath::class.java), players)
+        val combat = AlchemicalHydraCombat(encounters, mock(NpcDeath::class.java), players, deps)
         with(combat) { ScriptContext(events, CheatCommandMap(), EngineQueueCache()).startup() }
         assertTrue(encounters.enter(player))
         npc =

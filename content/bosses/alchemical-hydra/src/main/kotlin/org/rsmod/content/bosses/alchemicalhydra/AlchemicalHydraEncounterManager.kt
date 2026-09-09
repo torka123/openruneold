@@ -5,7 +5,9 @@ import dev.openrune.types.aconverted.SpotanimType
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlin.math.abs
-import org.rsmod.api.combat.formulas.AccuracyFormulae
+import org.rsmod.api.bosses.runtime.BossDeps
+import org.rsmod.api.bosses.runtime.BossEncounter
+import org.rsmod.api.combat.NpcAttackOverride
 import org.rsmod.api.instances.InstanceAccess
 import org.rsmod.api.instances.InstanceId
 import org.rsmod.api.instances.InstanceManager
@@ -13,7 +15,6 @@ import org.rsmod.api.instances.InstanceSession
 import org.rsmod.api.instances.RaidLeaveResult
 import org.rsmod.api.instances.RegionLocal
 import org.rsmod.api.mechanics.toxins.impl.PlayerPoison
-import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.api.npc.apPlayer2
 import org.rsmod.api.npc.interact.AiPlayerInteractions
 import org.rsmod.api.npc.owner.assignSpawnOwner
@@ -36,6 +37,7 @@ import org.rsmod.game.entity.util.PathingEntityCommon
 import org.rsmod.game.hit.HitBuilder
 import org.rsmod.game.hit.HitImpactHandler
 import org.rsmod.game.hit.HitType
+import org.rsmod.game.hit.HitValidity
 import org.rsmod.game.proj.ProjAnim
 import org.rsmod.map.CoordGrid
 import org.rsmod.routefinder.collision.CollisionFlagMap
@@ -50,7 +52,7 @@ constructor(
     private val interactions: AiPlayerInteractions,
     private val collision: CollisionFlagMap,
     private val random: GameRandom,
-    private val accuracy: AccuracyFormulae,
+    private val deps: BossDeps,
     private val world: WorldRepository,
 ) {
     private val runs = mutableMapOf<PlayerUid, Run>()
@@ -119,13 +121,21 @@ constructor(
         val boss = spawnBoss(player, result.session)
         runs[player.uid] =
             Run(
-                player = player,
-                session = result.session,
-                boss = boss,
-                generation = generation++,
-                initialStyle =
-                    if (random.of(2) == 0) HydraAttackStyle.MAGIC else HydraAttackStyle.RANGED,
-            )
+                    player = player,
+                    session = result.session,
+                    boss = boss,
+                    generation = generation++,
+                    encounter = deps.encounterRegistry.of(boss),
+                    initialStyle =
+                        if (random.of(2) == 0) HydraAttackStyle.MAGIC else HydraAttackStyle.RANGED,
+                )
+                .also { run ->
+                    run.encounter.transitionTo(
+                        hydraPhaseName(HydraPhase.GREEN, run.initialStyle),
+                        clock.cycle,
+                    )
+                    boss.movementLocked = true
+                }
         player.mes("You climb over the rocks into the observation room.")
         player.mes("Cross the alchemical doors to begin the fight.")
         return true
@@ -157,72 +167,52 @@ constructor(
         }
     }
 
-    fun attack(access: StandardNpcAccess, target: Player) {
-        val run = runs[target.uid] ?: return
-        if (run.boss !== access.npc || !run.boss.isSpawnOwnedBy(target)) return
-        if (run.state != HydraState.ACTIVE || access.actionDelay > clock.cycle) return
-        if (AlchemicalHydraRules.specialDue(run.basicAttacks, run.specialsLaunched)) {
-            when (AlchemicalHydraRules.special(run.phase)) {
-                HydraSpecial.POISON -> launchPoison(run)
-                HydraSpecial.LIGHTNING -> launchLightning(run)
-                HydraSpecial.FLAME -> launchFlame(run)
-            }
-            run.specialsLaunched++
-            access.actionDelay = run.specialEndCycle
-            return
-        }
-        launchBasic(run)
-        access.actionDelay = clock.cycle + AlchemicalHydraRules.attackRate(run.phase)
-    }
+    fun canAttack(npc: Npc, target: Player): Boolean =
+        runs[target.uid]?.let {
+            it.boss === npc && it.state == HydraState.ACTIVE && npc.isSpawnOwnedBy(target)
+        } == true
 
-    private fun launchBasic(run: Run) {
-        val npc = run.boss
-        val target = run.player
-        val style = run.style
+    fun normalParameters(npc: Npc, target: Player, style: HydraAttackStyle): NpcAttackOverride {
+        val run = requireNotNull(runs[target.uid])
+        val weakened = run.weakened || run.phase == HydraPhase.FINAL
         val protectedAtLaunch =
             target.vars[
                     if (style == HydraAttackStyle.MAGIC) "varbit.prayer_protectfrommagic"
                     else "varbit.prayer_protectfrommissiles"] == 1
-        npc.facePlayer(target)
-        npc.anim(basicAnimation(run.phase, style))
-        val weakened = run.weakened || run.phase == HydraPhase.FINAL
-        val maxHit =
-            AlchemicalHydraRules.empoweredDamage(
-                AlchemicalHydraRules.basicMaxHit(run.phase, weakened),
-                run.wrongVentStacks,
-            )
-        repeat(AlchemicalHydraRules.basicHitCount(run.phase, weakened)) {
-            val projectile =
-                ProjAnim.fromNpcToPlayer(
-                    npc,
-                    target,
-                    if (style == HydraAttackStyle.MAGIC) AlchemicalHydraAssets.MAGIC_PROJECTILE
-                    else AlchemicalHydraAssets.RANGED_PROJECTILE,
-                    AlchemicalHydraAssets.BASIC_PROJECTILE,
-                )
-            world.projAnim(projectile)
-            val accurate =
-                if (style == HydraAttackStyle.MAGIC) accuracy.rollMagicAccuracy(npc, target, random)
-                else accuracy.rollRangedAccuracy(npc, target, random)
-            target.queueHit(
-                source = npc,
-                delay = projectile.serverCycles.coerceAtLeast(1),
-                type = if (style == HydraAttackStyle.MAGIC) HitType.Magic else HitType.Ranged,
-                damage = if (accurate) random.of(maxHit + 1) else 0,
-                modifier =
-                    NpcCalculatedProtectionPrayerPlayerHitModifier(
-                        protectedAtCalculation = protectedAtLaunch,
-                        reductionPercent = 100,
-                    ),
-            )
-        }
-        run.lastBasicStyle = style
-        run.basicAttacks++
-        run.attacksWithStyle++
-        val next = AlchemicalHydraRules.nextStyleAfterAttack(run.phase, style, run.attacksWithStyle)
-        if (next != style) {
-            run.style = next
-            run.attacksWithStyle = 0
+        return NpcAttackOverride(
+            maxHit =
+                AlchemicalHydraRules.empoweredDamage(
+                    AlchemicalHydraRules.basicMaxHit(run.phase, weakened),
+                    run.wrongVentStacks,
+                ),
+            hitCount = AlchemicalHydraRules.basicHitCount(run.phase, weakened),
+            hitModifier =
+                NpcCalculatedProtectionPrayerPlayerHitModifier(
+                    protectedAtCalculation = protectedAtLaunch,
+                    reductionPercent = 100,
+                ),
+            onAttack = {
+                npc.facePlayer(target)
+                run.lastBasicStyle = style
+            },
+            hitValidity =
+                HitValidity {
+                    runs[target.uid] === run &&
+                        instances.sessionForPlayer(target) === run.session &&
+                        target.isSlotAssigned &&
+                        target.hitpoints > 0 &&
+                        npc.isSlotAssigned
+                },
+        )
+    }
+
+    fun launchSpecial(npc: Npc, target: Player, special: HydraSpecial) {
+        val run = runs[target.uid] ?: return
+        if (run.boss !== npc || run.state != HydraState.ACTIVE) return
+        when (special) {
+            HydraSpecial.POISON -> launchPoison(run)
+            HydraSpecial.LIGHTNING -> launchLightning(run)
+            HydraSpecial.FLAME -> launchFlame(run)
         }
     }
 
@@ -250,7 +240,6 @@ constructor(
             world.projAnim(projectile)
             run.pendingPoison += PendingPoison(tile, clock.cycle + projectile.serverCycles)
         }
-        run.specialEndCycle = clock.cycle + AlchemicalHydraRules.NORMAL_ATTACK_RATE
     }
 
     private fun launchLightning(run: Run) {
@@ -266,7 +255,6 @@ constructor(
             )
         )
         run.pendingLightningCycle = clock.cycle + 2
-        run.specialEndCycle = clock.cycle + AlchemicalHydraRules.LIGHTNING_LIFETIME
     }
 
     private fun launchFlame(run: Run) {
@@ -307,7 +295,6 @@ constructor(
         run.flameTiles += walls
         run.flameEndCycle = clock.cycle + AlchemicalHydraRules.FLAME_LIFETIME
         run.trackingFlame = bossCenter
-        run.specialEndCycle = run.flameEndCycle
     }
 
     fun modifyNpcHit(player: Player, npc: Npc, hit: HitBuilder) {
@@ -427,14 +414,14 @@ constructor(
         run.boss.baseHitpointsLvl = HYDRA_MAX_HITPOINTS
         run.boss.hitpoints = hp
         run.boss.anim(emergeAnimation(next))
-        run.phase = next
+        val nextStyle = if (next == HydraPhase.FINAL) run.lastBasicStyle.opposite() else run.style
+        run.initialStyle = nextStyle
+        run.encounter.transitionTo(hydraPhaseName(next, nextStyle), clock.cycle)
+        run.encounter.attackRateOverride = null
+        run.encounter.lastAbilityTick = clock.cycle - AlchemicalHydraRules.attackRate(next)
         run.state = HydraState.ACTIVE
         run.weakened = next == HydraPhase.FINAL
         run.wrongVentStacks = 0
-        run.basicAttacks = 0
-        run.specialsLaunched = 0
-        run.attacksWithStyle = 0
-        if (next == HydraPhase.FINAL) run.style = run.lastBasicStyle.opposite()
         run.nextVentCycle = clock.cycle + AlchemicalHydraRules.VENT_INITIAL_DELAY
         run.boss.movementLocked = false
         run.boss.actionDelay = clock.cycle + 1
@@ -614,14 +601,13 @@ constructor(
         }
         clearHazards(run)
         run.boss = spawnBoss(run.player, run.session)
-        run.phase = HydraPhase.GREEN
+        run.encounter = deps.encounterRegistry.of(run.boss)
         run.state = HydraState.OBSERVATION
-        run.style = if (random.of(2) == 0) HydraAttackStyle.MAGIC else HydraAttackStyle.RANGED
-        run.initialStyle = run.style
-        run.lastBasicStyle = run.style
-        run.basicAttacks = 0
-        run.specialsLaunched = 0
-        run.attacksWithStyle = 0
+        run.initialStyle =
+            if (random.of(2) == 0) HydraAttackStyle.MAGIC else HydraAttackStyle.RANGED
+        run.encounter.transitionTo(hydraPhaseName(HydraPhase.GREEN, run.initialStyle), clock.cycle)
+        run.boss.movementLocked = true
+        run.lastBasicStyle = run.initialStyle
         run.weakened = false
         run.wrongVentStacks = 0
         run.player.combatClearQueue()
@@ -689,7 +675,7 @@ constructor(
     fun status(player: Player): String {
         val run = runs[player.uid] ?: return "Hydra: no active encounter."
         return "Hydra phase=${run.phase} state=${run.state} hp=${run.boss.hitpoints}/$HYDRA_MAX_HITPOINTS " +
-            "style=${run.style} basics=${run.basicAttacks} specials=${run.specialsLaunched} " +
+            "style=${run.style} recentAbilities=${run.encounter.recentAttackTraces().map { it.ability }} " +
             "weakened=${run.weakened} wrongVent=${run.wrongVentStacks}"
     }
 
@@ -780,23 +766,6 @@ constructor(
     private fun requireNpc(id: Int) =
         requireNotNull(ServerCacheManager.getNpc(id)) { "Missing revision-240 Hydra NPC $id" }
 
-    private fun basicAnimation(phase: HydraPhase, style: HydraAttackStyle): Int =
-        when (phase) {
-            HydraPhase.GREEN ->
-                if (style == HydraAttackStyle.MAGIC) AlchemicalHydraAssets.GREEN_MAGIC_ANIM
-                else AlchemicalHydraAssets.GREEN_RANGE_ANIM
-            HydraPhase.BLUE ->
-                if (style == HydraAttackStyle.MAGIC) AlchemicalHydraAssets.BLUE_MAGIC_ANIM
-                else AlchemicalHydraAssets.BLUE_RANGE_ANIM
-            HydraPhase.RED ->
-                if (style == HydraAttackStyle.MAGIC) AlchemicalHydraAssets.RED_MAGIC_ANIM
-                else AlchemicalHydraAssets.RED_RANGE_ANIM
-            HydraPhase.FINAL ->
-                if (style == HydraAttackStyle.MAGIC)
-                    AlchemicalHydraAssets.FINAL_MAGIC_OR_POISON_ANIM
-                else AlchemicalHydraAssets.FINAL_RANGE_ANIM
-        }
-
     private fun transitionAnimation(phase: HydraPhase): Int =
         when (phase) {
             HydraPhase.GREEN -> AlchemicalHydraAssets.GREEN_TRANSITION_ANIM
@@ -831,17 +800,12 @@ constructor(
         var boss: Npc,
         val generation: Long,
         var initialStyle: HydraAttackStyle,
+        var encounter: BossEncounter,
         var state: HydraState = HydraState.OBSERVATION,
-        var phase: HydraPhase = HydraPhase.GREEN,
-        var style: HydraAttackStyle = initialStyle,
         var lastBasicStyle: HydraAttackStyle = initialStyle,
-        var basicAttacks: Int = 0,
-        var specialsLaunched: Int = 0,
-        var attacksWithStyle: Int = 0,
         var weakened: Boolean = false,
         var wrongVentStacks: Int = 0,
         var stateCycle: Int = 0,
-        var specialEndCycle: Int = 0,
         var nextVentCycle: Int = 0,
         val pendingPoison: MutableList<PendingPoison> = mutableListOf(),
         val poisonPools: MutableList<PoisonPool> = mutableListOf(),
@@ -854,5 +818,15 @@ constructor(
         var fireBurnsRemaining: Int = 0,
         var nextBurnCycle: Int = 0,
         var lastFireContactCycle: Int = -1,
-    )
+    ) {
+        val phase: HydraPhase
+            get() = HydraPhase.valueOf(encounter.currentPhaseName.substringBefore('.').uppercase())
+
+        val style: HydraAttackStyle
+            get() {
+                val group = if (phase == HydraPhase.FINAL) 1 else 3
+                val nextIndex = (encounter.lastRotationIndex + 1) % (group * 2)
+                return if (nextIndex < group) initialStyle else initialStyle.opposite()
+            }
+    }
 }
