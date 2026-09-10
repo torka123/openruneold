@@ -7,15 +7,9 @@
   },
   {
     "boss": "cerberus",
-    "rule": "boss-api-dependency",
-    "maximum": 1,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "cerberus",
     "rule": "direct-combat-review",
-    "maximum": 7,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+    "maximum": 6,
+    "reason": "Native ordinary attack parameter adapter plus remaining Soul/lava/fire-wall effects. BossSpec now owns ordinary selection, triple component launch cadence and queued hits; InstanceScript owns membership and configured actor respawn. Specialized queue scoping, phase clock and handler extraction remain in progress; see DSL_MIGRATION.md."
   },
   {
     "boss": "chaos-fanatic",

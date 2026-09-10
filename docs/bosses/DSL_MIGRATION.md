@@ -235,7 +235,7 @@ Diagnostic-only modules are excluded. Zero manager lines is not proof of archite
 | Grotesque Guardians | manager; 945 -> 327 coordinator lines | Two BossSpecs: ordinary native volleys, phase identity, ordinal style selection and forced cadence | Native InstanceScript, typed session state, configured actors and validated native pair reset | Arena geometry/effects (343 lines), paired form coordination, native parameter/damage adapters | 21 deterministic tests (15 native), 48 drop tests pass | No live verification or cache repack; inherited lightning vulnerability, non-player damage exclusion and draft-only spatial values remain uncertified |
 | Zulrah | manager; 993 -> 300 coordinator lines | Four unchanged declarative rotation programs, native attacks and separate snakeling specs | Native InstanceScript, configured actor, typed session state and same-actor respawn | Spatial clouds/eggs/tail handler (307 lines), surface positioning, existing reclaim storage and native parameter adapters | 43 tests (21 native, 22 retained) and revision-240 cache audit pass; all boss/shared regressions and app classes pass | No deployment/cache repack/client verification; Grid Master capture context, tail-order conflict and inherited non-player damage exclusion remain uncertified |
 | Muspah | manager; 1,088 -> 552 | Weighted normal attacks, final cadence and all timed phases on BossSpec/BossEncounter | InstanceScript, configured actor, typed session, native death/respawn and KC | Threshold/shield policy, spatial cloud/spike/LOS handlers, corruption presentation | 67 tests (27 native, 40 retained) pass | Draft timings, projectile geometry, source exclusions and shield-skip policy not OSRS-certified; client verification pending |
-| Cerberus | manager; 1,290 | Pending | Pending | Ghosts/lava | Existing capture tests preserved | Detailed mapping pending |
+| Cerberus | manager; 1,290 | Ordinary attacks, triple and conditional rotation wired; phase clock pending | Native protected InstanceScript, typed session state and same-actor death/reveal | Ghosts/lava/animation presentation; split pending | 62 retained tests plus native combat/phase characterizations in progress | Existing donor/capture gaps; not deployed |
 | Royal Titans | manager; 2,017 | Pending | Pending | Paired coordination/walls/statistics | Existing tests preserved | Existing evidence gaps remain distinct from migration |
 | Nex | manager; 1,321 | Pending | Pending | Group specials/reward coordination | Existing tests preserved | Full encounter work remains incomplete |
 | Yama | managers; 2,908 | Pending | Pending | Contracts/judges/group mechanics | Pending | Detailed mapping pending |
@@ -1194,3 +1194,42 @@ instead of only .kt sources were corrected; neither changed live gameplay.
 This is an internal checkpoint, NOT a completed or deployed Cerberus migration. Ordinary combat,
 phase deadlines and specialized handler extraction remain. The live seven-boss checkpoint is
 unchanged, and no cache/PostgreSQL data or unrelated work was modified.
+
+Combat conversion detail: native BossEncounter commit count drives the production conditional
+selector. Admin counter overrides use a reward-ineligible diagnostic offset plus the existing
+forceNextAbility API; no new shared counter mutator or production scheduler is needed. Basic
+style/head choices and special skips use declarative injected-RNG branches. Triple components
+use a native suspended NPC coroutine with two-tick component locks, then the original ten-tick
+ability recovery from its commit tick. Tests must advance the native coroutine before reading
+the final recovery lock, rather than assume all component work was already placed on private
+world timers. Normal attack parameters preserve the existing equipment-reduced maximum before
+damage RNG, head-attached projectile geometry and per-component launch-prayer snapshots.
+
+Additional generic presentation mapping (within the requested shared-framework repairs): the
+retained triple emits one4493 sequence at launch, with hits at0/2/4. Native post-tick clears
+pendingSequence each cycle. Both local NvPCombat.playAttackFx and official upstream
+61139e76a216592d66c2b20366ef26d48609875d always emit the configured/default sequence and sound
+on each attack call. Local searches across combat/boss APIs for skipAnimation/playAnimation/
+suppressAnimation/suppressAttackAnimation found no opt-out; an explicit attackAnimation only
+substitutes another sequence. Writing pending packets directly or replacing the hit pipeline
+would violate the migration architecture. Smallest reusable capability: an opt-in
+NpcAttackOverride.playAttackFx=false parameter, default true, skips only the native default
+animation/sound when a DSL ability owns that presentation. It does not bypass accuracy, source
+attribution, modifiers, projectile sending, action locks, queued hits or cancellation. This is a
+new LOCAL extension of native NvPCombat, not an official upstream API. Shared interpreter/native
+combat regression must test both default and suppressed presentation with identical hits and
+locks; Cerberus regression flushes the first packet then executes subsequent components.
+
+Native combat checkpoint: `logs/cerberus-native-presentation-checkpoint.log` passes (17s,
+171 tasks; applicable tasks up-to-date after the45s green run). XML results: Cerberus69,
+boss runtime47, combat scripts8 tests, all zero failures/skips. The packet-flush regression
+first failed in `cerberus-native-triple-presentation-red.log`; it now passes with the retained
+0/2/4 volley and no default animation replacing4493. No deployment or visual parity is claimed.
+
+Next mapped source step: reuse existing local BossPhaseClock and BossEncounter.schedule (the
+shared-framework migration additions, not upstream APIs) for standing/reset phase deadlines
+and cancellable Soul work. Keep the native LateCycle spatial/presentation stage using declared
+ready phases; do not activate one tick earlier. Replace the private generation with the native
+BossEncounter identity. Preserve characterized four-tick wake, four-tick reset minimum plus
+four-tick sitting and existing unverified24-tick reset path fallback. Tests cover both exact
+deadlines and immediate queue cancellation on departure/reset/death; no new shared API is needed.

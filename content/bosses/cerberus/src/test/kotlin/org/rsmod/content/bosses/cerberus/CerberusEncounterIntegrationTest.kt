@@ -7,7 +7,10 @@ import net.rsprot.protocol.game.outgoing.zone.payload.MapProjAnimV2
 import org.junit.jupiter.api.BeforeAll
 import org.mockito.Mockito.*
 import org.rsmod.annotations.InternalApi
+import org.rsmod.api.bosses.runtime.*
+import org.rsmod.api.combat.NvPCombat
 import org.rsmod.api.combat.formulas.AccuracyFormulae
+import org.rsmod.api.combat.formulas.MaxHitFormulae
 import org.rsmod.api.combat.formulas.attributes.collector.DamageReductionAttributeCollector
 import org.rsmod.api.combat.weapon.scripts.WeaponAttackStylesScript
 import org.rsmod.api.combat.weapon.styles.AttackStyles
@@ -22,6 +25,7 @@ import org.rsmod.api.instances.RegionLocal
 import org.rsmod.api.instances.region.InstanceAreaResolver
 import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.api.npc.access.StandardNpcAccessContext
+import org.rsmod.api.npc.events.interact.AiPlayerEvents
 import org.rsmod.api.npc.interact.AiPlayerInteractions
 import org.rsmod.api.player.bonus.WornBonuses
 import org.rsmod.api.player.events.PlayerMovementEvent
@@ -47,7 +51,6 @@ import org.rsmod.api.repo.region.RegionRepository
 import org.rsmod.api.repo.world.WorldRepository
 import org.rsmod.api.route.RouteFactory
 import org.rsmod.api.route.StepFactory
-import org.rsmod.coroutine.GameCoroutine
 import org.rsmod.events.EventBus
 import org.rsmod.game.MapClock
 import org.rsmod.game.cheat.CheatCommandMap
@@ -190,7 +193,7 @@ class CerberusEncounterIntegrationTest {
                 world.status(player),
             )
             sawSouls = sawSouls || world.souls(player).isNotEmpty()
-            world.tick((world.boss(player).actionDelay - world.clock.cycle).coerceAtLeast(1))
+            world.recover(player)
             sawLava = sawLava || !world.status(player).contains("lava=0 ")
         }
         assertTrue(sawSouls, "A seeded low-health fight must actually spawn Souls")
@@ -451,6 +454,24 @@ internal class CerberusTestWorld {
         })
     private val queues = WorldQueueList()
     private val queueProcess = WorldQueueListProcess(queues)
+    val deps =
+        BossDeps(
+            random,
+            injector.getInstance(AccuracyFormulae::class.java),
+            WorldRepository(updates),
+            npcs,
+            playerList,
+            clock,
+            queues,
+            collision,
+            EncounterRegistry(random),
+            BossExtensionRegistry(),
+            NvPCombat(
+                injector.getInstance(AccuracyFormulae::class.java),
+                injector.getInstance(MaxHitFormulae::class.java),
+                WorldRepository(updates),
+            ),
+        )
     val manager =
         CerberusEncounterManager(
             clock,
@@ -459,13 +480,12 @@ internal class CerberusTestWorld {
             AiPlayerInteractions(events, playerList),
             collision,
             random,
-            injector.getInstance(AccuracyFormulae::class.java),
             injector.getInstance(DamageReductionAttributeCollector::class.java),
-            WornBonuses(),
             queues,
             WorldRepository(updates),
             RouteFactory(collision),
             arena,
+            deps,
         )
 
     var denyTeleport = false
@@ -511,7 +531,20 @@ internal class CerberusTestWorld {
         val context = ScriptContext(events, CheatCommandMap(), EngineQueueCache())
         with(instanceScript) { context.startup() }
         with(CerberusLifecycle(manager)) { context.startup() }
-        with(CerberusCombat(manager, death)) { context.startup() }
+        with(
+            CerberusCombat(
+                manager,
+                death,
+                deps,
+                CerberusAttackParameters(
+                    manager,
+                    injector.getInstance(DamageReductionAttributeCollector::class.java),
+                    WornBonuses(),
+                ),
+            )
+        ) {
+            context.startup()
+        }
         val lifecycle =
             injector.getInstance(
                 Class.forName("org.rsmod.api.instances.hook.InstanceLifecycleScript")
@@ -654,18 +687,35 @@ internal class CerberusTestWorld {
         assertTrue(status(player).contains("phase=ACTIVE "), status(player))
     }
 
-    fun attack(player: Player) {
-        val access =
-            StandardNpcAccess(
-                boss(player),
-                GameCoroutine(),
-                StandardNpcAccessContext(
-                    { random },
-                    { error("Encounter uses player hit processor") },
-                    { error("Not processing NPC hits") },
-                ),
+    fun attack(player: Player, operate: Boolean = false) {
+        val boss = boss(player)
+        // Native interaction processing does not interrupt a suspended NPC ability.
+        if (boss.isBusy) return
+        boss.currentMapClock = clock.cycle
+        boss.processedMapClock = clock.cycle
+        boss.launch {
+            val access =
+                StandardNpcAccess(
+                    boss,
+                    this,
+                    StandardNpcAccessContext(
+                        { random },
+                        { error("Not processing NPC hits") },
+                        { error("Not processing NPC hits") },
+                    ),
+                )
+            events.publish(
+                access,
+                if (operate) AiPlayerEvents.Op2(player, boss) else AiPlayerEvents.Ap2(player, boss),
             )
-        manager.attack(access, player)
+        }
+    }
+
+    fun recover(player: Player) {
+        var waited = 0
+        while (boss(player).isBusy && waited++ < 30) tick()
+        check(!boss(player).isBusy) { "Native ability did not release its coroutine" }
+        tick((boss(player).actionDelay - clock.cycle).coerceAtLeast(0))
     }
 
     fun tick(count: Int = 1) =

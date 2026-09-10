@@ -3,6 +3,8 @@ plugins { id("base-conventions") }
 dependencies {
     implementation(libs.guice)
     implementation(libs.or2.all.cache)
+    implementation(projects.api.bosses)
+    implementation(projects.api.combat.combatScripts)
     implementation(projects.api.combat.combatCommons)
     implementation(projects.api.combat.combatFormulas)
     implementation(projects.api.death)

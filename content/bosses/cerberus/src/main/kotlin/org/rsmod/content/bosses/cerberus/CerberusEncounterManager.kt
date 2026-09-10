@@ -9,25 +9,21 @@ import dev.openrune.types.NpcMode
 import dev.openrune.types.aconverted.SpotanimType
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import org.rsmod.api.bosses.runtime.BossDeps
+import org.rsmod.api.bosses.runtime.BossEncounter
 import org.rsmod.api.combat.commons.magic.ArceuusSpellState
-import org.rsmod.api.combat.commons.types.MeleeAttackType
-import org.rsmod.api.combat.formulas.AccuracyFormulae
 import org.rsmod.api.combat.formulas.attributes.DamageReductionAttributes
 import org.rsmod.api.combat.formulas.attributes.collector.DamageReductionAttributeCollector
-import org.rsmod.api.combat.formulas.maxhit.MaxHitOperations
 import org.rsmod.api.instances.InstanceId
 import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.instances.InstanceSession
 import org.rsmod.api.instances.InstanceStateKey
 import org.rsmod.api.instances.RegionLocal
-import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.api.npc.apPlayer2
 import org.rsmod.api.npc.interact.AiPlayerInteractions
 import org.rsmod.api.npc.owner.assignSpawnOwner
 import org.rsmod.api.npc.owner.isSpawnOwnedBy
-import org.rsmod.api.player.bonus.WornBonuses
 import org.rsmod.api.player.combatClearQueue
-import org.rsmod.api.player.hit.modifier.NpcCalculatedProtectionPrayerPlayerHitModifier
 import org.rsmod.api.player.hit.queueHit
 import org.rsmod.api.player.lefthand
 import org.rsmod.api.player.output.mes
@@ -68,13 +64,12 @@ constructor(
     private val interactions: AiPlayerInteractions,
     private val collision: CollisionFlagMap,
     private val random: GameRandom,
-    private val accuracy: AccuracyFormulae,
     private val reductions: DamageReductionAttributeCollector,
-    private val bonuses: WornBonuses,
     private val worldQueues: WorldQueueList,
     private val world: WorldRepository,
     private val routeFactory: RouteFactory,
     private val arena: CerberusArena,
+    private val deps: BossDeps,
 ) {
     private fun run(player: Player): Run? =
         instances
@@ -152,7 +147,7 @@ constructor(
                 }
             configureBoss(player, boss, true)
             boss.anim(CerberusAssets.SITTING_ANIMATION)
-            val run = Run(player, session, boss)
+            val run = Run(player, session, boss, deps.encounterRegistry.of(boss))
             session.onCleanup { retireRun(run) }
             player.mes("You enter Cerberus's lair. Approach the chamber to wake her.")
             run
@@ -164,195 +159,97 @@ constructor(
         if (run.player === player) retireRun(run)
     }
 
-    fun attack(access: StandardNpcAccess, target: Player) {
-        val run = run(target) ?: return
-        if (run.boss !== access.npc || !run.boss.isSpawnOwnedBy(target)) return
-        if (run.phase != CerberusPhase.ACTIVE || access.actionDelay > clock.cycle) return
-        if (!isCurrent(run) || !inChamber(run)) return
+    fun isActiveTarget(npc: Npc, target: Player): Boolean =
+        run(target)?.let {
+            it.boss === npc &&
+                npc.isSpawnOwnedBy(target) &&
+                it.phase == CerberusPhase.ACTIVE &&
+                isCurrent(it) &&
+                inChamber(it)
+        } == true
 
-        val attackNumber = run.attackNumber
-        val forcedAttack = run.forcedAttack.also { run.forcedAttack = null }
-        val selectedAttack =
-            CerberusRules.selectAttack(
-                attackNumber = attackNumber,
-                hitpoints = run.boss.hitpoints,
-                forcedAttack = forcedAttack,
-                forcedSkip = run.forcedSkip,
-                nextSkipRoll = { random.of(it) },
-            )
+    fun canAttack(npc: Npc, target: Player): Boolean {
+        if (!isActiveTarget(npc, target)) return false
+        val run = requireNotNull(run(target))
+        val encounter = run.encounter
+        if (
+            npc.actionDelay > clock.cycle ||
+                clock.cycle - encounter.lastAbilityTick < encounter.expectedAttackRate()
+        )
+            return true
+
+        // Admin-only diagnostics use native forced abilities. Production has no private selector,
+        // attack count, skip RNG or scheduler. An offset preserves arbitrary diagnostic counters
+        // without mutating the shared encounter's actual commit count.
+        val forced = run.forcedAttack
+        val skip = run.forcedSkip
+        if (forced == null && skip == null && run.diagnosticCounterOffset == 0) return true
+        val candidate = CerberusRules.specialCandidate(run.attackNumber, npc.hitpoints)
+        val selected =
+            when {
+                forced != null ->
+                    when (forced) {
+                        CerberusAttack.BASIC ->
+                            run.forcedNormalStyle
+                                ?.takeIf {
+                                    it != CerberusAttackStyle.MELEE ||
+                                        CerberusRules.distanceToFootprint(
+                                            npc.coords.x,
+                                            npc.coords.z,
+                                            npc.visType.size,
+                                            target.coords.x,
+                                            target.coords.z,
+                                        ) == 1
+                                }
+                                ?.name
+                                ?.lowercase() ?: "basic"
+                        else -> forced.name.lowercase()
+                    }
+                skip != null && candidate in listOf(CerberusAttack.SOULS, CerberusAttack.LAVA) ->
+                    if (skip) "basic" else requireNotNull(candidate).name.lowercase()
+                run.diagnosticCounterOffset != 0 ->
+                    when (candidate) {
+                        CerberusAttack.SOULS -> "souls-candidate"
+                        CerberusAttack.LAVA -> "lava-candidate"
+                        CerberusAttack.TRIPLE -> "triple"
+                        else -> "basic"
+                    }
+                else -> null
+            }
+        selected?.let(encounter::forceNextAbility)
+        run.forcedAttack = null
+        run.forcedNormalStyle = null
         run.forcedSkip = null
-        when (selectedAttack) {
-            CerberusAttack.TRIPLE -> launchTriple(run)
-            CerberusAttack.SOULS -> launchSouls(run)
-            CerberusAttack.LAVA -> launchLava(run)
-            CerberusAttack.BASIC -> launchBasic(access, run)
-        }
-        run.attackNumber++
-        access.actionDelay = clock.cycle + CerberusRules.recoveryTicks(selectedAttack)
+        return true
     }
 
-    private fun launchBasic(access: StandardNpcAccess, run: Run) {
-        val inMeleeRange =
-            CerberusRules.distanceToFootprint(
-                run.boss.coords.x,
-                run.boss.coords.z,
-                run.boss.visType.size,
-                run.player.coords.x,
-                run.player.coords.z,
-            ) == 1
-        val allowed = CerberusRules.ordinaryStyles(inMeleeRange)
-        val forced = run.forcedNormalStyle.also { run.forcedNormalStyle = null }
-        val style = forced?.takeIf { it in allowed } ?: random.pick(allowed)
-        playAttackAnimation(run, animationFor(style), CerberusRules.BASIC_ANIMATION_LOCK_TICKS)
-        launchHit(
-            run,
-            style,
-            if (style == CerberusAttackStyle.MELEE) {
-                CerberusHead.CENTRE
-            } else {
-                randomOuterHead()
-            },
-        )
-    }
-
-    private fun launchTriple(run: Run) {
-        val generation = run.generation
-        val firstHead = randomOuterHead()
-        val secondHead =
-            if (firstHead == CerberusHead.LEFT) CerberusHead.RIGHT else CerberusHead.LEFT
-        playAttackAnimation(
-            run,
-            CerberusAssets.TRIPLE_SPRAY_ANIMATION,
-            CerberusRules.TRIPLE_ANIMATION_LOCK_TICKS,
-        )
-        launchHit(run, CerberusAttackStyle.MAGIC, firstHead)
-        worldQueues.add(CerberusRules.TRIPLE_COMPONENT_GAP_TICKS) {
-            if (isCurrent(run, generation)) {
-                launchHit(run, CerberusAttackStyle.RANGED, secondHead)
-            }
-        }
-        worldQueues.add(CerberusRules.TRIPLE_COMPONENT_GAP_TICKS * 2) {
-            if (isCurrent(run, generation)) {
-                launchHit(run, CerberusAttackStyle.MELEE, CerberusHead.CENTRE)
-            }
-        }
-    }
-
-    private fun launchHit(run: Run, style: CerberusAttackStyle, head: CerberusHead) {
-        if (!isCurrent(run)) return
-        val generation = run.generation
-        val npc = run.boss
-        val target = run.player
-        val protectedAtLaunch = isProtected(target, style)
-        npc.facePlayer(target)
-        val accurate =
-            when (style) {
-                CerberusAttackStyle.MAGIC -> accuracy.rollMagicAccuracy(npc, target, random)
-                CerberusAttackStyle.RANGED -> accuracy.rollRangedAccuracy(npc, target, random)
-                CerberusAttackStyle.MELEE ->
-                    accuracy.rollMeleeAccuracy(npc, target, MeleeAttackType.Stab, random)
-            }
-        val damage =
-            if (accurate) {
-                val defenceBonus =
-                    when (style) {
-                        CerberusAttackStyle.MELEE -> bonuses.defensiveStabBonus(target)
-                        CerberusAttackStyle.MAGIC -> bonuses.defensiveMagicBonus(target)
-                        CerberusAttackStyle.RANGED -> bonuses.defensiveRangedBonus(target)
-                    }
-                val maximum =
-                    MaxHitOperations.applyDamageReductions(
-                        CerberusRules.BASIC_MAX_HIT,
-                        defenceBonus,
-                        reductions.collectNvP(target, random),
-                    )
-                random.of(maximum + 1)
-            } else 0
-        val hitType =
-            when (style) {
-                CerberusAttackStyle.MAGIC -> HitType.Magic
-                CerberusAttackStyle.RANGED -> HitType.Ranged
-                CerberusAttackStyle.MELEE -> HitType.Melee
-            }
-        val impactSpot =
-            when (style) {
-                CerberusAttackStyle.MAGIC -> CerberusAssets.MAGIC_IMPACT_SPOTANIM
-                CerberusAttackStyle.RANGED -> CerberusAssets.RANGED_IMPACT_SPOTANIM
-                CerberusAttackStyle.MELEE -> null
-            }
-        val delay =
-            when (style) {
-                CerberusAttackStyle.MAGIC -> {
-                    npc.spotanim(resolvedSpotanim(CerberusAssets.MAGIC_CAST_SPOTANIM))
-                    target.soundSynth(CerberusAssets.MAGIC_CAST_SOUND)
-                    launchBossProjectile(
-                        run,
-                        CerberusAssets.MAGIC_PROJECTILE_SPOTANIM,
-                        CerberusAssets.MAGIC_PROJECTILE,
-                        head,
-                    )
-                }
-                CerberusAttackStyle.RANGED ->
-                    launchBossProjectile(
-                        run,
-                        CerberusAssets.RANGED_PROJECTILE_SPOTANIM,
-                        CerberusAssets.RANGED_PROJECTILE,
-                        head,
-                    )
-                CerberusAttackStyle.MELEE -> 1
-            }
-        target.queueHit(
-            source = npc,
-            delay = delay.coerceAtLeast(1),
-            type = hitType,
-            damage = damage,
-            validity = HitValidity { isCurrent(run, generation) },
-            modifier =
-                NpcCalculatedProtectionPrayerPlayerHitModifier(
-                    protectedAtCalculation = protectedAtLaunch,
-                    reductionPercent = 100,
-                ),
-            impactHandler =
-                HitImpactHandler { impact ->
-                    impactSpot?.let { id ->
-                        if (target.isSlotAssigned && target.hitpoints > 0) {
-                            target.spotanim(resolvedSpotanim(id))
-                            if (style == CerberusAttackStyle.MAGIC) {
-                                target.soundSynth(CerberusAssets.MAGIC_IMPACT_SOUND)
-                            }
-                        }
-                    }
-                    if (style == CerberusAttackStyle.MELEE && impact.damage > 0) {
-                        run.tookMeleeDamage = true
-                    }
-                },
-        )
-    }
-
-    private fun launchBossProjectile(
-        run: Run,
-        spotanim: Int,
-        type: dev.openrune.types.ProjAnimType,
-        head: CerberusHead,
-    ): Int {
-        val (sourceX, sourceZ) =
-            CerberusRules.bossProjectileSource(
-                run.boss.coords.x,
-                run.boss.coords.z,
-                run.boss.visType.size,
-                run.player.coords.x,
-                run.player.coords.z,
-                head,
+    fun attackPresentation(npc: Npc, presentation: Any?) {
+        val run = run(npc)?.takeIf { it.boss === npc } ?: return
+        if (presentation == CerberusAttack.TRIPLE) {
+            playAttackAnimation(
+                run,
+                CerberusAssets.TRIPLE_SPRAY_ANIMATION,
+                CerberusRules.TRIPLE_ANIMATION_LOCK_TICKS,
             )
-        val source = CoordGrid(sourceX, sourceZ, run.boss.coords.level)
-        // A coordinate-only source produced damage on revision 240 but no visible travel graphic.
-        // Keep the head-aware launch tile while attaching the projectile to Cerberus's NPC slot,
-        // matching the working native NPC projectile path used by the combat system.
-        val projectile =
-            ProjAnim.fromNpcToPlayer(run.boss, run.player, resolvedSpotanim(spotanim), type)
-                .copy(startCoord = source)
-        world.projAnim(projectile)
-        return projectile.serverCycles.coerceAtLeast(1)
+        } else if (presentation is CerberusAttackStyle) {
+            playAttackAnimation(
+                run,
+                animationFor(presentation),
+                CerberusRules.BASIC_ANIMATION_LOCK_TICKS,
+            )
+        }
+    }
+
+    fun recordMeleeImpact(npc: Npc) {
+        run(npc)?.tookMeleeDamage = true
+    }
+
+    fun souls(npc: Npc) {
+        run(npc)?.takeIf { isCurrent(it) }?.let(::launchSouls)
+    }
+
+    fun lava(npc: Npc) {
+        run(npc)?.takeIf { isCurrent(it) }?.let(::launchLava)
     }
 
     private fun playAttackAnimation(run: Run, animation: Int, lockTicks: Int) {
@@ -645,6 +542,7 @@ constructor(
     }
 
     private fun activate(run: Run) {
+        run.encounter.transitionTo("active", clock.cycle)
         run.boss.transmog(requireNpc(CerberusAssets.ACTIVE_NPC_ID), Int.MAX_VALUE)
         run.boss.hitpoints = CerberusRules.HITPOINTS
         run.boss.movementLocked = false
@@ -652,7 +550,7 @@ constructor(
         run.boss.showAllOps()
         spawnFireWall(run)
         run.phase = CerberusPhase.ACTIVE
-        run.attackNumber = 1
+        run.diagnosticCounterOffset = 0
         run.boss.apPlayer2(run.player, interactions)
     }
 
@@ -734,13 +632,15 @@ constructor(
         DRAGONFIRE_SHIELDS.any { player.lefthand.isType(it) }
 
     private fun beginReset(run: Run) {
+        deps.encounterRegistry.remove(run.boss)
+        run.encounter = deps.encounterRegistry.of(run.boss)
         run.generation++
         run.phase = CerberusPhase.RESETTING
         run.stateCycle = clock.cycle + CerberusRules.RESET_TRANSITION_TICKS
         run.resetDeadlineCycle = clock.cycle + CerberusRules.RESET_WALK_TIMEOUT_TICKS
         run.resetArrived = false
         run.resetSitting = false
-        run.attackNumber = 1
+        run.diagnosticCounterOffset = 0
         run.forcedAttack = null
         run.forcedNormalStyle = null
         run.forcedSkip = null
@@ -816,6 +716,7 @@ constructor(
     }
 
     private fun respawn(run: Run) {
+        run.encounter = deps.encounterRegistry.of(run.boss)
         run.generation++
         run.rewardEligible = true
         run.forcedAttack = null
@@ -825,7 +726,7 @@ constructor(
         configureBoss(run.player, run.boss, run.rewardEligible)
         run.boss.anim(CerberusAssets.SITTING_ANIMATION)
         run.phase = CerberusPhase.SITTING
-        run.attackNumber = 1
+        run.diagnosticCounterOffset = 0
         run.soulWaveSpawned = false
         run.negatedSoulAttacks = 0
         run.tookLavaDamage = false
@@ -835,6 +736,7 @@ constructor(
     fun beginBossDeath(npc: Npc): Boolean {
         val run = run(npc)?.takeIf { it.boss === npc } ?: return false
         if (run.phase != CerberusPhase.ACTIVE) return false
+        deps.encounterRegistry.remove(npc)
         run.phase = CerberusPhase.DYING
         run.generation++
         run.player.combatClearQueue()
@@ -927,7 +829,7 @@ constructor(
                 if (value == null || value < 1) {
                     "Use ::cerbdebug counter <1+>."
                 } else {
-                    run.attackNumber = value
+                    run.diagnosticCounterOffset = value - 1 - run.encounter.phaseAbilityCount
                     "Cerberus attack counter set to $value; this kill is reward-ineligible."
                 }
             }
@@ -1064,6 +966,7 @@ constructor(
 
     private fun retireRun(run: Run) {
         if (run.phase == CerberusPhase.INVALIDATED) return
+        deps.encounterRegistry.remove(run.boss)
         run.phase = CerberusPhase.INVALIDATED
         run.generation++
         run.player.combatClearQueue()
@@ -1155,9 +1058,6 @@ constructor(
             CerberusAttackStyle.MELEE -> CerberusAssets.MELEE_SOUL_ATTACK_ANIMATION
         }
 
-    private fun randomOuterHead(): CerberusHead =
-        if (random.of(2) == 0) CerberusHead.LEFT else CerberusHead.RIGHT
-
     private fun animationFor(style: CerberusAttackStyle): Int =
         when (style) {
             CerberusAttackStyle.MAGIC -> CerberusAssets.MAGIC_ANIMATION
@@ -1173,9 +1073,10 @@ constructor(
         val player: Player,
         val session: InstanceSession,
         val boss: Npc,
+        var encounter: BossEncounter,
         var pendingRespawn: Boolean = false,
         var phase: CerberusPhase = CerberusPhase.SITTING,
-        var attackNumber: Int = 1,
+        var diagnosticCounterOffset: Int = 0,
         var generation: Int = 1,
         var stateCycle: Int = 0,
         var wasInsideChamber: Boolean = false,
@@ -1196,7 +1097,10 @@ constructor(
         val activeLava: MutableList<ActiveLava> = mutableListOf(),
         val souls: MutableList<Npc> = mutableListOf(),
         val fireWallLocs: MutableList<LocInfo> = mutableListOf(),
-    )
+    ) {
+        val attackNumber: Int
+            get() = encounter.phaseAbilityCount + diagnosticCounterOffset + 1
+    }
 
     private companion object {
         val RUN_STATE = InstanceStateKey<Run>("cerberus-arena")
