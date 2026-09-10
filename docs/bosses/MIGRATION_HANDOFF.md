@@ -14,12 +14,18 @@ Update this checkpoint after each completed boss and immediately before any auth
   This local Git backup includes no new runtime/cache/PostgreSQL copy and is not a deployment.
 - Deployed source: Muspah checkpoint `f35675be2`, shared phase clock `f0f1d8d99` (46 API tests),
   deployment checkpoint `c48e36cad`, diagnostic-harness follow-ups `c40dca8ad` and `7784e155e`.
-  Current checkpoint branch: `chore/boss-migration-checkpoint-20260909`; re-read actual Git state.
+  Verified checkpoint branch: `chore/boss-migration-checkpoint-20260909`; next source work is on
+  `refactor/cerberus-boss-dsl-20260909`. Re-read actual Git state.
 - Recoverable predeployment source branch: `backup/boss-dsl-predeploy-20260909-muspah` (`c48e36cad`).
   Source-only ZIP: `logs/boss-dsl-predeploy-20260909-muspah-source.zip`, SHA256
   `C1B93AE0C0B631FB7DB2938792A66C88DB5D1B1C8629B31B036F16E4F4603AAB`.
   Diagnostic follow-ups are also backed up on `backup/boss-dsl-live-audit-checkpoint-20260909`
   and `backup/boss-dsl-native-logout-checkpoint-20260909`. No remote push/merge occurred.
+- Completed live-checkpoint backup: `backup/boss-dsl-live-verified-20260909`, commit `18a8aad57`.
+  ZIP `logs/boss-dsl-live-verified-20260909-source.zip`, SHA256
+  `C4EECA806195DFEB29E7E8630290C58A46772FB11E3685C754EDAAB81BDE3B93`.
+- Cerberus has only begun its source migration: mapping plus four new executed characterization
+  tests (56 module tests passing). No Cerberus gameplay migration has been deployed or accepted.
 - Completed source migrations: Kraken, Vorkath, Corporeal Beast, Alchemical Hydra, Grotesque Guardians,
   Zulrah and Muspah. This means source/headless migration, not client or full OSRS parity certification.
 - Muspah verification: `logs/muspah-native-phase-dsl-regression.log`, all67 tests pass
@@ -117,7 +123,7 @@ The resume helper prints these instructions with current Git identity:
 .\scripts\resume-boss-migration.ps1
 ```
 
-Optional `-CopyPrompt` copies the prompt to the clipboard. Optional `-Verify -Boss muspah` runs the
+Optional `-CopyPrompt` copies the prompt to the clipboard. Optional `-Verify -Boss cerberus` runs the
 doctor, architecture detector and focused boss/API/instance tests first. It does not modify source,
 switch branches, commit, deploy, restart or contact GitHub. Build/test outputs are the usual local
 generated files. Paste its output into a new session in the canonical workspace after allowance resets.

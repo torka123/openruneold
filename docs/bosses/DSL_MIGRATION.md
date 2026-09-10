@@ -1154,3 +1154,14 @@ Migrate in independently tested internal steps: characterization, declarative co
 instance/actor lifecycle, specialized-resource split, final removal/waiver review. Do not deploy
 an incomplete Cerberus wiring step. The current deployed checkpoint must remain usable while
 the source migration proceeds. Preserve existing scripts, captures, maps, drop tables and evidence.
+
+Cerberus characterization checkpoint: four added real-instance/queued-hit tests lock strict400/200
+thresholds,6/10/8 recovery, blocked-attempt override retention, skip/no-reward behavior, triple
+component prayers and defend suppression. Initial56-test run had one fixture failure because
+emitted NPC animation packets were never cleared in the small harness; modeling the native
+post-tick packet clear corrected the test, not gameplay. `cerberus-migration-characterization-green.log`
+passes all56 tests,32s/146tasks. Scoped formatting plus tests pass again in31s/149tasks
+(`cerberus-migration-characterization-final.log`). The earlier formatting invocation failed task
+resolution because the PowerShell -P path was unquoted; no code/test failure in that invocation.
+The1,290-line manager is still the authoritative implementation until these characterizations
+pass through its replacement wiring. Do not count Cerberus as migrated or deployed.
