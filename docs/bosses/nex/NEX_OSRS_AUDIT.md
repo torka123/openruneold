@@ -74,6 +74,24 @@ errors or skips. Up-to-date suites are identified honestly; they were not all re
 `git diff --check` passes. The unrelated four modified `.data` files and untracked GE area remain
 untouched and outside the focused source commits. Post-deployment changes here are tests/docs only.
 
+Test/document checkpoint: `7cbd04d2b`, backed up as
+`backup/nex-main-characterization-20260910`. Source ZIP
+`logs/nex-main-characterization-20260910.zip` has 7,475 entries and no excluded-path violations;
+SHA-256 `07C7AAB412B21C174E5C5DE118BC5ADAFA33EB233728283874A8ECCEA8D90BA4`.
+It excludes tracked tool archives as well as credentials/runtime/build data. Production remains
+`41fd77bff`; no further server restart is needed for these test/document-only changes.
+
+Focused files changed in this continuation:
+
+- Nex production: `NexCombat.kt`, `NexEncounterManager.kt`, new `NexMinionSpec.kt`;
+  `NexRewards.kt` has formatting only.
+- Executable tests: `NexMinionCombatCharacterizationTest.kt`, new
+  `NexMinionLifecycleIntegrationTest.kt`, new `NexMainCombatCharacterizationTest.kt`, and
+  `or-cache/src/test/kotlin/dev/openrune/NexR240CacheAuditTest.kt`.
+- Documentation/checkpoint wiring: this ledger, `docs/bosses/DSL_MIGRATION.md`,
+  `MIGRATION_HANDOFF.md`, `RESUME_OPENRUNE_BOSS_API_DSL.txt`, `architecture-waivers.json`,
+  and `scripts/resume-boss-migration.ps1`.
+
 ### S09 proposal: target-bound ordinary-attack continuation (new approval boundary)
 
 **Proposed new shared capability, not an existing official API and not implemented.**
