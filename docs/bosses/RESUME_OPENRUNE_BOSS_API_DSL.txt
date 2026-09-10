@@ -31,8 +31,12 @@ KNOWN STARTING CHECKPOINT (RECHECK; DO NOT REPEAT COMPLETED WORK)
   through two controlled restarts. It had 129 module tests and 3 cache cases.
 - Nex test-only checkpoint 4c6dc9f2b had 21 tests, including 3 native minion
   characterizations; no Nex production migration was completed in that step.
-- Latest user priority: finish the remaining Royal Titans work first, then resume
-  Nex, Yama, Doom of Mokhaiotl and DT2. Review Dagannoth Kings separately.
+- Latest user priority: continue Nex. Its native guard/Reaver migration checkpoint
+  now has 30 Nex tests and 4 executable cache tests; main Nex phases/lifecycle are
+  not yet migrated. Read the latest ledger/handoff for deployment status.
+  Then continue Yama, Doom of Mokhaiotl and DT2. Review Dagannoth Kings separately.
+  Preserve remaining Royal Titans evidence/reward gaps; do not repeat its completed
+  native-delivery work or mistake that pass for full reward/persistence parity.
 - Existing DSL bosses are preserved/regression-tested, not rewritten simply
   because their files do not resemble newly migrated modules.
 

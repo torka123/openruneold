@@ -134,8 +134,8 @@
   {
     "boss": "nex",
     "rule": "direct-combat-review",
-    "maximum": 15,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+    "maximum": 14,
+    "reason": "Guard/Reaver ordinary attacks migrated to BossSpec September10; one approved parameter resolver remains. Main Nex attacks/hazards are still migration debt. See nex/NEX_OSRS_AUDIT.md."
   },
   {
     "boss": "royal-titans",

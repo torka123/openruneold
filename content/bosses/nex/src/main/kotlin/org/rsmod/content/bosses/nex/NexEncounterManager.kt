@@ -45,6 +45,7 @@ import org.rsmod.game.entity.util.PathingEntityCommon
 import org.rsmod.game.hit.HitBuilder
 import org.rsmod.game.hit.HitImpactHandler
 import org.rsmod.game.hit.HitType
+import org.rsmod.game.hit.HitValidity
 import org.rsmod.game.loc.LocAngle
 import org.rsmod.game.loc.LocInfo
 import org.rsmod.game.loc.LocShape
@@ -160,10 +161,29 @@ constructor(
         val npc = access.npc
         val current = encounterFor(npc) ?: return
         if (target.uid !in current.participants || !activeParticipant(current, target)) return
-        when {
-            npc === current.boss -> attackNex(access, current, target)
-            current.bodyguards.values.any { it === npc } -> attackBodyguard(access, current, target)
-            npc in current.reavers -> attackReaver(access, target)
+        if (npc === current.boss) attackNex(access, current, target)
+    }
+
+    /** Only Nex-specific launch eligibility remains here; the DSL owns ordinary minion combat. */
+    fun canAttackMinion(npc: Npc, target: Player): Boolean {
+        val current = encounterFor(npc) ?: return false
+        if (target.uid !in current.participants || !activeParticipant(current, target)) return false
+        val guardState = current.bodyguards.entries.firstOrNull { it.value === npc }?.key
+        return if (guardState != null) current.state == guardState else npc in current.reavers
+    }
+
+    /**
+     * A fired spell can survive phase handoff, but cannot acquire a new room or player identity.
+     */
+    fun minionHitValidity(npc: Npc, target: Player): HitValidity {
+        val current = encounterFor(npc)
+        val targetUid = target.uid
+        return HitValidity {
+            current != null &&
+                isActiveRun(current) &&
+                targetUid.resolve(players) === target &&
+                targetUid in current.participants &&
+                activeParticipant(current, target)
         }
     }
 
@@ -560,39 +580,6 @@ constructor(
                 }
             damage = damage * (100 - reduction) / 100
         }
-
-    private fun attackBodyguard(access: StandardNpcAccess, current: Run, target: Player) {
-        val state =
-            current.bodyguards.entries.firstOrNull { it.value === access.npc }?.key ?: return
-        if (current.state != state) return
-        combat.attack(
-            access,
-            target,
-            CombatAttack.NpcMagic(20),
-            NpcAttackOverride(
-                attackAnimation = anim(811),
-                maxHit = 20,
-                attackRate = 5,
-                projectile =
-                    NpcProjectile(spotInternal(1999), projectileType("projanim.magic_spell")),
-                hitModifier = NpcPartialProtectionPrayerPlayerHitModifier(50),
-            ),
-        )
-    }
-
-    private fun attackReaver(access: StandardNpcAccess, target: Player) {
-        combat.attack(
-            access,
-            target,
-            CombatAttack.NpcMagic(18),
-            NpcAttackOverride(
-                attackAnimation = anim(811),
-                maxHit = 18,
-                attackRate = 5,
-                hitModifier = NpcPartialProtectionPrayerPlayerHitModifier(50),
-            ),
-        )
-    }
 
     private fun modifyNexHit(current: Run, player: Player, hit: HitBuilder) {
         if (current.state == NexState.BLOOD && clock.cycle < current.siphonUntil) {

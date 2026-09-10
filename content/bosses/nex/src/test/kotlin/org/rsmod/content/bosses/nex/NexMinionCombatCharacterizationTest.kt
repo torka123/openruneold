@@ -7,13 +7,18 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeAll
 import org.mockito.Mockito.*
 import org.rsmod.annotations.InternalApi
+import org.rsmod.api.bosses.runtime.BossDeps
+import org.rsmod.api.bosses.runtime.BossExtensionRegistry
+import org.rsmod.api.bosses.runtime.EncounterRegistry
 import org.rsmod.api.combat.NvPCombat
 import org.rsmod.api.combat.formulas.AccuracyFormulae
 import org.rsmod.api.combat.formulas.MaxHitFormulae
 import org.rsmod.api.death.NpcDeath
 import org.rsmod.api.game.process.npc.NpcQueueProcessor
+import org.rsmod.api.game.process.player.PlayerQueueProcessor
 import org.rsmod.api.game.process.world.WorldQueueListProcess
 import org.rsmod.api.hit.plugin.NpcHitScript
+import org.rsmod.api.hit.plugin.PlayerHitScript
 import org.rsmod.api.npc.access.StandardNpcAccessContextFactory
 import org.rsmod.api.npc.access.StandardNpcAccessLauncher
 import org.rsmod.api.npc.events.interact.AiPlayerEvents
@@ -21,6 +26,9 @@ import org.rsmod.api.npc.hit.modifier.StandardNpcHitModifier
 import org.rsmod.api.npc.hit.processor.StandardNpcHitProcessor
 import org.rsmod.api.npc.hit.queueHit
 import org.rsmod.api.npc.interact.AiPlayerInteractions
+import org.rsmod.api.player.protect.ProtectedAccessContext
+import org.rsmod.api.player.protect.ProtectedAccessContextFactory
+import org.rsmod.api.player.protect.ProtectedAccessLauncher
 import org.rsmod.api.player.vars.VarPlayerIntMapSetter
 import org.rsmod.api.random.GameRandom
 import org.rsmod.api.registry.npc.NpcRegistry
@@ -159,6 +167,21 @@ internal class NexMinionTestWorld {
             } else RETURNS_DEFAULTS.answer(call)
         }
     val combat = NvPCombat(accuracy, mock(MaxHitFormulae::class.java), world)
+    val encounters = EncounterRegistry(random)
+    val deps =
+        BossDeps(
+            random,
+            accuracy,
+            world,
+            repository,
+            players,
+            clock,
+            worldQueues,
+            collision,
+            encounters,
+            BossExtensionRegistry(),
+            combat,
+        )
     val manager =
         NexEncounterManager(
             clock,
@@ -200,13 +223,32 @@ internal class NexMinionTestWorld {
             )
         )
     private val queues = NpcQueueProcessor(events, launcher)
+    private val playerContext =
+        mock(ProtectedAccessContext::class.java) { call ->
+            when (call.method.name) {
+                "getRandom" -> random
+                "getEventBus" -> events
+                "getNpcList" -> npcs
+                "getPlayerList" -> players
+                "getCollision" -> collision
+                else -> RETURNS_DEFAULTS.answer(call)
+            }
+        }
+    private val playerQueues =
+        PlayerQueueProcessor(
+            events,
+            ProtectedAccessLauncher(
+                mock(ProtectedAccessContextFactory::class.java) { playerContext }
+            ),
+        )
 
     init {
         players[1] = player
         for (x in 360..368) for (z in 647..653) collision.allocateIfAbsent(x * 8, z * 8, 0)
         val context = ScriptContext(events, CheatCommandMap(), EngineQueueCache())
         with(NpcHitScript()) { context.startup() }
-        with(NexCombat(manager, mock(NpcDeath::class.java), players)) { context.startup() }
+        with(PlayerHitScript()) { context.startup() }
+        with(NexCombat(manager, mock(NpcDeath::class.java), players, deps)) { context.startup() }
         manager.startup()
         tick()
         assertTrue(manager.enter(player))
@@ -269,6 +311,15 @@ internal class NexMinionTestWorld {
             .invocations
             .filter { it.method.name == "projAnim" }
             .map { it.arguments[0] as ProjAnim }
+
+    /** Exercise the real player queue and impact processor without the room post-tick cleanup. */
+    fun processPlayerHits(count: Int = 12) =
+        repeat(count) {
+            clock.tick()
+            player.currentMapClock = clock.cycle
+            player.processedMapClock = clock.cycle
+            playerQueues.process(player)
+        }
 
     fun hits(): List<Pair<Int, Hit>> {
         val iterator = player.queueList.iterator() ?: return emptyList()

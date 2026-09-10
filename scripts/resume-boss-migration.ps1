@@ -2,7 +2,7 @@
 param(
     [switch]$Verify,
     [switch]$CopyPrompt,
-    [ValidatePattern('^[a-z0-9-]+$')][string]$Boss = 'royal-titans'
+    [ValidatePattern('^[a-z0-9-]+$')][string]$Boss = 'nex'
 )
 
 Set-StrictMode -Version Latest
@@ -45,9 +45,9 @@ Current status (recheck before editing):
 $($migrationStatus -join "`n")
 
 Selected boss for this continuation: $Boss.
-Read content/bosses/royal-titans/docs/reward-workflow-20260910.md for the reward continuation,
-approved mapping, executable results, and remaining conflicts. Royal Titans remains the latest
-user priority unless this selection or a newer user request changes it. Nex follows that work.
+Read docs/bosses/nex/NEX_OSRS_AUDIT.md for the current Nex mapping, helper migration,
+executable results and remaining conflicts. Nex is the latest user priority unless this
+selection or a newer user request changes it. Preserve the completed Royal Titans reward pass.
 Do not repeat completed deployments or discard research. Client acceptance remains open.
 Routine boss checkpoints are updates, not reasons to stop: back up, verify, deploy when authorized,
 record the result, and continue. Preserve unrelated work and do not push or merge remotely.

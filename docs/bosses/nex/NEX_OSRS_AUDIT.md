@@ -1,5 +1,94 @@
 # Nex revision-240 evidence ledger and approval mapping
 
+## September10 native minion combat implementation
+
+Current continuation branch: `refactor/nex-native-minions-20260910`, based on Royal Titans
+checkpoint `30e94ae13`. Recoverable pre-work branch: `backup/nex-before-minion-dsl-20260910`.
+The latest user priority is Nex. Older checkpoint sections below are retained history.
+
+Implemented the previously approved first bounded mapping: two BossSpecs register all four
+bodyguards and encounter Reaver11294 through BossCombat. The shared DSL/native NvPCombat pipeline
+now owns their ordinary attack selection, five-tick readiness, animation/projectile dispatch,
+accuracy, prayer reduction and queued damage. Removed both manager attack implementations; no
+parallel legacy minion dispatcher remains. Guards retain movement locks; Reavers retain native
+movement. The only named parameter resolver captures room/participant identity for hit validity.
+The existing manager retains phase eligibility and bespoke room state pending its next migration.
+No shared engine/API source, cache configuration, reward formula or balance constant changed.
+Manager size falls1,321 ->1,308 lines; this modest decrease is not a measure of whole-fight completion.
+The architecture detector's direct-combat allowance reduces15 ->14; the remaining override in
+NexCombat is only the named parameter resolver. Existing other Nex debt remains explicitly waived.
+
+Reuse classification remains explicit: BossCombat/BossSpec/EncounterRegistry/NvPCombat are official
+workflow families (A01/A02). Effect.NpcAttack, BossAttackParameters, canTarget and scoped cancellation
+are the **already approved local shared-framework extensions**, not upstream public APIs.
+No additional extension or private combat scheduler was introduced. Main Nex still has its private
+loop; this checkpoint must not be called a complete Nex DSL or instance migration.
+
+Nine new production integration tests exercise real NPC registration/repositories and player hit
+queues/HP processing: stationary guards, native Reaver ownership, damage impact, exits, external
+teleport before room post-tick, pending/final logout, target death, source deletion, actual NPC slot
+reuse, player slot replacement, idempotent teardown and fresh encounter state. Fired magic retains
+the existing native source-death/phase-handoff policy until deletion. An unrelated Reaver cannot
+borrow an active room's registration. Tests do not simulate a real network disconnect or claim
+complete native guard death animations/room teardown.
+
+Regression-first evidence: after fixing two test compilation mistakes, the unmodified production
+handlers failed5 of10 minion tests (registration, departure, target replacement, deletion, teardown),
+`logs/nex-minion-regression-before-20260910.log`,29s/162tasks. The first DSL implementation passed
+all10 in33s/162tasks (`logs/nex-minion-dsl-first-20260910.log`). Two additional ownership/death tests
+then passed. All30 Nex tests and4 new executable cache tests pass, zero failures/errors/skips:
+`logs/nex-minion-dsl-cache-verified-20260910.log`,34s/169tasks, including explicitly scoped formatting.
+The first cache run corrected an assumption: death form11282 still has Attack in its definition;
+runtime operation masks, not absence of the cache option, must gate it.
+
+The new `or-cache/.../NexR240CacheAuditTest.kt` decodes native SERVER definitions and actual LIVE
+model/sequence/interface payloads. It covers five Nex forms, four guards, encounter Reaver, pet/POH
+distinction, guard/Reaver stats and locomotion, sequences9177-9203/1979/836, graphics1997-2017 and
+368/372/390 with linked sequences/models, ten packet sound assets, barriers/hazards/altar options
+and collision definitions, statistics732 component existence, key/shard identities and relevant
+varbit existence. It does NOT yet prove interface text, all reward/CA metadata, packet timing,
+native actor pathing, new game-value behavior or rendered client parity. E09 is partially addressed.
+
+### Retained minion presentation contradictions (not silently changed by migration)
+
+The characterization still deliberately asserts legacy20/18 maxima, animation811, guard projectile
+1999, no authored Reaver projectile and50% launch prayer. These are not OSRS values. The parallel
+read-only follow-up strengthened M11/M17 correction evidence:
+
+| Actor | Capture-observed presentation | Exact retained transcript evidence |
+|---|---|---|
+| Fumus11283 | Cast1979, projectile390, impact391 | 3284 t406:L9769,L9774,L9777-L9788; projectile start51/end76, angle16, progress64, heights172/124; sound183, delayed180 |
+| Umbra11284 | Cast1979, impact383, no outgoing projectile in this sample | 808 t216:L6373-L6391; impact delay60, sounds178/175 |
+| Cruor11285 | Cast1979, impact377, no outgoing projectile in this sample | 808 t256:L7615-L7643; impact delay60, sounds106/102 |
+| Glacies11286 | Cast1979, projectile368, impact369 | 808 t349:L9834-L9856; start51/end106, angle16, progress64, heights172/0; sound171 |
+| Reaver11294 | Attack9194, projectile372, impact373 | 808 t231:L6654-L6680; start42/end102, angle4, progress64, heights0/10; sound106 delay30,110 delay102 |
+
+Both captures are **revision234.1 Grid Master**, decoded text inspected, not newly decoded raw
+binary or normal-mode timing certification. These distance-specific samples are not universal
+travel formulas. Animation811 belongs to ordinary ancient Saradomin wizards2209 (3284 t185:L6371-81).
+Projectile1999 belongs to Nex Shadow (3284 t424:L10258-77), not a generic guard attack.
+Reaver spawn:3284 t444:L10891-10907,11294 at2934,5212 with2017 and sound4497; attack9194 follows
+t445:L10940-62. Reaver death9192 t455:L11206-11, deletion t458:L11300, same index58764.
+Guard death836 then phase call then removal: Fumus407/408/409, Umbra439/440/441,
+Cruor485/486/487, Glacies518/519/520 in3284; see retained minion follow-up packet ranges.
+
+Wiki revisions15221135/15221134/15221130/15221131 document guard max29 and speed5;
+Reaver15305108 documents max20 and speed5. SERVER guard attack_anim5247 also contradicts captured1979;
+the cache test intentionally does not certify5247 as correct. Reaver LIVE stab defence0 versus
+Wiki20, official player-heal75% versus Wiki50%, helper prayer fractions and normal travel formulas
+remain unresolved. No balance or healing change is implied by these observations.
+
+Next architecture work: characterize/migrate Nex ordinary phase rotation, then public-room/session
+ownership under the existing mapping. Do not mark main phases, lifecycle, rewards, persistence,
+Combat Achievements or client/packet comparison complete on the strength of helper tests.
+
+Unscoped `:content:bosses:nex:check` initially found five pre-existing Nex formatter violations.
+Only those files were selected for formatting: four line-ending-only fixes (Git-normalized content
+unchanged) and three expression wraps in NexRewards. No reward logic changed. Final unscoped check,
+shared boss/instance/combat-scripts/NPC/player tests, server app assemble and architecture enforcement
+pass: `logs/nex-minion-broader-final-20260910.log`,1m15s/473tasks. Shared totals:50/34/8/12/17 tests,
+zero failures/errors; including Nex30/cache4 gives155 tests. No shared gameplay source changed.
+
 ## September10 architecture-migration refresh
 
 The all-boss migration now takes precedence for architecture sequencing; the original approved

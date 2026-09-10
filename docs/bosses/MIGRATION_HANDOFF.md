@@ -4,7 +4,25 @@ This is a resumable handoff, not a project-completion or full OSRS-parity claim.
 mechanic mappings, uncertainties, commands and results remain in [DSL_MIGRATION.md](DSL_MIGRATION.md).
 Update this checkpoint after each completed boss and immediately before any authorized deployment.
 
-## Current continuation: Royal Titans native rewards (September10)
+## Current continuation: Nex native minion combat (September10)
+
+The latest user request resumes Nex. Branch `refactor/nex-native-minions-20260910` is based on
+`30e94ae13`; pre-work backup `backup/nex-before-minion-dsl-20260910` preserves that source.
+The previously characterized four guards and encounter Reaver now use BossCombat/BossSpec and
+the existing approved Effect.NpcAttack adapter. Nine additional lifecycle/ownership tests pass;
+Nex total30 and executable revision240 cache audit4 pass. Exact regression failures, successful
+runs, upstream/local classification and packet contradictions are in
+[NEX_OSRS_AUDIT.md](nex/NEX_OSRS_AUDIT.md). No new engine API was added.
+
+This is a bounded helper migration, not full Nex completion. Main Nex ordinary/special selection,
+phase coordination and fixed public-room lifecycle still require migration; rewards, healing
+conflicts, CAs and rendered-client parity remain open. The existing wrong minion presentation is
+retained as an explicit architecture characterization, not silently certified as OSRS-correct.
+Deployment and broader verification for this checkpoint must be read from the latest ledger entry;
+the previous live source was Royal Titans `eb5d0f4a8`/JVM21724, not this branch merely because it
+is checked out. The resume helper now defaults to Nex and never repeats the completed RT reward pass.
+
+## Earlier continuation: Royal Titans native rewards (September10 history)
 
 Latest user priority is Royal Titans remaining integrations before Nex. The reusable starter is
 [RESUME_OPENRUNE_BOSS_API_DSL.txt](RESUME_OPENRUNE_BOSS_API_DSL.txt); the helper now defaults to
@@ -303,14 +321,12 @@ acceptance or OpenRune-versus-OSRS packet comparison was completed by this migra
    persistent fingerprints and the corrected75-assertion live Vorkath audit are complete. Do not
    repeat them merely because an older section or message says they are pending. Visual/full OSRS
    acceptance remains separate.
-2. Resume Royal Titans from the native reward continuation above first. The earlier
-   branch `refactor/nex-boss-dsl-20260910` contains the passing minion characterization
-   checkpoint only:21 Nex tests, scoped check/shared suites/app classes/architecture enforcement
-   pass in37s/458tasks, log `nex-minion-characterization-verified-20260910.log`. Read the ledger's
-   September10 mapping, add departure/deletion regressions, then wire ordinary guards/Reavers
-   through the existing DSL. Do not treat the characterized legacy20/18 damage or811 animation
-   as OSRS-correct. No Nex production changes or extra restart occurred after the RT deployment.
-   After the current Royal Titans work, continue Nex, then Yama, Doom and DT2 in separate focused branches/commits. Review
+2. Resume Nex after the native minion migration recorded at the top of this handoff.
+   Do not repeat the completed guard/Reaver DSL conversion or its departure/deletion tests.
+   Main Nex phase/rotation and public-room ownership are next; retain the evidence-backed
+   mapping and separate mechanical corrections from architecture preservation. Legacy20/18
+   damage and811 animation are still characterized draft values, not OSRS-correct presentation.
+   Continue Nex, then Yama, Doom and DT2 in separate focused branches/commits. Review
    Dagannoth Kings separately. Retain Royal Titans client acceptance and documented outstanding
    mechanical/reward evidence as separate work; do not repeat its completed architecture steps.
 3. Resolve or explicitly report remaining generic DSL concerns (unused condition/phase fields,
@@ -338,8 +354,8 @@ The resume helper prints these instructions with current Git identity:
 .\scripts\resume-boss-migration.ps1
 ```
 
-Optional `-CopyPrompt` copies the prompt to the clipboard. Default boss is now `royal-titans`; optional
-`-Verify -Boss royal-titans` runs the
+Optional `-CopyPrompt` copies the prompt to the clipboard. Default boss is now `nex`; optional
+`-Verify -Boss nex` runs the
 doctor, architecture detector and focused boss/API/instance tests first. It does not modify source,
 switch branches, commit, deploy, restart or contact GitHub. Build/test outputs are the usual local
 generated files. Paste its output into a new session in the canonical workspace after allowance resets.
