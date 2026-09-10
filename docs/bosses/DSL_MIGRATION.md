@@ -236,7 +236,7 @@ Diagnostic-only modules are excluded. Zero manager lines is not proof of archite
 | Zulrah | manager; 993 -> 300 coordinator lines | Four unchanged declarative rotation programs, native attacks and separate snakeling specs | Native InstanceScript, configured actor, typed session state and same-actor respawn | Spatial clouds/eggs/tail handler (307 lines), surface positioning, existing reclaim storage and native parameter adapters | 43 tests (21 native, 22 retained) and revision-240 cache audit pass; all boss/shared regressions and app classes pass | No deployment/cache repack/client verification; Grid Master capture context, tail-order conflict and inherited non-player damage exclusion remain uncertified |
 | Muspah | manager; 1,088 -> 552 | Weighted normal attacks, final cadence and all timed phases on BossSpec/BossEncounter | InstanceScript, configured actor, typed session, native death/respawn and KC | Threshold/shield policy, spatial cloud/spike/LOS handlers, corruption presentation | 67 tests (27 native, 40 retained) pass | Draft timings, projectile geometry, source exclusions and shield-skip policy not OSRS-certified; client verification pending |
 | Cerberus | manager; 1,290 -> 598 | Native ordinary attacks, triple components, weighted/conditional rotation, forced diagnostics and timed phases | Protected InstanceScript, typed session state and same-actor native death/reveal | Arena effects426 lines (Souls/lava/wall); phase-ready presentation, debug and CA policy | 75 module tests,2 revision-240 audit tests; all boss/shared regressions and app classes pass | Command-only access retained; donor/capture geometry and timeout fallbacks not OSRS-certified; not yet deployed |
-| Royal Titans | manager; 2,017 -> 830 | Elemental ordinary attacks, per-Titan platform/arena/teleport phases migrated | Protected InstanceScript/session ownership; native paired reset and elemental corpse deadlines; no private membership indexes | Focused routes, landings, walls, elementals, paired tile attacks and statistics/reward policy | 129 passing module tests,3 revision-240 audit cases; broader boss/shared checks and two controlled boots pass | Source1279d1676 deployed; legacy rotation/reward/CA and visual evidence gaps are not resolved by architecture migration |
+| Royal Titans | manager; 2,017 -> 829 | Elemental ordinary attacks, per-Titan platform/arena/teleport phases migrated | Protected InstanceScript/session ownership; native paired reset and elemental corpse deadlines; no private membership indexes | Focused routes, landings, walls, elementals, paired tile attacks and statistics; rewards now delegate native delivery | 133 passing module tests,3 revision-240 audit cases; drops60, shared regressions, broader505-task check and two controlled boots pass | Sourceeb5d0f4a8 deployed; contribution/durable claims, CA, legacy rotation and visual evidence gaps remain open |
 | Nex | manager; 1,321 | Native minion characterization added; production conversion pending | Pending fixed-public-room mapping | Group specials/reward coordination | 21 tests pass, including3 production minion-combat characterizations; scoped/shared/app checks pass | No production migration yet; full encounter work remains incomplete |
 | Yama | managers; 2,908 | Pending | Pending | Contracts/judges/group mechanics | Pending | Detailed mapping pending |
 | Doom of Mokhaiotl | managers; 4,432 | Pending | Pending | Delves/larvae/scoreboard | Pending | Detailed mapping pending |
@@ -1698,4 +1698,27 @@ predeployment snapshot. SERVER/LIVE hashes and revision240 authority remain unch
 backup and persistence values are in MIGRATION_HANDOFF.md. Account-saving shutdown succeeded;
 the pre-existing service-order/closed-connection shutdown errors remain explicitly unverified,
 not silently treated as a clean shutdown. No connected game clients were observed at either stop.
-No rendered fight or packet diff is claimed. Continue Nex without redoing this routine checkpoint.
+No rendered fight or packet diff is claimed. Do not repeat this completed checkpoint.
+
+### Royal Titans native reward continuation, September10
+
+The user's later priority returns to unfinished RT integrations before Nex.
+Saved reusable all-boss starter `RESUME_OPENRUNE_BOSS_API_DSL.txt`; the resume helper
+loads it and defaults to Royal Titans. Shared extraction `ac1ca5e90` and RT integration
+`eb5d0f4a8` are separately committed/backed up and deployed through two controlled
+restarts (39612 ->42216 ->21724). Full mapping, exact evidence, nineteen new tests,
+505-task broader verification, backup hash, persistence fingerprints and client
+checklist are in
+[reward-workflow-20260910.md](../../content/bosses/royal-titans/docs/reward-workflow-20260910.md).
+
+Private delivery/proxy NPC/literal ground lifetime are removed. Existing tables now
+use two standards, unique replacement retaining tertiaries, learned-scroll exclusion,
+claimed CA clue rates and page/sacrifice tertiaries. Existing chance inclusion hooks
+are wired explicitly; optional native RNG injection extends the current selectors.
+No private reward pipeline or new encounter engine was added. Default non-RT table
+randomness and existing drop-hook behavior are preserved by characterization tests.
+
+This does not complete durable claims, contribution scaling, pet unlocks, CAs,
+unsupported lifetime/action-budget rules or rendered/packet parity. The normal
+capture's inventory delivery conflicts with the earlier personal-ground requirement;
+existing ground delivery remains pending the user's clarification.

@@ -12,6 +12,15 @@ Latest user priority is Royal Titans remaining integrations before Nex. The reus
 Pre-work source backup: `backup/royal-titans-before-rewards-20260910` at `9989c33f0`.
 Current work branch: `fix/royal-titans-native-rewards-20260910`.
 
+Deployed source is now `eb5d0f4a8`, preceded by shared delivery commit `ac1ca5e90`.
+Backup `backup/royal-titans-native-rewards-20260910`; source-only ZIP and SHA are in
+the reward continuation report. Nineteen new tests; Royal Titans133, drops60, death6,
+drop-table5, Collection Log10 and cache3 all pass. Broader505-task checks/app assemble
+and the other migrated boss/Nex regression suites pass. Two controlled restarts:
+39612 ->42216 ->21724, markers05:18:30/05:19:58 EDT; doctors and fresh stored
+inventory/bank/realm fingerprints match. Existing DB-close shutdown warnings persist.
+No rendered-client reward scenario or OSRS fight-packet diff was performed in this pass.
+
 The bounded reward extraction/table pass and its exact verification/deployment state are recorded
 in [reward-workflow-20260910.md](../../content/bosses/royal-titans/docs/reward-workflow-20260910.md).
 Do not mistake native delivery or stable notification IDs for durable reward allocation.

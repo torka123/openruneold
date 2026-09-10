@@ -149,4 +149,65 @@ Shared extraction/RNG commit: `ac1ca5e90` (10files,+457/-114, including tests).
 Royal Titans coordinator is829lines versus830 at the preceding architecture checkpoint;
 this pass centralizes delivery and adds tests, not another combat rewrite.
 
-Controlled runtime and post-test source backup results follow once observed.
+Royal Titans integration commit: `eb5d0f4a8` (12files,+757/-126, including tests/docs).
+Both commits are local; nothing was pushed/merged remotely. Backup branch:
+`backup/royal-titans-native-rewards-20260910`. Source-only ZIP:
+`logs/royal-titans-native-rewards-20260910.zip`,7471 entries (4391 source files),
+SHA256 `D362F52C91281BA6E93486947C6AE87097F19CE2D3627BD7E1B3DCDCDF672A10`.
+The archive excludes .data, credentials, logs and generated output; it is not a DB backup.
+High-signal credential-pattern scan found no candidates in the changed source/docs.
+
+### Controlled runtime verification
+
+Deployed source `eb5d0f4a8` through the existing restart helper:
+
+```text
+scripts/cerberus-controlled-restart.ps1 -ServerProcessId 39612 -RestartNumber 202609105
+scripts/cerberus-controlled-restart.ps1 -ServerProcessId 42216 -RestartNumber 202609106
+```
+
+Normal JVM transitions:39612 ->42216 ->21724. No connected game clients were observed
+at either shutdown. Custom markers at05:18:30/05:19:58 EDT September10; ready at
+05:18:32/05:20:01. Both doctors confirm canonical user.dir and revision240.
+`jcmd 21724 VM.class_hierarchy org.rsmod.content.drops.NpcRewardDeliveryService`
+confirms the new shared delivery class is loaded. The startup marker still has
+unavailable Git metadata; source identity comes from Git plus controlled rebuild,
+not an invented marker hash.
+
+The pre-existing database-close/service-order errors recurred during shutdown.
+Account saving reported successful shutdown; fingerprints below match. This does
+not certify clean service ordering or unobserved in-memory state.
+
+Fresh before/restart1/restart2 PostgreSQL fingerprints match:
+
+- 23 inventory containers: `0312a19af5d3db794f34a8beb4a6864f0cf4db8ca36b5010fd9927065d0d72ec`.
+- 1153 inventory/bank rows: `343de321331febedd4e1aaa551f3e232cd2799959ee8289b1011872e2867144b`.
+- 1 realm row: `c971b1f6d8e431e9f25d64c6dc154d7c60ff22ce7c9e20274a73f671e911ef50`.
+
+These supersede the earlier snapshot after intervening user activity; the audit is
+read-only and did not restore prior account rows. Cache hashes remain:
+SERVER `D01985ED94C9814DBF99509B335E964C69F1FF91C2464A5165D42A78E1915D75`;
+LIVE `FD0FE5EF66039A791A900EDDDF1CDBCFE57E09E8C32EA3496C69E96217A41A7B`.
+
+Evidence logs: `logs/rt-rewards-doctor-restart{1,2}-20260910.log`,
+`logs/rt-rewards-persistence-{before,restart1,restart2}-20260910.log`,
+`logs/rt-rewards-live-delivery-class-20260910.log`, and
+`logs/cerberus-audit-20260907/restart-20260910{5,6}.stdout.log`.
+This is startup/persistence verification, NOT rendered fight/reward acceptance.
+
+### Player testing checklist for this deployed increment
+
+1. Finish a solo kill and claim either corpse. With no unique, expect two standard
+   rolls (possibly the same item merged on the ground), one personal claim total.
+2. Check Loot Tracker and Collection Log for rewards; relog to check native account
+   persistence. Learned prayer scrolls should be excluded from subsequent selection.
+3. Try Take pages and Sacrifice on separate kills. Both now include pet/clue rolls;
+   sacrifice excludes normal/unique loot. Rare rates are covered by deterministic
+   tests, not something a few client kills can establish.
+4. In a duo, both partners can claim the same corpse independently. One partner
+   claiming must not block the other or expose their personal stack.
+5. Kill a previously working ordinary boss and check its usual drop delivery,
+   tracker/log and bonus items after the shared extraction.
+
+Do not use this checklist to certify partial-contribution quantities, pet following,
+crash-safe claims, exact dialogue or fight visuals: those remain explicitly open.
