@@ -892,3 +892,10 @@ lightning/homing/form/exit native characterizations pass; no new spatial behavio
 `muspah-native-controller-green.log`: all 48 tests pass (eight native, 40 retained), scoped check
 36s/164 tasks. The native spell controller resolves and ordinary attacks now launch. No engine or
 cache edits were required. This is a corrected native baseline, not the completed DSL migration.
+
+`muspah-native-readiness-red.log`: exactly two new regressions fail (50 tests total). Five blocked
+ranged attempts consume five unnecessary style draws. Blocked melee attempts increase the
+stationary counter, making the second committed stationary hit max34 instead of the declared20.
+Gate rejected attempts before private selection/counter mutation, then replace that gate with
+BossCombat's established readiness/selection pipeline. The intended per-attack formula is retained;
+this fixes execution-vs-declared-rule behavior, not a newly researched OSRS maximum.

@@ -56,6 +56,37 @@ import org.rsmod.routefinder.collision.CollisionFlagMap
 @OptIn(InternalApi::class)
 class MuspahNativeTest {
     @Test
+    fun `cooldown blocked ranged attempts do not consume style selection randomness`() {
+        val f = MuspahFixture()
+        f.start()
+        f.until(104)
+        f.attack()
+        val draws = f.bounds.toList()
+        for (tick in 105..109) {
+            f.until(tick)
+            f.attack()
+        }
+        assertEquals(1, f.projectiles.size)
+        assertEquals(draws, f.bounds)
+    }
+
+    @Test
+    fun `stationary melee maximum advances once per committed attack not every attempt`() {
+        val f = MuspahFixture(melee = true)
+        f.start()
+        f.until(104)
+        f.boss.previousCoords = f.boss.coords
+        f.attack()
+        assertEquals(14, f.hits().last().second.damage)
+        for (tick in 105..109) {
+            f.until(tick)
+            f.attack()
+        }
+        assertEquals(2, f.hits().size)
+        assertEquals(20, f.hits().last().second.damage)
+    }
+
+    @Test
     fun `both initial forms use one owned actor and four tick readiness`() {
         for (melee in listOf(false, true)) {
             val f = MuspahFixture(melee)
