@@ -432,6 +432,23 @@ class VorkathEncounterManagerTest {
     }
 
     @Test
+    fun liveAuditLogoutWaitsForNativeDeferredReclaimWithoutPublishingAnAccountEvent() {
+        val f = VorkathFixture()
+        val oldHit = f.seedMechanics()
+        VorkathLiveAudit.beginAuditLogout(f.player, f.instances, f.clock.cycle)
+        assertNull(f.manager.auditRun(f.player))
+        assertNull(f.instances.sessionForPlayer(f.player))
+        assertNotNull(f.instances.sessionForId(f.session.id), "Native reclaim is deferred")
+        assertTrue(f.run.boss.isSlotAssigned)
+        assertFalse(oldHit.validity?.isValid() == true)
+        assertFalse(f.player.pendingLogout)
+        assertFalse(f.player.loggingOut)
+        f.instances.tickReclaim(f.clock.cycle + 1)
+        assertNull(f.instances.sessionForId(f.session.id))
+        f.assertClean(oldHit)
+    }
+
+    @Test
     fun logoutAndDisconnectClearEffectsAndRouteToTheCorrectInstanceCleanup() {
         for (loggingOut in listOf(false, true)) {
             val f = VorkathFixture()

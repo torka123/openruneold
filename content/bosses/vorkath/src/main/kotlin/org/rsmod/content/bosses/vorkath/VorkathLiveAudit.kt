@@ -31,7 +31,6 @@ import org.rsmod.game.client.Client
 import org.rsmod.game.client.NoopClient
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
-import org.rsmod.game.entity.player.SessionStateEvent
 import org.rsmod.game.entity.util.PathingEntityCommon
 import org.rsmod.game.hit.HitType
 import org.rsmod.game.inv.InvObj
@@ -474,8 +473,15 @@ constructor(
                 }
             "logout" ->
                 if (run?.state == VorkathState.ACTIVE) {
-                    events.publish(SessionStateEvent.Logout(audit))
-                    requireRemoved(run, "logout event")
+                    retainedRun = run
+                    // Invoke the instance-owned logout workflow only. Publishing an account
+                    // SessionStateEvent for a synthetic character would trigger activity logging.
+                    beginAuditLogout(audit, instances, clock.cycle)
+                    next("logout-wait")
+                }
+            "logout-wait" ->
+                if (clock.cycle > stageTick) {
+                    requireRemoved(requireNotNull(retainedRun), "native instance logout")
                     requireAudit(
                         seenProjectiles.containsAll(
                             listOf(393, 395, 1470, 1471, 1477, 1479, 1481, 1482, 1483, 1484)
@@ -748,6 +754,10 @@ constructor(
             }
             player.clientDisconnected.set(false)
             player.forceDisconnect = false
+        }
+
+        fun beginAuditLogout(player: Player, instances: InstanceManager, tick: Int) {
+            instances.handleLogout(player, tick)
         }
     }
 }
