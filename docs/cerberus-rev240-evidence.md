@@ -60,12 +60,20 @@ packet ordering. No usable full fight was found in the public database searches.
 - On disengage Cerberus uses reset NPC `5866`, walks back through players, plays the sitting
   transition, heals, and becomes sitting NPC `5863`; a bounded teleport fallback prevents a stuck
   instance. Death, leave, logout, teleport-out, and respawn clear Souls, lava, firewall, and queued
-  generation-scoped actions.
-- `::cerbdebug` can show phase/counter/generation, set HP/counter, force normal styles/Souls/lava,
+  encounter-scoped actions.
+- `::cerbdebug` can show phase/counter/phase-start tick, set HP/counter, force normal styles/Souls/lava,
   and force or suppress the special skip. Any mutating debug action permanently disables rewards
   for that kill.
 
 ## Verification coverage
+
+September10 architecture migration: ordinary selection/volleys and timed phases now execute
+through BossSpec/BossCombat/BossEncounter. Native InstanceScript owns room membership and the
+same configured actor's death/reveal. Soul/lava/firewall code is a focused arena handler; pending
+Soul callbacks are cancelled through the encounter.75 module tests and2 revision-240 audit tests
+pass. Full mappings, exact commands, backups and deployment status are recorded in
+[DSL_MIGRATION.md](bosses/DSL_MIGRATION.md). This preserves the draft mechanics below; it does
+not turn donor-derived geometry or missing packet evidence into verified OSRS facts.
 
 - Exact source region, entry, boss anchor, and safe distance.
 - HP, six-tick cadence, attack thresholds, one-based special timeline, priority collisions, and

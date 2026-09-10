@@ -29,7 +29,7 @@ constructor(
         cerberusSpec(requireNotNull(ServerCacheManager.getNpc(CerberusAssets.SITTING_NPC_ID))),
     ) {
     override fun ScriptContext.configure() {
-        encounters.validateAssets()
+        CerberusAssetValidation.validateAssets()
         onInstancePlayerJoin {
             manager.sessionForId(instanceId)?.let { encounters.onJoin(player, it) }
         }

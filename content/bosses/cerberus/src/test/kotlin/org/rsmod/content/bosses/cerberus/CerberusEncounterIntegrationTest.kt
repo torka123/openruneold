@@ -439,7 +439,7 @@ internal class CerberusTestWorld {
             clock,
             collision,
         )
-    val arena = CerberusArena(regions)
+    val arena = CerberusArena(regions, instances)
     private val random = DefaultGameRandom(42L)
     private val styles =
         AttackStyles().also { styles ->
@@ -478,13 +478,8 @@ internal class CerberusTestWorld {
         CerberusEncounterManager(
             clock,
             instances,
-            npcs,
             AiPlayerInteractions(events, playerList),
             collision,
-            random,
-            injector.getInstance(DamageReductionAttributeCollector::class.java),
-            queues,
-            WorldRepository(updates),
             RouteFactory(collision),
             arena,
             deps,
@@ -501,6 +496,17 @@ internal class CerberusTestWorld {
                         else RETURNS_DEFAULTS.answer(call)
                     }
                 ),
+            ),
+            CerberusArenaEffects(
+                clock,
+                instances,
+                npcs,
+                collision,
+                random,
+                injector.getInstance(DamageReductionAttributeCollector::class.java),
+                queues,
+                WorldRepository(updates),
+                arena,
             ),
         )
 

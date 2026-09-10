@@ -9,7 +9,7 @@
     "boss": "cerberus",
     "rule": "direct-combat-review",
     "maximum": 6,
-    "reason": "Native ordinary attack parameter adapter plus remaining Soul/lava/fire-wall effects. BossSpec now owns ordinary selection, triple component launch cadence and queued hits; InstanceScript owns membership and configured actor respawn. Specialized queue scoping, phase clock and handler extraction remain in progress; see DSL_MIGRATION.md."
+    "reason": "Reviewed native ordinary-attack parameter adapter plus Soul/lava/fire-wall spatial effects. BossSpec owns ordinary selection, triple cadence and hits; BossEncounter owns phase identity and cancellable special callbacks. InstanceScript owns membership and same-actor respawn. Specialized arena handler retains source-derived geometry, prayer drains and fixed hazard hits; no private combat engine, phase clock, generation or player/run map remains. See DSL_MIGRATION.md for retained mechanical uncertainties."
   },
   {
     "boss": "chaos-fanatic",

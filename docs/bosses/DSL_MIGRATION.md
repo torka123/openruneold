@@ -235,7 +235,7 @@ Diagnostic-only modules are excluded. Zero manager lines is not proof of archite
 | Grotesque Guardians | manager; 945 -> 327 coordinator lines | Two BossSpecs: ordinary native volleys, phase identity, ordinal style selection and forced cadence | Native InstanceScript, typed session state, configured actors and validated native pair reset | Arena geometry/effects (343 lines), paired form coordination, native parameter/damage adapters | 21 deterministic tests (15 native), 48 drop tests pass | No live verification or cache repack; inherited lightning vulnerability, non-player damage exclusion and draft-only spatial values remain uncertified |
 | Zulrah | manager; 993 -> 300 coordinator lines | Four unchanged declarative rotation programs, native attacks and separate snakeling specs | Native InstanceScript, configured actor, typed session state and same-actor respawn | Spatial clouds/eggs/tail handler (307 lines), surface positioning, existing reclaim storage and native parameter adapters | 43 tests (21 native, 22 retained) and revision-240 cache audit pass; all boss/shared regressions and app classes pass | No deployment/cache repack/client verification; Grid Master capture context, tail-order conflict and inherited non-player damage exclusion remain uncertified |
 | Muspah | manager; 1,088 -> 552 | Weighted normal attacks, final cadence and all timed phases on BossSpec/BossEncounter | InstanceScript, configured actor, typed session, native death/respawn and KC | Threshold/shield policy, spatial cloud/spike/LOS handlers, corruption presentation | 67 tests (27 native, 40 retained) pass | Draft timings, projectile geometry, source exclusions and shield-skip policy not OSRS-certified; client verification pending |
-| Cerberus | manager; 1,290 | Ordinary attacks, triple and conditional rotation wired; phase clock pending | Native protected InstanceScript, typed session state and same-actor death/reveal | Ghosts/lava/animation presentation; split pending | 62 retained tests plus native combat/phase characterizations in progress | Existing donor/capture gaps; not deployed |
+| Cerberus | manager; 1,290 -> 598 | Native ordinary attacks, triple components, weighted/conditional rotation, forced diagnostics and timed phases | Protected InstanceScript, typed session state and same-actor native death/reveal | Arena effects426 lines (Souls/lava/wall); phase-ready presentation, debug and CA policy | 75 module tests,2 revision-240 audit tests; all boss/shared regressions and app classes pass | Command-only access retained; donor/capture geometry and timeout fallbacks not OSRS-certified; not yet deployed |
 | Royal Titans | manager; 2,017 | Pending | Pending | Paired coordination/walls/statistics | Existing tests preserved | Existing evidence gaps remain distinct from migration |
 | Nex | manager; 1,321 | Pending | Pending | Group specials/reward coordination | Existing tests preserved | Full encounter work remains incomplete |
 | Yama | managers; 2,908 | Pending | Pending | Contracts/judges/group mechanics | Pending | Detailed mapping pending |
@@ -1242,3 +1242,23 @@ drain cancellation after teleport. BossEncounter now owns phase identity and can
 private generation/stateCycle/resetDeadline/resetSitting fields are removed. Souls are attached
 to both the native instance and encounter ownership and detached on deletion. Remaining arena
 geometry, hazard snapshots and presentation are being extracted, not rebalanced or OSRS-certified.
+
+Handler extraction complete: CerberusArenaEffects retains only the existing Soul choreography,
+lava geometry/arrival snapshots and firewall presentation/damage. CerberusRun lives in typed
+InstanceSession state and derives its phase from BossEncounter; CerberusArena owns coordinate
+conversion; CerberusAssetValidation retains the original cache crosswalk checks. The coordinator
+is598 lines versus1,290 initially. No old combat engine remains active beside BossCombat.
+The six reviewed native-parameter/spatial-combat sites remain explicitly waived; all ordinary
+projectile/hit scheduling is native DSL combat. Debug reward suppression and existing CA/drop
+behavior are unchanged. No source, captures or research was discarded to obtain the reduction.
+
+Final source verification:
+- `logs/cerberus-handler-extraction.log`:75 module tests pass,39s/160tasks.
+- `logs/cerberus-extraction-check-cache.log`: scoped Cerberus check and75 module tests,
+  plus2 CerberusR240CacheAuditTest cases pass,38s/166tasks.
+- `logs/cerberus-final-broad-check.log`: every applicable boss test task, api:bosses,
+  api:instances, combat-scripts, combat-manager, engine:game, content:drops, server:app:classes
+  and bossArchitectureCheck pass,1m38s/505tasks (78 executed,427up-to-date).
+  NO-SOURCE modules do not constitute executed gameplay tests.
+- `git diff --check` passes. Unrelated dirty .data hunks remain unstaged and untouched.
+No rendered Cerberus client scenario or OSRS event diff has been completed by this migration.
