@@ -1,0 +1,826 @@
+OPENRUNE BOSS MIGRATION - PER-BOSS CHANGE AND STATUS REPORT
+Snapshot: 10 September 2026
+==========================================================================
+
+1. DIRECT ANSWER: ROYAL TITANS
+----------------------------
+Royal Titans' updated architecture is ALREADY LIVE on the canonical local server.
+The deployed source checkpoint is 1279d1676. The report-time doctor confirms JVM
+39612 is running from this exact workspace with revision 240.
+
+The earlier "5-10% left" estimate was not a reliable percentage for the complete
+Royal Titans job. It referred to a near-finished architecture checkpoint, not
+deployment. Important mechanic, reward, achievement and visual/packet verification
+work remains. Do not interpret "live" as "finished" or "1:1 OSRS."
+
+Nine migrated boss-module checkpoints are included in the live build:
+Kraken, Vorkath, Corporeal Beast, Alchemical Hydra, Grotesque Guardians, Zulrah,
+Muspah, Cerberus and Royal Titans. Client acceptance remains open.
+Nex has new tests but no production architecture migration in this range.
+Yama, Doom, DT2 and the separate Dagannoth Kings review remain.
+
+2. EXACT COUNTING SCOPE
+----------------------
+Workspace:
+C:\Users\norma\Documents\Codex\2026-08-10\lets-work-on-the-openrune-server\work\OpenRune-Server
+
+Source baseline: 798b8c320
+  backup/boss-dsl-source-baseline-20260909
+Audited source HEAD: 377c48f43
+  refactor/nex-boss-dsl-20260910
+Live gameplay checkpoint: 1279d1676
+  Later source changes are Nex tests and documentation, not a new Nex fight.
+Architecture reference: upstream/main at 61139e76a216592d66c2b20366ef26d48609875d
+
+These numbers measure the ALL-BOSS ARCHITECTURE MIGRATION after its safety baseline.
+They do not count all earlier boss creation/research work, GE/pouch/teleport fixes,
+or every historical edit in this long conversation. Existing work was deliberately
+included in the baseline so it is not falsely credited to this refactor.
+
+Method:
+- Git endpoint diff: git diff --no-renames --numstat 798b8c320 377c48f43
+- Production Kotlin: module src/main/**/*.kt.
+- Test Kotlin: module src/test/**/*.kt.
+- Other: module build files and module-local documentation.
+- Physical lines include comments and blank lines; these are NOT executable
+  statement counts. Kotlin build scripts are in "Other," not gameplay.
+- Additions + deletions = changed-line churn, not unique rewritten lines.
+  Moved/extracted code can count as both deleted and added.
+- The manager metric includes production files ending Manager.kt or Timeline.kt.
+  Retained specialized coordinators are not automatically architecture defects.
+- Documentation/scripts/shared integration outside a boss module are counted
+  separately, not charged repeatedly to each boss.
+- Uncommitted .data work, ignored logs/caches/PostgreSQL/build outputs, raw evidence
+  and this newly created report are excluded from the committed endpoint totals.
+- The committed +18 NPC overlay lines are intentional KC metadata changes for
+  Guardians/Zulrah/Muspah, distinct from the current unrelated dirty .data hunks.
+
+3. LINE COUNTS BY BOSS MODULE
+-----------------------------
+Boss                   Files Production +/-   Test +/-         Other +/-     Total churn
+Kraken                 11    +375/-471        +524/-4          +10/-0        1,384
+Vorkath                18    +1,603/-1,251    +761/-88         +7/-1         3,711
+Corporeal Beast        16    +647/-554        +574/-9          +28/-1        1,813
+Alchemical Hydra       15    +933/-755        +739/-0          +13/-0        2,440
+Grotesque Guardians    13    +953/-815        +897/-0          +15/-0        2,680
+Zulrah                 12    +947/-885        +941/-0          +14/-0        2,787
+Muspah                 12    +904/-748        +1,023/-0        +15/-0        2,690
+Cerberus               19    +1,257/-1,024    +1,106/-118      +8/-1         3,514
+Royal Titans           33    +2,047/-1,485    +1,026/-53       +1/-0         4,612
+Nex                    2     +0/-0            +286/-0          +3/-0         289
+Yama                   0     +0/-0            +0/-0            +0/-0         0
+Doom of Mokhaiotl      0     +0/-0            +0/-0            +0/-0         0
+Desert Treasure II     0     +0/-0            +0/-0            +0/-0         0
+Dagannoth Kings        0     +0/-0            +0/-0            +0/-0         0
+
+Changed boss modules combined:
+  151 changed file paths.
+  Production Kotlin: +9,666 / -7,988 = 17,654 changed lines; net +1,678.
+  Test Kotlin:       +7,877 /   -272 =  8,149 changed lines; net +7,605.
+  Other module files:  +114 /     -3 =    117 changed lines.
+  All module files: +17,657 / -8,263 = 25,920 changed lines.
+
+Shared integration, build, documentation, scripts and committed source overlays:
+  49 additional file paths, +5,846 / -131.
+Full committed migration snapshot:
+  200 file paths, +23,503 / -8,394 = 31,897 changed lines.
+Do not describe all 31,897 as gameplay code: the total includes tests and docs.
+
+4. PRODUCTION SIZE, COORDINATOR REDUCTION AND STATUS
+---------------------------------------------------
+Boss                   All production LOC     Manager/timeline LOC  Tests      Status
+Kraken                 628 -> 532             363 -> 0              12         Migrated build is live; acceptance open
+Vorkath                2,764 -> 3,116         1,254 -> 426          112        Migrated build is live; acceptance open
+Corporeal Beast        743 -> 836             502 -> 0              24         Migrated build is live; acceptance open
+Alchemical Hydra       1,369 -> 1,547         858 -> 260            22         Migrated build is live; acceptance open
+Grotesque Guardians    1,392 -> 1,530         945 -> 327            21         Migrated build is live; acceptance open
+Zulrah                 2,085 -> 2,147         993 -> 300            43         Migrated build is live; acceptance open
+Muspah                 1,551 -> 1,707         1,088 -> 552          67         Migrated build is live; acceptance open
+Cerberus               2,054 -> 2,287         1,290 -> 598          75         Migrated build is live; acceptance open
+Royal Titans           3,181 -> 3,743         2,017 -> 830          129        Migrated build is live; acceptance open
+Nex                    2,002 -> 2,002         1,321 -> 1,321        21         Tests only; migration pending
+Yama                   4,832 -> 4,832         2,908 -> 2,908        112        Migration/review pending
+Doom of Mokhaiotl      7,915 -> 7,915         4,432 -> 4,432        115        Migration/review pending
+Desert Treasure II     7,234 -> 7,234         3,706 -> 3,706        133        Migration/review pending
+Dagannoth Kings        744 -> 744             0 -> 0                10         Migration/review pending
+
+Across the nine migrated modules, manager/timeline files fell from 9,310 to 3,293
+lines: a reduction of 6,017 lines, about 64.6%.
+Across ALL 13 custom migration candidates, the same filename-based metric is
+21,677 -> 15,660 lines. The previously quoted ~22,316 was an older inventory;
+21,677 is the reproducible starting value for THIS baseline and this method.
+This is not a project-completion percentage. The remaining bosses differ greatly
+in size and complexity, and moving code out of a manager does not prove parity.
+Production code can grow while duplicated architecture shrinks, because explicit
+specifications, native adapters, validation and focused handlers replace opaque
+manager methods.
+
+Test counts above are the existing latest JUnit XML summaries inspected for this
+report. All listed suites show zero failures, errors and skips. They are total
+suite counts, NOT counts of newly added tests. Pending bosses can have passing
+legacy tests without having been migrated. Tests were not rerun just to write a
+text document; the recorded verification commands/logs are listed below.
+
+5. CHANGES FOR EACH MIGRATED BOSS / NEX
+--------------------------------------
+
+KRAKEN
+------
+Module: content/bosses/kraken/
+11 changed files; production +375/-471; tests +524/-4.
+Production LOC 628 -> 532; managers/timelines 363 -> 0.
+Status: golden architecture migration is in the live build.
+- Replaced the private encounter manager with boss/tentacle BossSpecs.
+- Ordinary attacks run through BossCombat and native NvPCombat.
+- InstanceScript owns entry, membership, actors and teardown.
+- Retained the focused KrakenWhirlpools handler for dormant activation, paired
+  awakening and one-shot completion/drop positioning.
+- Removed the production manager and duplicated lifecycle/selection wiring.
+- 12 module tests pass, including 8 native integration/characterization tests.
+- Remaining: rendered-client acceptance and original mechanic evidence review.
+  Preserving the inherited no-respawn behavior is not an OSRS parity certificate.
+Key migration commit: fdb7a4d67.
+Client checklist: enter, awaken each whirlpool, fight boss/tentacles, loot, leave,
+teleport/logout, re-enter and check no old actors or hits remain.
+
+VORKATH
+-------
+Module: content/bosses/vorkath/
+18 changed files; production +1,603/-1,251; tests +761/-88.
+Production LOC 2,764 -> 3,116; managers/timelines 1,254 -> 426.
+Status: migrated build is live; existing PR has not been submitted/pushed.
+- Normal weighted attacks, forced-special cadence and phase ownership moved to
+  BossSpec/BossEncounter. Six-normal-attack/special behavior is characterized.
+- Native InstanceScript owns boat entry, membership, cleanup and actor lifecycle.
+- Retained focused acid/fireball arena effects, zombified-spawn collision/contact,
+  Torfinn reclaim integration and reward-ineligible diagnostic support.
+- Removed the production VorkathTimeline; a test-only legacy oracle remains for
+  regression comparisons. There are not two production attack engines.
+- Fixed native diagnostic disconnect/deferred-logout observation.
+- 112 module tests pass. A real-server game-loop harness passed 75 assertions.
+  The harness is not a rendered client fight or an OSRS packet comparison.
+- Remaining: original inferred attack/path selection, source exclusions, projectile
+  visual acceptance and evidence reconciliation. Migration does not certify these.
+Key commits: 987fabd56, 8688b11e0, 25222f76a, c40dca8ad, 7784e155e.
+Client checklist: boat/awakening, normal styles, acid walking, zombified spawn,
+death/reclaim, loot, repeated kill and every departure path.
+
+CORPOREAL BEAST
+---------------
+Module: content/bosses/corporeal-beast/
+16 changed files; production +647/-554; tests +574/-9.
+Production LOC 743 -> 836; managers/timelines 502 -> 0.
+Status: migrated build is live.
+- Ordinary weighted attack/style/animation selection moved to BossSpec and native
+  NvPCombat. Removed the private 502-line manager.
+- Preserved the existing fixed public lairs; did not force an allocated instance
+  onto a public-room encounter. Native NPC/BossEncounter lifecycle owns cleanup.
+- Retained focused core, split-area, room-recovery/stomp, drain and state handlers.
+- 24 module tests pass: 17 native fixtures plus 7 retained rules/oracle cases.
+- Remaining: inherited third-party projectile provenance, core poison/stun policy
+  and rendered-client verification. Public/private behavior was not reinvented.
+Key migration commit: b34019efc.
+Client checklist: both lairs, group targets, melee/magic, core, stomp, loot, empty
+room cleanup and repeat.
+
+ALCHEMICAL HYDRA
+----------------
+Module: content/bosses/alchemical-hydra/
+15 changed files; production +933/-755; tests +739/-0.
+Production LOC 1,369 -> 1,547; managers/timelines 858 -> 260.
+Status: migrated build is live.
+- Normal native volleys, rotation, forced cadence and phase identity moved to DSL.
+- InstanceScript/session ownership replaces private room membership/lifecycle.
+- Native same-actor death/respawn replaces local actor replacement.
+- Removed the duplicate kill-count increment.
+- Retained focused observation/form coordination, arena hazards, transforms and
+  native damage/parameter adapters.
+- 22 deterministic module tests pass, including native lifecycle and two kills.
+- Remaining: original hazard/pathing constants, source exclusions, natural exterior
+  entry and complete rendered-client acceptance remain uncertified.
+Key commits: 6fba9f211, 1920e3f22.
+Client checklist: observation-room doors, vents, all four forms/specials, prayer,
+loot/KC exactly once, two kills, death and exit.
+
+GROTESQUE GUARDIANS
+-------------------
+Module: content/bosses/grotesque-guardians/
+13 changed files; production +953/-815; tests +897/-0.
+Production LOC 1,392 -> 1,530; managers/timelines 945 -> 327.
+Status: migrated build is live.
+- Added two BossSpecs for the paired forms, native ordinary volleys, phase identity
+  and forced-special cadence.
+- Native roof/bell instance, typed session state and coordinated actor reset replace
+  private ownership, recreation and cleanup.
+- Fixed phase-sensitive damage resolution to run at native impact time.
+- Fixed base-Dusk drop/KC registration; configured actor metadata supplies native KC.
+- Retained focused arena geometry/effects, form coordination and damage adapters.
+- 21 module tests pass (15 native); the shared drop module has 48 passing tests.
+- Remaining: inherited lightning vulnerability, source exclusions and draft spatial
+  values require evidence/client acceptance. Those are not fixed by extraction.
+Key commits: ee4e8e03e, 1eeea6713, d6dab04f0, cb056e5bf.
+Client checklist: natural roof/bell entry, both guardians, lightning/spheres,
+hammer/prison, loot/KC once, paired reset, second kill and departure.
+
+ZULRAH
+------
+Module: content/bosses/zulrah/
+12 changed files; production +947/-885; tests +941/-0.
+Production LOC 2,085 -> 2,147; managers/timelines 993 -> 300.
+Status: migrated build is live.
+- All four retained rotation programs and ordinary/snakeling attacks moved to DSL.
+- Fixed blocked-action RNG draws and overlapping rotation actions by honoring native
+  readiness/deadlines before selection.
+- Native boat instance/session and same-actor respawn replace private lifecycle.
+- Native KC metadata replaces duplicate content-side ownership.
+- Retained focused clouds, eggs/snakes, tail geometry, surfacing and reclaim storage.
+- Scoped the death-storage handler to an actual shrine session so unrelated deaths
+  cannot be handled as Zulrah deaths.
+- 43 module tests pass: 21 native and 22 retained; cache audit evidence also exists.
+- Remaining: Grid Master evidence context, tail-order conflict, inherited source
+  exclusions and complete visual/packet acceptance.
+Key commits: 819fad4a2, 4574907c1, 8c9cad386, 2aecefe5f.
+Client checklist: boat/camera, all forms/rotations, clouds/snakes/tail, prayer,
+death/reclaim, KC once, repeat, exit/teleport/logout and no debug rewards.
+
+MUSPAH
+------
+Module: content/bosses/muspah/
+12 changed files; production +904/-748; tests +1,023/-0.
+Production LOC 1,551 -> 1,707; managers/timelines 1,088 -> 552.
+Status: migrated build is live.
+- Weighted normals, forced final cadence and timed phases moved to BossSpec.
+- Corrected the native ordinary-projectile controller mapping.
+- Gated selection, RNG consumption and melee escalation on actual attack readiness.
+- Native InstanceScript/session, same-actor respawn and KC replace private ownership
+  and the duplicate kill-count increment.
+- Retained focused threshold/shield policy, clouds/spikes/line-of-sight and corruption
+  presentation; removed the independent phase clock and player/run map.
+- 67 module tests pass: 27 native and 40 retained.
+- Remaining: draft timing/projectile geometry, shield-skip policy, source exclusions
+  and rendered-client acceptance are not OSRS-certified.
+Key commits: 769d84721, f9273b26b, 296ffbf7b, ac7b084ff, fb3d352f6,
+69f9deeba, f35675be2.
+Client checklist: natural crevice, both openings, swaps, lightning/homing, shield
+and Smite, final spikes, two kills/KC once, departures and two isolated rooms.
+
+CERBERUS
+--------
+Module: content/bosses/cerberus/
+19 changed files; production +1,257/-1,024; tests +1,106/-118.
+Production LOC 2,054 -> 2,287; managers/timelines 1,290 -> 598.
+Status: updated Cerberus IS in the current live build.
+- Normal styles, opening triple, conditional rotation, forced abilities and timed
+  phases moved to BossSpec/BossEncounter.
+- InstanceScript/session and native same-actor death/reveal replace private
+  membership and lifecycle.
+- Retained focused Souls, lava and firewall mechanics.
+- Fixed a demonstrated one-tick presentation regression caused by native world
+  deadlines running before the LateCycle clock advance; added red/green tests.
+- 75 module tests and 2 revision-240 cache cases passed.
+- Remaining: inherited command-only access, donor/capture geometry, timeout fallback
+  policy and rendered-client acceptance are not certified.
+Key commits: 19827ec3c, 636e3af4c, d4a775ac2, c96d06528, c421aca33.
+Client checklist: wake/opening triple, all normals, Souls/prayer, lava, firewall,
+loot/KC, reset/repeat, exit/teleport/logout and no rewards from forced diagnostics.
+
+ROYAL TITANS
+------------
+Module: content/bosses/royal-titans/
+33 changed files; production +2,047/-1,485; tests +1,026/-53.
+Production LOC 3,181 -> 3,743; managers/timelines 2,017 -> 830.
+Status: updated architecture IS LIVE at source 1279d1676. Not full OSRS parity.
+- Ordinary fire/ice elemental melee moved to BossSpec/native NvPCombat.
+- Each Titan's platform, arena and paired-teleport phase deadlines moved to
+  BossSpec/BossEncounter and the shared BossPhaseClock.
+- Native route arrival advances movement phases; elapsed time does not pretend an
+  unfinished walk has arrived. Existing footprint/pathing work was retained.
+- Fixed native phase-clock target rebinding so a duo departure does not restart a
+  phase or add a tick at the due boundary.
+- InstanceScript and typed session state replace three private membership indexes
+  and duplicated entry/join/leave/logout/teleport lifecycle wiring.
+- Split spatial/presentation work into focused Arena, Definitions, Run, Walls,
+  Elementals, TileAttacks, Platforms and Landings files.
+- Paired reinvigoration now uses three session-owned one-shot native deadlines:
+  collapse, corpse removal and respawn. First-claim behavior was retained, not
+  replaced with an unconditional final-death timer.
+- Custom elemental death visuals now finish on actor-owned native deadlines.
+  Early native deletion cancels the deadline and releases references.
+- Removed the private pending-removal map and write-only pack/area/same-tick
+  counters and duplicate corpse references.
+- Existing contribution/statistics/reward policies were retained, not declared
+  complete merely because their coordinator was split.
+- 129 module tests and 3 revision-240 cache cases pass. Two controlled live restarts
+  and matching fresh persistence/cache fingerprints are recorded.
+Key commits: 632ae1a92, 779fad05e, bf05c2def, e3c799e90, 8b4ec3f55,
+e195e1270, 6e96a1060, 1279d1676; shared clock fix 99f7de063.
+
+IMPORTANT REMAINING ROYAL TITANS WORK:
+- This is more than a guaranteed final 5-10% of the original complete encounter job.
+  The earlier percentage was a rough architecture-checkpoint estimate, not a
+  measured total or a waiting-to-deploy estimate.
+- Full patrol/return/summon selection, close-action budgets and below-100-HP
+  desynchronization remain unproved. Moving the existing program to DSL does not
+  establish the exact OSRS rotation.
+- Exact elemental candidate distribution, target retention, first-step cadence and
+  self-destruct lifetime remain open. The existing ledger explicitly labels the
+  legacy 18-tick lifetime a defect, not just an untested detail.
+- Wall/player tick-order, natural/overlapping wall removal, complete packet/audio
+  ordering, transition crossing delay and landing/knockback still need evidence.
+- Safe-tile distribution is an implementation assumption, not a proven OSRS rate.
+- Complete contribution scaling and the unpublished full-loot threshold, two normal
+  rolls/unique replacement, unique topology, pages, learned-scroll suppression,
+  sacrifice/tertiaries and conditional clue rates remain unfinished.
+- Native personal rewards, Collection Log/broadcast/tracker integration and
+  transactional persistent claims/crash recovery remain unfinished.
+- All 11 Combat Achievements and exact duo attribution are not completed by this
+  migration. Existing statistics/scoreboard SQL is not proof of those features.
+- Full live fight, real reward persistence, unsafe-death/gravestone behavior and
+  normalized OpenRune-versus-OSRS packet comparison remain acceptance work.
+The detailed source is content/bosses/royal-titans/docs/capture-validation.md.
+Its old references to a private shared scheduler are superseded by the September10
+migration record; its unresolved mechanic/reward items are NOT thereby closed.
+
+Client checklist: real solo entrance, duo/late join, different phase-one positions,
+staggered movement, wall/autocast and occupied tiles, elemental routes/stacking,
+both landings, Blast/survivor coverage, either kill order, corpse choices,
+scoreboard, repeat and every departure path. Report reward/CA gaps separately.
+
+NEX
+---
+Module: content/bosses/nex/
+2 changed files; production +0/-0; tests +286/-0.
+Production LOC 2,002 -> 2,002; managers/timelines 1,321 -> 1,321.
+Status: audit/characterization only in this migration range; production is unchanged.
+- Refreshed the existing Nex evidence/approved API mapping.
+- Added NexMinionCombatCharacterizationTest (286 lines) and test-only dependencies.
+- Three new deterministic cases execute actual NexCombat registration and native
+  NPC/combat queues for all four guards and a production-Siphon Reaver.
+- Covered legacy attack payloads, cadence, prayer snapshots, misses, inactive/outside
+  targets and blocked attacks without extra RNG consumption.
+- 21 module tests pass (18 prior + 3 new). No new Nex gameplay was deployed here.
+- These tests preserve legacy 20/18 maxima, animation 811 and prayer behavior for
+  comparison; they do NOT claim those values are correct OSRS mechanics.
+- Player payloads are inspected in queues, not fully processed to player HP.
+- The custom Wilderness Nex branch had already been removed before this baseline;
+  that prior work is preserved but not counted as a new change in these numbers.
+- Remaining: guard/Reaver departure/deletion regressions, ordinary DSL migration,
+  full phase/special and public-room lifecycle integration, rewards/persistence,
+  normal-game evidence, cache audit and runtime/packet verification.
+- Public fixed-room ownership must be mapped carefully; do not blindly copy an
+  allocated-instance template. Reaver healing evidence conflict remains unresolved.
+Key new commit: 4c6dc9f2b. Current checkpoint documentation: 377c48f43.
+
+6. NOT YET MIGRATED / PRESERVED EXISTING DSL BOSSES
+--------------------------------------------------
+Yama: no module edits in this range. 2,845-line manager + 63-line production
+timeline remain. Contracts, judges and group mechanics need characterization and
+native DSL/session migration. Existing 112 tests pass; not migration acceptance.
+
+Doom of Mokhaiotl: no module edits in this range. 3,973-line manager + 459-line
+production timeline remain. Delves, larvae, hazards and persistent scoreboard
+need mapping, characterization and native migration. Existing 115 tests pass.
+
+DT2 (Duke Sucellus, Vardorvis, Whisperer and Leviathan): no module edits in this
+range. Shared 3,706-line manager remains. Each environment/phase program needs a
+reviewable native migration. Existing 133 tests pass; not proof of completed work.
+
+Dagannoth Kings: no module edits in this range. Review separately rather than
+classifying by the absence of a Manager.kt filename. Existing 10 tests pass.
+
+Existing DSL consumers below were preserved, not rewritten. Their module endpoint
+diff is exactly +0/-0. Shared framework repairs affect their execution, so available
+regressions/build checks matter:
+  Bryophyta               module +0/-0      4 existing tests pass
+  Chaos Fanatic           module +0/-0      3 existing tests pass
+  Crazy Archaeologist     module +0/-0      3 existing tests pass
+  Giant Mole              module +0/-0      3 existing tests pass
+  General Graardor        module +0/-0      NO-SOURCE test task; compilation is not a test pass
+  King Black Dragon       module +0/-0      2 existing tests pass
+  Kree'arra               module +0/-0      NO-SOURCE test task; compilation is not a test pass
+  K'ril Tsutsaroth        module +0/-0      NO-SOURCE test task; compilation is not a test pass
+  Obor                    module +0/-0      3 existing tests pass
+  Scorpia                 module +0/-0      3 existing tests pass
+  Scurrius                module +0/-0      NO-SOURCE test task; compilation is not a test pass
+  Wilderness bosses       module +0/-0      63 existing tests pass
+  Commander Zilyana       module +0/-0      NO-SOURCE test task; compilation is not a test pass
+
+Wilderness is a grouped module, not a claim that every individual Wilderness boss
+was newly changed. The diagnostic-only boss module is excluded from this inventory.
+NO-SOURCE is specifically NOT counted as passing gameplay tests.
+
+7. SHARED OPENRUNE FRAMEWORK WORK
+---------------------------------
+Official workflow families used:
+  BossSpec, BossCombat, BossEncounter, EffectInterpreter, BossExtensionRegistry,
+  InstanceScript, InstanceManager, native NPC/death/hit/pathing/repository APIs.
+
+Approved LOCAL extensions to those systems, not claims about unmodified upstream:
+  Effect.NpcAttack / native attack parameter adapters, BossPhaseClock, typed
+  InstanceSession state/resource cleanup and owned/cancellable native deadlines.
+Exact mechanic-to-API classifications/upstream links remain in DSL_MIGRATION.md
+and, for Nex, docs/bosses/nex/NEX_OSRS_AUDIT.md.
+
+Confirmed corrections and integrations:
+- Honored declared animation delays and impact/launch presentation fields.
+  Animation delay is a client presentation delay, not an invented server sleep.
+  Projectile "launch"/"impact" fields name spot effects; they must not be
+  misrepresented as numerical projectile travel-delay fields.
+- Honored repeat gaps and parallel branch timing using the native execution model.
+- Injected GameRandom for deterministic selection; fixed encounter-relative forced
+  cadence, nested-choice coupling and native action-lock interactions.
+- Added a reusable ordinary-attack/native-volley adapter so native accuracy,
+  damage, metadata, retaliation, projectiles and hits remain pipeline-owned.
+- Preserved authored component presentation without duplicate volley effects.
+- Used native occupied-footprint range checks instead of anchor-only distance.
+- Added owned cancellable native world deadlines, absolute scheduling and teardown.
+- Kept explicitly declared fired-hit lifetime separate from a blanket cancellation
+  policy, with valid source/target scopes and departure regression tests.
+- Added a native timed phase clock independent of melee reach, and fixed target
+  rebinding without resetting the original deadline.
+- Added source-defined InstanceScript integration and typed session-owned resources.
+- Commit entry/exit membership only after native protected movement succeeds.
+- Added validated native paired-actor reset and explicit native respawn cadence.
+- Added architecture detector integration in root Gradle check and explicit waivers.
+  Specialized spatial handlers are allowed; another reusable private fight engine
+  is not. A waiver is not proof that a mechanic is OSRS-correct.
+- Added focused tests before production replacements and retained test-only
+  characterization oracles where useful.
+
+Shared paths                         Files Production +/-   Tests +/-       Other +/-
+api/bosses/                          15    +549/-76         +1,431/-0       +13/-0
+api/instances/                       7     +113/-7          +597/-0         +8/-0
+api/combat/                          1     +120/-31         +0/-0           +0/-0
+api/death/                           3     +11/-5           +150/-0         +13/-0
+api/game-process/                    2     +1/-1            +54/-0          +0/-0
+api/npc/                             1     +47/-0           +0/-0           +0/-0
+engine/game/                         2     +40/-3           +52/-0          +0/-0
+content/drops/                       3     +2/-1            +32/-1          +1/-0
+or-cache/                            2     +0/-0            +29/-0          +13/-0
+docs/                                7     +0/-0            +0/-0           +2,353/-6
+scripts/                             3     +0/-0            +0/-0           +161/-0
+Additional endpoint paths not grouped above:
+  build.gradle.kts +32/-0
+  AGENTS.md +6/-0
+  .data/raw-cache/server/npcs.toml +18/-0 (intentional committed KC overlays)
+
+Remaining framework review: unused condition/phase fields and selection hints,
+any demonstrated timing/lifecycle defects, remaining migration waivers and broad
+client acceptance. Do not call every potential API concern resolved.
+
+8. VERIFICATION AND LIVE EVIDENCE
+---------------------------------
+Inspected current JUnit XML (all zero failures/errors/skips):
+  api/bosses                         50 tests
+  api/instances                      34 tests
+  api/death                           4 tests
+  api/game-process                   11 tests
+  engine/game                        35 tests
+  api/combat/combat-scripts            8 tests
+  content/drops                      48 tests
+  or-cache latest focused RT run       3 tests
+  Nine migrated boss modules        505 tests combined
+  Nex                                21 tests
+Do not confuse the coincidental 505 module-test sum with the separate 505 Gradle
+TASKS in the broad Royal Titans build. A task is not a test.
+
+Retained final-stage logs:
+- logs/royal-titans-elemental-death-native-first-20260910.log
+  129 tests pass; BUILD SUCCESSFUL in 1m1s; 196 actionable tasks.
+- logs/royal-titans-elemental-death-native-verified-20260910.log
+  Scoped module check, boss/instance regression suites and 3 cache cases pass.
+  BUILD SUCCESSFUL in 50s; 206 tasks (4 executed, 202 up-to-date).
+- logs/royal-titans-elemental-death-broad-20260910.log
+  Applicable boss/shared suites, server app classes and architecture check pass.
+  BUILD SUCCESSFUL in 23s; 505 tasks (4 executed, 501 up-to-date).
+- logs/nex-minion-characterization-verified-20260910.log
+  All 21 Nex tests, scoped check, shared suites, app classes and architecture
+  enforcement pass. BUILD SUCCESSFUL in 37s; 458 tasks (6 executed, 452 up-to-date).
+- logs/boss-migration-vorkath-live-audit-success.log
+  75 real-game-loop harness assertions pass. No rendered-client or packet-diff claim.
+Earlier boss-specific commands and red/green histories: docs/bosses/DSL_MIGRATION.md.
+
+Focused verification task sets used by the project (not rerun for this report):
+  .\gradlew.bat :content:bosses:royal-titans:test :or-cache:test --tests dev.openrune.RoyalTitansR240CacheAuditTest --no-daemon --console=plain
+  .\gradlew.bat :content:bosses:nex:test :api:bosses:test :api:instances:test --no-daemon --console=plain
+Scoped check commands also use the project's changed-file formatting conventions;
+refer to the retained logs instead of claiming a clean unrelated whole-tree format.
+
+Live Royal Titans deployment:
+- Controlled restarts: JVM 36776 -> 25860 -> 39612.
+- First startup marker 03:40:27 EDT, ready 03:40:30, September10.
+- Second startup marker 03:42:31 EDT, ready 03:42:33.
+- Marker: OPENRUNE CUSTOM BUILD ACTIVE.
+- Marker Git metadata was unavailable. Deployed source is identified by the
+  recorded Git checkpoint plus controlled rebuild, not a nonexistent marker hash.
+- Doctor rechecked for THIS report:
+  logs/boss-change-report-doctor-20260910.log
+  JVM39612 user.dir matches canonical workspace; revision240 unchanged.
+- Server definitions: .data/cache/SERVER; JS5: .data/cache/LIVE.
+- Persistence authority: .data/postgres.
+- Fresh before/after persisted fingerprints match across both restarts:
+  22 containers, 1,152 inventory/bank rows, 1 realm-settings row.
+- Earlier KC overlays for Guardians/Zulrah/Muspah were intentionally packed via the
+  existing installer. Latest RT deployment did not change cache revision/paths.
+- Account saving reported success, but pre-existing closed-connection/service-order
+  shutdown errors remain documented. Matching stored snapshots do not prove every
+  hypothetical in-memory save race is solved. Startup logs also show initial slow
+  cycles; no claim of a completely warning-free runtime.
+- No rendered Royal Titans fight or normalized OSRS packet diff was completed in
+  this architecture checkpoint. Startup, unit tests and persistence snapshots are
+  different forms of evidence and cannot substitute for that acceptance.
+
+Report-only verification performed:
+  Read current instructions and migration/encounter records.
+  Inspected Git status/diffs and committed per-file endpoint numstats.
+  Read existing JUnit XML and final verification/deployment logs.
+  Ran scripts/openrune-doctor.ps1 read-only with canonical search root.
+  git diff --check passed before report creation (pre-existing CRLF conversion
+  warnings on unrelated .data files are not whitespace failures). The new report
+  was also checked separately with git diff --no-index --check before handoff.
+No gameplay edit, server restart, deployment or new Gradle test run was required
+to create this document.
+
+9. RECOVERY, REMAINING WORK AND TESTING ORDER
+--------------------------------------------
+Recoverable source checkpoints:
+- backup/boss-dsl-source-baseline-20260909 at 798b8c320.
+- backup/royal-titans-native-checkpoint-20260910 at 1279d1676.
+  logs/royal-titans-native-checkpoint-20260910.zip
+  SHA256: 46FF15C79D008FE4407D930EDA0226E24C3A1739BCCA940A66145BA1901EE1AC
+- backup/royal-titans-live-verified-20260910 at a8f096335 (deployment documentation).
+- backup/nex-minion-characterization-20260910 at 4c6dc9f2b.
+  logs/nex-minion-characterization-20260910.zip
+  SHA256: EE25B9D73CB7A1D3BAE90E3FB621AAA120582B0B4EE0367593763BD844C234FB
+
+These source ZIPs exclude credentials, .data, PostgreSQL, caches, logs and generated
+outputs. They are not database or packet-evidence backups. Captures/research remain
+at their existing authoritative paths; no replacement decoder/capture was created.
+No remote push, merge or PR was performed by this migration checkpoint.
+
+Recommended client test order:
+1. Royal Titans and Cerberus: newest deployed gameplay changes.
+2. Vorkath, Kraken, Corp, Hydra, Guardians, Zulrah and Muspah.
+3. Smoke-test preserved native DSL bosses such as Scurrius after shared fixes.
+For every fight check entry, normal attacks, specials, loot/KC, two kills, exit,
+external teleport, logout/disconnect, death and separate-room isolation where
+applicable. Save the exact boss, player position, tick/clip and expected behavior
+for any regression. Known unresolved reward/CA rules are not secretly finished.
+
+Remaining implementation sequence:
+1. Nex characterization/departure tests and complete native migration.
+2. Yama.
+3. Doom of Mokhaiotl.
+4. DT2, with separately reviewable work for its encounters.
+5. Dagannoth Kings architecture review.
+6. Resolve demonstrated shared gaps, remaining boss evidence/mechanic/reward gaps,
+   complete client/packet acceptance and run final broader verification.
+Use focused branches/commits and backup checkpoints; do not combine all bosses
+into one giant commit or discard prior mechanic research.
+
+Resume helper already exists:
+  .\scripts\resume-boss-migration.ps1
+  .\scripts\resume-boss-migration.ps1 -CopyPrompt
+  .\scripts\resume-boss-migration.ps1 -Verify -Boss nex
+It prints current Git identity and the handoff; it does not automatically deploy,
+restart, switch branches, commit, push or merge.
+
+Unrelated work requiring preservation at this snapshot:
+  M .data/gamevals/area.rscm
+  M .data/gamevals/dbrow.rscm
+  M .data/raw-cache/server/inv.toml
+  M .data/raw-cache/server/npcs.toml
+  ? .data/raw-cache/map/area/grand_exchange.toml
+This text report is a new unstaged document, outside the counted commit range.
+
+10. COMPLETE PER-FILE ENDPOINT CHANGE LIST
+------------------------------------------
+The following is the exact 200-path Git numstat for the measured commit range.
+Paths are relative to the canonical workspace. The list includes supporting
+framework/tests/docs, not only gameplay. No uncommitted file is included.
+Legend: +added lines / -deleted lines.
+
+
+Kraken - module files
+  +10    -0     content/bosses/kraken/build.gradle.kts
+  +24    -0     content/bosses/kraken/src/main/kotlin/org/rsmod/content/bosses/kraken/KrakenAttackHook.kt
+  +83    -23    content/bosses/kraken/src/main/kotlin/org/rsmod/content/bosses/kraken/KrakenCombat.kt
+  +19    -3     content/bosses/kraken/src/main/kotlin/org/rsmod/content/bosses/kraken/KrakenConfig.kt
+  +0     -363   content/bosses/kraken/src/main/kotlin/org/rsmod/content/bosses/kraken/KrakenEncounterManager.kt
+  +0     -51    content/bosses/kraken/src/main/kotlin/org/rsmod/content/bosses/kraken/KrakenLifecycle.kt
+  +0     -3     content/bosses/kraken/src/main/kotlin/org/rsmod/content/bosses/kraken/KrakenRules.kt
+  +171   -0     content/bosses/kraken/src/main/kotlin/org/rsmod/content/bosses/kraken/KrakenWhirlpools.kt
+  +78    -28    content/bosses/kraken/src/main/kotlin/org/rsmod/content/bosses/kraken/KrakenWorld.kt
+  +522   -0     content/bosses/kraken/src/test/kotlin/org/rsmod/content/bosses/kraken/KrakenEncounterCharacterizationTest.kt
+  +2     -4     content/bosses/kraken/src/test/kotlin/org/rsmod/content/bosses/kraken/KrakenRulesTest.kt
+
+Vorkath - module files
+  +7     -1     content/bosses/vorkath/build.gradle.kts
+  +344   -0     content/bosses/vorkath/src/main/kotlin/org/rsmod/content/bosses/vorkath/VorkathArenaEffects.kt
+  +71    -0     content/bosses/vorkath/src/main/kotlin/org/rsmod/content/bosses/vorkath/VorkathArenaState.kt
+  +55    -0     content/bosses/vorkath/src/main/kotlin/org/rsmod/content/bosses/vorkath/VorkathAttackParameters.kt
+  +24    -13    content/bosses/vorkath/src/main/kotlin/org/rsmod/content/bosses/vorkath/VorkathCombat.kt
+  +59    -0     content/bosses/vorkath/src/main/kotlin/org/rsmod/content/bosses/vorkath/VorkathCombatSpec.kt
+  +2     -0     content/bosses/vorkath/src/main/kotlin/org/rsmod/content/bosses/vorkath/VorkathConfig.kt
+  +105   -0     content/bosses/vorkath/src/main/kotlin/org/rsmod/content/bosses/vorkath/VorkathDiagnostics.kt
+  +151   -886   content/bosses/vorkath/src/main/kotlin/org/rsmod/content/bosses/vorkath/VorkathEncounterManager.kt
+  +2     -26    content/bosses/vorkath/src/main/kotlin/org/rsmod/content/bosses/vorkath/VorkathLifecycle.kt
+  +459   -214   content/bosses/vorkath/src/main/kotlin/org/rsmod/content/bosses/vorkath/VorkathLiveAudit.kt
+  +0     -2     content/bosses/vorkath/src/main/kotlin/org/rsmod/content/bosses/vorkath/VorkathModule.kt
+  +228   -0     content/bosses/vorkath/src/main/kotlin/org/rsmod/content/bosses/vorkath/VorkathSpawnEffects.kt
+  +0     -93    content/bosses/vorkath/src/main/kotlin/org/rsmod/content/bosses/vorkath/VorkathTimeline.kt
+  +103   -17    content/bosses/vorkath/src/main/kotlin/org/rsmod/content/bosses/vorkath/VorkathWorld.kt
+  +204   -0     content/bosses/vorkath/src/test/kotlin/org/rsmod/content/bosses/vorkath/VorkathDslCharacterizationTest.kt
+  +456   -88    content/bosses/vorkath/src/test/kotlin/org/rsmod/content/bosses/vorkath/VorkathEncounterManagerTest.kt
+  +101   -0     content/bosses/vorkath/src/test/kotlin/org/rsmod/content/bosses/vorkath/VorkathTimeline.kt
+
+Corporeal Beast - module files
+  +18    -1     content/bosses/corporeal-beast/BEHAVIOUR.md
+  +10    -0     content/bosses/corporeal-beast/build.gradle.kts
+  +95    -0     content/bosses/corporeal-beast/src/main/kotlin/org/rsmod/content/bosses/corporealbeast/CorporealBeastAreaEffects.kt
+  +29    -0     content/bosses/corporeal-beast/src/main/kotlin/org/rsmod/content/bosses/corporealbeast/CorporealBeastAttackParameters.kt
+  +43    -11    content/bosses/corporeal-beast/src/main/kotlin/org/rsmod/content/bosses/corporealbeast/CorporealBeastCombat.kt
+  +114   -0     content/bosses/corporeal-beast/src/main/kotlin/org/rsmod/content/bosses/corporealbeast/CorporealBeastCoreEffects.kt
+  +0     -502   content/bosses/corporeal-beast/src/main/kotlin/org/rsmod/content/bosses/corporealbeast/CorporealBeastEncounterManager.kt
+  +8     -9     content/bosses/corporeal-beast/src/main/kotlin/org/rsmod/content/bosses/corporealbeast/CorporealBeastLifecycle.kt
+  +161   -0     content/bosses/corporeal-beast/src/main/kotlin/org/rsmod/content/bosses/corporealbeast/CorporealBeastRoomEffects.kt
+  +0     -32    content/bosses/corporeal-beast/src/main/kotlin/org/rsmod/content/bosses/corporealbeast/CorporealBeastRules.kt
+  +106   -0     content/bosses/corporeal-beast/src/main/kotlin/org/rsmod/content/bosses/corporealbeast/CorporealBeastSpec.kt
+  +49    -0     content/bosses/corporeal-beast/src/main/kotlin/org/rsmod/content/bosses/corporealbeast/CorporealBeastState.kt
+  +42    -0     content/bosses/corporeal-beast/src/main/kotlin/org/rsmod/content/bosses/corporealbeast/CorporealBeastValidation.kt
+  +37    -0     content/bosses/corporeal-beast/src/test/kotlin/org/rsmod/content/bosses/corporealbeast/CorporealBeastLegacyCombat.kt
+  +525   -0     content/bosses/corporeal-beast/src/test/kotlin/org/rsmod/content/bosses/corporealbeast/CorporealBeastNativeTest.kt
+  +12    -9     content/bosses/corporeal-beast/src/test/kotlin/org/rsmod/content/bosses/corporealbeast/CorporealBeastRulesTest.kt
+
+Alchemical Hydra - module files
+  +13    -0     content/bosses/alchemical-hydra/build.gradle.kts
+  +49    -0     content/bosses/alchemical-hydra/src/main/kotlin/org/rsmod/content/bosses/alchemicalhydra/AlchemicalHydraAttackParameters.kt
+  +29    -10    content/bosses/alchemical-hydra/src/main/kotlin/org/rsmod/content/bosses/alchemicalhydra/AlchemicalHydraCombat.kt
+  +5     -1     content/bosses/alchemical-hydra/src/main/kotlin/org/rsmod/content/bosses/alchemicalhydra/AlchemicalHydraConfig.kt
+  +65    -0     content/bosses/alchemical-hydra/src/main/kotlin/org/rsmod/content/bosses/alchemicalhydra/AlchemicalHydraDamageRules.kt
+  +105   -703   content/bosses/alchemical-hydra/src/main/kotlin/org/rsmod/content/bosses/alchemicalhydra/AlchemicalHydraEncounterManager.kt
+  +317   -0     content/bosses/alchemical-hydra/src/main/kotlin/org/rsmod/content/bosses/alchemicalhydra/AlchemicalHydraHazards.kt
+  +2     -25    content/bosses/alchemical-hydra/src/main/kotlin/org/rsmod/content/bosses/alchemicalhydra/AlchemicalHydraLifecycle.kt
+  +0     -2     content/bosses/alchemical-hydra/src/main/kotlin/org/rsmod/content/bosses/alchemicalhydra/AlchemicalHydraModule.kt
+  +99    -0     content/bosses/alchemical-hydra/src/main/kotlin/org/rsmod/content/bosses/alchemicalhydra/AlchemicalHydraSpec.kt
+  +71    -0     content/bosses/alchemical-hydra/src/main/kotlin/org/rsmod/content/bosses/alchemicalhydra/AlchemicalHydraTransforms.kt
+  +80    -14    content/bosses/alchemical-hydra/src/main/kotlin/org/rsmod/content/bosses/alchemicalhydra/AlchemicalHydraWorld.kt
+  +63    -0     content/bosses/alchemical-hydra/src/main/kotlin/org/rsmod/content/bosses/alchemicalhydra/HydraArenaState.kt
+  +48    -0     content/bosses/alchemical-hydra/src/main/kotlin/org/rsmod/content/bosses/alchemicalhydra/HydraGeometry.kt
+  +739   -0     content/bosses/alchemical-hydra/src/test/kotlin/org/rsmod/content/bosses/alchemicalhydra/AlchemicalHydraNativeTest.kt
+
+Grotesque Guardians - module files
+  +15    -0     content/bosses/grotesque-guardians/build.gradle.kts
+  +61    -0     content/bosses/grotesque-guardians/src/main/kotlin/org/rsmod/content/bosses/grotesqueguardians/GrotesqueGuardiansAttackParameters.kt
+  +31    -17    content/bosses/grotesque-guardians/src/main/kotlin/org/rsmod/content/bosses/grotesqueguardians/GrotesqueGuardiansCombat.kt
+  +26    -0     content/bosses/grotesque-guardians/src/main/kotlin/org/rsmod/content/bosses/grotesqueguardians/GrotesqueGuardiansConfig.kt
+  +144   -762   content/bosses/grotesque-guardians/src/main/kotlin/org/rsmod/content/bosses/grotesqueguardians/GrotesqueGuardiansEncounterManager.kt
+  +0     -23    content/bosses/grotesque-guardians/src/main/kotlin/org/rsmod/content/bosses/grotesqueguardians/GrotesqueGuardiansLifecycle.kt
+  +0     -2     content/bosses/grotesque-guardians/src/main/kotlin/org/rsmod/content/bosses/grotesqueguardians/GrotesqueGuardiansModule.kt
+  +154   -0     content/bosses/grotesque-guardians/src/main/kotlin/org/rsmod/content/bosses/grotesqueguardians/GrotesqueGuardiansSpec.kt
+  +70    -11    content/bosses/grotesque-guardians/src/main/kotlin/org/rsmod/content/bosses/grotesqueguardians/GrotesqueGuardiansWorld.kt
+  +343   -0     content/bosses/grotesque-guardians/src/main/kotlin/org/rsmod/content/bosses/grotesqueguardians/GuardiansArenaEffects.kt
+  +46    -0     content/bosses/grotesque-guardians/src/main/kotlin/org/rsmod/content/bosses/grotesqueguardians/GuardiansArenaState.kt
+  +78    -0     content/bosses/grotesque-guardians/src/main/kotlin/org/rsmod/content/bosses/grotesqueguardians/GuardiansDamageRules.kt
+  +897   -0     content/bosses/grotesque-guardians/src/test/kotlin/org/rsmod/content/bosses/grotesqueguardians/GrotesqueGuardiansNativeTest.kt
+
+Zulrah - module files
+  +14    -0     content/bosses/zulrah/build.gradle.kts
+  +307   -0     content/bosses/zulrah/src/main/kotlin/org/rsmod/content/bosses/zulrah/ZulrahArenaEffects.kt
+  +87    -0     content/bosses/zulrah/src/main/kotlin/org/rsmod/content/bosses/zulrah/ZulrahArenaState.kt
+  +84    -0     content/bosses/zulrah/src/main/kotlin/org/rsmod/content/bosses/zulrah/ZulrahAttackParameters.kt
+  +48    -20    content/bosses/zulrah/src/main/kotlin/org/rsmod/content/bosses/zulrah/ZulrahCombat.kt
+  +2     -0     content/bosses/zulrah/src/main/kotlin/org/rsmod/content/bosses/zulrah/ZulrahConfig.kt
+  +149   -842   content/bosses/zulrah/src/main/kotlin/org/rsmod/content/bosses/zulrah/ZulrahEncounterManager.kt
+  +2     -14    content/bosses/zulrah/src/main/kotlin/org/rsmod/content/bosses/zulrah/ZulrahLifecycle.kt
+  +0     -2     content/bosses/zulrah/src/main/kotlin/org/rsmod/content/bosses/zulrah/ZulrahModule.kt
+  +195   -0     content/bosses/zulrah/src/main/kotlin/org/rsmod/content/bosses/zulrah/ZulrahSpec.kt
+  +73    -7     content/bosses/zulrah/src/main/kotlin/org/rsmod/content/bosses/zulrah/ZulrahWorld.kt
+  +941   -0     content/bosses/zulrah/src/test/kotlin/org/rsmod/content/bosses/zulrah/ZulrahNativeTest.kt
+
+Muspah - module files
+  +15    -0     content/bosses/muspah/build.gradle.kts
+  +333   -0     content/bosses/muspah/src/main/kotlin/org/rsmod/content/bosses/muspah/MuspahArenaEffects.kt
+  +69    -0     content/bosses/muspah/src/main/kotlin/org/rsmod/content/bosses/muspah/MuspahArenaState.kt
+  +70    -0     content/bosses/muspah/src/main/kotlin/org/rsmod/content/bosses/muspah/MuspahAttackParameters.kt
+  +35    -10    content/bosses/muspah/src/main/kotlin/org/rsmod/content/bosses/muspah/MuspahCombat.kt
+  +5     -0     content/bosses/muspah/src/main/kotlin/org/rsmod/content/bosses/muspah/MuspahConfig.kt
+  +169   -705   content/bosses/muspah/src/main/kotlin/org/rsmod/content/bosses/muspah/MuspahEncounterManager.kt
+  +5     -17    content/bosses/muspah/src/main/kotlin/org/rsmod/content/bosses/muspah/MuspahLifecycle.kt
+  +0     -2     content/bosses/muspah/src/main/kotlin/org/rsmod/content/bosses/muspah/MuspahModule.kt
+  +139   -0     content/bosses/muspah/src/main/kotlin/org/rsmod/content/bosses/muspah/MuspahSpec.kt
+  +79    -14    content/bosses/muspah/src/main/kotlin/org/rsmod/content/bosses/muspah/MuspahWorld.kt
+  +1023  -0     content/bosses/muspah/src/test/kotlin/org/rsmod/content/bosses/muspah/MuspahNativeTest.kt
+
+Cerberus - module files
+  +8     -1     content/bosses/cerberus/build.gradle.kts
+  +17    -3     content/bosses/cerberus/src/main/kotlin/org/rsmod/content/bosses/cerberus/CerberusArena.kt
+  +426   -0     content/bosses/cerberus/src/main/kotlin/org/rsmod/content/bosses/cerberus/CerberusArenaEffects.kt
+  +75    -0     content/bosses/cerberus/src/main/kotlin/org/rsmod/content/bosses/cerberus/CerberusAssetValidation.kt
+  +122   -0     content/bosses/cerberus/src/main/kotlin/org/rsmod/content/bosses/cerberus/CerberusAttackParameters.kt
+  +41    -32    content/bosses/cerberus/src/main/kotlin/org/rsmod/content/bosses/cerberus/CerberusCombat.kt
+  +2     -0     content/bosses/cerberus/src/main/kotlin/org/rsmod/content/bosses/cerberus/CerberusConfig.kt
+  +249   -941   content/bosses/cerberus/src/main/kotlin/org/rsmod/content/bosses/cerberus/CerberusEncounterManager.kt
+  +2     -23    content/bosses/cerberus/src/main/kotlin/org/rsmod/content/bosses/cerberus/CerberusLifecycle.kt
+  +0     -2     content/bosses/cerberus/src/main/kotlin/org/rsmod/content/bosses/cerberus/CerberusModule.kt
+  +91    -0     content/bosses/cerberus/src/main/kotlin/org/rsmod/content/bosses/cerberus/CerberusRun.kt
+  +164   -0     content/bosses/cerberus/src/main/kotlin/org/rsmod/content/bosses/cerberus/CerberusSpec.kt
+  +68    -23    content/bosses/cerberus/src/main/kotlin/org/rsmod/content/bosses/cerberus/CerberusWorld.kt
+  +36    -13    content/bosses/cerberus/src/test/kotlin/org/rsmod/content/bosses/cerberus/CerberusCombatDispatchTest.kt
+  +457   -105   content/bosses/cerberus/src/test/kotlin/org/rsmod/content/bosses/cerberus/CerberusEncounterIntegrationTest.kt
+  +161   -0     content/bosses/cerberus/src/test/kotlin/org/rsmod/content/bosses/cerberus/CerberusEncounterScopeTest.kt
+  +114   -0     content/bosses/cerberus/src/test/kotlin/org/rsmod/content/bosses/cerberus/CerberusMigrationCharacterizationTest.kt
+  +177   -0     content/bosses/cerberus/src/test/kotlin/org/rsmod/content/bosses/cerberus/CerberusNativeCombatTest.kt
+  +161   -0     content/bosses/cerberus/src/test/kotlin/org/rsmod/content/bosses/cerberus/CerberusNativeLifecycleTest.kt
+
+Royal Titans - module files
+  +1     -0     content/bosses/royal-titans/build.gradle.kts
+  +129   -0     content/bosses/royal-titans/src/main/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansArena.kt
+  +41    -18    content/bosses/royal-titans/src/main/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansCombat.kt
+  +28    -0     content/bosses/royal-titans/src/main/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansDefinitions.kt
+  +40    -0     content/bosses/royal-titans/src/main/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansElementalSpec.kt
+  +298   -0     content/bosses/royal-titans/src/main/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansElementals.kt
+  +239   -1426  content/bosses/royal-titans/src/main/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansEncounterManager.kt
+  +108   -0     content/bosses/royal-titans/src/main/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansLandings.kt
+  +5     -20    content/bosses/royal-titans/src/main/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansLifecycle.kt
+  +36    -10    content/bosses/royal-titans/src/main/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansMovement.kt
+  +89    -0     content/bosses/royal-titans/src/main/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansPhaseProgram.kt
+  +194   -0     content/bosses/royal-titans/src/main/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansPlatforms.kt
+  +94    -0     content/bosses/royal-titans/src/main/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansReinvigoration.kt
+  +80    -0     content/bosses/royal-titans/src/main/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansRun.kt
+  +272   -0     content/bosses/royal-titans/src/main/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansTileAttacks.kt
+  +132   -0     content/bosses/royal-titans/src/main/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansTitanSpec.kt
+  +177   -0     content/bosses/royal-titans/src/main/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansWalls.kt
+  +85    -11    content/bosses/royal-titans/src/main/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansWorld.kt
+  +145   -0     content/bosses/royal-titans/src/test/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansArenaCadenceTest.kt
+  +2     -2     content/bosses/royal-titans/src/test/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansBodyModelsTest.kt
+  +169   -37    content/bosses/royal-titans/src/test/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansCombatIntegrationTest.kt
+  +6     -3     content/bosses/royal-titans/src/test/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansCorpseInteractionTest.kt
+  +2     -1     content/bosses/royal-titans/src/test/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansDeathDropLocationTest.kt
+  +212   -0     content/bosses/royal-titans/src/test/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansElementalCombatTest.kt
+  +53    -0     content/bosses/royal-titans/src/test/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansElementalDeathLifecycleTest.kt
+  +2     -2     content/bosses/royal-titans/src/test/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansElementalMovementTest.kt
+  +5     -5     content/bosses/royal-titans/src/test/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansHitLifecycleTest.kt
+  +53    -1     content/bosses/royal-titans/src/test/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansMovementTest.kt
+  +244   -0     content/bosses/royal-titans/src/test/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansNativeLifecycleTest.kt
+  +1     -1     content/bosses/royal-titans/src/test/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansPresentationTest.kt
+  +62    -0     content/bosses/royal-titans/src/test/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansResetLifecycleTest.kt
+  +69    -0     content/bosses/royal-titans/src/test/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansTransitionLifecycleTest.kt
+  +1     -1     content/bosses/royal-titans/src/test/kotlin/org/rsmod/content/bosses/royaltitans/RoyalTitansWallCastTest.kt
+
+Nex - module files
+  +3     -0     content/bosses/nex/build.gradle.kts
+  +286   -0     content/bosses/nex/src/test/kotlin/org/rsmod/content/bosses/nex/NexMinionCombatCharacterizationTest.kt
+
+Shared, supporting and cross-module files
+  +18    -0     .data/raw-cache/server/npcs.toml
+  +6     -0     AGENTS.md
+  +13    -0     api/bosses/build.gradle.kts
+  +10    -5     api/bosses/src/main/kotlin/org/rsmod/api/bosses/dsl/BossDsl.kt
+  +31    -9     api/bosses/src/main/kotlin/org/rsmod/api/bosses/runtime/BossCombat.kt
+  +2     -0     api/bosses/src/main/kotlin/org/rsmod/api/bosses/runtime/BossDeps.kt
+  +194   -36    api/bosses/src/main/kotlin/org/rsmod/api/bosses/runtime/BossEncounter.kt
+  +25    -1     api/bosses/src/main/kotlin/org/rsmod/api/bosses/runtime/BossExtensionRegistry.kt
+  +61    -0     api/bosses/src/main/kotlin/org/rsmod/api/bosses/runtime/BossPhaseClock.kt
+  +139   -16    api/bosses/src/main/kotlin/org/rsmod/api/bosses/runtime/EffectInterpreter.kt
+  +21    -7     api/bosses/src/main/kotlin/org/rsmod/api/bosses/runtime/EncounterRegistry.kt
+  +9     -1     api/bosses/src/main/kotlin/org/rsmod/api/bosses/spec/BossSpec.kt
+  +9     -0     api/bosses/src/main/kotlin/org/rsmod/api/bosses/spec/Condition.kt
+  +36    -0     api/bosses/src/main/kotlin/org/rsmod/api/bosses/spec/Effect.kt
+  +11    -0     api/bosses/src/main/kotlin/org/rsmod/api/bosses/validation/BossAssetValidator.kt
+  +1     -1     api/bosses/src/main/kotlin/org/rsmod/api/bosses/validation/SpecValidator.kt
+  +1431  -0     api/bosses/src/test/kotlin/org/rsmod/api/bosses/runtime/BossRuntimeRegressionTest.kt
+  +120   -31    api/combat/combat-scripts/src/main/kotlin/org/rsmod/api/combat/NvPCombat.kt
+  +13    -0     api/death/build.gradle.kts
+  +11    -5     api/death/src/main/kotlin/org/rsmod/api/death/NpcDeath.kt
+  +150   -0     api/death/src/test/kotlin/org/rsmod/api/death/NpcDeathRespawnTest.kt
+  +1     -1     api/game-process/src/main/kotlin/org/rsmod/api/game/process/world/WorldQueueListProcess.kt
+  +54    -0     api/game-process/src/test/kotlin/org/rsmod/api/game/process/world/WorldQueueDeadlineTest.kt
+  +8     -0     api/instances/build.gradle.kts
+  +18    -0     api/instances/src/main/kotlin/org/rsmod/api/instances/InstanceManager.kt
+  +43    -7     api/instances/src/main/kotlin/org/rsmod/api/instances/InstanceScript.kt
+  +52    -0     api/instances/src/main/kotlin/org/rsmod/api/instances/InstanceSession.kt
+  +189   -0     api/instances/src/test/kotlin/org/rsmod/api/instances/InstanceEntrySafetyTest.kt
+  +113   -0     api/instances/src/test/kotlin/org/rsmod/api/instances/InstanceScriptSourceTest.kt
+  +295   -0     api/instances/src/test/kotlin/org/rsmod/api/instances/InstanceSessionLifecycleTest.kt
+  +47    -0     api/npc/src/main/kotlin/org/rsmod/api/npc/access/StandardNpcAccess.kt
+  +32    -0     build.gradle.kts
+  +1     -0     content/drops/build.gradle.kts
+  +2     -1     content/drops/src/main/kotlin/org/rsmod/content/drops/tables/monsters/GrotesqueGuardiansDropTable.kt
+  +32    -1     content/drops/src/test/kotlin/org/rsmod/content/drops/tables/monsters/GrotesqueGuardiansDropTableTest.kt
+  +1701  -0     docs/bosses/DSL_MIGRATION.md
+  +321   -0     docs/bosses/MIGRATION_HANDOFF.md
+  +212   -0     docs/bosses/architecture-waivers.json
+  +72    -0     docs/bosses/nex/NEX_OSRS_AUDIT.md
+  +5     -0     docs/bosses/vorkath/repair-validation-20260908.md
+  +32    -4     docs/bosses/zulrah/ZULRAH_OSRS_AUDIT.md
+  +10    -2     docs/cerberus-rev240-evidence.md
+  +40    -3     engine/game/src/main/kotlin/org/rsmod/game/queue/WorldQueueList.kt
+  +52    -0     engine/game/src/test/kotlin/org/rsmod/game/queue/WorldQueueCancellationTest.kt
+  +13    -0     or-cache/build.gradle.kts
+  +29    -0     or-cache/src/test/kotlin/dev/openrune/BossMigrationKcCacheAuditTest.kt
+  +45    -0     scripts/BossMigrationPersistenceAudit.java
+  +55    -0     scripts/check-boss-architecture.ps1
+  +61    -0     scripts/resume-boss-migration.ps1
+
+END OF REPORT

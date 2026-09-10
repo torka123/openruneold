@@ -1,0 +1,131 @@
+RESUME THE OPENRUNE BOSS API / DSL AND NATIVE-WORKFLOW PROJECT
+
+Work only in:
+C:\Users\norma\Documents\Codex\2026-08-10\lets-work-on-the-openrune-server\work\OpenRune-Server
+
+OBJECTIVE
+Continue the existing all-boss migration and finish remaining boss integrations.
+Route ordinary combat through OpenRune's existing boss DSL, and route other boss
+functionality through its established area, movement, collision, instance,
+lifecycle, death, contribution, drop, Collection Log, achievement, interface and
+persistence workflows. Do implementation, executable tests and verification;
+do not stop after another audit or replace working mechanics with approximations.
+
+FIRST: RECOVER THE ACTUAL CHECKPOINT
+Read current AGENTS.md and applicable nested/contribution instructions completely.
+Read docs/bosses/MIGRATION_HANDOFF.md, docs/bosses/DSL_MIGRATION.md and the latest
+boss-specific ledger and continuation notes. Read the September10 text change
+report for measured history, not as a permanently current deployment record.
+Inspect branch, remotes, status, ignored/untracked files and complete relevant
+diffs. Run scripts/openrune-doctor.ps1 and confirm the JVM's canonical directory.
+Newer source, test logs and handoff entries take precedence over this prompt.
+Never infer current deployment from Git HEAD alone.
+
+KNOWN STARTING CHECKPOINT (RECHECK; DO NOT REPEAT COMPLETED WORK)
+- Source baseline: 798b8c320, backup/boss-dsl-source-baseline-20260909.
+- Nine encounter migrations were deployed: Kraken, Vorkath, Corporeal Beast,
+  Alchemical Hydra, Grotesque Guardians, Zulrah, Muspah, Cerberus, Royal Titans.
+  This is eleven main boss characters if the two paired encounters are counted
+  separately. It is NOT a full OSRS mechanics/rewards/visual parity certificate.
+- Royal Titans architecture checkpoint 1279d1676 was backed up and deployed
+  through two controlled restarts. It had 129 module tests and 3 cache cases.
+- Nex test-only checkpoint 4c6dc9f2b had 21 tests, including 3 native minion
+  characterizations; no Nex production migration was completed in that step.
+- Latest user priority: finish the remaining Royal Titans work first, then resume
+  Nex, Yama, Doom of Mokhaiotl and DT2. Review Dagannoth Kings separately.
+- Existing DSL bosses are preserved/regression-tested, not rewritten simply
+  because their files do not resemble newly migrated modules.
+
+SAFETY AND RECOVERY
+Preserve all existing source, research, packet captures/transcripts, tests,
+documentation and unrelated worktree changes. No reset, whole-file Git restore,
+duplicate implementation, generated-output edit or mass formatting.
+Preserve revision240: definitions .data/cache/SERVER, JS5 .data/cache/LIVE,
+PostgreSQL authority .data/postgres. Report any proposed cache-path/revision change.
+Keep recoverable source-only checkpoints and focused branches/commits; scan for
+secrets before committing. Exclude credentials, .data runtime state, PostgreSQL,
+caches, logs and build output from source archives. These archives are not DB
+backups. Do not delete or overwrite raw research dumps.
+Never stage unrelated files. No remote push, merge or PR without explicit authority.
+Controlled local deployment/restarts are authorized for tested, backed-up changes.
+Use native logout/save; the user authorized logging their account out. Do not
+hard-kill the JVM or bypass save failures. Do not deploy a failing/partial build.
+
+MANDATORY ARCHITECTURE
+Use BossSpec, BossCombat, BossEncounter, EffectInterpreter, BossExtensionRegistry
+and the existing api/bosses DSL. Use InstanceScript/InstanceLifecycleScript,
+InstanceManager and keyed/session-owned lifecycle for normal instanced encounters.
+Preserve native public-room behavior where an allocated instance is inappropriate.
+Movement, reach and collision use native routefinding and occupied footprints.
+Locations/arena geometry remain content configuration executed through native APIs.
+Do not force every specialized spatial mechanic into the DSL. Keep small named
+external handlers for acid, Souls, paired Titans, contracts, delves, etc.; handlers
+must use native scheduling/hit/lifecycle ownership, not recreate a fight engine.
+No private general attack loops/timelines, selectors, forced schedulers, username
+membership maps, duplicate departure cleanup or independent respawn pipelines.
+Do not confuse importing an API with actually routing execution through it.
+
+MECHANIC-TO-API MAPPING BEFORE EDITS
+For each changed behavior identify: intended behavior/evidence/confidence, existing
+code, native workflow, exact upstream reference, local differences, implementation
+and executable tests. Search the whole repository, upstream/main, comparable
+official content and relevant history before declaring a missing API.
+Classify every integration as official upstream, existing local/fork extension,
+or proposed new shared capability. Approved local extensions are NOT automatically
+official upstream APIs. Reuse the approved shared extensions already implemented.
+The original Royal Titans shared proposal is in
+content/bosses/royal-titans/docs/shared-api-approval.md; its bounded approval remains
+valid. Nex's approved M01-M36/S01-S08 mapping is in its existing audit ledger.
+Do not repeatedly request the same approval. Any genuinely new shared capability
+must be explicitly mapped to its native owner and satisfy the current AGENTS
+checkpoint. Do not build a boss-local substitute for a missing shared subsystem.
+
+ROYAL TITANS FIRST
+Read content/bosses/royal-titans/docs/capture-validation.md and subsequent work
+records. Keep its migrated combat/instance wiring; this is not another rewrite.
+Finish native reward composition/delivery, contribution scaling, pages/sacrifice,
+scroll suppression, conditional clues, durable one-per-player claims, Collection
+Log/pet/broadcast integration and all 11 Combat Achievements.
+Statistics/KC/PB/global SQL already exists: integrate and test, do not duplicate it.
+Resolve known elemental-lifetime and rotation issues from evidence; do not invent
+the unpublished full-loot threshold, unique topology, below100 desynchronization,
+safe-tile distribution, exact targets or unclaimed-reset rules.
+Use normal capture2283 for visible timing; Grid Master3398/3402 only for suitable
+duo/UI/lifecycle evidence. Preserve revision context and binary provenance.
+Test solo/duo, both kill orders, both corpse choices, boundaries, delayed-hit races,
+repeated kills, departures, persistence and crash recovery. Read the latest handoff
+before choosing the next unfinished Royal Titans step.
+
+MIGRATION AND VERIFICATION
+Characterize existing behavior before replacing its wiring. Separate architecture
+changes from evidence-backed mechanic corrections. Fix generic defects once in
+the shared framework; do not patch around them independently in each boss.
+Run deterministic native integration tests with injected clocks/RNG. Pure constants,
+source-text checks and compilation do not prove gameplay or visuals.
+Run focused module tests/checks, every changed shared module's tests, appropriate
+broader boss/API/app checks, architecture detector and git diff --check.
+Use current project scoped-formatting conventions; do not fix unrelated failures.
+After a tested backup/deployment, verify custom-build marker, canonical doctor,
+persistence and two controlled restarts. Record shutdown/save errors honestly.
+Exercise actual client scenarios and compare normalized OpenRune packet timelines
+against suitable OSRS captures where available. Startup is not fight verification.
+Do not invent a completed client scenario, packet match or passing test.
+
+HANDOFF AND STOPPING RULES
+Continue routine implementation independently. Stop only for a real authority or
+evidence conflict, unsafe operation, missing access, or an explicit user checkpoint.
+Do not assume account allowance from context capacity. If the user reports low
+allowance, finish the current bounded change, test/back it up, deploy only if safe,
+and leave a precise continuation record. Never call an incomplete boss finished
+just because the allowance is nearly exhausted.
+Update existing migration/encounter ledgers and MIGRATION_HANDOFF.md with changed
+files, exact commits/backups, additions/deletions, tests, current deployed source,
+runtime scenarios, known defects, unverified assumptions and the next bounded step.
+Distinguish architecture-migrated, source-tested, deployed, client-verified and
+OSRS-parity-certified. Do not give a blanket completion percentage without a basis.
+
+Existing helper: scripts/resume-boss-migration.ps1 prints Git identity and handoff.
+Its older default of Nex does not override unfinished Royal Titans priority above.
+
+Prompt structure follows OpenAI's prompting guidance: explicit outcome, context,
+constraints and verification. Reference: https://learn.chatgpt.com/docs/prompting
