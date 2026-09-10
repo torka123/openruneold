@@ -236,7 +236,7 @@ Diagnostic-only modules are excluded. Zero manager lines is not proof of archite
 | Zulrah | manager; 993 -> 300 coordinator lines | Four unchanged declarative rotation programs, native attacks and separate snakeling specs | Native InstanceScript, configured actor, typed session state and same-actor respawn | Spatial clouds/eggs/tail handler (307 lines), surface positioning, existing reclaim storage and native parameter adapters | 43 tests (21 native, 22 retained) and revision-240 cache audit pass; all boss/shared regressions and app classes pass | No deployment/cache repack/client verification; Grid Master capture context, tail-order conflict and inherited non-player damage exclusion remain uncertified |
 | Muspah | manager; 1,088 -> 552 | Weighted normal attacks, final cadence and all timed phases on BossSpec/BossEncounter | InstanceScript, configured actor, typed session, native death/respawn and KC | Threshold/shield policy, spatial cloud/spike/LOS handlers, corruption presentation | 67 tests (27 native, 40 retained) pass | Draft timings, projectile geometry, source exclusions and shield-skip policy not OSRS-certified; client verification pending |
 | Cerberus | manager; 1,290 -> 598 | Native ordinary attacks, triple components, weighted/conditional rotation, forced diagnostics and timed phases | Protected InstanceScript, typed session state and same-actor native death/reveal | Arena effects426 lines (Souls/lava/wall); phase-ready presentation, debug and CA policy | 75 module tests,2 revision-240 audit tests; all boss/shared regressions and app classes pass | Command-only access retained; donor/capture geometry and timeout fallbacks not OSRS-certified; not yet deployed |
-| Royal Titans | manager; 2,017 -> 830 | Elemental ordinary attacks, per-Titan platform/arena/teleport phases migrated | Protected InstanceScript/session ownership; native paired reset and elemental corpse deadlines; no private membership indexes | Focused routes, landings, walls, elementals, paired tile attacks and statistics/reward policy | 129 passing module tests,3 revision-240 audit cases; broader boss/shared checks pass | Live checkpoint pending below; legacy rotation/reward/CA and visual evidence gaps are not resolved by architecture migration |
+| Royal Titans | manager; 2,017 -> 830 | Elemental ordinary attacks, per-Titan platform/arena/teleport phases migrated | Protected InstanceScript/session ownership; native paired reset and elemental corpse deadlines; no private membership indexes | Focused routes, landings, walls, elementals, paired tile attacks and statistics/reward policy | 129 passing module tests,3 revision-240 audit cases; broader boss/shared checks and two controlled boots pass | Source1279d1676 deployed; legacy rotation/reward/CA and visual evidence gaps are not resolved by architecture migration |
 | Nex | manager; 1,321 | Pending | Pending | Group specials/reward coordination | Existing tests preserved | Full encounter work remains incomplete |
 | Yama | managers; 2,908 | Pending | Pending | Contracts/judges/group mechanics | Pending | Detailed mapping pending |
 | Doom of Mokhaiotl | managers; 4,432 | Pending | Pending | Delves/larvae/scoreboard | Pending | Detailed mapping pending |
@@ -1682,3 +1682,20 @@ tests, app classes and architecture enforcement pass in `royal-titans-elemental-
 20260910.log`,23s/505tasks (4executed501up-to-date). No new API, cache, reward or balance change.
 This passing source checkpoint is ready for its backed-up controlled local deployment; it does
 not certify rendered gameplay, packet parity, unresolved reward integration or all Combat Achievements.
+
+### Royal Titans backed-up local deployment, September10
+
+Source `1279d1676` is on `backup/royal-titans-native-checkpoint-20260910`. Source-only ZIP
+`logs/royal-titans-native-checkpoint-20260910.zip`, SHA256
+`46FF15C79D008FE4407D930EDA0226E24C3A1739BCCA940A66145BA1901EE1AC`:7,457 entries and zero
+excluded paths. Limited credential-pattern review found no candidates in the changed source/docs.
+No unrelated `.data` changes were staged. No remote push/merge or new cache packing occurred.
+
+Reused the established controlled restart helper twice:36776 ->25860 ->39612. Both fresh builds
+printed OPENRUNE CUSTOM BUILD ACTIVE and Server ready (03:40:27/03:40:30 and03:42:31/03:42:33 EDT).
+Canonical doctor and read-only PostgreSQL fingerprints match after both boots against the fresh
+predeployment snapshot. SERVER/LIVE hashes and revision240 authority remain unchanged. Exact logs,
+backup and persistence values are in MIGRATION_HANDOFF.md. Account-saving shutdown succeeded;
+the pre-existing service-order/closed-connection shutdown errors remain explicitly unverified,
+not silently treated as a clean shutdown. No connected game clients were observed at either stop.
+No rendered fight or packet diff is claimed. Continue Nex without redoing this routine checkpoint.

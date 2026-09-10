@@ -6,14 +6,22 @@ Update this checkpoint after each completed boss and immediately before any auth
 
 ## Current checkpoint
 
-Latest source update (September10): Royal Titans has129 passing module tests and3 cache audit
-cases. Native platform/arena/teleport phases, paired reset and elemental death-deadline ownership
-are implemented; focused handlers leave an830-line coordinator (original2,017). Scoped and broad
-505-task checks pass. The local live checkpoint is being prepared; until the deployment record
-below says otherwise, live remains Cerberus `c421aca33`. Earlier incremental sections are history,
-not instructions to repeat completed work. Continue Nex after this backed-up live checkpoint,
-without ending the task at the routine boss boundary. Existing mechanics/reward/CA uncertainties
-and client acceptance remain explicitly open in DSL_MIGRATION.md.
+Latest deployed update (September10): Royal Titans source `1279d1676` has129 passing module tests
+and3 cache audit cases. Native platform/arena/teleport phases, paired reset and elemental
+death-deadline ownership are implemented; focused handlers leave an830-line coordinator
+(original2,017). Scoped and broad505-task checks pass. Two controlled restarts are complete:
+36776 ->25860 ->39612, with canonical revision240 doctor/marker checks and matching fresh
+persistence/cache fingerprints. See the detailed deployment record below for shutdown warnings.
+Earlier incremental sections are history, not instructions to repeat completed work. Next is Nex;
+its migration has NOT started beyond the read-only refresh. Existing mechanics/reward/CA
+uncertainties and client acceptance remain explicitly open; this is not full OSRS parity.
+
+Recoverable Royal Titans source backup: `backup/royal-titans-native-checkpoint-20260910`,
+commit `1279d1676`; ZIP `logs/royal-titans-native-checkpoint-20260910.zip`, SHA256
+`46FF15C79D008FE4407D930EDA0226E24C3A1739BCCA940A66145BA1901EE1AC`.
+7,457 entries, zero excluded-path violations. No database/cache/runtime data is in this archive.
+The user reported8% plan allowance at this checkpoint; do not infer a new remaining percentage
+from context capacity. Finish the current bounded work and use this handoff at the requested cutoff.
 
 - Canonical workspace: `C:\Users\norma\Documents\Codex\2026-08-10\lets-work-on-the-openrune-server\work\OpenRune-Server`.
 - Source safety baseline: `798b8c320`, branch `backup/boss-dsl-source-baseline-20260909`.
@@ -112,6 +120,7 @@ and client acceptance remain explicitly open in DSL_MIGRATION.md.
 | Zulrah | Four DSL rotation programs and snake specs; native boat instance and same-actor respawn; scoped clouds/eggs/tail; native KC metadata | 43 module tests (21 native), revision-240 cache audit, broad boss/shared regressions | Natural boat entry/camera, all forms and rotations, clouds, eggs/snakes, tail dodge, prayer, death/reclaim, loot/KC once, two kills, exit/teleport/logout; debug mode must award nothing |
 | Muspah | DSL normal attacks, timed phases and final cadence; native solo instance, same-actor repeat and KC; scoped cloud/spike effects | 67 module tests, including27 native gameplay tests | `::muspah` then natural crevice, both opening forms, form changes, lightning, homing, shield/Smite, final spikes, two kills/KC once, exits/teleport/logout/death; separate rooms isolated |
 | Cerberus | DSL ordinary attacks/triple/rotation and native phase deadlines; InstanceScript membership and same-actor respawn; focused Souls/lava/firewall handler | 75 module tests,2 cache tests, broad boss/shared verification, two controlled boots and matching persistence/cache fingerprints | `::cerberus`, wake/opening triple, normal styles, Souls/prayers, lava, firewall/reset, loot/KC, repeated kills, exit/teleport/logout; forced debug kills are reward-ineligible |
+| Royal Titans | Elemental melee and per-Titan platform/arena/teleport phases on BossSpec; native InstanceScript membership, paired reset and corpse deadlines; focused geometry handlers | 129 module tests,3 cache audit cases, broader505-task check, two controlled boots and matching fresh persistence/cache fingerprints | Natural solo entry, duo/late join, different phase-one positions, walls/autocast, elemental routes, both landings, Blast and either kill order; loot/pages/sacrifice, scoreboard, repeated kills, exit/teleport/logout/death; record any visual or timing change |
 | Architecture enforcement | Existing detector/self-tests now run from root Gradle check; explicit reviewed waivers retained | `bossArchitectureCheck` passes | Developer check, not a visible game change |
 
 Guardians, Zulrah and Muspah KC overlays are now packed into the selected SERVER NPC definitions
@@ -236,12 +245,36 @@ Prepare the source-only backup, normal local rebuild/two restarts and persistenc
 then continue Nex on a focused branch. Do not pause merely for a routine checkpoint or connected
 user: use the authorized native logout/save workflow when needed, never an unsaved hard kill.
 
+Royal Titans deployment is now complete for source `1279d1676`. Commands:
+`cerberus-controlled-restart.ps1 -ServerProcessId 36776 -RestartNumber 202609103`, then the same
+existing helper with `-ServerProcessId 25860 -RestartNumber 202609104`.
+Both were normal shutdown requests, not force kills.
+Markers03:40:27/03:42:31 EDT; ready03:40:30/03:42:33. JVM39612 is the last observed live process.
+The marker still reports unavailable Git metadata; Git plus controlled Gradle rebuild records
+source identity. No client was connected at either shutdown. First shutdown logged a ClanChat
+database request failure and closed-connection shutdown errors; second logged a database-close
+error. Account-saving service reported successful shutdown both times. This is NOT a clean
+service-shutdown certification or a claim about unobserved in-memory data.
+
+Fresh before/after fingerprints match across both restarts:22 inventory containers,
+1,152 inventory/bank item rows,1 realm setting row. Item SHA256
+`0ac5d6ef4bba6688c0fcf53ca1d923ef5f809cd20d67490c8b11815f88301280`;
+container `85989c0b4aa1079086bfb308ab78c6161120f950dcd3ea76c152b298635d4991`;
+realm `c971b1f6d8e431e9f25d64c6dc154d7c60ff22ce7c9e20274a73f671e911ef50`.
+This fresh snapshot deliberately supersedes earlier inventory hashes after user activity.
+Doctor logs `royal-titans-deploy-doctor-restart{1,2}-20260910.log`; persistence logs
+`royal-titans-deploy-persistence-{before,restart1,restart2}-20260910.log`; boot logs
+`cerberus-audit-20260907/restart-20260910{3,4}.stdout.log`, all under `logs/`.
+SERVER/LIVE revision240 paths and hashes remain unchanged. No Royal Titans rendered-client
+acceptance or OpenRune-versus-OSRS packet comparison was completed by this migration checkpoint.
+
 1. Collect user client-test feedback. Backup, local deployment, two gameplay checkpoint restarts,
    persistent fingerprints and the corrected75-assertion live Vorkath audit are complete. Do not
    repeat them merely because an older section or message says they are pending. Visual/full OSRS
    acceptance remains separate.
-2. Continue Royal Titans, Nex, Yama, Doom and DT2 in separate focused migration
-   branches/commits. Review Dagannoth Kings separately. Preserve existing research and mechanics.
+2. Next migrate Nex, then Yama, Doom and DT2 in separate focused branches/commits. Review
+   Dagannoth Kings separately. Retain Royal Titans client acceptance and documented outstanding
+   mechanical/reward evidence as separate work; do not repeat its completed architecture steps.
 3. Resolve or explicitly report remaining generic DSL concerns (unused condition/phase fields,
    ignored selection hints and any proven timing/lifecycle gap); do not silently rebalance content.
 4. Run focused tests per change, all applicable boss/shared regressions and broader checks.
@@ -267,7 +300,8 @@ The resume helper prints these instructions with current Git identity:
 .\scripts\resume-boss-migration.ps1
 ```
 
-Optional `-CopyPrompt` copies the prompt to the clipboard. Optional `-Verify -Boss royal-titans` runs the
+Optional `-CopyPrompt` copies the prompt to the clipboard. Default boss is now `nex`; optional
+`-Verify -Boss nex` runs the
 doctor, architecture detector and focused boss/API/instance tests first. It does not modify source,
 switch branches, commit, deploy, restart or contact GitHub. Build/test outputs are the usual local
 generated files. Paste its output into a new session in the canonical workspace after allowance resets.

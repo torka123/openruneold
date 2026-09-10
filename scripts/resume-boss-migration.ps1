@@ -2,7 +2,7 @@
 param(
     [switch]$Verify,
     [switch]$CopyPrompt,
-    [ValidatePattern('^[a-z0-9-]+$')][string]$Boss = 'royal-titans'
+    [ValidatePattern('^[a-z0-9-]+$')][string]$Boss = 'nex'
 )
 
 Set-StrictMode -Version Latest
@@ -44,6 +44,11 @@ Current status (recheck before editing):
 $($migrationStatus -join "`n")
 
 Read docs/bosses/DSL_MIGRATION.md for the full mechanic-to-API mapping and exact test evidence.
+Next migration: Nex. Read docs/bosses/nex/NEX_OSRS_AUDIT.md and its September10 refresh first.
+Royal Titans source checkpoint 1279d1676 has been backed up and deployed through two controlled
+restarts. Do not repeat that deployment or discard its research. Client acceptance remains open.
+Routine boss checkpoints are updates, not reasons to stop: back up, verify, deploy when authorized,
+record the result, and continue. Preserve unrelated work and do not push or merge remotely.
 The current checkpoint follows; actual newer code/commits take precedence over stale handoff notes.
 
 $(Get-Content -LiteralPath $handoffPath -Raw)

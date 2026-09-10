@@ -1,5 +1,57 @@
 # Nex revision-240 evidence ledger and approval mapping
 
+## September10 architecture-migration refresh
+
+The all-boss migration now takes precedence for architecture sequencing; the original approved
+M01-M36/S01-S08 mapping and E01-E09 evidence restrictions below remain intact. Royal Titans source
+1279d1676 is deployed and backed up; Nex still has its1,321-line private manager and18 tests.
+No Nex gameplay change was made during this three-agent read-only refresh. The Wilderness branch
+is already removed; S02 native queue tests are probes, not production Nex integration. Do not redo
+the removal, advertise those probes as gameplay coverage, or change unresolved formulas silently.
+
+First bounded migration mapping: characterize the actual registered guard/Reaver attack handlers,
+then move ordinary attack execution/cadence to BossCombat/BossSpec/Effect.NpcAttack. Preserve the
+existing generic20/18 maxima,811 animation, guard1999 projectile/magic_spell controller, five-tick
+cadence and50% prayer rule as **legacy characterization**, not verified OSRS values. Their known
+definition/mechanical corrections remain M11/M17 and must be separate evidence-backed changes.
+Keep current phase/member gates, but use the existing native encounter/target hit validity for
+departure/deletion cancellation. BossSpec guards must retain stationary movement; Reavers retain
+native movement. Tests must execute production registration and NvPCombat, assert exact queued
+damage/cadence/presentation, cooldown rejection and cancellation. No new shared API is needed.
+
+Classification: BossCombat/BossSpec/EncounterRegistry and native NvPCombat are official workflow
+families at upstream61139e76a (A01/A02 links below). Effect.NpcAttack, BossAttackParameters,
+BossPhaseClock, canTarget and HitContext/owned cancellation are existing **local migration
+extensions**, not official upstream public APIs. Reuse these approved extensions rather than
+creating another combat loop. Repository and exact upstream BossCombat/Scurrius source inspected.
+
+Public-room ownership needs an explicit subsequent mapping: Nex currently occupies the fixed
+Ancient Prison, whereas both local/upstream InstanceArea only support allocated Template or
+CopyRegions rooms. Official Scurrius uses a copied server-owned public room; the local fixed-room
+Scurrius adaptation is not upstream. Do not silently move Nex into a copied room or invent an
+existing-region API. Preserve the public room through native spatial/BossEncounter ownership if
+its barrier/spectator semantics can be retained; otherwise map the smallest reusable session
+attachment capability before shared edits. This does not block the bounded helper combat step.
+
+Retained capture refresh (decoded C-GM, all revision234.1; not normal timing certification):
+
+- All346 special calls still support encounter-wide alternating parity, reset only on new kill.
+  Called-bodyguard states must retain the underlying elemental phase:3284 t631:L14926 calls Fumus;
+  t632:L14952 reaches2550 but normal9189/1997 follows atL14964/L14984; Dash t636:L15076 executes
+  t641:L15215 while Fumus lives. Current attack suppression at the lower floor is contradicted.
+- All8 guard handoffs in3284 order death presentation, phase call, then guard removal. Example
+  Fumus t645:L15311, shadow t646:L15321, removal t647:L15351. Do not wait for removal to advance.
+- Wrath uses actual death center2917,5192 (anchor2916,5191):3284 t542:L13917-27 dying transform;
+  t543:L13942 death; t546:L13960-80 effects; t549:L13987-14017 reward/barrier then removal.
+- Natural repeat must retain occupants:3284 completion549, fresh opening587, completion790 with
+  no re-entry. Current reset creates an empty IDLE run; the startup test cannot catch this.
+- Prison rescue must use the clicked segment's owner, not lowest UID;808 t1941:L49885-93 removes
+  only2935,5195, with remaining ring to1945:L49928-34. Absent prisoner state must not later shatter.
+
+No new raw packet decoding, normal-game capture, executable Nex cache audit or Nex client/packet
+comparison was completed. E02 player-healing75% official/50% Wiki conflict and E03 damage formula
+uncertainty remain. Do not label either resolved merely to advance the architecture migration.
+
 ## Status: approved implementation in progress, 9 September 2026
 
 **S02 foundation and M35 removal implemented below; full Nex integration and runtime verification remain incomplete. Not ready for a complete Nex fix commit; not 1:1 OSRS.**
