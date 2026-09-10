@@ -120,7 +120,9 @@ class RoyalTitansMovementTest {
 
     @Test
     fun `an aborted route cannot become a successful arrival`() {
-        val state = RoyalTitanMovement(100)
+        val f = RoyalTitansTestWorld()
+        val player = f.enter()
+        val state = f.phaseProgram.movement(f.npc(player, 12596))
         val target = org.rsmod.map.CoordGrid(2904, 9562)
         state.beginRoute(target, RoyalTitanMovementPhase.SECOND_EDGE_ACTION)
         state.arrive(target.translate(0, 1), 120)
@@ -175,6 +177,26 @@ class RoyalTitansMovementTest {
         assertEquals(listOf(34, 41, 48), actions[12596]?.toList())
         assertEquals(listOf(37, 44, 51), actions[14147]?.toList())
         assertEquals(f.tile(player, 36, 27), f.npc(player, 14147).coords)
+    }
+
+    @Test
+    fun `native actor deletion cannot recreate a platform clock on a detached Titan`() {
+        val f = RoyalTitansTestWorld()
+        val player = f.enter()
+        f.tick(2)
+        val branda = f.npc(player, 12596)
+        val eldric = f.npc(player, 14147)
+        val deleted = f.bossDeps.encounterRegistry.of(branda)
+        val remaining = f.bossDeps.encounterRegistry.of(eldric)
+        f.npcs.del(branda, Int.MAX_VALUE)
+        assertTrue(deleted.isEnded)
+        f.tick(8)
+        assertNull(f.bossDeps.encounterRegistry.existing(branda))
+        assertSame(remaining, f.bossDeps.encounterRegistry.existing(eldric))
+        assertEquals(11975, eldric.pendingSequence.id)
+        assertTrue(f.walls(player, 14153).isEmpty(), "The wall still has its four-tick telegraph")
+        f.tick(4)
+        assertEquals(5, f.walls(player, 14153).size)
     }
 
     companion object {

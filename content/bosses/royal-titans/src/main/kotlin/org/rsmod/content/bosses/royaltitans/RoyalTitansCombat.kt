@@ -21,11 +21,11 @@ constructor(
     private val death: NpcDeath,
     private val players: PlayerList,
     private val deps: BossDeps,
-    private val arena: RoyalTitansArenaProgram,
+    private val phases: RoyalTitansPhaseProgram,
 ) : PluginScript() {
     override fun ScriptContext.startup() {
         deps.extensionRegistry.register("royal-titans.arena-action") { _, npc, _, data ->
-            arena.ready(npc, data as RoyalTitansArenaAction)
+            phases.ready(npc, data as RoyalTitansArenaAction)
         }
         for (id in listOf(RoyalTitansAssets.BRANDA_ACTIVE, RoyalTitansAssets.ELDRIC_ACTIVE)) {
             val type = requireNpc(id)

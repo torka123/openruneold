@@ -191,6 +191,15 @@ Passing arena backup: `backup/royal-titans-arena-dsl-20260910` at `bf05c2def`, Z
 `2707C222E490231E4FD35E9E4E1420B456722FB127D7BA7A33A0CA8D33E8DC38`.
 Archive:7,445 entries, zero excluded-path violations; no runtime data or generated output.
 
+Platform step also passes: native per-Titan phases own spawn/turn/facing, edge cooldowns and
+the close-action sequence. Route arrival now advances that clock from the native completion
+callback. No private movement readyCycle, phase field, action counter or run movement index.
+RoyalTitansPhaseProgram replaces the arena-only adapter. Native actor deletion clears the pair
+reference so it cannot recreate an orphan encounter.123 module tests, scoped/cache/shared
+checks and broader505-task check pass (logs `royal-titans-platform-dsl-verified-20260910.log`
+and `royal-titans-platform-dsl-broad-20260910.log`). Source-only; continue handler extraction
+and remaining paired lifecycle timing. Do not restart or re-migrate Cerberus unnecessarily.
+
 1. Collect user client-test feedback. Backup, local deployment, two gameplay checkpoint restarts,
    persistent fingerprints and the corrected75-assertion live Vorkath audit are complete. Do not
    repeat them merely because an older section or message says they are pending. Visual/full OSRS

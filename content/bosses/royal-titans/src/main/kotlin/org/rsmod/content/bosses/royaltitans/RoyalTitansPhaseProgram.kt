@@ -9,11 +9,28 @@ import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.player.PlayerUid
 
 /** Adapts native timed phase entries to the encounter's existing LateCycle presentation stage. */
-internal class RoyalTitansArenaProgram
+internal class RoyalTitansPhaseProgram
 @Inject
 constructor(private val deps: BossDeps, private val phaseClock: BossPhaseClock) {
-    fun prepare(npc: Npc) {
-        deps.encounterRegistry.of(npc)
+    fun prepare(npc: Npc, target: Player, onRemoved: () -> Unit) {
+        val encounter = deps.encounterRegistry.of(npc)
+        encounter.onCleanup(onRemoved)
+        phaseClock.bind(npc, target)
+        encounter.presentation().target = target.uid
+        encounter.transitionTo(RoyalTitanMovementPhase.SPAWN_WAIT.key, deps.mapClock.cycle - 1)
+    }
+
+    fun movement(npc: Npc): RoyalTitanMovement =
+        deps.encounterRegistry.of(npc).let { encounter ->
+            encounter.state("royal-titans.movement") {
+                RoyalTitanMovement(deps.mapClock, encounter)
+            }
+        }
+
+    fun teleporting(npc: Npc) {
+        val encounter = deps.encounterRegistry.of(npc)
+        encounter.presentation().ready = null
+        encounter.transitionTo("teleporting", deps.mapClock.cycle)
     }
 
     fun ready(npc: Npc, action: RoyalTitansArenaAction) {
@@ -29,7 +46,10 @@ constructor(private val deps: BossDeps, private val phaseClock: BossPhaseClock) 
     fun consume(npc: Npc, target: Player, openingTick: Int): RoyalTitansArenaAction? {
         val encounter = deps.encounterRegistry.of(npc)
         val presentation = encounter.presentation()
-        if (encounter.currentPhaseName == "platform") {
+        if (
+            encounter.currentPhaseName.startsWith("platform-") ||
+                encounter.currentPhaseName == "teleporting"
+        ) {
             phaseClock.bind(npc, target)
             presentation.target = target.uid
             encounter.transitionTo("arena-opening", openingTick)
@@ -40,7 +60,7 @@ constructor(private val deps: BossDeps, private val phaseClock: BossPhaseClock) 
     /** Keyed departure must replace the lifetime before the next pre-input deadline can expire. */
     fun retarget(npc: Npc, target: Player) {
         val encounter = deps.encounterRegistry.existing(npc) ?: return
-        if (encounter.isEnded || encounter.currentPhaseName in setOf("platform", "inactive")) return
+        if (encounter.isEnded || encounter.currentPhaseName == "inactive") return
         val presentation = encounter.presentation()
         if (presentation.target != target.uid) {
             phaseClock.bind(npc, target)

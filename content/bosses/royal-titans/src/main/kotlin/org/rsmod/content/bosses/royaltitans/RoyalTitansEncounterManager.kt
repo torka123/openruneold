@@ -87,7 +87,7 @@ constructor(
     private val bossHpBar: BossHpBarScript,
     private val npcHitModifier: StandardNpcHitModifier,
     private val statistics: RoyalTitansStatistics,
-    private val arena: RoyalTitansArenaProgram,
+    private val phases: RoyalTitansPhaseProgram,
 ) {
     private val log = InlineLogger()
     private val RUN_STATE = InstanceStateKey<Run>("royal-titans-encounter")
@@ -171,7 +171,7 @@ constructor(
             online(run)
                 .firstOrNull { it.hitpoints > 0 }
                 ?.let { remaining ->
-                    listOfNotNull(run.branda, run.eldric).forEach { arena.retarget(it, remaining) }
+                    listOfNotNull(run.branda, run.eldric).forEach { phases.retarget(it, remaining) }
                 }
     }
 
@@ -282,7 +282,7 @@ constructor(
         // The inherited accuracy adapter remains separately documented; state is per Titan.
         listOfNotNull(run.branda, run.eldric).forEach { npc ->
             val moving =
-                run.movement[npc]?.rangedVulnerable == true &&
+                phases.movement(npc).rangedVulnerable &&
                     run.stage in
                         setOf(
                             RoyalTitansStage.INTRO,
@@ -308,7 +308,9 @@ constructor(
                 ((run.branda?.hitpoints ?: 600) <= 500 || (run.eldric?.hitpoints ?: 600) <= 500)
         ) {
             run.elementalsUnlocked = true
-            run.movement.values.forEach { it.summonPending = true }
+            listOfNotNull(run.branda, run.eldric).forEach {
+                phases.movement(it).summonPending = true
+            }
         }
         tickPhaseOneMovement(run)
     }
@@ -318,15 +320,16 @@ constructor(
     }
 
     private fun tickPhaseOneMovement(run: Run) {
+        val target = online(run).firstOrNull { it.hitpoints > 0 } ?: return
         listOfNotNull(run.branda, run.eldric).forEach { titan ->
-            val movement = run.movement[titan] ?: return@forEach
             if (titan.hitpoints <= 0) return@forEach
+            phases.retarget(titan, target)
+            val movement = phases.movement(titan)
             val element = if (titan === run.branda) RoyalElement.FIRE else RoyalElement.ICE
             val outerX = if (element == RoyalElement.FIRE) 24 else 36
             val innerX = if (element == RoyalElement.FIRE) 26 else 34
             if (movement.phase == RoyalTitanMovementPhase.WALKING) {
-                val arrived = movement.arrivalCycle
-                if (arrived == null) {
+                if (movement.arrivalCycle == null) {
                     if (
                         !titan.movementLocked &&
                             !titan.isBound &&
@@ -336,19 +339,18 @@ constructor(
                             walkTitan(run, titan, movement, it, movement.afterArrival)
                         }
                     }
-                    return@forEach
                 }
-                if (clock.cycle <= arrived) return@forEach
-                titan.faceSquare(
-                    titan.coords.translate(if (element == RoyalElement.FIRE) 6 else -6, 0)
-                )
-                movement.phase = RoyalTitanMovementPhase.FACE_INWARD
-                movement.readyCycle = arrived + 2
+                return@forEach
             }
-            if (clock.cycle < movement.readyCycle) return@forEach
-            if (movement.phase == RoyalTitanMovementPhase.FACE_INWARD)
+            if (movement.phase == RoyalTitanMovementPhase.ARRIVAL_READY)
                 movement.phase = movement.afterArrival
             when (movement.phase) {
+                RoyalTitanMovementPhase.FACE_INWARD -> {
+                    titan.faceSquare(
+                        titan.coords.translate(if (element == RoyalElement.FIRE) 6 else -6, 0)
+                    )
+                    movement.phase = RoyalTitanMovementPhase.ARRIVAL_ACTION_WAIT
+                }
                 RoyalTitanMovementPhase.SPAWN,
                 RoyalTitanMovementPhase.TURN_OUTWARD -> {
                     titan.clearInteraction()
@@ -357,8 +359,7 @@ constructor(
                         titan.coords.translate(if (element == RoyalElement.FIRE) -6 else 6, 0)
                     )
                     movement.rangedVulnerable = true
-                    movement.phase = RoyalTitanMovementPhase.RETREAT
-                    movement.readyCycle = clock.cycle + 1
+                    movement.phase = RoyalTitanMovementPhase.RETREAT_WAIT
                 }
                 RoyalTitanMovementPhase.RETREAT ->
                     walkTitan(
@@ -371,8 +372,7 @@ constructor(
                 RoyalTitanMovementPhase.FIRST_EDGE_ACTION -> {
                     if (!consumeReadySummon(run, titan, movement, element))
                         castWall(run, titan, element)
-                    movement.phase = RoyalTitanMovementPhase.PATROL
-                    movement.readyCycle = clock.cycle + 8
+                    movement.phase = RoyalTitanMovementPhase.PATROL_WAIT
                 }
                 RoyalTitanMovementPhase.PATROL -> {
                     val row =
@@ -392,21 +392,19 @@ constructor(
                 RoyalTitanMovementPhase.SECOND_EDGE_ACTION -> {
                     if (!consumeReadySummon(run, titan, movement, element))
                         castWall(run, titan, element)
-                    movement.phase = RoyalTitanMovementPhase.RETURN
-                    movement.readyCycle = clock.cycle + 8
+                    movement.phase = RoyalTitanMovementPhase.RETURN_WAIT
                 }
                 RoyalTitanMovementPhase.RETURN -> {
-                    val target = targetFor(run, titan) ?: return@forEach
+                    val meleeTarget = targetFor(run, titan) ?: return@forEach
                     val row =
                         RoyalTitansUnverifiedMovementSelection.returnRow(
-                            localZ(run, target.coords)
+                            localZ(run, meleeTarget.coords)
                         ) {
                             random.of(it)
                         }
                     // Snapshot at the turn: 2283 B1347/E1366 keep their route after the player
                     // moves.
                     movement.rangedVulnerable = false
-                    movement.closeActions = 0
                     walkTitan(
                         run,
                         titan,
@@ -415,18 +413,19 @@ constructor(
                         RoyalTitanMovementPhase.CLOSE_ACTION,
                     )
                 }
-                RoyalTitanMovementPhase.CLOSE_ACTION -> {
+                RoyalTitanMovementPhase.CLOSE_ACTION,
+                RoyalTitanMovementPhase.CLOSE_SECOND,
+                RoyalTitanMovementPhase.CLOSE_THIRD -> {
                     if (!consumeReadySummon(run, titan, movement, element))
                         stomp(run, titan, element, false)
-                    movement.closeActions++
                     movement.phase =
-                        if (
-                            movement.closeActions >=
-                                RoyalTitansUnverifiedMovementSelection.CLOSE_ACTIONS
-                        )
-                            RoyalTitanMovementPhase.TURN_OUTWARD
-                        else RoyalTitanMovementPhase.CLOSE_ACTION
-                    movement.readyCycle = clock.cycle + 7
+                        when (movement.phase) {
+                            RoyalTitanMovementPhase.CLOSE_ACTION ->
+                                RoyalTitanMovementPhase.CLOSE_SECOND_WAIT
+                            RoyalTitanMovementPhase.CLOSE_SECOND ->
+                                RoyalTitanMovementPhase.CLOSE_THIRD_WAIT
+                            else -> RoyalTitanMovementPhase.TURN_WAIT
+                        }
                 }
                 else -> Unit
             }
@@ -487,6 +486,7 @@ constructor(
     }
 
     private fun beginTransition(run: Run) {
+        listOfNotNull(run.branda, run.eldric).forEach(phases::teleporting)
         clearWalls(run)
         clearElementals(run)
         clearArenaFloors(run)
@@ -576,7 +576,7 @@ constructor(
         for ((npc, element) in
             listOf(run.branda to RoyalElement.FIRE, run.eldric to RoyalElement.ICE)) {
             if (npc == null || npc.hitpoints <= 0) continue
-            when (arena.consume(npc, target, clock.cycle - run.stageTick - 1)) {
+            when (phases.consume(npc, target, clock.cycle - run.stageTick - 1)) {
                 RoyalTitansArenaAction.CHARGE -> startAreaAttack(run)
                 RoyalTitansArenaAction.SUMMON -> scheduleSummon(run, npc, element)
                 RoyalTitansArenaAction.STOMP -> stomp(run, npc, element, true)
@@ -1269,7 +1269,7 @@ constructor(
         val run = run(npc) ?: return null
         if (npc !== run.branda && npc !== run.eldric) return null
         if (run.dyingTitans.add(npc)) {
-            arena.retire(npc)
+            phases.retire(npc)
             npc.clearInteraction()
             npc.movementLocked = true
         }
@@ -1550,13 +1550,18 @@ constructor(
     private fun spawnTitan(run: Run, id: Int, local: RegionLocal): Npc {
         val tile = requireNotNull(instances.localCoord(run.session, local))
         val npc = spawnNpc(run, id, tile, ROYAL_TITANS_MAX_HITPOINTS)
-        arena.prepare(npc)
+        phases.prepare(npc, online(run).first { it.hitpoints > 0 }) {
+            // Native encounter deletion must detach the pair reference before another LateCycle
+            // can look up the removed actor and accidentally create a fresh combat identity.
+            if (run.branda === npc) run.branda = null
+            if (run.eldric === npc) run.eldric = null
+            run.spawnCycles.remove(npc)
+        }
         // The fire/ice platforms carry BLOCK_WALK in region 11669. Titans walk on those
         // blocked tiles; players and elementals retain normal terrain restrictions. Use the
         // same native restriction for route selection and step execution, preserving loc walls.
         npc.moveRestrict = MoveRestrict.Blocked
         run.spawnCycles[npc] = clock.cycle
-        run.movement[npc] = RoyalTitanMovement(clock.cycle)
         npc.anim(
             anim(
                 if (id == RoyalTitansAssets.BRANDA_ACTIVE) RoyalTitansAssets.BRANDA_ARENA_SPAWN
@@ -1671,7 +1676,6 @@ constructor(
         run.pendingRemovals.keys.toList().forEach { removeNpc(run, it) }
         run.pendingRemovals.clear()
         run.lastBossTarget.clear()
-        run.movement.clear()
         run.dyingTitans.clear()
         spawnTitans(run)
         setStage(run, RoyalTitansStage.INTRO)
@@ -1699,7 +1703,7 @@ constructor(
     private fun retire(run: Run) {
         if (run.retired) return
         run.retired = true
-        listOfNotNull(run.branda, run.eldric).forEach(arena::retire)
+        listOfNotNull(run.branda, run.eldric).forEach(phases::retire)
         run.hitScope.close()
         online(run).forEach { releaseParticipant(it, run) }
         run.participants.values.forEach { it.hitScope.close() }
@@ -1709,7 +1713,6 @@ constructor(
         clearElementals(run)
         clearArenaFloors(run)
         run.pendingRemovals.clear()
-        run.movement.clear()
         run.lastBossTarget.clear()
         // Native destruction owns Titans/corpses and all remaining actor deletion.
         // Stop interaction immediately during the shared deferred logout reclaim interval.
@@ -1839,7 +1842,6 @@ constructor(
         var completionCommitted: Boolean = false,
         var firstClaimCycle: Int? = null,
         val spawnCycles: MutableMap<Npc, Int> = mutableMapOf(),
-        val movement: MutableMap<Npc, RoyalTitanMovement> = mutableMapOf(),
         var branda: Npc? = null,
         var eldric: Npc? = null,
         var brandaCorpse: Npc? = null,

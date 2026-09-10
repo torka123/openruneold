@@ -1,15 +1,24 @@
 package org.rsmod.content.bosses.royaltitans
 
+import org.rsmod.api.bosses.runtime.BossEncounter
+import org.rsmod.game.MapClock
 import org.rsmod.map.CoordGrid
 
-/** Content readiness, not an alternative movement engine. Every step is processed natively. */
-internal class RoyalTitanMovement(spawnCycle: Int) {
-    var phase = RoyalTitanMovementPhase.SPAWN
-    var readyCycle = spawnCycle + 3
+/** Native route observations; phase identity/readiness belong to the actor's BossEncounter. */
+internal class RoyalTitanMovement(
+    private val clock: MapClock,
+    private val encounter: BossEncounter,
+) {
+    var phase: RoyalTitanMovementPhase
+        get() = RoyalTitanMovementPhase.entries.first { it.key == encounter.currentPhaseName }
+        set(value) {
+            // Align a post-input/NPC/LateCycle observation with the native pre-input phase origin.
+            encounter.transitionTo(value.key, clock.cycle - 1)
+        }
+
     var destination: CoordGrid? = null
     var arrivalCycle: Int? = null
     var afterArrival = RoyalTitanMovementPhase.FIRST_EDGE_ACTION
-    var closeActions = 0
     var summonPending = false
     var rangedVulnerable = false
 
@@ -22,21 +31,41 @@ internal class RoyalTitanMovement(spawnCycle: Int) {
 
     fun arrive(actual: CoordGrid, cycle: Int) {
         // Native callbacks can also follow a cancelled/aborted route. That is not arrival.
-        if (phase == RoyalTitanMovementPhase.WALKING && actual == destination) arrivalCycle = cycle
+        if (phase == RoyalTitanMovementPhase.WALKING && actual == destination) {
+            arrivalCycle = cycle
+            // Route completion can run in native post-tick before the next pre-input pass.
+            // Own the arrival deadline here, not one frame later in the presentation adapter.
+            encounter.transitionTo(RoyalTitanMovementPhase.ARRIVAL_FACE_WAIT.key, cycle - 1)
+        }
     }
 }
 
 internal enum class RoyalTitanMovementPhase {
+    SPAWN_WAIT,
     SPAWN,
+    RETREAT_WAIT,
     RETREAT,
     WALKING,
+    ARRIVAL_FACE_WAIT,
     FACE_INWARD,
+    ARRIVAL_ACTION_WAIT,
+    ARRIVAL_READY,
     FIRST_EDGE_ACTION,
+    PATROL_WAIT,
     PATROL,
     SECOND_EDGE_ACTION,
+    RETURN_WAIT,
     RETURN,
     CLOSE_ACTION,
-    TURN_OUTWARD,
+    CLOSE_SECOND_WAIT,
+    CLOSE_SECOND,
+    CLOSE_THIRD_WAIT,
+    CLOSE_THIRD,
+    TURN_WAIT,
+    TURN_OUTWARD;
+
+    val key: String
+        get() = "platform-${name.lowercase()}"
 }
 
 /**
@@ -52,9 +81,6 @@ internal object RoyalTitansUnverifiedMovementSelection {
 
     fun returnRow(playerRow: Int, nextInt: (Int) -> Int): Int =
         (playerRow - 1 - nextInt(2)).coerceIn(25, 35)
-
-    // Retain the previous implementation's budget until the choosing rule is established.
-    const val CLOSE_ACTIONS = 3
 
     // Captured candidates, not a claim that the capture exhausts every OSRS spawn candidate.
     fun packStart(element: RoyalElement, arena: Boolean, nextInt: (Int) -> Int): Pair<Int, Int> =

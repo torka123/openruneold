@@ -1542,3 +1542,26 @@ turn/facing intervals remain positive native deadlines. Existing native golden r
 platform damage tests, blocked-footprint and canceled-route tests characterize this wiring. Add
 a second-retreat/three-stomp characterization before production edits. Preserve the explicitly
 unverified patrol weighting, return-row selection and three-action policy; no new OSRS claim.
+
+Platform waits and the three-close-action program now live in RoyalTitansTitanSpec. Movement
+state is stored on BossEncounter and exposes its phase, not another phase field; readyCycle,
+closeActions and the run's movement index are removed. The renamed RoyalTitansPhaseProgram
+uses the same native clock for platform and arena stages. Target rebinding works in either stage.
+Paired teleport preparation cancels platform deadlines before the existing landing choreography.
+
+The added61-tick second-retreat characterization passes against the old platform code (seven
+movement tests, `royal-titans-platform-cadence-baseline-green-20260910.log`,35s/196tasks). The
+earlier baseline invocation failed to compile a mutable/immutable List assertion; converting the
+actual list in that test corrected only its type. The first platform migration reproduced25
+failures across122 tests: starting the arrival wait from LateCycle lost one frame after native
+post-tick route completion. Moving that native phase transition into the verified-arrival callback
+restores all122 cases (`royal-titans-platform-dsl-arrival-green-20260910.log`,52s/196tasks).
+
+A further native NPC deletion regression demonstrated a detached Titan reference recreating an
+encounter on the next frame (`royal-titans-platform-native-delete-red-20260910.log`,eight tests,
+one failure). BossEncounter.onCleanup now clears only that pair reference/spawn-timer entry.
+Final `royal-titans-platform-dsl-verified-20260910.log`:123 tests, zero failures/errors/skips,
+scoped module check, shared boss/instance and3 cache cases pass,1m2s/206tasks. Broader log
+`royal-titans-platform-dsl-broad-20260910.log`:28s/505tasks,4 executed501up-to-date; applicable
+boss/shared suites, app classes and architecture enforcement pass. Manager1,913 lines: phase
+authority changed, not a claim of major handler extraction yet. Source-only, no deployment.

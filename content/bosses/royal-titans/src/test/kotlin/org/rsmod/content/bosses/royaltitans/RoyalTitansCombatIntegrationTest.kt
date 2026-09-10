@@ -740,8 +740,8 @@ internal class RoyalTitansTestWorld(
             org.rsmod.api.bosses.runtime.BossExtensionRegistry(),
             npcCombat,
         )
-    val arenaProgram =
-        RoyalTitansArenaProgram(
+    val phaseProgram =
+        RoyalTitansPhaseProgram(
             bossDeps,
             org.rsmod.api.bosses.runtime.BossPhaseClock(
                 bossDeps,
@@ -774,7 +774,7 @@ internal class RoyalTitansTestWorld(
             hud,
             modifier,
             statistics,
-            arenaProgram,
+            phaseProgram,
         )
 
     var denyTeleport = false
@@ -886,7 +886,7 @@ internal class RoyalTitansTestWorld(
         if (hudBeforeInstances == false) with(hud) { context.startup() }
         val death = NpcDeath(npcs, players, objects, emptySet(), emptySet())
         with(NpcDeathScript(death)) { context.startup() }
-        with(RoyalTitansCombat(manager, death, players, bossDeps, arenaProgram)) {
+        with(RoyalTitansCombat(manager, death, players, bossDeps, phaseProgram)) {
             context.startup()
         }
         with(RoyalTitansLifecycle(manager)) { context.startup() }
