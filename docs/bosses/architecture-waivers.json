@@ -13,26 +13,8 @@
   },
   {
     "boss": "cerberus",
-    "rule": "global-runs-map",
-    "maximum": 1,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "cerberus",
-    "rule": "manual-lifecycle",
-    "maximum": 3,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "cerberus",
     "rule": "direct-combat-review",
     "maximum": 7,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "cerberus",
-    "rule": "instance-script",
-    "maximum": 1,
     "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
   },
   {

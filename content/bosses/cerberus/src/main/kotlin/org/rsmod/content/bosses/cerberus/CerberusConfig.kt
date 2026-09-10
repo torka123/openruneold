@@ -3,6 +3,7 @@ package org.rsmod.content.bosses.cerberus
 import dev.openrune.types.NpcServerType
 import dev.openrune.types.ProjAnimType
 import org.rsmod.api.instances.InstanceArea
+import org.rsmod.api.instances.InstanceNpc
 import org.rsmod.api.instances.InstanceSettings
 import org.rsmod.api.instances.RegionLocal
 import org.rsmod.map.CoordGrid
@@ -40,6 +41,7 @@ internal val CERBERUS_AREA =
                 CERBERUS_ENTRY_LOCAL_Z,
             ),
         exitCoord = CERBERUS_PUBLIC_EXIT,
+        npcSpawns = listOf(InstanceNpc("npc.cerberus_sitting", CoordGrid(1238, 1250, 0))),
     )
 
 internal fun cerberusSpec(activeType: NpcServerType) =

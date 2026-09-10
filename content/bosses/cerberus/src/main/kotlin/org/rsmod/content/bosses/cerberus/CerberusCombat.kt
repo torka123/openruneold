@@ -23,7 +23,11 @@ constructor(private val encounters: CerberusEncounterManager, private val death:
             onHit = { encounters.defend(npc) },
             onDeath = {
                 if (encounters.beginBossDeath(npc)) {
-                    death.deathWithDrops(this, deathAnimationId = CerberusAssets.DEATH_ANIMATION)
+                    death.deathWithDrops(
+                        this,
+                        deathAnimationId = CerberusAssets.DEATH_ANIMATION,
+                        respawnDelay = CerberusRules.RESPAWN_TICKS,
+                    )
                     encounters.finishBossDeath(npc)
                 } else {
                     death.deathNoDrops(this, CerberusAssets.DEATH_ANIMATION)
@@ -41,9 +45,14 @@ internal fun ScriptContext.registerCerberusCombat(
     // AI and death queues dispatch by immutable Npc.id; incoming hits use visType.id.
     // The encounter spawns sitting and uses transmog to wake/reset, so all forms must
     // resolve to the same callbacks. Encounter ownership and phase checks gate execution.
-    for (id in listOf(CerberusAssets.SITTING_NPC_ID, CerberusAssets.ACTIVE_NPC_ID,
-        CerberusAssets.RESETTING_NPC_ID)) {
-        val boss = requireNotNull(ServerCacheManager.getNpc(id)) { "Missing Cerberus NPC definition: $id" }
+    for (id in
+        listOf(
+            CerberusAssets.SITTING_NPC_ID,
+            CerberusAssets.ACTIVE_NPC_ID,
+            CerberusAssets.RESETTING_NPC_ID,
+        )) {
+        val boss =
+            requireNotNull(ServerCacheManager.getNpc(id)) { "Missing Cerberus NPC definition: $id" }
         onAiApPlayer2(boss, onAttack)
         onNpcHit(boss, onHit)
         onNpcQueue(boss, "queue.death", onDeath)

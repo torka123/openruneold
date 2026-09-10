@@ -92,6 +92,14 @@ tests and a boot marker do not certify visuals or full OSRS parity.
 
 ## Work still required
 
+Current source step: Cerberus native instance/actor lifecycle is implemented and passes62 module
+tests plus instance tests (`logs/cerberus-native-instance-final.log`,39s/151tasks). The private
+membership map, duplicate departure hooks and delete/recreate respawn were removed. Protected
+entry/exit refusal, logout-panel results, departure cancellation, multi-instance isolation and
+two same-actor death/reveal cycles are executable. This is NOT deployed; combat DSL conversion,
+phase deadlines and specialized handler extraction are next. Current live JVM23164 remains the
+seven-boss checkpoint while the user tests. See the detailed mapping/result in DSL_MIGRATION.md.
+
 1. Collect user client-test feedback. Backup, local deployment, two gameplay checkpoint restarts,
    persistent fingerprints and the corrected75-assertion live Vorkath audit are complete. Do not
    repeat them merely because an older section or message says they are pending. Visual/full OSRS

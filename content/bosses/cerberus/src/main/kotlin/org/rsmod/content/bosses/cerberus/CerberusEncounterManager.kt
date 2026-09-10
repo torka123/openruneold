@@ -1,34 +1,32 @@
 package org.rsmod.content.bosses.cerberus
 
 import dev.openrune.ServerCacheManager
-import dev.openrune.types.NpcMode
 import dev.openrune.rscm.RSCM
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
 import dev.openrune.types.MoveRestrict
+import dev.openrune.types.NpcMode
 import dev.openrune.types.aconverted.SpotanimType
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import org.rsmod.api.combat.commons.types.MeleeAttackType
 import org.rsmod.api.combat.commons.magic.ArceuusSpellState
+import org.rsmod.api.combat.commons.types.MeleeAttackType
 import org.rsmod.api.combat.formulas.AccuracyFormulae
 import org.rsmod.api.combat.formulas.attributes.DamageReductionAttributes
 import org.rsmod.api.combat.formulas.attributes.collector.DamageReductionAttributeCollector
 import org.rsmod.api.combat.formulas.maxhit.MaxHitOperations
-import org.rsmod.api.player.bonus.WornBonuses
-import org.rsmod.api.instances.InstanceAccess
 import org.rsmod.api.instances.InstanceId
 import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.instances.InstanceSession
-import org.rsmod.api.instances.RaidLeaveResult
+import org.rsmod.api.instances.InstanceStateKey
 import org.rsmod.api.instances.RegionLocal
 import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.api.npc.apPlayer2
 import org.rsmod.api.npc.interact.AiPlayerInteractions
 import org.rsmod.api.npc.owner.assignSpawnOwner
 import org.rsmod.api.npc.owner.isSpawnOwnedBy
+import org.rsmod.api.player.bonus.WornBonuses
 import org.rsmod.api.player.combatClearQueue
-import org.rsmod.api.player.hit.modifier.NpcBypassProtectionPrayerPlayerHitModifier
 import org.rsmod.api.player.hit.modifier.NpcCalculatedProtectionPrayerPlayerHitModifier
 import org.rsmod.api.player.hit.queueHit
 import org.rsmod.api.player.lefthand
@@ -44,8 +42,6 @@ import org.rsmod.api.route.walkTo
 import org.rsmod.game.MapClock
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
-import org.rsmod.game.entity.player.PlayerUid
-import org.rsmod.game.entity.util.PathingEntityCommon
 import org.rsmod.game.hit.HitImpactHandler
 import org.rsmod.game.hit.HitType
 import org.rsmod.game.hit.HitValidity
@@ -54,7 +50,6 @@ import org.rsmod.game.loc.LocAngle
 import org.rsmod.game.loc.LocEntity
 import org.rsmod.game.loc.LocInfo
 import org.rsmod.game.loc.LocShape
-import org.rsmod.game.map.Direction
 import org.rsmod.game.map.collision.isWalkBlocked
 import org.rsmod.game.map.collision.isZoneValid
 import org.rsmod.game.proj.ProjAnim
@@ -81,7 +76,18 @@ constructor(
     private val routeFactory: RouteFactory,
     private val arena: CerberusArena,
 ) {
-    private val runs = mutableMapOf<PlayerUid, Run>()
+    private fun run(player: Player): Run? =
+        instances
+            .sessionForPlayer(player)
+            ?.takeIf { it.key == CERBERUS_INSTANCE_KEY }
+            ?.stateOrNull(RUN_STATE)
+
+    private fun run(npc: Npc): Run? =
+        instances
+            .instanceForNpc(npc)
+            ?.let(instances::sessionForId)
+            ?.takeIf { it.key == CERBERUS_INSTANCE_KEY }
+            ?.stateOrNull(RUN_STATE)
 
     fun validateAssets() {
         val boss = requireNpc(CerberusAssets.ACTIVE_NPC_ID)
@@ -138,54 +144,28 @@ constructor(
             .forEach(::resolvedSpotanim)
     }
 
-    fun enter(player: Player): Boolean {
-        if (player.hitpoints <= 0 || player.isAccessProtected) {
-            player.mes("Finish what you are doing before entering Cerberus's lair.")
-            return false
+    fun onJoin(player: Player, session: InstanceSession) {
+        session.state(RUN_STATE) {
+            val boss =
+                instances.npcsForInstance(session.id).single {
+                    it.type.id == CerberusAssets.SITTING_NPC_ID
+                }
+            configureBoss(player, boss, true)
+            boss.anim(CerberusAssets.SITTING_ANIMATION)
+            val run = Run(player, session, boss)
+            session.onCleanup { retireRun(run) }
+            player.mes("You enter Cerberus's lair. Approach the chamber to wake her.")
+            run
         }
-        if (runs.containsKey(player.uid) || instances.sessionForPlayer(player) != null) {
-            player.mes("You already have an active instance.")
-            return false
-        }
-        val activeType = requireNpc(CerberusAssets.ACTIVE_NPC_ID)
-        val sittingType = requireNpc(CerberusAssets.SITTING_NPC_ID)
-        val result =
-            instances.create(
-                owner = player,
-                key = CERBERUS_INSTANCE_KEY,
-                spec = cerberusSpec(activeType),
-                access = InstanceAccess.Private,
-                currentTick = clock.cycle,
-            )
-        if (result !is InstanceManager.Result.Created) {
-            player.mes(
-                (result as? InstanceManager.Result.Failed)?.reason
-                    ?: "Cerberus's lair is unavailable."
-            )
-            return false
-        }
+    }
 
-        prepare(player)
-        PathingEntityCommon.telejump(player, collision, result.enter)
-        player.faceDirection(Direction.South)
-        instances.finalizeEntry(player, result.session, clock.cycle)
-        val rewardEligible = true
-        val boss = spawnBoss(player, result.session, sittingType, rewardEligible)
-        boss.anim(CerberusAssets.SITTING_ANIMATION)
-        runs[player.uid] =
-            Run(
-                player,
-                result.session,
-                boss,
-                phase = CerberusPhase.SITTING,
-                rewardEligible = rewardEligible,
-            )
-        player.mes("You enter Cerberus's lair. Approach the chamber to wake her.")
-        return true
+    fun onLeave(player: Player, instanceId: InstanceId) {
+        val run = instances.sessionForId(instanceId)?.stateOrNull(RUN_STATE) ?: return
+        if (run.player === player) retireRun(run)
     }
 
     fun attack(access: StandardNpcAccess, target: Player) {
-        val run = runs[target.uid] ?: return
+        val run = run(target) ?: return
         if (run.boss !== access.npc || !run.boss.isSpawnOwnedBy(target)) return
         if (run.phase != CerberusPhase.ACTIVE || access.actionDelay > clock.cycle) return
         if (!isCurrent(run) || !inChamber(run)) return
@@ -272,17 +252,22 @@ constructor(
                 CerberusAttackStyle.MELEE ->
                     accuracy.rollMeleeAccuracy(npc, target, MeleeAttackType.Stab, random)
             }
-        val damage = if (accurate) {
-            val defenceBonus = when (style) {
-                CerberusAttackStyle.MELEE -> bonuses.defensiveStabBonus(target)
-                CerberusAttackStyle.MAGIC -> bonuses.defensiveMagicBonus(target)
-                CerberusAttackStyle.RANGED -> bonuses.defensiveRangedBonus(target)
-            }
-            val maximum = MaxHitOperations.applyDamageReductions(
-                CerberusRules.BASIC_MAX_HIT, defenceBonus, reductions.collectNvP(target, random),
-            )
-            random.of(maximum + 1)
-        } else 0
+        val damage =
+            if (accurate) {
+                val defenceBonus =
+                    when (style) {
+                        CerberusAttackStyle.MELEE -> bonuses.defensiveStabBonus(target)
+                        CerberusAttackStyle.MAGIC -> bonuses.defensiveMagicBonus(target)
+                        CerberusAttackStyle.RANGED -> bonuses.defensiveRangedBonus(target)
+                    }
+                val maximum =
+                    MaxHitOperations.applyDamageReductions(
+                        CerberusRules.BASIC_MAX_HIT,
+                        defenceBonus,
+                        reductions.collectNvP(target, random),
+                    )
+                random.of(maximum + 1)
+            } else 0
         val hitType =
             when (style) {
                 CerberusAttackStyle.MAGIC -> HitType.Magic
@@ -488,9 +473,11 @@ constructor(
             }
             return
         }
-        val damage = CerberusRules.soulUnprotectedDamage(
-            hasElysian = DamageReductionAttributes.ElysianProc in reductions.collectNvP(target, random)
-        )
+        val damage =
+            CerberusRules.soulUnprotectedDamage(
+                hasElysian =
+                    DamageReductionAttributes.ElysianProc in reductions.collectNvP(target, random)
+            )
         target.queueHit(
             source = soul,
             delay = delay,
@@ -498,11 +485,12 @@ constructor(
             damage = damage,
             validity = HitValidity { isCurrent(run, generation) },
             modifier = CerberusFixedHitModifier,
-            impactHandler = HitImpactHandler { impact ->
-                if (style == CerberusAttackStyle.MELEE && impact.damage > 0) {
-                    run.tookMeleeDamage = true
-                }
-            },
+            impactHandler =
+                HitImpactHandler { impact ->
+                    if (style == CerberusAttackStyle.MELEE && impact.damage > 0) {
+                        run.tookMeleeDamage = true
+                    }
+                },
         )
     }
 
@@ -526,7 +514,10 @@ constructor(
                     val tile = localCoord(run.session, x, z)
                     if (
                         CerberusRules.isLavaTileLegal(
-                            x, z, bossSource.x and 63, bossSource.z and 63,
+                            x,
+                            z,
+                            bossSource.x and 63,
+                            bossSource.z and 63,
                             run.boss.visType.size,
                         ) && collision.isZoneValid(tile) && !collision.isWalkBlocked(tile)
                     ) {
@@ -574,65 +565,64 @@ constructor(
     }
 
     fun tickAll() {
-        runs.values.toList().forEach { run ->
-            if (run.player.hitpoints <= 0 || !run.player.isSlotAssigned) {
-                // Invalidate hazards immediately; item selection still runs through normal death.
-                if (run.phase != CerberusPhase.INVALIDATED) {
-                    run.phase = CerberusPhase.INVALIDATED
-                    clearRun(run)
+        instances
+            .sessionsForKey(CERBERUS_INSTANCE_KEY)
+            .mapNotNull { it.stateOrNull(RUN_STATE) }
+            .forEach { run ->
+                if (run.pendingRespawn) {
+                    run.pendingRespawn = false
+                    respawn(run)
                 }
-                return@forEach
-            }
-            val actual = instances.sessionForPlayer(run.player)?.id?.value
-            if (CerberusRules.shouldDiscardRun(run.session.id.value, actual)) {
-                membershipEnded(run.player, run.session.id)
-                return@forEach
-            }
-            val source = arena.sourceCoords(run.session, run.player.coords)
-            if (source == null) {
-                membershipEnded(run.player, run.session.id)
-                return@forEach
-            }
-            val localX = source.x and 63
-            val localZ = source.z and 63
-            val previous = run.lastPlayerCoord?.let { arena.sourceCoords(run.session, it) }
-            val crossedFireWall =
-                previous != null &&
-                    run.fireWallLocs.isNotEmpty() &&
-                    CerberusRules.crossedFireWall(
-                        previous.x and 63,
-                        previous.z and 63,
-                        localX,
-                        localZ,
-                    )
-            val inside = inChamber(run)
-            when (run.phase) {
-                CerberusPhase.SITTING -> if (inside) beginStanding(run)
-                CerberusPhase.STANDING -> {
-                    if (!inside) beginReset(run)
-                    else if (clock.cycle >= run.stateCycle) activate(run)
-                }
-                CerberusPhase.ACTIVE -> {
-                    if (hasLeftActiveArena(localX, localZ)) {
-                        beginReset(run)
-                    } else {
-                        processLava(run)
-                        keepAggressive(run)
+                // Native instance hooks own membership/death/teleport retirement. This pass only
+                // processes Cerberus's remaining phase/arena mechanics during the strangler step.
+                if (
+                    run.phase == CerberusPhase.INVALIDATED ||
+                        run.player.hitpoints <= 0 ||
+                        !run.player.isSlotAssigned ||
+                        run(run.player) !== run
+                )
+                    return@forEach
+                val source = arena.sourceCoords(run.session, run.player.coords) ?: return@forEach
+                val localX = source.x and 63
+                val localZ = source.z and 63
+                val previous = run.lastPlayerCoord?.let { arena.sourceCoords(run.session, it) }
+                val crossedFireWall =
+                    previous != null &&
+                        run.fireWallLocs.isNotEmpty() &&
+                        CerberusRules.crossedFireWall(
+                            previous.x and 63,
+                            previous.z and 63,
+                            localX,
+                            localZ,
+                        )
+                val inside = inChamber(run)
+                when (run.phase) {
+                    CerberusPhase.SITTING -> if (inside) beginStanding(run)
+                    CerberusPhase.STANDING -> {
+                        if (!inside) beginReset(run)
+                        else if (clock.cycle >= run.stateCycle) activate(run)
                     }
+                    CerberusPhase.ACTIVE -> {
+                        if (hasLeftActiveArena(localX, localZ)) {
+                            beginReset(run)
+                        } else {
+                            processLava(run)
+                            keepAggressive(run)
+                        }
+                    }
+                    CerberusPhase.RESETTING -> processReset(run)
+                    CerberusPhase.RESPAWNING -> Unit
+                    CerberusPhase.DYING,
+                    CerberusPhase.COMPLETE,
+                    CerberusPhase.INVALIDATED -> Unit
                 }
-                CerberusPhase.RESETTING -> processReset(run)
-                CerberusPhase.RESPAWNING -> if (clock.cycle >= run.stateCycle) respawn(run)
-                CerberusPhase.DYING,
-                CerberusPhase.COMPLETE,
-                CerberusPhase.INVALIDATED -> Unit
+                // Outward crossing can reset the fight above. Bind its hit to that new generation.
+                if (crossedFireWall) {
+                    queueFixedDamage(run, CerberusRules.FIRE_WALL_DAMAGE)
+                }
+                run.wasInsideChamber = inside
+                run.lastPlayerCoord = run.player.coords
             }
-            // Outward crossing can reset the fight above. Bind its hit to that new generation.
-            if (crossedFireWall) {
-                queueFixedDamage(run, CerberusRules.FIRE_WALL_DAMAGE)
-            }
-            run.wasInsideChamber = inside
-            run.lastPlayerCoord = run.player.coords
-        }
     }
 
     private fun inChamber(run: Run): Boolean {
@@ -770,8 +760,11 @@ constructor(
             val generation = run.generation
             run.boss.anim(CerberusAssets.WALK_ANIMATION)
             run.boss.walkTo(routeFactory, home, passThroughEntities = true) {
-                if (runs[run.player.uid] === run && run.generation == generation &&
-                    run.phase == CerberusPhase.RESETTING) {
+                if (
+                    run(run.player) === run &&
+                        run.generation == generation &&
+                        run.phase == CerberusPhase.RESETTING
+                ) {
                     run.resetArrived = true
                 }
             }
@@ -817,6 +810,11 @@ constructor(
         run.tookMeleeDamage = false
     }
 
+    fun onNativeRespawn(npc: Npc) {
+        val run = run(npc) ?: return
+        if (run.boss === npc && run.phase == CerberusPhase.RESPAWNING) run.pendingRespawn = true
+    }
+
     private fun respawn(run: Run) {
         run.generation++
         run.rewardEligible = true
@@ -824,14 +822,7 @@ constructor(
         run.forcedNormalStyle = null
         run.forcedSkip = null
         run.attackAnimationUntilCycle = 0
-        if (run.boss.isSlotAssigned) npcs.del(run.boss, Int.MAX_VALUE)
-        run.boss =
-            spawnBoss(
-                run.player,
-                run.session,
-                requireNpc(CerberusAssets.SITTING_NPC_ID),
-                run.rewardEligible,
-            )
+        configureBoss(run.player, run.boss, run.rewardEligible)
         run.boss.anim(CerberusAssets.SITTING_ANIMATION)
         run.phase = CerberusPhase.SITTING
         run.attackNumber = 1
@@ -842,7 +833,7 @@ constructor(
     }
 
     fun beginBossDeath(npc: Npc): Boolean {
-        val run = runs.values.firstOrNull { it.boss === npc } ?: return false
+        val run = run(npc)?.takeIf { it.boss === npc } ?: return false
         if (run.phase != CerberusPhase.ACTIVE) return false
         run.phase = CerberusPhase.DYING
         run.generation++
@@ -854,11 +845,10 @@ constructor(
     }
 
     fun finishBossDeath(npc: Npc) {
-        val run = runs.values.firstOrNull { it.boss === npc } ?: return
+        val run = run(npc)?.takeIf { it.boss === npc } ?: return
         if (run.phase != CerberusPhase.DYING) return
         awardCombatAchievements(run)
         run.phase = CerberusPhase.RESPAWNING
-        run.stateCycle = clock.cycle + CerberusRules.RESPAWN_TICKS
     }
 
     private fun awardCombatAchievements(run: Run) {
@@ -897,7 +887,7 @@ constructor(
     }
 
     fun defend(npc: Npc) {
-        val run = runs.values.firstOrNull { it.boss === npc } ?: return
+        val run = run(npc)?.takeIf { it.boss === npc } ?: return
         if (
             CerberusRules.canPlayDefendAnimation(
                 phase = run.phase,
@@ -911,7 +901,7 @@ constructor(
     }
 
     fun debug(player: Player, args: List<String>): String {
-        val run = runs[player.uid] ?: return "You do not have an active Cerberus encounter."
+        val run = run(player) ?: return "You do not have an active Cerberus encounter."
         val operation = args.firstOrNull()?.lowercase() ?: "status"
         if (operation == "status") {
             val candidate = CerberusRules.specialCandidate(run.attackNumber, run.boss.hitpoints)
@@ -999,64 +989,20 @@ constructor(
         run.boss.suppressRewards = true
     }
 
-    fun isEncounterNpc(npc: Npc): Boolean = runs.values.any { it.boss === npc || npc in it.souls }
+    fun isEncounterNpc(npc: Npc): Boolean =
+        run(npc)?.let { it.boss === npc || npc in it.souls } == true
 
     fun isParticipant(player: Player, npc: Npc): Boolean =
-        runs[player.uid]?.let {
-            (it.boss === npc || npc in it.souls) && npc.isSpawnOwnedBy(player)
-        } == true
+        run(player)?.let { (it.boss === npc || npc in it.souls) && npc.isSpawnOwnedBy(player) } ==
+            true
 
     fun attackDenial(player: Player, npc: Npc): String? {
-        val run = runs[player.uid] ?: return "You do not have an active Cerberus encounter."
+        val run = run(player) ?: return "You do not have an active Cerberus encounter."
         if (npc in run.souls) return "The summoned souls cannot be attacked."
         if (run.boss !== npc) return "That Cerberus belongs to another encounter."
         if (!inChamber(run)) return "Enter Cerberus's chamber to attack her."
         if (run.phase != CerberusPhase.ACTIVE) return "Cerberus cannot be attacked right now."
         return null
-    }
-
-    fun leave(player: Player): Boolean {
-        val run = runs.remove(player.uid) ?: return false
-        run.phase = CerberusPhase.INVALIDATED
-        clearRun(run)
-        val exit = instances.leave(player, run.session, clock.cycle)
-        if (player.isSlotAssigned) PathingEntityCommon.telejump(player, collision, exit)
-        prepare(player)
-        player.mes("You leave Cerberus's private lair.")
-        return true
-    }
-
-    fun leaveFromLogoutTab(player: Player, expected: InstanceId): RaidLeaveResult {
-        val run = runs[player.uid] ?: return RaidLeaveResult.Unhandled
-        if (run.session.id != expected) return RaidLeaveResult.Unhandled
-        return if (leave(player)) RaidLeaveResult.Left else RaidLeaveResult.Failed
-    }
-
-    fun membershipEnded(player: Player, instanceId: InstanceId) {
-        val run = runs[player.uid] ?: return
-        if (run.session.id != instanceId) return
-        runs.remove(player.uid)
-        run.phase = CerberusPhase.INVALIDATED
-        clearRun(run)
-    }
-
-    fun externalTeleport(player: Player, instanceId: InstanceId) {
-        membershipEnded(player, instanceId)
-    }
-
-    fun logout(player: Player) {
-        val run = runs[player.uid] ?: return
-        if (instances.sessionForPlayer(player)?.id == run.session.id) {
-            instances.handleLogout(player, clock.cycle)
-        } else {
-            membershipEnded(player, run.session.id)
-        }
-    }
-
-    fun playerDied(player: Player) {
-        val run = runs.remove(player.uid) ?: return
-        run.phase = CerberusPhase.INVALIDATED
-        clearRun(run)
     }
 
     private fun keepAggressive(run: Run) {
@@ -1075,17 +1021,12 @@ constructor(
         }
     }
 
-    private fun spawnBoss(
-        player: Player,
-        session: InstanceSession,
-        type: dev.openrune.types.NpcServerType,
-        rewardEligible: Boolean,
-    ): Npc {
-        val npc = Npc(type, localCoord(session, CERBERUS_BOSS_LOCAL_X, CERBERUS_BOSS_LOCAL_Z))
+    private fun configureBoss(player: Player, npc: Npc, rewardEligible: Boolean) {
+        npc.transmog(requireNpc(CerberusAssets.SITTING_NPC_ID), Int.MAX_VALUE)
         npc.baseHitpointsLvl = CerberusRules.HITPOINTS
         npc.hitpoints = CerberusRules.HITPOINTS
         npc.mode = null
-        npc.movementLocked = type.id != CerberusAssets.ACTIVE_NPC_ID
+        npc.movementLocked = true
         npc.moveRestrict = MoveRestrict.PassThru
         npc.apRangeOverride = CerberusRules.ATTACK_RANGE
         npc.maxOpRangeOverride = 64
@@ -1093,12 +1034,7 @@ constructor(
         npc.combatImmunities.toxins = true
         npc.suppressRewards = !rewardEligible
         npc.assignSpawnOwner(player, clock.cycle)
-        npcs.add(npc, Int.MAX_VALUE)
-        // NpcRepository.add assigns respawns=true for permanent registrations.
-        // Only this encounter may create the next sitting boss.
-        npc.respawns = false
-        instances.attachNpc(session.id, npc)
-        return npc
+        npc.showAllOps()
     }
 
     private fun localCoord(session: InstanceSession, localX: Int, localZ: Int): CoordGrid =
@@ -1114,7 +1050,7 @@ constructor(
         generation: Int = run.generation,
         activeOnly: Boolean = true,
     ): Boolean =
-        runs[run.player.uid] === run &&
+        run(run.player) === run &&
             instances.sessionForPlayer(run.player)?.id == run.session.id &&
             arena.contains(run.session, run.player.coords) &&
             arena.contains(run.session, run.boss.coords) &&
@@ -1126,13 +1062,15 @@ constructor(
             run.player.isSlotAssigned &&
             run.player.hitpoints > 0
 
-    private fun clearRun(run: Run) {
+    private fun retireRun(run: Run) {
+        if (run.phase == CerberusPhase.INVALIDATED) return
+        run.phase = CerberusPhase.INVALIDATED
         run.generation++
         run.player.combatClearQueue()
         clearHazards(run)
         clearFireWall(run)
         run.boss.clearInteraction()
-        if (run.boss.isSlotAssigned) npcs.del(run.boss, Int.MAX_VALUE)
+        // Native instance teardown owns the boss; do not race its immediate/deferred reclaim.
     }
 
     private fun clearHazards(run: Run) {
@@ -1160,12 +1098,6 @@ constructor(
     private fun clearFireWall(run: Run) {
         run.fireWallLocs.forEach { world.locDelPrivate(run.player, it) }
         run.fireWallLocs.clear()
-    }
-
-    private fun prepare(player: Player) {
-        player.combatClearQueue()
-        player.clearInteraction()
-        player.resetAnim()
     }
 
     private fun requireNpc(id: Int) =
@@ -1240,7 +1172,8 @@ constructor(
     private data class Run(
         val player: Player,
         val session: InstanceSession,
-        var boss: Npc,
+        val boss: Npc,
+        var pendingRespawn: Boolean = false,
         var phase: CerberusPhase = CerberusPhase.SITTING,
         var attackNumber: Int = 1,
         var generation: Int = 1,
@@ -1266,6 +1199,8 @@ constructor(
     )
 
     private companion object {
+        val RUN_STATE = InstanceStateKey<Run>("cerberus-arena")
+
         val CERBERUS_SOUL_SPAWN_X = intArrayOf(23, 24, 25)
 
         val DRAGONFIRE_SHIELDS =

@@ -1165,3 +1165,32 @@ passes all56 tests,32s/146tasks. Scoped formatting plus tests pass again in31s/1
 resolution because the PowerShell -P path was unquoted; no code/test failure in that invocation.
 The1,290-line manager is still the authoritative implementation until these characterizations
 pass through its replacement wiring. Do not count Cerberus as migrated or deployed.
+
+Implementation order refinement: establish native protected entry/session ownership before combat
+conversion so retained projectile/Soul/lava tests execute through InstanceScript and its keyed
+callbacks. Replace the private membership map and duplicate logout/teleport/death cleanup first;
+retain the existing actor/phase/combat behavior for this bounded step. Native instance lifecycle
+retires effects on leave and owns entity teardown. Subsequent steps remove private actor respawn
+and attack/phase scheduling. No new shared API or public entrance is introduced by this refinement.
+
+Cerberus native-instance checkpoint (September10): InstanceScript now owns protected entry/exit,
+keyed join/leave and the configured sitting actor. Typed InstanceSession state replaces the private
+player/run map. Native InstanceLifecycleScript handles teleport/logout/disconnect/death retirement;
+the redundant boss death-cleanup hook and logout subscriptions are removed. Native NpcDeath retains
+the same actor through the existing death animation and fifteen-tick hidden respawn. This actor
+change was included with instance ownership because repository deletion now correctly detaches an
+NPC; a private delete/recreate cycle could no longer resolve its completion through native ownership.
+The logout-panel result also now reports Failed when protected teleport validation refuses exit.
+
+Six native lifecycle regressions add refused entry/exit, panel result, four departure paths with
+two-room isolation, two native death/reveal cycles, and departure during the death coroutine.
+Existing56 characterizations still pass. `cerberus-native-instance-final.log`:62 tests, zero
+failures/skips; scoped formatting and instance tests pass,39s/151tasks. Architecture enforcement
+and git diff --check pass. Removed the three obsolete instance/membership/lifecycle waivers.
+Initial fixture runs exhausted heap because inline Mockito answers retained allocated collision
+maps; serial execution plus per-test mock cleanup (the existing Muspah/Zulrah fixture pattern)
+resolved this. A test queue generic compile error and a formatter manifest containing a .kts
+instead of only .kt sources were corrected; neither changed live gameplay.
+This is an internal checkpoint, NOT a completed or deployed Cerberus migration. Ordinary combat,
+phase deadlines and specialized handler extraction remain. The live seven-boss checkpoint is
+unchanged, and no cache/PostgreSQL data or unrelated work was modified.

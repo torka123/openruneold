@@ -8,6 +8,9 @@ import org.rsmod.game.seq.EntitySeq
 
 /** Executed draft behavior, not additional OSRS evidence. Kept through the wiring migration. */
 class CerberusMigrationCharacterizationTest {
+    @org.junit.jupiter.api.AfterEach
+    fun releaseFixtureMocks() = org.mockito.Mockito.framework().clearInlineMocks()
+
     @Test
     fun `ordinary launch locks six ticks and blocked opportunities do not consume override`() {
         val world = CerberusTestWorld()

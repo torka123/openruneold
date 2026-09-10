@@ -21,6 +21,7 @@ dependencies {
     implementation(projects.engine.plugin)
     implementation(projects.engine.routefinder)
     testImplementation(kotlin("test"))
+    testImplementation("org.mockito:mockito-core:5.18.0")
     testImplementation(libs.fastutil)
     testImplementation(libs.rsprot.api)
     testImplementation(projects.engine.events)
@@ -29,4 +30,8 @@ dependencies {
     testImplementation(projects.api.combat.combatWeapon)
 }
 
-tasks.test { workingDir = rootProject.projectDir }
+tasks.test {
+    workingDir = rootProject.projectDir
+    // Allocated-region fixtures each own a full collision map and native instance lifecycle.
+    systemProperty("junit.jupiter.execution.parallel.enabled", "false")
+}
