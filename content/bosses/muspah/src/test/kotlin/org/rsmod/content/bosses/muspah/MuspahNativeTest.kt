@@ -56,6 +56,18 @@ import org.rsmod.routefinder.collision.CollisionFlagMap
 @OptIn(InternalApi::class)
 class MuspahNativeTest {
     @Test
+    fun `ordinary projectile is invalidated after leaving its encounter`() {
+        val f = MuspahFixture()
+        f.start()
+        f.until(104)
+        f.attack()
+        val hit = f.hits().single().second
+        assertTrue(hit.isValidNow())
+        f.encounters.escape(f.player)
+        assertFalse(hit.isValidNow())
+    }
+
+    @Test
     fun `cooldown blocked ranged attempts do not consume style selection randomness`() {
         val f = MuspahFixture()
         f.start()

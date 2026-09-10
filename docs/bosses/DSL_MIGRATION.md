@@ -903,3 +903,9 @@ this fixes execution-vs-declared-rule behavior, not a newly researched OSRS maxi
 `muspah-native-readiness-green.log`: all 50 tests pass, scoped check37s/164tasks. Readiness is now
 checked before legacy selector/counter mutation; the next step transfers that responsibility to
 BossCombat. Existing phases, source data and rewards are unchanged.
+
+`muspah-native-projectile-scope-red.log`: the new departure test fails (51 tests, one failure).
+An ordinary queued shot remains valid after escape/deletion. Use the existing BossEncounter hit
+scope and native player/session validity through Effect.NpcAttack; no new timer or shared hook.
+The first strangler step replaces ordinary selectors/launch functions only. Remaining manager
+phase, membership, hazard and respawn ownership is still migration debt, not an accepted end state.
