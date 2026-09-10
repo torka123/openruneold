@@ -26,7 +26,6 @@ internal data class RoyalTitansRun(
     var eldricCorpse: Npc? = null,
     var stage: RoyalTitansStage = RoyalTitansStage.INTRO,
     var stageTick: Int = 0,
-    var transitionStartCycle: Int = Int.MIN_VALUE,
     var elementalsUnlocked: Boolean = false,
     var areaSequence: Int = 0,
     var packSequence: Int = 0,

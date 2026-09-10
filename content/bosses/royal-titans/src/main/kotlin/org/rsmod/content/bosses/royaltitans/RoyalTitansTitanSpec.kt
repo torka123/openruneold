@@ -14,7 +14,7 @@ internal fun royalTitansTitanSpec(element: RoyalElement): BossSpec {
     val id =
         if (element == RoyalElement.FIRE) RoyalTitansAssets.BRANDA_ACTIVE
         else RoyalTitansAssets.ELDRIC_ACTIVE
-    fun phase(name: String, ticks: Int, next: String, action: RoyalTitansArenaAction? = null) =
+    fun phase(name: String, ticks: Int, next: String, action: RoyalTitansAction? = null) =
         PhaseSpec(
             name,
             lockMovement = true,
@@ -26,15 +26,13 @@ internal fun royalTitansTitanSpec(element: RoyalElement): BossSpec {
         npcTypes = listOf(requireNotNull(RSCM.getReverseMapping(RSCMType.NPC, id))),
         stats = BossStats(attackRate = 7, retaliateOnHit = false),
         abilities =
-            RoyalTitansArenaAction.entries.associate {
+            RoyalTitansAction.entries.associate {
                 it.name to Effect.External("royal-titans.arena-action", it)
             },
         phases =
             royalTitansPlatformPhases() +
+                royalTitansTeleportPhases(element) +
                 linkedMapOf(
-                    // Cancel platform readiness during the pair's specialized teleport
-                    // choreography.
-                    "teleporting" to PhaseSpec("teleporting"),
                     // Starts in LateCycle; native world deadlines execute before the following
                     // MapClock
                     // tick.
@@ -45,16 +43,15 @@ internal fun royalTitansTitanSpec(element: RoyalElement): BossSpec {
                             "first-charge",
                         ),
                     "first-charge" to
-                        phase("first-charge", 14, "first-summon", RoyalTitansArenaAction.CHARGE),
+                        phase("first-charge", 14, "first-summon", RoyalTitansAction.CHARGE),
                     "first-summon" to
-                        phase("first-summon", 7, "first-stomp", RoyalTitansArenaAction.SUMMON),
+                        phase("first-summon", 7, "first-stomp", RoyalTitansAction.SUMMON),
                     "first-stomp" to
-                        phase("first-stomp", 7, "extra-stomp", RoyalTitansArenaAction.STOMP),
-                    "extra-stomp" to
-                        phase("extra-stomp", 8, "charge", RoyalTitansArenaAction.STOMP),
-                    "charge" to phase("charge", 14, "summon", RoyalTitansArenaAction.CHARGE),
-                    "summon" to phase("summon", 7, "stomp", RoyalTitansArenaAction.SUMMON),
-                    "stomp" to phase("stomp", 8, "charge", RoyalTitansArenaAction.STOMP),
+                        phase("first-stomp", 7, "extra-stomp", RoyalTitansAction.STOMP),
+                    "extra-stomp" to phase("extra-stomp", 8, "charge", RoyalTitansAction.STOMP),
+                    "charge" to phase("charge", 14, "summon", RoyalTitansAction.CHARGE),
+                    "summon" to phase("summon", 7, "stomp", RoyalTitansAction.SUMMON),
+                    "stomp" to phase("stomp", 8, "charge", RoyalTitansAction.STOMP),
                     "inactive" to PhaseSpec("inactive", lockMovement = true),
                 ),
         triggers = emptyList(),
@@ -80,8 +77,56 @@ private fun royalTitansPlatformPhases(): Map<String, PhaseSpec> {
     return phases
 }
 
-internal enum class RoyalTitansArenaAction {
+internal enum class RoyalTitansAction {
     CHARGE,
     SUMMON,
     STOMP,
+    BRANDA_LAND,
+    ELDRIC_CAST,
+    ELDRIC_LAND,
 }
+
+/** Each actor's native phase clock owns its half of the captured +3/+4/+7 transition. */
+private fun royalTitansTeleportPhases(element: RoyalElement): Map<String, PhaseSpec> =
+    if (element == RoyalElement.FIRE)
+        linkedMapOf(
+            "teleporting" to
+                PhaseSpec(
+                    "teleporting",
+                    exitAfter = RoyalTitansRules.BRANDA_TRANSITION_TICKS,
+                    nextPhase = "teleport-landed",
+                ),
+            "teleport-landed" to
+                PhaseSpec(
+                    "teleport-landed",
+                    lockMovement = true,
+                    entry = RoyalTitansAction.BRANDA_LAND.name,
+                ),
+        )
+    else
+        linkedMapOf(
+            // Eldric may finish his outstanding route until the cast, as in the existing capture
+            // tests.
+            "teleporting" to
+                PhaseSpec(
+                    "teleporting",
+                    exitAfter = RoyalTitansRules.ELDRIC_TRANSITION_CAST_TICK,
+                    nextPhase = "teleport-cast",
+                ),
+            "teleport-cast" to
+                PhaseSpec(
+                    "teleport-cast",
+                    lockMovement = true,
+                    exitAfter =
+                        RoyalTitansRules.ELDRIC_TRANSITION_TICKS -
+                            RoyalTitansRules.ELDRIC_TRANSITION_CAST_TICK,
+                    nextPhase = "teleport-landed",
+                    entry = RoyalTitansAction.ELDRIC_CAST.name,
+                ),
+            "teleport-landed" to
+                PhaseSpec(
+                    "teleport-landed",
+                    lockMovement = true,
+                    entry = RoyalTitansAction.ELDRIC_LAND.name,
+                ),
+        )

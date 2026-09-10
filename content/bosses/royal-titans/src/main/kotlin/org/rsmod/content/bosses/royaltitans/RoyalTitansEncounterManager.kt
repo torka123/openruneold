@@ -305,7 +305,6 @@ constructor(
         elementals.clearElementals(run)
         landings.clearArenaFloors(run)
         setStage(run, RoyalTitansStage.TRANSITION)
-        run.transitionStartCycle = clock.cycle
         run.branda?.apply {
             clearInteraction()
             movementLocked = true
@@ -317,41 +316,45 @@ constructor(
     }
 
     private fun tickTransition(run: Run) {
-        when (clock.cycle - run.transitionStartCycle) {
-            RoyalTitansRules.BRANDA_TRANSITION_TICKS -> {
-                run.branda?.let {
-                    PathingEntityCommon.telejump(it, collision, arena.local(run, 30, 35))
-                    it.moveRestrict = it.type.moveRestrict
-                    it.anim(anim(RoyalTitansAssets.BRANDA_ARENA_SPAWN))
-                    it.spotanim(spot(RoyalTitansAssets.BRANDA_SPAWN_GFX), slot = 2)
-                    it.setBodyModels(listOf(RoyalTitansAssets.BRANDA_ARENA_BODY_MODEL))
-                    it.faceSquare(arena.local(run, 31, 31))
-                    it.movementLocked = true
+        val target = arena.online(run).firstOrNull { it.hitpoints > 0 } ?: return
+        for (npc in listOfNotNull(run.branda, run.eldric)) {
+            when (phases.consumeTransition(npc, target)) {
+                RoyalTitansAction.BRANDA_LAND -> {
+                    run.branda?.let {
+                        PathingEntityCommon.telejump(it, collision, arena.local(run, 30, 35))
+                        it.moveRestrict = it.type.moveRestrict
+                        it.anim(anim(RoyalTitansAssets.BRANDA_ARENA_SPAWN))
+                        it.spotanim(spot(RoyalTitansAssets.BRANDA_SPAWN_GFX), slot = 2)
+                        it.setBodyModels(listOf(RoyalTitansAssets.BRANDA_ARENA_BODY_MODEL))
+                        it.faceSquare(arena.local(run, 31, 31))
+                        it.movementLocked = true
+                    }
+                    landings.spawnBrandaArenaFloors(run)
+                    landings.resolveTitanLanding(run, RoyalElement.FIRE)
                 }
-                landings.spawnBrandaArenaFloors(run)
-                landings.resolveTitanLanding(run, RoyalElement.FIRE)
-            }
-            RoyalTitansRules.ELDRIC_TRANSITION_CAST_TICK -> {
-                run.eldric?.apply {
-                    clearInteraction()
-                    movementLocked = true
-                    anim(RoyalTitansDefinitions.anim(RoyalTitansAssets.ELDRIC_TELEPORT))
-                    say("This is no game anymore!")
+                RoyalTitansAction.ELDRIC_CAST -> {
+                    run.eldric?.apply {
+                        clearInteraction()
+                        movementLocked = true
+                        anim(RoyalTitansDefinitions.anim(RoyalTitansAssets.ELDRIC_TELEPORT))
+                        say("This is no game anymore!")
+                    }
+                    landings.landingTelegraph(run, RoyalElement.ICE)
                 }
-                landings.landingTelegraph(run, RoyalElement.ICE)
-            }
-            RoyalTitansRules.ELDRIC_TRANSITION_TICKS -> {
-                run.eldric?.let {
-                    PathingEntityCommon.telejump(it, collision, arena.local(run, 30, 25))
-                    it.moveRestrict = it.type.moveRestrict
-                    it.anim(anim(RoyalTitansAssets.ELDRIC_ARENA_SPAWN))
-                    it.setBodyModels(listOf(RoyalTitansAssets.ELDRIC_ARENA_BODY_MODEL))
-                    it.faceSquare(arena.local(run, 30, 30))
-                    it.movementLocked = true
+                RoyalTitansAction.ELDRIC_LAND -> {
+                    run.eldric?.let {
+                        PathingEntityCommon.telejump(it, collision, arena.local(run, 30, 25))
+                        it.moveRestrict = it.type.moveRestrict
+                        it.anim(anim(RoyalTitansAssets.ELDRIC_ARENA_SPAWN))
+                        it.setBodyModels(listOf(RoyalTitansAssets.ELDRIC_ARENA_BODY_MODEL))
+                        it.faceSquare(arena.local(run, 30, 30))
+                        it.movementLocked = true
+                    }
+                    landings.spawnEldricArenaFloors(run)
+                    landings.resolveTitanLanding(run, RoyalElement.ICE)
+                    setStage(run, RoyalTitansStage.ARENA)
                 }
-                landings.spawnEldricArenaFloors(run)
-                landings.resolveTitanLanding(run, RoyalElement.ICE)
-                setStage(run, RoyalTitansStage.ARENA)
+                else -> Unit
             }
         }
     }
@@ -364,10 +367,10 @@ constructor(
             listOf(run.branda to RoyalElement.FIRE, run.eldric to RoyalElement.ICE)) {
             if (npc == null || npc.hitpoints <= 0) continue
             when (phases.consume(npc, target, clock.cycle - run.stageTick - 1)) {
-                RoyalTitansArenaAction.CHARGE -> tileAttacks.start(run)
-                RoyalTitansArenaAction.SUMMON -> elementals.scheduleSummon(run, npc, element)
-                RoyalTitansArenaAction.STOMP -> tileAttacks.stomp(run, npc, element, true)
-                null -> Unit
+                RoyalTitansAction.CHARGE -> tileAttacks.start(run)
+                RoyalTitansAction.SUMMON -> elementals.scheduleSummon(run, npc, element)
+                RoyalTitansAction.STOMP -> tileAttacks.stomp(run, npc, element, true)
+                else -> Unit
             }
         }
     }

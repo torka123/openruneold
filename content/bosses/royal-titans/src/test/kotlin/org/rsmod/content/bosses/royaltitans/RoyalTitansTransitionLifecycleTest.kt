@@ -28,7 +28,8 @@ class RoyalTitansTransitionLifecycleTest {
                 if (offset == departure) assertTrue(f.escape(owner))
                 f.tick()
                 if (f.clock.cycle - start in setOf(3, 4, 7, 15)) {
-                    actions[f.clock.cycle - start] = branda.pendingSequence.id to eldric.pendingSequence.id
+                    actions[f.clock.cycle - start] =
+                        branda.pendingSequence.id to eldric.pendingSequence.id
                 }
                 if (offset + 1 == 3) assertEquals(fireLanding, branda.coords)
                 if (offset + 1 == 7) assertEquals(iceLanding, eldric.coords)

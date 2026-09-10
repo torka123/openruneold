@@ -1616,3 +1616,10 @@ departure-at-each-transition-boundary and empty-room characterization tests befo
 The two added native fixture cases pass against the prior implementation: departure offsets2/3/6
 retain landing+3, cast+4, landing+7 and charge+15; room destruction at0/3/4/6 cannot retain actors
 or clocks. `royal-titans-teleport-characterization-20260910.log`:33s/196tasks,2tests,0failures.
+
+The two native timed phase programs now own that choreography; transitionStartCycle is removed.
+LateCycle consumes phase-entry markers, retaining route completion until Eldric's cast and the
+existing floor/model/hit ordering. No private transition timer remains. All125 tests pass on the
+first production run (1m5s/196tasks) and scoped verification (`royal-titans-teleport-dsl-verified-
+20260910.log`,57s/206tasks): module check, shared boss/instance and3 cache audit cases pass.
+This is still source-only; no live/visual acceptance is inferred from these tests.

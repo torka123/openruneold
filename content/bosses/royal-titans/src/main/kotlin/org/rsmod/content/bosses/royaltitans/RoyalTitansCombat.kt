@@ -25,7 +25,7 @@ constructor(
 ) : PluginScript() {
     override fun ScriptContext.startup() {
         deps.extensionRegistry.register("royal-titans.arena-action") { _, npc, _, data ->
-            phases.ready(npc, data as RoyalTitansArenaAction)
+            phases.ready(npc, data as RoyalTitansAction)
         }
         for (id in listOf(RoyalTitansAssets.BRANDA_ACTIVE, RoyalTitansAssets.ELDRIC_ACTIVE)) {
             val type = requireNpc(id)

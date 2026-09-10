@@ -30,10 +30,10 @@ constructor(private val deps: BossDeps, private val phaseClock: BossPhaseClock) 
     fun teleporting(npc: Npc) {
         val encounter = deps.encounterRegistry.of(npc)
         encounter.presentation().ready = null
-        encounter.transitionTo("teleporting", deps.mapClock.cycle)
+        encounter.transitionTo("teleporting", deps.mapClock.cycle - 1)
     }
 
-    fun ready(npc: Npc, action: RoyalTitansArenaAction) {
+    fun ready(npc: Npc, action: RoyalTitansAction) {
         val encounter = deps.encounterRegistry.existing(npc) ?: return
         if (
             deps.encounterRegistry.isCurrent(npc, encounter) &&
@@ -43,17 +43,23 @@ constructor(private val deps: BossDeps, private val phaseClock: BossPhaseClock) 
         }
     }
 
-    fun consume(npc: Npc, target: Player, openingTick: Int): RoyalTitansArenaAction? {
+    fun consume(npc: Npc, target: Player, openingTick: Int): RoyalTitansAction? {
         val encounter = deps.encounterRegistry.of(npc)
         val presentation = encounter.presentation()
         if (
             encounter.currentPhaseName.startsWith("platform-") ||
-                encounter.currentPhaseName == "teleporting"
+                encounter.currentPhaseName.startsWith("teleport")
         ) {
             phaseClock.bind(npc, target)
             presentation.target = target.uid
             encounter.transitionTo("arena-opening", openingTick)
         } else retarget(npc, target)
+        return presentation.ready.also { presentation.ready = null }
+    }
+
+    fun consumeTransition(npc: Npc, target: Player): RoyalTitansAction? {
+        retarget(npc, target)
+        val presentation = deps.encounterRegistry.of(npc).presentation()
         return presentation.ready.also { presentation.ready = null }
     }
 
@@ -79,8 +85,5 @@ constructor(private val deps: BossDeps, private val phaseClock: BossPhaseClock) 
     private fun BossEncounter.presentation(): Presentation =
         state("royal-titans.arena-presentation") { Presentation() }
 
-    private class Presentation(
-        var target: PlayerUid? = null,
-        var ready: RoyalTitansArenaAction? = null,
-    )
+    private class Presentation(var target: PlayerUid? = null, var ready: RoyalTitansAction? = null)
 }
