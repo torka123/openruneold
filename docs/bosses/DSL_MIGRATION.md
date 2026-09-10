@@ -1002,3 +1002,11 @@ Required API regressions: timed entry without attack events, exact deadline, no 
 alongside native attack processing, phase replacement cancels old deadline, busy-NPC safety,
 source/target retirement, and native queue cleanup. Muspah must then remove its corresponding
 private deadlines and use this declarative clock before its phase migration is considered complete.
+
+`boss-phase-clock-red-2.log`: 42 tests, one failure; without an attack callback the declared
+four-tick phase never exits. (`boss-phase-clock-red.log` was only a missing format-manifest-file
+setup failure.) `boss-phase-clock-regression.log`: all46 API tests pass,37s/158tasks. The opt-in
+clock now advances declared phases through the native queue/access interpreter, cancels replaced
+deadlines, waits for native busy access, and retires source/target-invalid work. Ordinary attack
+callbacks cannot execute the same timed entry twice. Positive durations are required to avoid a
+zero-tick phase cycle. Existing non-opted-in bosses retain their current transition behavior.

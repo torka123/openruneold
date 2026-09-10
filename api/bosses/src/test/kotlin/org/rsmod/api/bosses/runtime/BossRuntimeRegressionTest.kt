@@ -21,6 +21,8 @@ import org.rsmod.api.combat.formulas.AccuracyFormulae
 import org.rsmod.api.combat.formulas.MaxHitFormulae
 import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.api.npc.access.StandardNpcAccessContext
+import org.rsmod.api.npc.access.StandardNpcAccessContextFactory
+import org.rsmod.api.npc.access.StandardNpcAccessLauncher
 import org.rsmod.api.npc.events.interact.AiPlayerEvents
 import org.rsmod.api.npc.hit.modifier.StandardNpcHitModifier
 import org.rsmod.api.npc.hit.processor.StandardNpcHitProcessor
@@ -51,6 +53,84 @@ import org.rsmod.routefinder.collision.CollisionFlagMap
 /** Executes the interpreter and native NPC coroutine; repositories only record output. */
 @OptIn(InternalApi::class)
 class BossRuntimeRegressionTest {
+    private fun timedFixture() =
+        Fixture(
+            phase = PhaseSpec("main", exitAfter = 4, nextPhase = "arrived"),
+            extraPhases = mapOf("arrived" to PhaseSpec("arrived", entry = "arrive")),
+            extraAbilities = mapOf("arrive" to Effect.Say("arrived")),
+        )
+
+    @Test
+    fun `phase replacement removes old deadline but retains unrelated encounter work`() {
+        val f = timedFixture()
+        f.armPhaseClock()
+        var hazard = false
+        f.encounter.scheduleAt(f.deps.worldQueues, f.clock, 110) { hazard = true }
+        assertEquals(2, f.deps.worldQueues.size)
+        f.tick(2)
+        f.encounter.transitionTo("arrived", f.clock.cycle)
+        assertEquals(1, f.deps.worldQueues.size)
+        f.tick(3)
+        assertTrue(f.speech.isEmpty())
+        f.tick(5)
+        assertTrue(hazard)
+        assertEquals(0, f.deps.worldQueues.size)
+    }
+
+    @Test
+    fun `timed entry waits for native busy access and executes once`() {
+        val f = timedFixture()
+        f.armPhaseClock()
+        f.run(Effect.Delay(6))
+        f.tick(4)
+        assertEquals("main", f.encounter.currentPhaseName)
+        assertTrue(f.speech.isEmpty())
+        f.tick(2)
+        assertEquals(listOf(106 to "arrived"), f.speech)
+        assertEquals(0, f.deps.worldQueues.size)
+    }
+
+    @Test
+    fun `attack callbacks cannot double run the queued timed entry`() {
+        val f = timedFixture()
+        val events = EventBus()
+        val context = ScriptContext(events, CheatCommandMap(), EngineQueueCache())
+        BossCombat.register(context, f.spec, f.deps, "fixture")
+        f.armPhaseClock()
+        f.tick(3)
+        f.clock.cycle = 104
+        f.npc.launch { events.publish(f.access(this, events), AiPlayerEvents.Ap2(f.player, f.npc)) }
+        assertTrue(f.speech.isEmpty())
+        f.clock.cycle = 103
+        f.tick(1)
+        f.npc.launch { events.publish(f.access(this, events), AiPlayerEvents.Ap2(f.player, f.npc)) }
+        assertEquals(listOf(104 to "arrived"), f.speech)
+    }
+
+    @Test
+    fun `native source retirement and target logout cancel timed presentation`() {
+        for (ending in listOf("delete", "respawn", "death", "logout", "scope")) {
+            val f = timedFixture()
+            val events = EventBus()
+            val context = ScriptContext(events, CheatCommandMap(), EngineQueueCache())
+            BossCombat.register(context, f.spec, f.deps, "fixture")
+            val scope = org.rsmod.game.hit.HitScope()
+            f.player.combatHitScope = scope
+            f.armPhaseClock()
+            f.tick(2)
+            when (ending) {
+                "delete" -> events.publish(NpcStateEvents.Delete(f.npc))
+                "respawn" -> events.publish(NpcStateEvents.Respawn(f.npc))
+                "death" -> f.npc.hitpoints = 0
+                "logout" -> f.player.pendingLogout = true
+                "scope" -> scope.close()
+            }
+            f.tick(4)
+            assertTrue(f.speech.isEmpty(), ending)
+            assertEquals(0, f.deps.worldQueues.size, ending)
+        }
+    }
+
     @Test
     fun `declared phase deadline progresses without another attack interaction`() {
         val f =
@@ -1181,6 +1261,18 @@ class BossRuntimeRegressionTest {
 
         fun armPhaseClock() {
             encounter.transitionTo("main", clock.cycle)
+            val events = EventBus()
+            val factory =
+                mock(StandardNpcAccessContextFactory::class.java) { call ->
+                    if (call.method.name == "create")
+                        StandardNpcAccessContext(
+                            { random },
+                            { StandardNpcHitModifier(events) },
+                            { StandardNpcHitProcessor(players, events, emptySet()) },
+                        )
+                    else Answers.RETURNS_DEFAULTS.answer(call)
+                }
+            BossPhaseClock(deps, StandardNpcAccessLauncher(factory)).bind(npc, player)
         }
 
         fun access(coroutine: GameCoroutine, events: EventBus): StandardNpcAccess =

@@ -68,6 +68,11 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
     private var forcedAbility: String? = null
     private val cleanupActions = mutableListOf<() -> Unit>()
     private val encounterState = mutableMapOf<String, Any>()
+    private var phaseClock: (() -> Unit)? = null
+    private var cancelPhaseDeadline: (() -> Unit)? = null
+    internal val hasPhaseClock: Boolean
+        get() = phaseClock != null
+
     internal val effectScope = HitScope()
     var isEnded: Boolean = false
         private set
@@ -124,6 +129,9 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
     internal fun end() {
         if (isEnded) return
         isEnded = true
+        phaseClock = null
+        cancelPhaseDeadline?.invoke()
+        cancelPhaseDeadline = null
         effectScope.close()
         forcedAbility = null
         externalMarks.clear()
@@ -219,6 +227,8 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
         attackRateOverride ?: currentPhase?.attackRate ?: spec.stats.attackRate
 
     fun transitionTo(phaseName: String, tick: Int) {
+        cancelPhaseDeadline?.invoke()
+        cancelPhaseDeadline = null
         val from = currentPhaseName
         currentPhaseName = phaseName
         phaseEnteredTick = tick
@@ -239,6 +249,19 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
         npc.movementLocked = phase?.lockMovement == true
 
         npc.clearFacingLock()
+        phaseClock?.invoke()
+    }
+
+    /** One native timed-phase owner per encounter; ordinary combat keeps its own readiness. */
+    internal fun bindPhaseClock(arm: () -> Unit) {
+        check(!isEnded) { "Encounter has ended." }
+        if (hasPhaseClock) return
+        phaseClock = arm
+        arm()
+    }
+
+    internal fun ownPhaseDeadline(cancel: () -> Unit) {
+        cancelPhaseDeadline = cancel
     }
 
     fun selectAbility(selector: Selector, tick: Int, target: Player? = null): String? {

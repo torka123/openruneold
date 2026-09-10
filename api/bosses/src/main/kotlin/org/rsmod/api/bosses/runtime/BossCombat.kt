@@ -210,6 +210,8 @@ object BossCombat {
         }
 
         val phase = spec.phases[encounter.currentPhaseName] ?: return
+        // Opted-in encounters advance timed phases on the native queue, independent of reach.
+        if (encounter.hasPhaseClock) return
         val exitAfter = phase.exitAfter ?: return
         val nextPhase = phase.nextPhase ?: return
         if (tick - encounter.phaseEnteredTick >= exitAfter) {
