@@ -158,6 +158,11 @@ uncertainties. Do not repeat or revert the characterized elemental conversion.
 Broader verification: `royal-titans-elemental-broad-check-20260910.log` passes in30s/505tasks,
 including applicable boss/shared suites, app compilation and architecture enforcement. Passing
 source checkpoint branch: `backup/royal-titans-elemental-dsl-20260910`. It is not a live deployment.
+Commit: `632ae1a929e7410a2cbb1c675af739f1771a02dc`. Source-only archive:
+`logs/royal-titans-elemental-dsl-20260910.zip`, SHA256
+`259545D6B09009AACB74EBF6D1AC3AF67A90147A80397B12AD29C03B77F1AE99`.
+The archive contains 7,441 entries; excluded-path validation found zero violations. It excludes
+runtime data, credentials, PostgreSQL, caches, logs and generated build output.
 
 1. Collect user client-test feedback. Backup, local deployment, two gameplay checkpoint restarts,
    persistent fingerprints and the corrected75-assertion live Vorkath audit are complete. Do not
