@@ -213,6 +213,12 @@ Handler backup: `backup/royal-titans-handlers-20260910` at `8b4ec3f55`, ZIP
 `logs/royal-titans-handlers-20260910.zip`, SHA256
 `DA091675D090295A71968BC0D2EFBAD87211777E5279FD9A09C2E169B42F2880`.
 Validated7,453 entries and zero excluded-path violations; live still unchanged.
+Paired teleport/reset work also passes:127 module tests,3 cache cases and broader505-task
+check. Per-actor teleport phases and native session-owned reinvigoration replace both elapsed
+timer polls. Source backup `backup/royal-titans-paired-lifecycle-20260910` at `6e96a1060`,
+ZIP `logs/royal-titans-paired-lifecycle-20260910.zip`, SHA256
+`EFDC34DE929CB7D56A683ADBEEDBB428B293E1549BD41AF9D554F1BC87C16718` (7,456 entries,0violations).
+Native ownership of the remaining elemental corpse-removal deadlines is next. Live unchanged.
 
 1. Collect user client-test feedback. Backup, local deployment, two gameplay checkpoint restarts,
    persistent fingerprints and the corrected75-assertion live Vorkath audit are complete. Do not

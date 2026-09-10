@@ -1653,3 +1653,20 @@ the cleanup registration.127 tests pass first run (1m3s/196tasks) and scoped/cac
 (`royal-titans-reset-native-verified-20260910.log`,1m1s/206tasks). No deployment yet.
 Broader paired lifecycle check passes: `royal-titans-paired-lifecycle-broad-20260910.log`,
 26s/505tasks,4executed501up-to-date, including app classes and architecture enforcement.
+
+### Elemental corpse cleanup mapping
+
+The remaining pendingRemovals map duplicates native deadline ownership for custom elemental
+death visuals. Keep those visuals and their cache-duration timing; use the existing actor's
+BossEncounter.scheduleAt to mark removal readiness, then remove through NpcRepository in the
+same LateCycle position. Session-owned sets are presentation/cleanup observations, not a timer.
+Native encounter end unregisters both actor references; reset deletes retained dying actors
+through the native repository. No new shared API, changed attack impact stage or animation.
+Add exact fire/ice deletion-frame tests and a red ownership test proving early native deletion
+must unlink its deadline. Retain the launched-hit-during-death regression. Also remove obsolete
+pack/area/same-tick counters and duplicate corpse references after confirming they are write-only.
+The first test invocation also caught a fixture attempting death in the same frame as the ice
+spawn's higher-priority animation. Waiting for that presentation in the fixture (no production
+animation change) isolates the intended death timing. Corrected red run:2tests,1expected failure
+for missing native deadline ownership; exact fire/ice deletion timing passes. Log
+`royal-titans-elemental-death-ownership-red-corrected-20260910.log`,34s/196tasks.
