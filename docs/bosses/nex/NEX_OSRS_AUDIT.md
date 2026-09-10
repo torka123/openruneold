@@ -94,6 +94,14 @@ Focused files changed in this continuation:
 
 ### S09 approved: target-bound ordinary-attack continuation
 
+Approved S01 implementation, September 10: the existing shared
+`NpcCalculatedProtectionPrayerPlayerHitModifier` now accepts optional `lateReductionPercent=0`.
+Default launch-only behavior is unchanged; a matching late prayer is sampled when the modifier
+is invoked, with the launch reduction taking precedence. Nex primary final magic uses the
+existing native deferred-impact queue. All 20 player API tests pass, including three new late
+policy tests; `logs/nex-s01-verified-20260910.log`. This is an approved local shared extension
+of A03, not a claim that its signature exists upstream. No new prayer or hit pipeline was added.
+
 **User approval received September 10; shared implementation tested. This is a new shared extension,
 not an existing official upstream API.**
 The shared checkpoint adds 11 executable tests (61 boss API tests total); all 35 Nex tests,
