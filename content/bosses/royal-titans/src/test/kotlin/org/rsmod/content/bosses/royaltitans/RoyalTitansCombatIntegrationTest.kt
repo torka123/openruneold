@@ -774,6 +774,7 @@ internal class RoyalTitansTestWorld(
             arena,
         )
     private val tileAttacks = RoyalTitansTileAttacks(clock, locs, world, random, arena)
+    private val landings = RoyalTitansLandings(locs, world, collision, random, arena)
     val manager =
         RoyalTitansEncounterManager(
             clock,
@@ -800,7 +801,8 @@ internal class RoyalTitansTestWorld(
                 elementals,
                 tileAttacks,
             ),
-            RoyalTitansLandings(locs, world, collision, random, arena),
+            landings,
+            RoyalTitansReinvigoration(clock, bossDeps.worldQueues, arena, landings),
         )
 
     var denyTeleport = false

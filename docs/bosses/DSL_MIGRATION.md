@@ -1644,3 +1644,12 @@ before replacing firstClaimCycle polling. Normal combat continues through the re
 The two new reset characterizations pass before production edits (`royal-titans-reset-
 characterization-20260910.log`,33s/196tasks). They cover claimer departure at+20 and empty-room
 teardown at+0/+20/+25/+26/+28 without any subsequent resurrection.
+
+RoyalTitansReinvigoration now submits only those three fixed native world deadlines, registers
+cancellation with InstanceSession.onCleanup, and yields presentation markers for LateCycle. Its
+state is on the session-owned run; no global membership/timer index was added. firstClaimCycle
+polling is removed. Both normal reset and early room retirement unlink native work and release
+the cleanup registration.127 tests pass first run (1m3s/196tasks) and scoped/cache/shared check
+(`royal-titans-reset-native-verified-20260910.log`,1m1s/206tasks). No deployment yet.
+Broader paired lifecycle check passes: `royal-titans-paired-lifecycle-broad-20260910.log`,
+26s/505tasks,4executed501up-to-date, including app classes and architecture enforcement.

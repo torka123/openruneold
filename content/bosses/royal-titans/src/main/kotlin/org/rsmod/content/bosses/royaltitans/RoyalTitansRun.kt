@@ -18,7 +18,7 @@ internal data class RoyalTitansRun(
     var completionId: UUID = UUID.randomUUID(),
     var completion: RoyalTitansCompletion? = null,
     var completionCommitted: Boolean = false,
-    var firstClaimCycle: Int? = null,
+    var reinvigoration: RoyalTitansReinvigoration.State? = null,
     val spawnCycles: MutableMap<Npc, Int> = mutableMapOf(),
     var branda: Npc? = null,
     var eldric: Npc? = null,

@@ -69,6 +69,7 @@ constructor(
     private val tileAttacks: RoyalTitansTileAttacks,
     private val platforms: RoyalTitansPlatforms,
     private val landings: RoyalTitansLandings,
+    private val reinvigoration: RoyalTitansReinvigoration,
 ) {
     private val log = InlineLogger()
     private val RUN_STATE = InstanceStateKey<Run>("royal-titans-encounter")
@@ -377,27 +378,7 @@ constructor(
 
     private fun tickComplete(run: Run) {
         commitCompletion(run)
-        val claimCycle = run.firstClaimCycle ?: return
-        when (clock.cycle - claimCycle) {
-            21 ->
-                run.corpses.forEach { (corpse, element) ->
-                    corpse.hideAllOps()
-                    corpse.anim(
-                        anim(
-                            if (element == RoyalElement.FIRE) RoyalTitansAssets.BRANDA_DEATH
-                            else RoyalTitansAssets.ELDRIC_DEATH
-                        )
-                    )
-                    if (element == RoyalElement.FIRE)
-                        corpse.spotanim(spot(RoyalTitansAssets.BRANDA_DEATH_GFX), slot = 2)
-                    landings.replaceArenaFloors(run, element)
-                }
-            26 -> {
-                run.corpses.keys.toList().forEach { arena.removeNpc(run, it) }
-                landings.clearArenaFloors(run)
-            }
-            29 -> reset(run)
-        }
+        reinvigoration.tick(run) { reset(run) }
     }
 
     fun canAttackTitan(npc: Npc, target: Player): Boolean =
@@ -663,8 +644,7 @@ constructor(
             player.mes(
                 "You take your reward from ${if (element == RoyalElement.FIRE) "Branda" else "Eldric"}."
             )
-        if (run.firstClaimCycle == null) {
-            run.firstClaimCycle = clock.cycle
+        if (reinvigoration.start(run)) {
             arena.online(run).forEach {
                 it.mes(
                     "<col=ef1020>The Royal Titans will reinvigorate themselves in 18 seconds.</col>"
@@ -748,7 +728,6 @@ constructor(
         run.completionId = UUID.randomUUID()
         run.completion = null
         run.completionCommitted = false
-        run.firstClaimCycle = null
         run.spawnCycles.clear()
         run.branda = spawnTitan(run, RoyalTitansAssets.BRANDA_ACTIVE, ROYAL_TITANS_BRANDA_SPAWN)
         run.eldric = null
@@ -787,6 +766,7 @@ constructor(
     }
 
     private fun reset(run: Run) {
+        reinvigoration.cancel(run)
         run.hitScope.invalidate()
         run.participants.values.forEach { it.hitScope.invalidate() }
         run.generation++
@@ -819,6 +799,7 @@ constructor(
     private fun retire(run: Run) {
         if (run.retired) return
         run.retired = true
+        reinvigoration.cancel(run)
         listOfNotNull(run.branda, run.eldric).forEach(phases::retire)
         run.hitScope.close()
         arena.online(run).forEach { releaseParticipant(it, run) }
