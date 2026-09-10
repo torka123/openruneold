@@ -20,6 +20,9 @@ constructor(
     private val parameters: MuspahAttackParameters,
 ) : PluginScript() {
     override fun ScriptContext.startup() {
+        deps.extensionRegistry.register("muspah.final-spikes") { _, npc, target, _ ->
+            encounters.finalSpikes(npc, target)
+        }
         deps.extensionRegistry.registerAttackParameters("muspah.attack") { npc, target, data ->
             parameters.resolve(npc, target, data as MuspahAttack)
         }

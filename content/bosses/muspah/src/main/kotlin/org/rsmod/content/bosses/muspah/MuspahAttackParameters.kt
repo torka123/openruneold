@@ -35,10 +35,7 @@ constructor(
                 maxHit = maximum,
                 hitModifier = NpcPartialProtectionPrayerPlayerHitModifier(50),
                 hitValidity = validity,
-                onAttack = {
-                    run.stationaryMeleeAttacks = stationary
-                    run.attackCounter++
-                },
+                onAttack = { run.stationaryMeleeAttacks = stationary },
             )
         }
         val magic = style == MuspahAttack.CHARGED_MAGIC

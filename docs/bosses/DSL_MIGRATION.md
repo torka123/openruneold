@@ -974,3 +974,31 @@ own it. `muspah-native-kc-green.log`: all59 pass,41s/167tasks, including two con
 and repeated completion notification without another increment. The three-line source overlay was
 selectively staged; unrelated Royal Titans/GE changes in the same file were excluded. SERVER/LIVE
 are not repacked; the overlay must accompany the authorized deployment.
+
+`muspah-native-final-cadence-before.log` and `muspah-native-final-cadence-dsl.log` pass60 tests.
+Final shots now declare `AbilityCountModulo(4,0)` after their native attack effect, invoking a
+named spike handler. Removed the private attack counter without changing the eight-shot regression's
+shots, deadlines or blocked-attempt behavior. The draft's passive-shield-break expansion is retained,
+not certified as OSRS. `muspah-native-spatial-split.log` passes60 tests,41s/167tasks after separating
+spike/cloud/LOS resource operations into MuspahArenaEffects. Phase ownership is not yet finished.
+
+### Additional shared phase-clock mapping
+
+Inspection of upstream/local BossCombat and native NpcInteractionProcessor shows timed
+`exitAfter/nextPhase` progression is only checked on an attack interaction. A moving melee target
+out of reach, or a locked special outside approach range, can prevent a declarative timed phase
+from ending. Increasing the attack radius to drive timers would alter attack reach and movement;
+retaining the private per-player phase timer would duplicate the framework.
+
+Within the approved generic DSL timing/phase repairs, add the smallest opt-in binding to the
+existing BossEncounter and WorldQueueList: arm the declared phase exit on native transition,
+cancel/rearm on another transition, and execute its existing entry effect through
+StandardNpcAccessLauncher/EffectInterpreter when the NPC is available. Ordinary selection, reach,
+movement and combat readiness remain in BossCombat. Source/target lifetime must invalidate this
+binding. This is a **new local shared capability**, not an official upstream API or a second
+framework. Existing bosses are unchanged unless they opt in.
+
+Required API regressions: timed entry without attack events, exact deadline, no duplicate entry
+alongside native attack processing, phase replacement cancels old deadline, busy-NPC safety,
+source/target retirement, and native queue cleanup. Muspah must then remove its corresponding
+private deadlines and use this declarative clock before its phase migration is considered complete.

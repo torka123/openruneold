@@ -4,7 +4,6 @@ import dev.openrune.ServerCacheManager
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
 import dev.openrune.types.ProjAnimType
-import dev.openrune.types.aconverted.SpotanimType
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlin.math.max
@@ -13,34 +12,18 @@ import org.rsmod.api.bosses.runtime.EncounterRegistry
 import org.rsmod.api.combat.commons.CombatCorruption
 import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.instances.InstanceSession
-import org.rsmod.api.instances.RegionLocal
 import org.rsmod.api.npc.apPlayer2
-import org.rsmod.api.npc.heal
 import org.rsmod.api.npc.interact.AiPlayerInteractions
 import org.rsmod.api.npc.owner.assignSpawnOwner
 import org.rsmod.api.npc.owner.isSpawnOwnedBy
 import org.rsmod.api.player.combatClearQueue
-import org.rsmod.api.player.hit.modifier.NpcBypassProtectionPrayerPlayerHitModifier
-import org.rsmod.api.player.hit.queueHit
 import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.stat.hitpoints
 import org.rsmod.api.random.GameRandom
-import org.rsmod.api.repo.loc.LocRepository
-import org.rsmod.api.repo.world.WorldRepository
 import org.rsmod.game.MapClock
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
-import org.rsmod.game.entity.util.PathingEntityCommon
-import org.rsmod.game.hit.HitAttribution
 import org.rsmod.game.hit.HitBuilder
-import org.rsmod.game.hit.HitContext
-import org.rsmod.game.hit.HitOrigin
-import org.rsmod.game.hit.HitType
-import org.rsmod.game.loc.LocAngle
-import org.rsmod.game.loc.LocShape
-import org.rsmod.game.queue.WorldQueueList
-import org.rsmod.map.CoordGrid
-import org.rsmod.routefinder.LineValidator
 import org.rsmod.routefinder.collision.CollisionFlagMap
 
 @Singleton
@@ -49,16 +32,13 @@ internal class MuspahEncounterManager
 constructor(
     private val clock: MapClock,
     private val instances: InstanceManager,
-    private val locs: LocRepository,
     private val interactions: AiPlayerInteractions,
     private val collision: CollisionFlagMap,
     private val random: GameRandom,
     private val bossEncounters: EncounterRegistry,
     private val corruption: CombatCorruption,
-    private val world: WorldRepository,
-    private val queues: WorldQueueList,
+    private val effects: MuspahArenaEffects,
 ) {
-    private val lineValidator = LineValidator(collision)
 
     fun validateAssets() {
         MuspahAssets.npcForms.forEach(::requireNpc)
@@ -99,7 +79,7 @@ constructor(
             player.lootDropDuration = MUSPAH_DROP_DURATION
             session.onCleanup {
                 run.state = MuspahState.INVALIDATED
-                cleanupHazards(run)
+                effects.cleanupHazards(run)
                 bossEncounters.remove(boss)
                 corruption.clear(player)
                 player.lootDropDuration = null
@@ -270,7 +250,7 @@ constructor(
         if (run.state in setOf(MuspahState.DYING, MuspahState.RESPAWNING)) return null
         run.state = MuspahState.DYING
         run.encounter.runCleanupActions()
-        cleanupHazards(run)
+        effects.cleanupHazards(run)
         corruption.clear(run.player)
         run.player.combatClearQueue()
         run.killTicks = (clock.cycle - run.killStartCycle).coerceAtLeast(0)
@@ -333,7 +313,7 @@ constructor(
     }
 
     private fun prepareRound(run: MuspahArenaState) {
-        cleanupHazards(run)
+        effects.cleanupHazards(run)
         val initial = MuspahRules.startingForm(random.of(2))
         val boss = run.boss
         boss.mode = null
@@ -360,7 +340,6 @@ constructor(
         run.firstSpecialFired = false
         run.secondSpecialFired = false
         run.shieldPoints = 0
-        run.attackCounter = 0
         run.stationaryMeleeAttacks = 0
         run.startReadyCycle = clock.cycle + 4
         run.transformCycle = Int.MAX_VALUE
@@ -375,7 +354,7 @@ constructor(
         run.killTicks = 0
         run.lastCloudHitCycle = Int.MIN_VALUE
         run.shieldDrainSources.clear()
-        run.encounter.onCleanup { cleanupHazards(run) }
+        run.encounter.onCleanup { effects.cleanupHazards(run) }
         boss.anim(MuspahAssets.SPAWN)
         prepare(run.player)
     }
@@ -388,7 +367,7 @@ constructor(
         run.transformCycle = clock.cycle + 4
         run.boss.actionDelay = max(run.boss.actionDelay, run.transformCycle + 1)
         run.boss.anim(MuspahAssets.ATTACK_SUMMON)
-        spawnCrack(run, run.player.coords)
+        effects.spawnCrack(run, run.player.coords)
     }
 
     private fun tickTransformation(run: MuspahArenaState) {
@@ -420,7 +399,7 @@ constructor(
     }
 
     private fun beginLightning(run: MuspahArenaState) {
-        hardenMovingSpikes(run)
+        effects.hardenMovingSpikes(run)
         run.state = MuspahState.LIGHTNING_CLOUDS
         run.currentForm = MuspahForm.TELEPORT
         run.lightningIndex = 0
@@ -433,7 +412,7 @@ constructor(
     }
 
     private fun tickLightning(run: MuspahArenaState) {
-        tickClouds(run)
+        effects.tickClouds(run)
         if (clock.cycle < run.nextLightningCycle) return
         if (run.lightningIndex >= lightningRoute.size) {
             run.clouds.clear()
@@ -447,53 +426,12 @@ constructor(
             return
         }
         val local = lightningRoute[run.lightningIndex++]
-        val destination = requireLocal(run.session, local.first, local.second)
+        val destination = effects.requireLocal(run.session, local.first, local.second)
         run.boss.anim(MuspahAssets.TELEPORT_DISAPPEAR)
         run.boss.teleport(collision, destination)
         run.boss.anim(MuspahAssets.TELEPORT_APPEAR)
-        spawnLightningCloud(run, destination)
+        effects.spawnLightningCloud(run, destination)
         run.nextLightningCycle = clock.cycle + 3
-    }
-
-    private fun spawnLightningCloud(run: MuspahArenaState, source: CoordGrid) {
-        val center = arenaCenter(run.session)
-        val dx = (center.x - source.x).coerceIn(-1, 1)
-        val dz = (center.z - source.z).coerceIn(-1, 1)
-        run.clouds +=
-            LightningCloud(
-                tile = source,
-                deltaX = dx,
-                deltaZ = dz,
-                endCycle = clock.cycle + 18,
-                nextMoveCycle = clock.cycle,
-            )
-    }
-
-    private fun tickClouds(run: MuspahArenaState) {
-        val iterator = run.clouds.iterator()
-        while (iterator.hasNext()) {
-            val cloud = iterator.next()
-            if (clock.cycle >= cloud.endCycle || !inArena(run.session, cloud.tile)) {
-                iterator.remove()
-                continue
-            }
-            if (clock.cycle >= cloud.nextMoveCycle) {
-                cloud.tile = cloud.tile.translate(cloud.deltaX, cloud.deltaZ)
-                cloud.nextMoveCycle++
-                world.spotanimMap(spot(MuspahAssets.LIGHTNING), cloud.tile)
-            }
-            if (cloud.tile == run.player.coords && run.lastCloudHitCycle != clock.cycle) {
-                run.lastCloudHitCycle = clock.cycle
-                run.player.queueHit(
-                    source = run.boss,
-                    context = HitContext.of(HitAttribution(HitOrigin.Environment), run.hazardScope),
-                    delay = 1,
-                    type = HitType.Typeless,
-                    damage = random.of(0..20),
-                    modifier = NpcBypassProtectionPrayerPlayerHitModifier,
-                )
-            }
-        }
     }
 
     private fun beginHoming(run: MuspahArenaState) {
@@ -501,31 +439,7 @@ constructor(
         run.state = MuspahState.HOMING_SPIKES
         run.homingEndCycle = MuspahRules.homingEndCycle(clock.cycle)
         run.boss.anim(MuspahAssets.ATTACK_SUMMON)
-        val desiredSeedCount = 4
-        for (offset in homingSeedOffsets) {
-            if (run.staticSpikes.size >= desiredSeedCount) break
-            spawnStaticSpike(run, run.player.coords.translate(offset.first, offset.second))
-        }
-        val available = run.staticSpikes.values.toMutableList()
-        if (available.isEmpty()) {
-            finishHoming(run, resume = true)
-            return
-        }
-        val amount = random.of(1..4).coerceAtMost(available.size)
-        repeat(amount) {
-            val selected = available.removeAt(random.of(available.size))
-            run.staticSpikes.remove(selected.coords)
-            locs.del(selected, Int.MAX_VALUE)
-            val moving =
-                locs.add(
-                    selected.coords,
-                    MuspahAssets.SPIKE_FOLLOW,
-                    Int.MAX_VALUE,
-                    selected.angle,
-                    selected.shape,
-                )
-            run.movingSpikes += MovingSpike(moving, clock.cycle + 2)
-        }
+        if (!effects.startHoming(run)) finishHoming(run, resume = true)
     }
 
     private fun tickHoming(run: MuspahArenaState) {
@@ -533,51 +447,16 @@ constructor(
             finishHoming(run, resume = true)
             return
         }
-        for (moving in run.movingSpikes) {
-            if (clock.cycle < moving.nextMoveCycle) continue
-            moving.nextMoveCycle += 2
-            val next = homingNextTile(run, moving.loc.coords)
-            if (next == moving.loc.coords) continue
-            locs.del(moving.loc, Int.MAX_VALUE)
-            moving.loc =
-                locs.add(
-                    next,
-                    MuspahAssets.SPIKE_FOLLOW,
-                    Int.MAX_VALUE,
-                    moving.loc.angle,
-                    moving.loc.shape,
-                )
-            if (next == run.player.coords) spikeHit(run)
-        }
+        effects.moveHoming(run)
         keepAggressive(run)
     }
 
-    private fun homingNextTile(run: MuspahArenaState, from: CoordGrid): CoordGrid {
-        val primary =
-            MuspahRules.nextOrthogonalStep(from.x, from.z, run.player.coords.x, run.player.coords.z)
-                .let { CoordGrid(it.first, it.second, from.level) }
-        if (validSpikeTile(run, primary)) return primary
-        val dx = (run.player.coords.x - from.x).coerceIn(-1, 1)
-        val dz = (run.player.coords.z - from.z).coerceIn(-1, 1)
-        val alternate = if (primary.x != from.x) from.translate(0, dz) else from.translate(dx, 0)
-        return alternate.takeIf { validSpikeTile(run, it) } ?: from
-    }
-
     private fun finishHoming(run: MuspahArenaState, resume: Boolean) {
-        hardenMovingSpikes(run)
+        effects.hardenMovingSpikes(run)
         if (resume && run.state == MuspahState.HOMING_SPIKES) {
             run.state = run.resumeState
             run.boss.apPlayer2(run.player, interactions)
         }
-    }
-
-    private fun hardenMovingSpikes(run: MuspahArenaState) {
-        for (moving in run.movingSpikes) {
-            val tile = moving.loc.coords
-            locs.del(moving.loc, Int.MAX_VALUE)
-            spawnStaticSpike(run, tile)
-        }
-        run.movingSpikes.clear()
     }
 
     private fun beginShieldTransition(run: MuspahArenaState) {
@@ -591,7 +470,7 @@ constructor(
         run.shockwaveFired = false
         run.boss.transmog(requireNpc(MuspahAssets.TELEPORT), Int.MAX_VALUE)
         run.boss.anim(MuspahAssets.TELEPORT_DISAPPEAR)
-        run.boss.teleport(collision, arenaCenter(run.session))
+        run.boss.teleport(collision, effects.arenaCenter(run.session))
         run.boss.anim(MuspahAssets.ATTACK_EXPLOSION)
         run.boss.actionDelay = run.shieldApplyCycle + 2
     }
@@ -599,28 +478,7 @@ constructor(
     private fun tickShockwave(run: MuspahArenaState) {
         if (!run.shockwaveFired && clock.cycle >= run.shockwaveCycle) {
             run.shockwaveFired = true
-            world.spotanimMap(spot(MuspahAssets.SHOCKWAVE), arenaCenter(run.session))
-            val exposed =
-                lineValidator.hasLineOfSight(
-                    level = run.boss.level,
-                    srcX = run.boss.coords.x,
-                    srcZ = run.boss.coords.z,
-                    destX = run.player.coords.x,
-                    destZ = run.player.coords.z,
-                    srcWidth = run.boss.size,
-                    srcLength = run.boss.size,
-                )
-            if (exposed) {
-                run.player.queueHit(
-                    source = run.boss,
-                    context = HitContext.of(HitAttribution(HitOrigin.Environment), run.hazardScope),
-                    delay = 1,
-                    type = HitType.Typeless,
-                    damage = random.of(0..80),
-                    modifier = NpcBypassProtectionPrayerPlayerHitModifier,
-                )
-                corruption.apply(run.player, strong = true)
-            }
+            effects.shockwave(run)
         }
         if (clock.cycle < run.shieldApplyCycle) return
         if (run.shieldSkipPending) {
@@ -635,7 +493,6 @@ constructor(
         run.currentForm = MuspahForm.SHIELD
         run.state = MuspahState.PRAYER_SHIELD
         run.shieldPoints = MUSPAH_SHIELD_POINTS
-        run.attackCounter = 0
         run.boss.apRangeOverride = 10
         run.boss.movementLocked = true
         run.boss.apPlayer2(run.player, interactions)
@@ -653,117 +510,27 @@ constructor(
         run.currentForm = MuspahForm.FINAL
         run.state = MuspahState.FINAL_STAND
         run.shieldPoints = 0
-        run.attackCounter = 0
         run.boss.actionDelay = clock.cycle + 3
         run.boss.apRangeOverride = 10
         run.boss.movementLocked = true
-        spawnCrack(run, run.player.coords)
+        effects.spawnCrack(run, run.player.coords)
         run.boss.apPlayer2(run.player, interactions)
     }
 
-    // Transitional form-specific side effects; final forced cadence moves with the phase engine.
     fun onRangedAttack(run: MuspahArenaState) {
-        run.attackCounter++
         if (run.state == MuspahState.PRAYER_SHIELD) {
             drainShield(run, MuspahRules.passiveShieldDrain())
-        }
-        if (
-            run.state == MuspahState.FINAL_STAND &&
-                run.attackCounter % MUSPAH_FINAL_SPIKE_ATTACKS == 0
-        ) {
-            spawnCrack(run, run.player.coords)
-            spreadFinalSpikes(run)
+            // Preserve the draft's extra expansion when passive drain breaks the shield.
+            // This is retained draft behavior, not packet-certified.
+            if (run.state == MuspahState.FINAL_STAND) finalSpikes(run.boss, run.player)
         }
     }
 
-    private fun spawnCrack(run: MuspahArenaState, tile: CoordGrid) {
-        if (!validSpikeTile(run, tile)) return
-        world.spotanimMap(spot(MuspahAssets.SPIKE_WARNING), tile)
-        val warning =
-            locs.add(
-                tile,
-                MuspahAssets.SPIKE_PRE,
-                Int.MAX_VALUE,
-                LocAngle.North,
-                LocShape.CentrepieceStraight,
-            )
-        run.warningSpikes += warning
-        // Native encounter queue owns the replacement, not a re-entrant loc expiry callback.
-        run.encounter.scheduleAt(queues, clock, clock.cycle + 2) {
-            if (
-                instances.muspahState(run.player) !== run ||
-                    run.state in
-                        setOf(MuspahState.DYING, MuspahState.RESPAWNING, MuspahState.INVALIDATED)
-            )
-                return@scheduleAt
-            run.warningSpikes.remove(warning)
-            locs.del(warning, Int.MAX_VALUE)
-            spawnStaticSpike(run, tile)
-            if (run.player.coords == tile) spikeHit(run)
-        }
-    }
-
-    private fun spawnStaticSpike(run: MuspahArenaState, tile: CoordGrid) {
-        if (!validSpikeTile(run, tile)) return
-        if (run.staticSpikes.containsKey(tile)) return
-        val loc =
-            locs.add(
-                tile,
-                MuspahAssets.SPIKE,
-                Int.MAX_VALUE,
-                LocAngle.North,
-                LocShape.CentrepieceStraight,
-            )
-        run.staticSpikes[tile] = loc
-    }
-
-    private fun spreadFinalSpikes(run: MuspahArenaState) {
-        val existing = run.staticSpikes.keys.toList()
-        for (tile in existing.take(6)) {
-            val candidates =
-                listOf(
-                    tile.translateX(1),
-                    tile.translateX(-1),
-                    tile.translateZ(1),
-                    tile.translateZ(-1),
-                )
-            val target = candidates.firstOrNull { validSpikeTile(run, it) }
-            if (target != null) spawnCrack(run, target)
-        }
-    }
-
-    private fun spikeHit(run: MuspahArenaState) {
-        val damage = random.of(0..20)
-        run.player.queueHit(
-            source = run.boss,
-            context = HitContext.of(HitAttribution(HitOrigin.Environment), run.hazardScope),
-            delay = 1,
-            type = HitType.Typeless,
-            damage = damage,
-            modifier = NpcBypassProtectionPrayerPlayerHitModifier,
-            impactHandler =
-                org.rsmod.game.hit.HitImpactHandler { impact ->
-                    run.boss.heal(MuspahRules.spikeHeal(impact.damage))
-                },
-        )
-        val destination =
-            adjacentTiles(run.player.coords).firstOrNull {
-                inArena(run.session, it) &&
-                    it !in run.staticSpikes &&
-                    run.movingSpikes.none { moving -> moving.loc.coords == it }
-            }
-        if (destination != null) PathingEntityCommon.telejump(run.player, collision, destination)
-    }
-
-    private fun cleanupHazards(run: MuspahArenaState) {
-        run.hazardScope.invalidate()
-        run.warningSpikes.forEach { locs.del(it, Int.MAX_VALUE) }
-        run.warningSpikes.clear()
-        run.staticSpikes.values.forEach { locs.del(it, Int.MAX_VALUE) }
-        run.staticSpikes.clear()
-        run.movingSpikes.forEach { locs.del(it.loc, Int.MAX_VALUE) }
-        run.movingSpikes.clear()
-        run.clouds.clear()
+    fun finalSpikes(npc: Npc, target: Player) {
+        val run = instances.muspahState(target)?.takeIf { it.boss === npc } ?: return
+        if (run.state != MuspahState.FINAL_STAND) return
+        effects.spawnCrack(run, run.player.coords)
+        effects.spreadFinalSpikes(run)
     }
 
     private fun keepAggressive(run: MuspahArenaState) {
@@ -814,48 +581,10 @@ constructor(
             MuspahForm.TELEPORT -> MuspahAssets.TELEPORT
         }
 
-    private fun arenaCenter(session: InstanceSession): CoordGrid = requireLocal(session, 31, 34)
-
-    private fun requireLocal(session: InstanceSession, x: Int, z: Int): CoordGrid =
-        requireNotNull(instances.localCoord(session, RegionLocal(0, 44, 66, x, z)))
-
-    private fun inArena(session: InstanceSession, tile: CoordGrid): Boolean {
-        val southWest = requireLocal(session, 17, 19)
-        val northEast = requireLocal(session, 43, 49)
-        return tile.level == southWest.level &&
-            tile.x in southWest.x..northEast.x &&
-            tile.z in southWest.z..northEast.z
-    }
-
-    private fun validSpikeTile(run: MuspahArenaState, tile: CoordGrid): Boolean =
-        inArena(run.session, tile) &&
-            tile !in run.staticSpikes &&
-            run.movingSpikes.none { it.loc.coords == tile } &&
-            !bossOccupies(run, tile)
-
-    private fun bossOccupies(run: MuspahArenaState, tile: CoordGrid): Boolean =
-        tile.x in run.boss.coords.x until (run.boss.coords.x + run.boss.size) &&
-            tile.z in run.boss.coords.z until (run.boss.coords.z + run.boss.size)
-
-    private fun adjacentTiles(tile: CoordGrid): List<CoordGrid> =
-        listOf(
-            tile.translate(1, 1),
-            tile.translate(-1, 1),
-            tile.translate(1, -1),
-            tile.translate(-1, -1),
-            tile.translateX(1),
-            tile.translateX(-1),
-            tile.translateZ(1),
-            tile.translateZ(-1),
-        )
-
     private fun projectileType(internal: String): ProjAnimType =
         requireNotNull(ServerCacheManager.getProjectile(internal.asRSCM(RSCMType.PROJANIM))) {
             "Missing Phantom Muspah projectile controller: $internal"
         }
-
-    private fun spot(internal: String): SpotanimType =
-        SpotanimType(internal.asRSCM(RSCMType.SPOTANIM))
 
     private fun requireNpc(internal: String) =
         requireNotNull(ServerCacheManager.getNpc(internal.asRSCM(RSCMType.NPC))) {
@@ -889,6 +618,5 @@ constructor(
                 31 to 22,
                 39 to 43,
             )
-        val homingSeedOffsets = listOf(4 to 0, -4 to 0, 0 to 4, 0 to -4)
     }
 }

@@ -642,14 +642,21 @@ private class MuspahFixture(melee: Boolean = false, magic: Boolean = false) {
         MuspahEncounterManager(
             clock,
             instances,
-            locs,
             AiPlayerInteractions(events, players),
             collision,
             random,
             registry,
             corruption,
-            world,
-            deps.worldQueues,
+            MuspahArenaEffects(
+                clock,
+                instances,
+                locs,
+                collision,
+                random,
+                world,
+                deps.worldQueues,
+                corruption,
+            ),
         )
     val boss
         get() = npcList.first()

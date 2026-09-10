@@ -35,7 +35,6 @@ internal class MuspahArenaState(
     var firstSpecialFired: Boolean = false,
     var secondSpecialFired: Boolean = false,
     var shieldPoints: Int = 0,
-    var attackCounter: Int = 0,
     var stationaryMeleeAttacks: Int = 0,
     var startReadyCycle: Int = Int.MAX_VALUE,
     var transformCycle: Int = Int.MAX_VALUE,

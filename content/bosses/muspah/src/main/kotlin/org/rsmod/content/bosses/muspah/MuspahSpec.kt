@@ -58,6 +58,21 @@ internal fun muspahCombatSpec(): BossSpec {
                     noRepeatBias = 0.0,
                 )
             }
+        if (form == MuspahForm.FINAL) {
+            for (style in listOf(MuspahAttack.CHARGED_MAGIC, MuspahAttack.RANGED)) {
+                val ability = "$name-$style"
+                abilities[ability] =
+                    Effect.Sequence(
+                        listOf(
+                            requireNotNull(abilities[ability]),
+                            Effect.Whenever(
+                                Condition.AbilityCountModulo(MUSPAH_FINAL_SPIKE_ATTACKS, 0),
+                                Effect.External("muspah.final-spikes"),
+                            ),
+                        )
+                    )
+            }
+        }
         phases[name] =
             PhaseSpec(
                 name,
