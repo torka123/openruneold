@@ -1623,3 +1623,24 @@ existing floor/model/hit ordering. No private transition timer remains. All125 t
 first production run (1m5s/196tasks) and scoped verification (`royal-titans-teleport-dsl-verified-
 20260910.log`,57s/206tasks): module check, shared boss/instance and3 cache audit cases pass.
 This is still source-only; no live/visual acceptance is inferred from these tests.
+
+### Paired corpse reset mapping
+
+The+29 respawn must outlive both corpse removals at+26, so neither removed NPC's BossEncounter
+can own it. Native InstanceSession.onCleanup already owns resources across actor forms, and the
+existing cancellable WorldQueueList supports exact deadlines. Reuse those APIs directly for the
+three one-shot reinvigoration events (+21 collapse,+26 remove,+29 respawn); this is a focused
+noncombat pair handler, not a general-purpose timer or attack framework. Session-owned state holds
+the native cancellation handles and one presentation marker. Preserve LateCycle application,
+first-claim-only start, unclaimed behavior and reward policy. Native session end/run retirement
+physically unlinks all remaining work. No new shared API, altered respawn delay or gameplay policy.
+
+Local searches: InstanceSession.onCleanup/resetState, InstanceManager.resetNpcs, BossEncounter
+scheduleAt and WorldQueueList.addCancellable. Upstream reference remains pinned61139e76a;
+InstanceManager is official family, cancellation/readiness and resource callbacks are existing
+local migration extensions. Unlike Guardians, no actor remains visible throughout the reset gap.
+Characterize duo claimer departure, teardown before collapse/after removal and repeated kills
+before replacing firstClaimCycle polling. Normal combat continues through the registered DSL.
+The two new reset characterizations pass before production edits (`royal-titans-reset-
+characterization-20260910.log`,33s/196tasks). They cover claimer departure at+20 and empty-room
+teardown at+0/+20/+25/+26/+28 without any subsequent resurrection.
