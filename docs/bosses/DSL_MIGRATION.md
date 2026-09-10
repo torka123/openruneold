@@ -888,3 +888,7 @@ controller, defined in upstream `.data/raw-cache/server/projectiles.toml:69` and
 as ID6. This repairs the invalid generic controller reference; it does not certify its heights/travel
 as Muspah-specific OSRS values. Validate the selected controller during asset validation. Existing
 lightning/homing/form/exit native characterizations pass; no new spatial behavior is inferred.
+
+`muspah-native-controller-green.log`: all 48 tests pass (eight native, 40 retained), scoped check
+36s/164 tasks. The native spell controller resolves and ordinary attacks now launch. No engine or
+cache edits were required. This is a corrected native baseline, not the completed DSL migration.

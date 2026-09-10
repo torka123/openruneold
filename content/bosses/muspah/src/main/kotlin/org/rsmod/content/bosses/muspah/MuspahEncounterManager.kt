@@ -8,7 +8,6 @@ import dev.openrune.types.ProjAnimType
 import dev.openrune.types.aconverted.SpotanimType
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import kotlin.math.abs
 import kotlin.math.max
 import org.rsmod.api.attr.BossRewardAttributes
 import org.rsmod.api.combat.NpcAttackOverride
@@ -82,16 +81,13 @@ constructor(
             }
         }
         MuspahAssets.spotanims.forEach { it.asRSCM(RSCMType.SPOTANIM) }
-        listOf(
-                MuspahAssets.SPIKE_PRE,
-                MuspahAssets.SPIKE,
-                MuspahAssets.SPIKE_FOLLOW,
-            )
-            .forEach { internal ->
-                requireNotNull(ServerCacheManager.getObject(internal.asRSCM(RSCMType.LOC))) {
-                    "Missing Phantom Muspah location: $internal"
-                }
+        projectileType(MuspahAssets.PROJECTILE_CONTROLLER)
+        listOf(MuspahAssets.SPIKE_PRE, MuspahAssets.SPIKE, MuspahAssets.SPIKE_FOLLOW).forEach {
+            internal ->
+            requireNotNull(ServerCacheManager.getObject(internal.asRSCM(RSCMType.LOC))) {
+                "Missing Phantom Muspah location: $internal"
             }
+        }
         listOf(
                 MuspahAssets.ENTRANCE_ID,
                 MuspahAssets.EXIT_ID,
@@ -608,18 +604,12 @@ constructor(
 
     private fun homingNextTile(run: Run, from: CoordGrid): CoordGrid {
         val primary =
-            MuspahRules.nextOrthogonalStep(
-                    from.x,
-                    from.z,
-                    run.player.coords.x,
-                    run.player.coords.z,
-                )
+            MuspahRules.nextOrthogonalStep(from.x, from.z, run.player.coords.x, run.player.coords.z)
                 .let { CoordGrid(it.first, it.second, from.level) }
         if (validSpikeTile(run, primary)) return primary
         val dx = (run.player.coords.x - from.x).coerceIn(-1, 1)
         val dz = (run.player.coords.z - from.z).coerceIn(-1, 1)
-        val alternate =
-            if (primary.x != from.x) from.translate(0, dz) else from.translate(dx, 0)
+        val alternate = if (primary.x != from.x) from.translate(0, dz) else from.translate(dx, 0)
         return alternate.takeIf { validSpikeTile(run, it) } ?: from
     }
 
@@ -762,7 +752,7 @@ constructor(
         val projectile =
             NpcProjectile(
                 if (magic) MuspahAssets.MAGIC_TRAVEL else MuspahAssets.RANGED_TRAVEL,
-                projectileType("projanim.magic"),
+                projectileType(MuspahAssets.PROJECTILE_CONTROLLER),
             )
         val override =
             NpcAttackOverride(
@@ -948,11 +938,7 @@ constructor(
             MuspahForm.TELEPORT -> MuspahAssets.TELEPORT
         }
 
-    private fun spawnBoss(
-        player: Player,
-        session: InstanceSession,
-        form: MuspahForm,
-    ): Npc {
+    private fun spawnBoss(player: Player, session: InstanceSession, form: MuspahForm): Npc {
         val boss = Npc(requireNpc(internalFor(form)), bossSpawn(session))
         boss.mode = null
         boss.baseHitpointsLvl = MUSPAH_MAX_HITPOINTS

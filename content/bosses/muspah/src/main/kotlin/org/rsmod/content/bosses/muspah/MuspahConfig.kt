@@ -121,6 +121,9 @@ internal object MuspahAssets {
     const val LIGHTNING = "spotanim.vfx_muspah_teleport_attack_01"
     const val SPIKE_WARNING = "spotanim.vfx_muspah_spike_warning_01"
 
+    // Existing native generic controller. Muspah-specific travel still needs packet evidence.
+    const val PROJECTILE_CONTROLLER = "projanim.magic_spell"
+
     const val SPIKE_PRE = "loc.muspah_spike_pre"
     const val SPIKE = "loc.muspah_spike"
     const val SPIKE_FOLLOW = "loc.muspah_spike_follow"
