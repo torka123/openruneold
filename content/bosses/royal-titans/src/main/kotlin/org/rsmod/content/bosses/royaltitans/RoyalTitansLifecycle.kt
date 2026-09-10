@@ -12,11 +12,7 @@ import org.rsmod.api.death.PlayerDeathHandling
 import org.rsmod.api.death.PlayerDeathHook
 import org.rsmod.api.death.UntradeableHandling
 import org.rsmod.api.game.process.GameLifecycle
-import org.rsmod.api.instances.events.InstanceEndedEvent
-import org.rsmod.api.instances.events.InstancePlayerExternalTeleportEvent
-import org.rsmod.api.instances.events.instanceEventId
 import org.rsmod.api.script.onEvent
-import org.rsmod.api.script.onPlayerLogout
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
 import org.rsmod.plugin.scripts.PluginScript
@@ -58,9 +54,12 @@ constructor(private val encounters: RoyalTitansEncounterManager) : PlayerDeathHo
 internal class RoyalTitansDeathCleanup
 @Inject
 constructor(private val encounters: RoyalTitansEncounterManager) : PlayerDeathCleanupHook {
+    override val priority: Int = 1
+
     override fun cleanup(player: Player) {
-        // PlayerDeath has already delivered the outside pile and selected the normal respawn.
-        encounters.removeParticipant(player, "player death", teleport = false)
+        // Record before native InstanceDeathCleanupHook if a respawn teleport has not detached
+        // membership already. Keyed leave also observes zero HP; the participant flag deduplicates.
+        encounters.recordDeath(player)
     }
 }
 
@@ -69,19 +68,5 @@ internal class RoyalTitansLifecycle
 constructor(private val encounters: RoyalTitansEncounterManager) : PluginScript() {
     override fun ScriptContext.startup() {
         onEvent<GameLifecycle.LateCycle> { encounters.tickAll() }
-        onEvent<InstanceEndedEvent>(instanceEventId(ROYAL_TITANS_INSTANCE_KEY)) {
-            encounters.instanceEnded(instanceId)
-        }
-        onEvent<InstancePlayerExternalTeleportEvent> {
-            if (key == ROYAL_TITANS_INSTANCE_KEY) encounters.externalTeleport(player, instanceId)
-        }
-        onPlayerLogout {
-            encounters.removeParticipant(
-                player,
-                "logout or disconnect",
-                teleport = false,
-                logout = true,
-            )
-        }
     }
 }

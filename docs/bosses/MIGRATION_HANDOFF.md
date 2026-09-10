@@ -164,6 +164,16 @@ Commit: `632ae1a929e7410a2cbb1c675af739f1771a02dc`. Source-only archive:
 The archive contains 7,441 entries; excluded-path validation found zero violations. It excludes
 runtime data, credentials, PostgreSQL, caches, logs and generated build output.
 
+Next source checkpoint: Royal Titans native InstanceScript/session migration is implemented.
+The three private manager indexes and manual enter/join/leave/logout/teleport flows are removed.
+Source tests now enter through the actual protected World script. All116 module tests pass,
+with native refusal, deferred logout, disconnect, duo/death/teleport, separate-room cleanup,
+cross-room claim denial and SQL retry coverage. Focused check/cache/shared suites pass in
+`royal-titans-native-lifecycle-verified-20260910.log`; broader boss/shared/app/architecture check
+passes in `royal-titans-native-lifecycle-broad-20260910.log` (46s/505tasks).
+This checkpoint is source-only, not live. Continue paired Titan combat phases/cadence and
+specialized handler extraction; do not repeat the completed elemental/session work.
+
 1. Collect user client-test feedback. Backup, local deployment, two gameplay checkpoint restarts,
    persistent fingerprints and the corrected75-assertion live Vorkath audit are complete. Do not
    repeat them merely because an older section or message says they are pending. Visual/full OSRS

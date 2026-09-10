@@ -1429,3 +1429,37 @@ InstanceScript entry boundary is wired into the fixture. Death recording must ha
 native membership disappears (including death's respawn teleport), remain idempotent, and retry
 after destruction. The death cleanup adapter may observe a death but must not own detachment.
 Preserve existing spawn ticks, warning/name dialogs, join threshold, corpse/reset and rewards.
+
+Implemented native session ownership: RoyalTitansWorld now extends InstanceScript, registers its
+source spec, and uses protected completeInstanceEntry/defaultLeaveFlow. Native keyed join/leave
+owns participant scope setup/retirement. All three private manager indexes and its create/join/
+leave/logout/teleport methods are gone. NPC ownership resolves through InstanceManager; session
+occupants are authoritative. Participant records now contain only hit scope/death observation.
+Run generations are session-local. Specialized hazard cleanup uses session.onCleanup; native
+instance teardown deletes remaining Titans/corpses. Pending SQL death/completion retries survive
+the room. Three obsolete architecture waivers were removed. No shared source was changed.
+
+Before edits, new native leave/death/logout tests failed because the old manager retained stale
+membership; external teleport and separate-room termination passed. Log:
+`royal-titans-native-lifecycle-characterization-20260910.log`, five tests, three failures.
+An initial fixture compile error used a read-only HP accessor; corrected to native statMap setter.
+After migration, the first full run passed113/114; the remaining reach-probe test tried registering
+corpse operations on a bus now occupied by the real World script. Its isolated native reach probe
+now uses a separate event bus, not duplicate gameplay handlers. The fixture executes real protected
+InstanceScript entry/exit and native lifecycle registration throughout the retained combat tests.
+
+Final focused log `royal-titans-native-lifecycle-verified-20260910.log`:116 tests, zero failures,
+errors or skips; scoped module check, api:instances, api:bosses and three revision-240 cache tests
+pass (unchanged shared/cache tasks up-to-date),1m33s/206tasks. New coverage includes denied create/
+join/exit, logout-panel result, native death/logout/disconnect/teleport, deferred reclamation,
+multi-room termination, death retry after destruction, duplicate joins and cross-room claim denial.
+The latter correction prevents a contributor in another room claiming a foreign corpse; personal
+claims within the correct duo room remain unchanged. Death cleanup is observation only with
+priority ahead of native detachment; zero-HP keyed departures cover the earlier respawn teleport.
+One participant flag deduplicates both observations. It is reset for a new completion.
+
+Broader log `royal-titans-native-lifecycle-broad-20260910.log`: successful,46s/505tasks, four executed
+and501 up-to-date. All applicable boss/shared suites, app compilation and architecture enforcement
+pass. Manager1,932 lines (was1,997 after elemental step; original2,017). Frame timings/mechanics
+remain characterized, not newly OSRS-certified. No deployment in this step; live remains Cerberus.
+Paired Titan DSL phases/cadence and specialized handler extraction are still next.

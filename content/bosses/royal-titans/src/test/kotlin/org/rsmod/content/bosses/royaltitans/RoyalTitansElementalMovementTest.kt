@@ -112,7 +112,7 @@ class RoyalTitansElementalMovementTest {
         val f = RoyalTitansTestWorld()
         val owner = f.enter()
         val partner = f.newPlayer(2)
-        assertTrue(f.manager.join(partner, owner.displayName))
+        assertTrue(f.join(partner, owner.displayName))
         PathingEntityCommon.telejump(owner, f.collision, f.tile(owner, 24, 37))
         PathingEntityCommon.telejump(partner, f.collision, f.tile(owner, 39, 25))
         val packs = f.summon(owner).groupBy { it.id }
@@ -125,7 +125,7 @@ class RoyalTitansElementalMovementTest {
         f.tick(2)
         assertTrue(fire.all { it.facingTarget(f.players) === owner })
         assertTrue(ice.all { it.facingTarget(f.players) === partner })
-        f.manager.escape(owner)
+        f.escape(owner)
         f.tick(2)
         assertTrue(fire.all { it.facingTarget(f.players) === partner })
         assertTrue(ice.all { it.facingTarget(f.players) === partner })

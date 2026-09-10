@@ -69,6 +69,7 @@ class RoyalTitansDeathDropLocationTest {
         player.coords = respawn
         val cleanup = RoyalTitansDeathCleanup(f.manager)
         cleanup.cleanup(player)
+        f.instances.handleDeath(player, f.clock.cycle)
         cleanup.cleanup(player)
         assertEquals(respawn, player.coords)
         assertNull(f.instances.sessionForId(session.id))
@@ -91,7 +92,7 @@ class RoyalTitansDeathDropLocationTest {
         val f = RoyalTitansTestWorld()
         val player = f.enter()
         val other = f.newPlayer(2)
-        assertTrue(f.manager.enter(other))
+        assertTrue(f.start(other))
         val outsider = f.newPlayer(3)
         val hook = RoyalTitansDeathDropLocation(f.instances)
         assertEquals(ROYAL_TITANS_OUTSIDE, hook.dropLocation(context(player, player.coords)))

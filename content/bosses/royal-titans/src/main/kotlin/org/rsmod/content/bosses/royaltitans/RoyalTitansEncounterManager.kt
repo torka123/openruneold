@@ -21,10 +21,10 @@ import org.rsmod.api.bossbar.plugin.BossHpBarScript
 import org.rsmod.api.droptable.DropRollItem
 import org.rsmod.api.droptable.DropTableRegistry
 import org.rsmod.api.droptable.rollCount
-import org.rsmod.api.instances.InstanceAccess
 import org.rsmod.api.instances.InstanceId
 import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.instances.InstanceSession
+import org.rsmod.api.instances.InstanceStateKey
 import org.rsmod.api.instances.RegionLocal
 import org.rsmod.api.npc.apPlayer2
 import org.rsmod.api.npc.hit.modifier.StandardNpcHitModifier
@@ -89,10 +89,7 @@ constructor(
     private val statistics: RoyalTitansStatistics,
 ) {
     private val log = InlineLogger()
-    private val runs = mutableMapOf<InstanceId, Run>()
-    private val participantRuns = mutableMapOf<Long, Run>()
-    private val npcRuns = mutableMapOf<Npc, Run>()
-    private var generation = 1L
+    private val RUN_STATE = InstanceStateKey<Run>("royal-titans-encounter")
     private val pendingDeaths = mutableMapOf<UUID, Pair<Int, UUID>>()
     // Retry ownership must outlive an empty/destroyed instance. This is not a durable outbox.
     private val pendingCompletions = mutableMapOf<UUID, PendingCompletion>()
@@ -113,125 +110,91 @@ constructor(
         }
     }
 
-    fun enter(player: Player): Boolean {
-        if (!canTravel(player)) return false
-        val brandaType = requireNpc(RoyalTitansAssets.BRANDA_ACTIVE)
-        val eldricType = requireNpc(RoyalTitansAssets.ELDRIC_ACTIVE)
-        val result =
-            instances.create(
-                owner = player,
-                key = ROYAL_TITANS_INSTANCE_KEY,
-                spec = royalTitansSpec(brandaType, eldricType),
-                access = InstanceAccess.Private,
-                currentTick = clock.cycle,
-            )
-        if (result !is InstanceManager.Result.Created) {
-            player.mes(
-                (result as? InstanceManager.Result.Failed)?.reason
-                    ?: "The Royal Titans arena is unavailable."
-            )
-            return false
-        }
+    private fun run(player: Player): Run? =
+        instances
+            .sessionForPlayer(player)
+            ?.takeIf { it.key == ROYAL_TITANS_INSTANCE_KEY }
+            ?.stateOrNull(RUN_STATE)
+            ?.takeUnless { it.retired }
 
-        prepare(player)
-        PathingEntityCommon.telejump(player, collision, result.enter)
-        instances.finalizeEntry(player, result.session, clock.cycle)
-        val participant = participant(player, result.session)
-        val run =
-            Run(
-                generation = generation++,
-                session = result.session,
-                ownerHash = player.accountHash,
-                participants = mutableMapOf(player.accountHash to participant),
-            )
-        runs[result.session.id] = run
-        participantRuns[player.accountHash] = run
-        spawnTitans(run)
-        player.mes("Branda the Fire Queen and Eldric the Ice King turn toward the arena.")
-        log.info { "[RoyalTitans] generation=${run.generation} owner=${player.displayName}" }
-        return true
-    }
+    private fun run(npc: Npc): Run? =
+        instances
+            .instanceForNpc(npc)
+            ?.let(instances::sessionForId)
+            ?.takeIf { it.key == ROYAL_TITANS_INSTANCE_KEY }
+            ?.stateOrNull(RUN_STATE)
+            ?.takeUnless { it.retired }
 
-    fun join(player: Player, leaderName: String): Boolean {
-        if (!canTravel(player)) return false
+    private fun activeRuns(): List<Run> =
+        instances
+            .sessionsForKey(ROYAL_TITANS_INSTANCE_KEY)
+            .mapNotNull { it.stateOrNull(RUN_STATE) }
+            .filterNot { it.retired }
+
+    fun onJoin(player: Player, session: InstanceSession) {
+        val first = session.stateOrNull(RUN_STATE) == null
         val run =
-            runs.values.firstOrNull { candidate ->
-                online(candidate).any {
-                    it.displayName.equals(leaderName.trim(), ignoreCase = true) ||
-                        it.username.equals(leaderName.trim(), ignoreCase = true)
-                }
+            session.state(RUN_STATE) {
+                Run(session = session).also { state -> session.onCleanup { retire(state) } }
             }
-        if (run == null) {
-            player.mes("That player does not have an available Royal Titans instance.")
-            return false
-        }
-        val brandaHp = run.branda?.hitpoints ?: 0
-        val eldricHp = run.eldric?.hitpoints ?: if (run.stage == RoyalTitansStage.INTRO) 600 else 0
-        if (!RoyalTitansRules.canJoin(brandaHp, eldricHp, run.stage)) {
-            player.mes("That fight has progressed too far for another player to join.")
-            return false
-        }
-        val result = instances.join(player, run.session, clock.cycle, forceAccess = true)
-        if (result !is InstanceManager.Result.Joined) {
-            player.mes(
-                (result as? InstanceManager.Result.Failed)?.reason ?: "You cannot join that fight."
-            )
-            return false
-        }
+        if (player.accountHash in run.participants) return
         prepare(player)
-        PathingEntityCommon.telejump(player, collision, result.enter)
-        instances.finalizeEntry(player, run.session, clock.cycle)
-        run.participants[player.accountHash] = participant(player, run.session)
-        participantRuns[player.accountHash] = run
-        online(run).forEach { it.mes("${player.displayName} joins the Royal Titans encounter.") }
-        return true
-    }
-
-    fun escape(player: Player): Boolean = removeParticipant(player, "left", teleport = true)
-
-    fun externalTeleport(player: Player, instanceId: InstanceId) {
-        val run = participantRuns[player.accountHash] ?: return
-        if (run.session.id != instanceId) return
-        removeParticipant(player, "teleported out", teleport = false)
-    }
-
-    fun instanceEnded(instanceId: InstanceId) {
-        val run = runs[instanceId] ?: return
-        abort(run, "instance ended externally", terminate = false)
-    }
-
-    fun removeParticipant(
-        player: Player,
-        reason: String,
-        teleport: Boolean,
-        logout: Boolean = false,
-    ): Boolean {
-        val run = participantRuns.remove(player.accountHash) ?: return false
-        run.participants[player.accountHash]?.hitScope?.close()
-        player.combatHitScope = null
-        if (reason == "player death") {
-            pendingDeaths[UUID.randomUUID()] = player.accountId to run.completionId
-            flushDeaths()
+        run.participants[player.accountHash] = participant(player, session)
+        if (first) {
+            spawnTitans(run)
+            player.mes("Branda the Fire Queen and Eldric the Ice King turn toward the arena.")
+            log.info { "[RoyalTitans] instance=${session.id} owner=${player.displayName}" }
+        } else {
+            online(run).forEach {
+                it.mes("${player.displayName} joins the Royal Titans encounter.")
+            }
         }
+    }
+
+    fun canJoin(session: InstanceSession): Boolean {
+        val run = session.stateOrNull(RUN_STATE)?.takeUnless { it.retired } ?: return false
+        return RoyalTitansRules.canJoin(
+            run.branda?.hitpoints ?: 0,
+            run.eldric?.hitpoints ?: if (run.stage == RoyalTitansStage.INTRO) 600 else 0,
+            run.stage,
+        )
+    }
+
+    fun onLeave(player: Player, instanceId: InstanceId) {
+        val run = instances.sessionForId(instanceId)?.stateOrNull(RUN_STATE) ?: return
+        // Native death teleports before cleanup hooks and restores HP afterward.
+        if (player.hitpoints <= 0) recordDeath(player, run)
+        releaseParticipant(player, run)
+        if (run.session.occupants.isEmpty()) retire(run)
+    }
+
+    /** Statistics observation only. InstanceDeathCleanupHook owns membership/region teardown. */
+    fun recordDeath(player: Player) {
+        run(player)?.let { recordDeath(player, it) }
+    }
+
+    private fun recordDeath(player: Player, run: Run) {
+        val participant = run.participants[player.accountHash] ?: return
+        if (participant.deathRecorded) return
+        participant.deathRecorded = true
+        pendingDeaths[UUID.randomUUID()] = player.accountId to run.completionId
+        flushDeaths()
+    }
+
+    private fun releaseParticipant(player: Player, run: Run) {
+        val participant = run.participants.remove(player.accountHash) ?: return
+        participant.hitScope.close()
+        if (player.combatHitScope === participant.hitScope) player.combatHitScope = null
         run.lastBossTarget.remove(player.accountHash)?.let {
             bossHpBar.onClose(player, it, instant = true)
         }
-        run.participants.remove(player.accountHash)
-        if (!logout) {
-            val exit = instances.leave(player, run.session, clock.cycle)
-            if (teleport && player.isSlotAssigned)
-                PathingEntityCommon.telejump(player, collision, exit)
-            prepare(player)
-            if (reason == "left") player.mes("You leave the Royal Titans' arena.")
-        }
-        if (run.participants.isEmpty()) abort(run, reason)
-        return true
+        prepare(player)
     }
 
     fun tickAll() {
         flushDeaths()
         flushCompletions()
-        runs.values.toList().forEach(::tick)
+        activeRuns().forEach(::tick)
     }
 
     private fun flushDeaths() {
@@ -503,7 +466,7 @@ constructor(
         titan.walk(route.map { CoordGrid(it.x, it.z, destination.level) }) {
             if (
                 run.generation == generation &&
-                    npcRuns[titan] === run &&
+                    run(titan) === run &&
                     run.stage in
                         setOf(
                             RoyalTitansStage.INTRO,
@@ -1184,7 +1147,7 @@ constructor(
         }
 
     fun attackTitan(access: org.rsmod.api.npc.access.StandardNpcAccess, target: Player) {
-        val run = npcRuns[access.npc] ?: return
+        val run = run(access.npc) ?: return
         if (target.accountHash !in run.participants) return
         if (
             run.stage in
@@ -1201,12 +1164,11 @@ constructor(
     }
 
     fun canAttackElemental(npc: Npc, target: Player): Boolean =
-        npcRuns[npc]?.let { run ->
-            npc in run.elementals && target.accountHash in run.participants
-        } == true
+        run(npc)?.let { run -> npc in run.elementals && target.accountHash in run.participants } ==
+            true
 
     fun modifyNpcHit(player: Player?, npc: Npc, hit: HitBuilder) {
-        val run = npcRuns[npc]
+        val run = run(npc)
         if (run == null || (player != null && player.accountHash !in run.participants)) {
             hit.damage = 0
             return
@@ -1267,13 +1229,13 @@ constructor(
     }
 
     fun canCastOnWall(player: Player, npc: Npc): Boolean {
-        val run = npcRuns[npc] ?: return false
+        val run = run(npc) ?: return false
         return npc.isSlotAssigned && isPresent(run, player) && run.walls.any { it.hitbox === npc }
     }
 
     /** Called by the wall's native hit queue at projectile impact, not the launch-time modifier. */
     fun wallHit(npc: Npc, hit: Hit) {
-        val run = npcRuns[npc] ?: return
+        val run = run(npc) ?: return
         if (!hit.isFromPlayer || hit.type != HitType.Magic) return
         val player = hit.resolvePlayerSource(players) ?: return
         if (!canCastOnWall(player, npc)) return
@@ -1285,7 +1247,7 @@ constructor(
 
     /** The native impact event is emitted after HP capping/subtraction, before death execution. */
     fun npcHit(npc: Npc, hit: Hit) {
-        val run = npcRuns[npc] ?: return
+        val run = run(npc) ?: return
         if (!hit.isFromPlayer || hit.damage <= 0) return
         val player = hit.resolvePlayerSource(players) ?: return
         if (!isPresent(run, player)) return
@@ -1328,7 +1290,7 @@ constructor(
     }
 
     fun beginTitanDeath(npc: Npc): Run? {
-        val run = npcRuns[npc] ?: return null
+        val run = run(npc) ?: return null
         if (npc !== run.branda && npc !== run.eldric) return null
         if (run.dyingTitans.add(npc)) {
             npc.clearInteraction()
@@ -1338,7 +1300,7 @@ constructor(
     }
 
     fun finishTitanDeath(npc: Npc) {
-        val run = npcRuns[npc] ?: return
+        val run = run(npc) ?: return
         if (!run.dyingTitans.remove(npc)) return
         online(run).forEach { player ->
             if (run.lastBossTarget[player.accountHash] === npc)
@@ -1381,7 +1343,7 @@ constructor(
     }
 
     fun finishElementalDeath(npc: Npc) {
-        val run = npcRuns[npc] ?: return
+        val run = run(npc) ?: return
         val state = run.elementals.remove(npc) ?: return
         npc.clearInteraction()
         npc.resetMovement()
@@ -1465,7 +1427,7 @@ constructor(
                     continue
                 }
             pendingCompletions.remove(id)
-            val run = runs.values.firstOrNull { it.completion?.encounterId == id }
+            val run = activeRuns().firstOrNull { it.completion?.encounterId == id }
             if (run != null) {
                 run.completionCommitted = true
                 run.corpses.keys.forEach { it.showAllOps() }
@@ -1479,7 +1441,7 @@ constructor(
                     "varp.total_royal_titan_kills",
                     receipt.snapshot.personalKills,
                 )
-                if (run == null || participantRuns[player.accountHash] !== run) continue
+                if (run == null || run(player) !== run) continue
                 player.mes(
                     "Your Royal Titans kill count is: <col=ff0000>${receipt.snapshot.personalKills}</col>."
                 )
@@ -1494,7 +1456,8 @@ constructor(
     }
 
     fun claim(player: Player, corpse: Npc, choice: ClaimChoice) {
-        val run = npcRuns[corpse] ?: return player.mes("That Titan is no longer available.")
+        val run = run(corpse) ?: return player.mes("That Titan is no longer available.")
+        if (run(player) !== run) return player.mes("That Titan belongs to another encounter.")
         val element = run.corpses[corpse] ?: return player.mes("That Titan cannot be claimed.")
         if (run.stage != RoyalTitansStage.COMPLETE || !run.completionCommitted)
             return player.mes("Defeat both Titans before claiming a reward.")
@@ -1540,7 +1503,7 @@ constructor(
     }
 
     private fun runElement(corpse: Npc): RoyalElement =
-        npcRuns[corpse]?.corpses?.get(corpse) ?: RoyalElement.FIRE
+        run(corpse)?.corpses?.get(corpse) ?: RoyalElement.FIRE
 
     private fun giveDrop(player: Player, drop: DropRollItem) {
         if (drop.isNothing || !drop.condition(player)) return
@@ -1549,12 +1512,12 @@ constructor(
     }
 
     fun finishAuxiliaryDeath(npc: Npc) {
-        val run = npcRuns[npc] ?: return
+        val run = run(npc) ?: return
         if (npc in run.elementals) finishElementalDeath(npc)
     }
 
     fun attackDenial(player: Player, npc: Npc): String? {
-        val run = npcRuns[npc] ?: return "That creature is not part of this encounter."
+        val run = run(npc) ?: return "That creature is not part of this encounter."
         if (player.accountHash !in run.participants)
             return "That creature belongs to another encounter."
         if (npc in run.corpses) return "Choose a reward option instead."
@@ -1576,23 +1539,23 @@ constructor(
         return "You cannot attack that."
     }
 
-    fun isEncounterNpc(npc: Npc): Boolean = npcRuns.containsKey(npc)
+    fun isEncounterNpc(npc: Npc): Boolean = (run(npc) != null)
 
     fun isParticipant(player: Player, npc: Npc): Boolean =
-        npcRuns[npc]?.participants?.containsKey(player.accountHash) == true
+        run(npc)?.let { run(player) === it } == true
 
-    fun isActive(player: Player): Boolean = participantRuns.containsKey(player.accountHash)
+    fun isActive(player: Player): Boolean = (run(player) != null)
 
     /** Native processed Titan damage only; helpers are deliberately excluded. */
     fun contribution(player: Player): Int {
-        val run = participantRuns[player.accountHash] ?: return 0
+        val run = run(player) ?: return 0
         return (listOfNotNull(run.branda, run.eldric) + run.corpses.keys).distinct().sumOf {
             it.damageContributions.damageBy(player)
         }
     }
 
     fun status(player: Player): String {
-        val run = participantRuns[player.accountHash] ?: return "Royal Titans: no active encounter."
+        val run = run(player) ?: return "Royal Titans: no active encounter."
         return "Royal Titans ${run.stage}: Branda ${run.branda?.hitpoints ?: 0}/600, Eldric ${run.eldric?.hitpoints ?: 0}/600, walls=${run.walls.size}, elementals=${run.elementals.size}, contribution=${contribution(player)}."
     }
 
@@ -1643,7 +1606,6 @@ constructor(
         npcs.add(npc, ROYAL_TITANS_NPC_LIFETIME)
         npc.respawns = false
         instances.attachNpc(run.session.id, npc)
-        npcRuns[npc] = run
         return npc
     }
 
@@ -1710,7 +1672,8 @@ constructor(
     private fun reset(run: Run) {
         run.hitScope.invalidate()
         run.participants.values.forEach { it.hitScope.invalidate() }
-        run.generation = generation++
+        run.generation++
+        run.participants.values.forEach { it.deathRecorded = false }
         clearWalls(run)
         clearElementals(run)
         run.areaAttack?.let { endAreaAttack(run, it) }
@@ -1750,38 +1713,34 @@ constructor(
 
     private fun removeNpc(run: Run, npc: Npc) {
         npc.resetBodyModels()
-        npcRuns.remove(npc)
         run.elementals.remove(npc)
         run.corpses.remove(npc)
         if (npc.isSlotAssigned) npcs.del(npc, Int.MAX_VALUE)
     }
 
-    private fun abort(run: Run, reason: String, terminate: Boolean = true) {
-        if (runs.remove(run.session.id) !== run) return
+    private fun retire(run: Run) {
+        if (run.retired) return
+        run.retired = true
         run.hitScope.close()
+        online(run).forEach { releaseParticipant(it, run) }
         run.participants.values.forEach { it.hitScope.close() }
+        run.participants.clear()
         run.areaAttack?.let { endAreaAttack(run, it) }
         clearWalls(run)
         clearElementals(run)
         clearArenaFloors(run)
-        run.pendingRemovals.keys.toList().forEach { removeNpc(run, it) }
         run.pendingRemovals.clear()
-        (listOfNotNull(run.branda, run.eldric, run.brandaCorpse, run.eldricCorpse) +
-                run.corpses.keys)
-            .distinct()
-            .forEach { removeNpc(run, it) }
-        online(run).forEach { player ->
-            run.lastBossTarget[player.accountHash]?.let { target ->
-                bossHpBar.onClose(player, target, instant = true)
-            }
+        run.movement.clear()
+        run.lastBossTarget.clear()
+        // Native destruction owns Titans/corpses and all remaining actor deletion.
+        // Stop interaction immediately during the shared deferred logout reclaim interval.
+        instances.npcsForInstance(run.session.id).forEach {
+            it.clearInteraction()
+            it.mode = NpcMode.None
+            it.abortRoute()
+            it.resetBodyModels()
         }
-        online(run).forEach { player ->
-            player.combatHitScope = null
-            prepare(player)
-        }
-        run.participants.keys.forEach(participantRuns::remove)
-        if (terminate) instances.terminate(run.session)
-        log.info { "[RoyalTitans] generation=${run.generation} abort=$reason" }
+        log.info { "[RoyalTitans] instance=${run.session.id} generation=${run.generation} retired" }
     }
 
     private fun hit(
@@ -1808,27 +1767,12 @@ constructor(
     }
 
     private fun isPresent(run: Run, player: Player): Boolean =
-        participantRuns[player.accountHash] === run &&
+        run(player) === run &&
             player.isSlotAssigned &&
             !player.pendingLogout &&
             !player.loggingOut &&
             player.hitpoints > 0 &&
             instances.sessionForPlayer(player)?.id == run.session.id
-
-    private fun canTravel(player: Player): Boolean {
-        if (player.hitpoints <= 0 || player.isAccessProtected) {
-            player.mes("Finish what you are doing before entering the Royal Titans' arena.")
-            return false
-        }
-        if (
-            participantRuns.containsKey(player.accountHash) ||
-                instances.sessionForPlayer(player) != null
-        ) {
-            player.mes("You already have an active instance.")
-            return false
-        }
-        return true
-    }
 
     private fun targetFor(run: Run, npc: Npc): Player? =
         online(run)
@@ -1836,13 +1780,8 @@ constructor(
             .minByOrNull { npc.distanceTo(it) }
 
     private fun online(run: Run): List<Player> =
-        run.participants.values
-            .mapNotNull { participant ->
-                participant.uid.resolve(players)
-                    ?: players.firstOrNull {
-                        it.accountHash == participant.accountHash && it.isSlotAssigned
-                    }
-            }
+        players
+            .filter { it.uuid in run.session.occupants }
             .filter { it.isSlotAssigned && !it.pendingLogout && !it.loggingOut }
 
     private fun inArena(run: Run, tile: CoordGrid): Boolean {
@@ -1900,14 +1839,10 @@ constructor(
         val base = requireNotNull(instances.localCoord(session, RegionLocal(0, 45, 149, 0, 0)))
         val scope = HitScope(Bounds(base, 64, 64), player.clientDisconnected)
         player.combatHitScope = scope
-        return Participant(player.accountHash, player.uid, scope)
+        return Participant(scope)
     }
 
-    internal data class Participant(
-        val accountHash: Long,
-        var uid: PlayerUid,
-        val hitScope: HitScope,
-    )
+    internal data class Participant(val hitScope: HitScope, var deathRecorded: Boolean = false)
 
     private data class PendingCompletion(
         val completion: RoyalTitansCompletion,
@@ -1915,10 +1850,10 @@ constructor(
     )
 
     internal data class Run(
-        var generation: Long,
         val session: InstanceSession,
-        val ownerHash: Long,
-        val participants: MutableMap<Long, Participant>,
+        var generation: Long = 1L,
+        var retired: Boolean = false,
+        val participants: MutableMap<Long, Participant> = mutableMapOf(),
         val hitScope: HitScope = HitScope(),
         var completionId: UUID = UUID.randomUUID(),
         var completion: RoyalTitansCompletion? = null,

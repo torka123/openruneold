@@ -3,11 +3,20 @@ package org.rsmod.content.bosses.royaltitans
 import dev.openrune.ServerCacheManager
 import dev.or2.central.account.Rights
 import jakarta.inject.Inject
+import org.rsmod.api.instances.BossInstanceRegistry
+import org.rsmod.api.instances.InstanceAccess
+import org.rsmod.api.instances.InstanceScript
+import org.rsmod.api.instances.RaidLeaveResult
+import org.rsmod.api.instances.events.InstanceLeaveRequestEvent
+import org.rsmod.api.instances.events.instanceEventId
 import org.rsmod.api.player.input.ResumePNameDialogInput
 import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.protect.ProtectedAccess
+import org.rsmod.api.player.protect.ProtectedAccessLauncher
+import org.rsmod.api.player.stat.hitpoints
 import org.rsmod.api.player.vars.boolVarBit
 import org.rsmod.api.script.onCommand
+import org.rsmod.api.script.onEvent
 import org.rsmod.api.script.onOpLoc1
 import org.rsmod.api.script.onOpLoc2
 import org.rsmod.api.script.onOpLoc3
@@ -15,20 +24,42 @@ import org.rsmod.api.script.onOpNpc1
 import org.rsmod.api.script.onOpNpc3
 import org.rsmod.api.script.onOpNpc4
 import org.rsmod.game.entity.PlayerList
-import org.rsmod.plugin.scripts.PluginScript
 import org.rsmod.plugin.scripts.ScriptContext
 
 internal class RoyalTitansWorld
 @Inject
 constructor(
+    registry: BossInstanceRegistry,
     private val encounters: RoyalTitansEncounterManager,
     private val scoreboard: RoyalTitansScoreboard,
     private val players: PlayerList,
-) : PluginScript() {
+    private val protectedAccess: ProtectedAccessLauncher,
+) :
+    InstanceScript(
+        registry,
+        ROYAL_TITANS_INSTANCE_KEY,
+        royalTitansSpec(
+            requireNotNull(ServerCacheManager.getNpc(RoyalTitansAssets.BRANDA_ACTIVE)),
+            requireNotNull(ServerCacheManager.getNpc(RoyalTitansAssets.ELDRIC_ACTIVE)),
+        ),
+    ) {
     private var ProtectedAccess.warningSuppressed by boolVarBit("varbit.royal_titans_enter_warning")
 
-    override fun ScriptContext.startup() {
+    override fun ScriptContext.configure() {
         encounters.validateAssets()
+        onInstancePlayerJoin {
+            manager.sessionForId(instanceId)?.let { encounters.onJoin(player, it) }
+        }
+        onInstancePlayerLeave { encounters.onLeave(player, instanceId) }
+        onEvent<InstanceLeaveRequestEvent>(instanceEventId(ROYAL_TITANS_INSTANCE_KEY)) {
+            if (manager.sessionForPlayer(player)?.id == instanceId) {
+                result =
+                    if (!protectedAccess.launch(player) { leaveArena() }) RaidLeaveResult.Busy
+                    else if (manager.sessionForPlayer(player)?.id != instanceId)
+                        RaidLeaveResult.Left
+                    else RaidLeaveResult.Failed
+            }
+        }
         val entrance = requireLoc(RoyalTitansAssets.ENTRANCE)
         onOpLoc1(entrance) {
             arriveDelay()
@@ -46,13 +77,11 @@ constructor(
         val exit = requireLoc(RoyalTitansAssets.EXIT)
         onOpLoc1(exit) {
             arriveDelay()
-            if (!encounters.escape(player))
-                player.mes("You are not inside a Royal Titans encounter.")
+            leaveArena()
         }
         onOpLoc2(exit) {
             arriveDelay()
-            if (!encounters.escape(player))
-                player.mes("You are not inside a Royal Titans encounter.")
+            leaveArena()
         }
 
         onOpLoc1(requireLoc(RoyalTitansAssets.SCOREBOARD)) {
@@ -82,13 +111,16 @@ constructor(
             requiredRights = Rights.ADMINISTRATOR
             desc = "Enter a Royal Titans encounter"
             invalidArgs = "Use as ::rtenter"
-            cheat { if (args.isEmpty()) encounters.enter(player) }
+            cheat { if (args.isEmpty()) protectedAccess.launch(player) { enterArena() } }
         }
         onCommand("rtjoin") {
             requiredRights = Rights.ADMINISTRATOR
             desc = "Join a Royal Titans encounter by player name"
             invalidArgs = "Use as ::rtjoin player name"
-            cheat { if (args.isNotEmpty()) encounters.join(player, args.joinToString(" ")) }
+            cheat {
+                if (args.isNotEmpty())
+                    protectedAccess.launch(player) { joinArena(args.joinToString(" ")) }
+            }
         }
         onCommand("rtstatus") {
             requiredRights = Rights.ADMINISTRATOR
@@ -117,7 +149,7 @@ constructor(
     private suspend fun ProtectedAccess.startFight() {
         if (!confirmUnsafeDeath()) return
         ifClose()
-        encounters.enter(player)
+        enterArena()
     }
 
     private suspend fun ProtectedAccess.joinMenu() {
@@ -127,7 +159,49 @@ constructor(
         if (!confirmUnsafeDeath()) return
         ifClose()
         // Resolve after the warning as well: a disconnected or reused slot is not the same player.
-        encounters.join(player, target?.resolve(players)?.displayName.orEmpty())
+        joinArena(target?.resolve(players)?.displayName.orEmpty())
+    }
+
+    internal suspend fun ProtectedAccess.enterArena() {
+        if (!canEnter()) return
+        completeInstanceEntry(
+            manager.create(player, key, buildSpec(), InstanceAccess.Private, worldClock.cycle)
+        )
+    }
+
+    internal suspend fun ProtectedAccess.joinArena(name: String) {
+        if (!canEnter()) return
+        val session = manager.sessionForKeyAndMemberName(key, name.trim())
+        if (session == null) {
+            mes("That player does not have an available Royal Titans instance.")
+            return
+        }
+        if (!encounters.canJoin(session)) {
+            mes("That fight has progressed too far for another player to join.")
+            return
+        }
+        completeInstanceEntry(manager.join(player, session, worldClock.cycle, forceAccess = true))
+    }
+
+    internal suspend fun ProtectedAccess.leaveArena() {
+        if (manager.sessionForPlayer(player)?.key != key) {
+            mes("You are not inside a Royal Titans encounter.")
+            return
+        }
+        defaultLeaveFlow()
+        if (manager.sessionForPlayer(player)?.key != key) mes("You leave the Royal Titans' arena.")
+    }
+
+    private fun ProtectedAccess.canEnter(): Boolean {
+        if (player.hitpoints <= 0) {
+            mes("Finish what you are doing before entering the Royal Titans' arena.")
+            return false
+        }
+        if (manager.sessionForPlayer(player) != null) {
+            mes("You already have an active instance.")
+            return false
+        }
+        return true
     }
 
     private suspend fun ProtectedAccess.confirmUnsafeDeath(): Boolean {

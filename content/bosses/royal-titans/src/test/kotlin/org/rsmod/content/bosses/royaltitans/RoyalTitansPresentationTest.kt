@@ -109,7 +109,7 @@ class RoyalTitansPresentationTest {
         val f = RoyalTitansTestWorld(hudBeforeInstances = false)
         val owner = f.enter()
         val partner = f.newPlayer(2)
-        assertTrue(f.manager.join(partner, owner.displayName))
+        assertTrue(f.join(partner, owner.displayName))
         f.tick(6)
         val b = f.npc(owner, 12596)
         val e = f.npc(owner, 14147)

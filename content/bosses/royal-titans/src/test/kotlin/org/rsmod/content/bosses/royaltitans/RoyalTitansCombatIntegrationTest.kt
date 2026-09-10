@@ -35,7 +35,6 @@ import org.rsmod.api.npc.hit.processor.StandardNpcHitProcessor
 import org.rsmod.api.npc.hit.queueHit
 import org.rsmod.api.npc.interact.AiPlayerInteractions
 import org.rsmod.api.player.protect.ProtectedAccessContext
-import org.rsmod.api.player.protect.ProtectedAccessLauncher.Companion.withProtectedAccess
 import org.rsmod.api.random.DefaultGameRandom
 import org.rsmod.api.random.GameRandom
 import org.rsmod.api.registry.controller.ControllerRegistry
@@ -90,21 +89,12 @@ class RoyalTitansCombatIntegrationTest {
     fun `protected entry and intro join use native instance access and enforce the duo limit`() {
         val f = RoyalTitansTestWorld()
         val owner = f.newPlayer()
-        val context = mock(ProtectedAccessContext::class.java)
-        var entered = false
-        assertTrue(withProtectedAccess(owner, context) { entered = f.manager.enter(player) })
-        assertTrue(entered)
+        assertTrue(f.start(owner))
         val partner = f.newPlayer(2)
-        var joined = false
         // Joining before Eldric's second-tick spawn must use his pending 600 HP.
-        assertTrue(
-            withProtectedAccess(partner, context) {
-                joined = f.manager.join(player, owner.displayName)
-            }
-        )
-        assertTrue(joined)
+        assertTrue(f.join(partner, owner.displayName))
         assertFalse(
-            f.manager.join(f.newPlayer(3), owner.displayName),
+            f.join(f.newPlayer(3), owner.displayName),
             "A private instance has at most two players",
         )
         f.tick(2)
@@ -122,7 +112,7 @@ class RoyalTitansCombatIntegrationTest {
             f.npc(owner, 14147).hitpoints = eldricHp
             assertEquals(
                 brandaHp >= 450 && eldricHp >= 450,
-                f.manager.join(f.newPlayer(2), owner.displayName),
+                f.join(f.newPlayer(2), owner.displayName),
             )
             framework().clearInlineMocks()
         }
@@ -160,7 +150,7 @@ class RoyalTitansCombatIntegrationTest {
         val f = RoyalTitansTestWorld()
         val owner = f.enter()
         val partner = f.newPlayer(2)
-        assertTrue(f.manager.join(partner, owner.displayName))
+        assertTrue(f.join(partner, owner.displayName))
         f.tick(6)
         val branda = f.npc(owner, 12596)
         val eldric = f.npc(owner, 14147)
@@ -172,8 +162,8 @@ class RoyalTitansCombatIntegrationTest {
         val pending = f.completionAttempts.single()
         assertEquals(2, pending.participants.size)
         assertEquals(0, owner.vars["varp.total_royal_titan_kills"])
-        assertTrue(f.manager.escape(owner))
-        assertTrue(f.manager.escape(partner))
+        assertTrue(f.escape(owner))
+        assertTrue(f.escape(partner))
         assertFalse(branda.isSlotAssigned || eldric.isSlotAssigned)
         val reconnected = f.newPlayer(1)
         f.failCompletions = false
@@ -290,7 +280,7 @@ class RoyalTitansCombatIntegrationTest {
         val f = RoyalTitansTestWorld()
         val owner = f.enter()
         val partner = f.newPlayer(2)
-        assertTrue(f.manager.join(partner, owner.displayName))
+        assertTrue(f.join(partner, owner.displayName))
         val outputs =
             listOf(owner, partner).map { player ->
                 mutableListOf<Any>().also { messages ->
@@ -656,6 +646,8 @@ internal class RoyalTitansTestWorld(
     val completions = mutableListOf<RoyalTitansCompletion>()
     val completionAttempts = mutableListOf<RoyalTitansCompletion>()
     var failCompletions = false
+    var failDeaths = false
+    val deathAttempts = mutableListOf<java.util.UUID>()
     val statistics =
         mock(RoyalTitansStatistics::class.java) { call ->
             if (call.method.name == "complete") {
@@ -675,6 +667,10 @@ internal class RoyalTitansTestWorld(
                             true,
                         )
                 }
+            } else if (call.method.name == "death") {
+                deathAttempts += call.arguments[0] as java.util.UUID
+                if (failDeaths) throw SQLException("Simulated unavailable death database")
+                org.mockito.Mockito.RETURNS_DEFAULTS.answer(call)
             } else org.mockito.Mockito.RETURNS_DEFAULTS.answer(call)
         }
 
@@ -770,6 +766,43 @@ internal class RoyalTitansTestWorld(
             statistics,
         )
 
+    var denyTeleport = false
+    private val protectedContext =
+        mock(ProtectedAccessContext::class.java) { call ->
+            when (call.method.name) {
+                "getCollision" -> collision
+                "getEventBus" -> events
+                "getTeleportHooks" -> org.rsmod.api.player.hook.PlayerTeleportHooks.EMPTY
+                "getTeleportValidator" ->
+                    org.rsmod.api.player.hook.PlayerTeleportValidator(
+                        setOf(
+                            org.rsmod.api.player.hook.PlayerTeleportValidateHook { _, _, _ ->
+                                if (denyTeleport) "Test teleport denied" else null
+                            }
+                        )
+                    )
+                "getAreaChecker" -> mock(call.method.returnType)
+                else -> org.mockito.Mockito.RETURNS_DEFAULTS.answer(call)
+            }
+        }
+    private val protectedLauncher =
+        org.rsmod.api.player.protect.ProtectedAccessLauncher(
+            mock(org.rsmod.api.player.protect.ProtectedAccessContextFactory::class.java) { call ->
+                if (call.method.name == "create") protectedContext
+                else org.mockito.Mockito.RETURNS_DEFAULTS.answer(call)
+            }
+        )
+    val instanceScript =
+        RoyalTitansWorld(
+            org.rsmod.api.instances.BossInstanceRegistry(),
+            manager,
+            RoyalTitansScoreboard(statistics),
+            players,
+            protectedLauncher,
+        )
+    lateinit var nativeLifecycle: org.rsmod.api.player.hook.PlayerPostTickHook
+        private set
+
     private val nativeInteractions =
         org.rsmod.api.game.process.npc.NpcInteractionProcessor::class
             .java
@@ -815,6 +848,16 @@ internal class RoyalTitansTestWorld(
             )
         }
         val context = ScriptContext(events, CheatCommandMap(), EngineQueueCache())
+        com.google.inject.Guice.createInjector(
+                object : com.google.inject.AbstractModule() {
+                    override fun configure() {
+                        bind(InstanceManager::class.java).toInstance(instances)
+                        bind(MapClock::class.java).toInstance(clock)
+                    }
+                }
+            )
+            .injectMembers(instanceScript)
+        with(instanceScript) { context.startup() }
         with(NpcHitScript()) { context.startup() }
         with(PlayerHitScript()) { context.startup() }
         val retaliation =
@@ -828,6 +871,7 @@ internal class RoyalTitansTestWorld(
                 .getConstructor(InstanceManager::class.java, MapClock::class.java)
                 .newInstance(instances, clock) as PluginScript
         with(instanceLifecycle) { context.startup() }
+        nativeLifecycle = instanceLifecycle as org.rsmod.api.player.hook.PlayerPostTickHook
         if (hudBeforeInstances == false) with(hud) { context.startup() }
         val death = NpcDeath(npcs, players, objects, emptySet(), emptySet())
         with(NpcDeathScript(death)) { context.startup() }
@@ -837,9 +881,25 @@ internal class RoyalTitansTestWorld(
 
     fun enter(): Player =
         newPlayer().also { player ->
-            assertTrue(manager.enter(player))
+            assertTrue(start(player))
             activity.flag(ZoneKey.from(player.coords))
         }
+
+    fun start(player: Player): Boolean {
+        val launched = protectedLauncher.launch(player) { with(instanceScript) { enterArena() } }
+        return launched && instances.sessionForPlayer(player)?.key == ROYAL_TITANS_INSTANCE_KEY
+    }
+
+    fun join(player: Player, name: String): Boolean {
+        val launched = protectedLauncher.launch(player) { with(instanceScript) { joinArena(name) } }
+        return launched && instances.sessionForPlayer(player)?.key == ROYAL_TITANS_INSTANCE_KEY
+    }
+
+    fun escape(player: Player): Boolean {
+        val session = instances.sessionForPlayer(player) ?: return false
+        val launched = protectedLauncher.launch(player) { with(instanceScript) { leaveArena() } }
+        return launched && instances.sessionForPlayer(player) !== session
+    }
 
     fun attack(npc: Npc, target: Player) {
         npc.apPlayer2(target, AiPlayerInteractions(events, players))

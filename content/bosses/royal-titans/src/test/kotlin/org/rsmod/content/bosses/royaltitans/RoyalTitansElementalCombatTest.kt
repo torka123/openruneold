@@ -92,7 +92,7 @@ class RoyalTitansElementalCombatTest {
         val f = RoyalTitansTestWorld()
         val owner = f.enter()
         val partner = f.newPlayer(2)
-        assertTrue(f.manager.join(partner, owner.displayName))
+        assertTrue(f.join(partner, owner.displayName))
         val npc = adjacent(f, owner, 14150)
         val outsider = f.newPlayer(3)
         outsider.coords = owner.coords
@@ -102,7 +102,7 @@ class RoyalTitansElementalCombatTest {
         f.attack(npc, partner)
         val hit = hits(partner).single()
         assertTrue(hit.isValidNow())
-        assertTrue(f.manager.escape(partner))
+        assertTrue(f.escape(partner))
         assertTrue(npc.isSlotAssigned, "The owner's room still exists")
         assertFalse(hit.isValidNow())
     }
@@ -160,7 +160,7 @@ class RoyalTitansElementalCombatTest {
         val f = RoyalTitansTestWorld()
         val first = f.enter()
         val second = f.newPlayer(2)
-        assertTrue(f.manager.enter(second))
+        assertTrue(f.start(second))
         // Unlock both rooms on the same native frame, before their patrols diverge.
         f.tick(6)
         f.hit(first, f.npc(first, RoyalTitansAssets.BRANDA_ACTIVE), 100)

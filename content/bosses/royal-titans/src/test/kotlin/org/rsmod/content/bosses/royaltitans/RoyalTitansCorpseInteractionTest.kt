@@ -41,13 +41,16 @@ class RoyalTitansCorpseInteractionTest {
             player.coords = f.tile(player, 31, y)
             player.previousCoords = player.coords
             val received = mutableListOf<Int>()
-            val scripts = ScriptContext(f.events, CheatCommandMap(), EngineQueueCache())
+            // This test probes native reach/option routing. The gameplay bus now already owns
+            // the real corpse handlers through InstanceScript; do not register duplicate ops.
+            val probeEvents = EventBus()
+            val scripts = ScriptContext(probeEvents, CheatCommandMap(), EngineQueueCache())
             with(scripts) {
                 onOpNpc1(assertNotNull(ServerCacheManager.getNpc(corpseId))) { received += 1 }
                 onOpNpc3(corpse.visType.internalName) { received += 3 }
                 onOpNpc4(corpse.visType.internalName) { received += 4 }
             }
-            val interactions = NpcInteractions(f.events)
+            val interactions = NpcInteractions(probeEvents)
             val contextFactory = mock(ProtectedAccessContextFactory::class.java)
             `when`(contextFactory.create()).thenReturn(mock(ProtectedAccessContext::class.java))
             val launcher = ProtectedAccessLauncher(contextFactory)
@@ -57,7 +60,7 @@ class RoyalTitansCorpseInteractionTest {
                     *constructor.parameterTypes
                         .map { type ->
                             when (type) {
-                                EventBus::class.java -> f.events
+                                EventBus::class.java -> probeEvents
                                 BoundValidator::class.java -> BoundValidator(f.collision)
                                 RayCastValidator::class.java -> RayCastValidator(f.collision)
                                 NpcInteractions::class.java -> interactions

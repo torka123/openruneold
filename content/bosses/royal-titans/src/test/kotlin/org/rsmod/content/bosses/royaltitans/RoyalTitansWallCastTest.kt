@@ -225,7 +225,7 @@ class RoyalTitansWallCastTest {
             val spell = f.spell("obj.85_water_surge")
             f.supply(spell)
             f.manual(wall, spell)
-            f.game.manager.removeParticipant(f.player, "wall test exit", teleport = true)
+            f.game.escape(f.player)
             assertFalse(wall.isSlotAssigned)
             f.game.tick(5)
             assertFalse(wall.isSlotAssigned)
