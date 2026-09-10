@@ -27,11 +27,21 @@ Update this checkpoint after each completed boss and immediately before any auth
 - Cerberus source migration now has75 passing module tests and2 revision-240 cache-audit tests.
   BossSpec owns normal attacks, triple/rotation and phase deadlines; native InstanceScript owns
   membership and same-actor death/reveal. The arena handler retains Souls/lava/firewall behavior.
-  No Cerberus migration has been deployed or visually accepted; the seven-boss live build remains.
+  Cerberus is now deployed locally after two controlled restarts; visual acceptance remains open.
 - Corrected Cerberus source backup: `backup/cerberus-native-frame-verified-20260910`,
   commit `c421aca33`. ZIP `logs/cerberus-native-frame-verified-20260910.zip`, SHA256
   `173612586CDAD4B5C39F4BAB304B6A63FF33E0FD10A7D1194B5CC20E74E4257D`.
   7,439 entries, no excluded-path violations. Use this instead of the pre-frame-fix backup.
+- Latest live checkpoint: Cerberus source `c421aca33`, deployment documentation `4417447e3`.
+  Normal restarts replaced JVM23164 with32456 and then36776. Custom markers at01:08:15 and
+  01:15:05 EDT September10; ready at01:08:18 and01:15:07. Both doctor checks confirm the
+  canonical directory and revision240. Marker Git metadata reports unavailable; the deployed
+  source identity is recorded from Git and the controlled Gradle rebuild, not inferred from it.
+  Current stored fingerprints match the logged-out predeployment snapshot:22 containers,
+  1,152 inventory/bank rows and1 realm row. SERVER/LIVE fingerprints are unchanged.
+  Logs: `cerberus-deploy-doctor-restart{1,2}-20260910.log`,
+  `cerberus-deploy-persistence-restart{1,2}-20260910.log`, and
+  `cerberus-audit-20260907/restart-20260910{1,2}.stdout.log` under `logs/`.
 - Completed source migrations: Kraken, Vorkath, Corporeal Beast, Alchemical Hydra, Grotesque Guardians,
   Zulrah, Muspah and Cerberus. This means source/headless migration, not client or full OSRS parity certification.
 - Muspah verification: `logs/muspah-native-phase-dsl-regression.log`, all67 tests pass
@@ -84,6 +94,7 @@ Update this checkpoint after each completed boss and immediately before any auth
 | Grotesque Guardians | Two DSL specs; native roof instance, paired forms and reset; base-Dusk drop/KC identity fixed | 21 module tests; 48 drop-module tests; all boss/shared regression tasks and app classes pass | Natural roof entrance, bell, both attacks, lightning/spheres, hammer, prison, loot/KC once, 17-tick paired reset, repeat and exit |
 | Zulrah | Four DSL rotation programs and snake specs; native boat instance and same-actor respawn; scoped clouds/eggs/tail; native KC metadata | 43 module tests (21 native), revision-240 cache audit, broad boss/shared regressions | Natural boat entry/camera, all forms and rotations, clouds, eggs/snakes, tail dodge, prayer, death/reclaim, loot/KC once, two kills, exit/teleport/logout; debug mode must award nothing |
 | Muspah | DSL normal attacks, timed phases and final cadence; native solo instance, same-actor repeat and KC; scoped cloud/spike effects | 67 module tests, including27 native gameplay tests | `::muspah` then natural crevice, both opening forms, form changes, lightning, homing, shield/Smite, final spikes, two kills/KC once, exits/teleport/logout/death; separate rooms isolated |
+| Cerberus | DSL ordinary attacks/triple/rotation and native phase deadlines; InstanceScript membership and same-actor respawn; focused Souls/lava/firewall handler | 75 module tests,2 cache tests, broad boss/shared verification, two controlled boots and matching persistence/cache fingerprints | `::cerberus`, wake/opening triple, normal styles, Souls/prayers, lava, firewall/reset, loot/KC, repeated kills, exit/teleport/logout; forced debug kills are reward-ineligible |
 | Architecture enforcement | Existing detector/self-tests now run from root Gradle check; explicit reviewed waivers retained | `bossArchitectureCheck` passes | Developer check, not a visible game change |
 
 Guardians, Zulrah and Muspah KC overlays are now packed into the selected SERVER NPC definitions
@@ -110,13 +121,16 @@ Corrected final broad check: `logs/cerberus-corrected-final-broad-check.log`,28s
 successful. This includes affected shared suites and all applicable boss tests (up-to-date
 where unchanged), scoped Cerberus check, app compilation and architecture enforcement.
 
-Deployment checkpoint is still pending: live JVM23164 has a connected game client. The user was
-asked to log out briefly because an earlier shutdown exposed a pending-save risk. Do not treat
-the existing passing seven-boss runtime as verification of Cerberus. Do not restart while that
-client is being used for testing. Once safely logged out, back up the final corrected source,
-perform controlled rebuild/two restarts, verify doctor/custom marker/cache/persistence, and then
-continue Royal Titans on its own branch. The pre-correction backup `c96d06528` is recoverable but
-is NOT the deployment target. No cache or PostgreSQL authority changes are needed.
+Cerberus backup and local deployment checkpoint are complete. Continue Royal Titans on its own
+branch; read-only inspection has begun, but no Royal Titans source change is part of this deployment.
+The pre-correction backup `c96d06528` is recoverable but was NOT deployed. No cache or PostgreSQL
+authority was changed. Native startup verification is not a rendered fight or packet comparison.
+
+Standing deployment permission (September10): the user explicitly authorizes logging their account
+out for tested, backed-up deployments. Use native logout/save and verify persistence before normal
+shutdown; do not wait for a manual logout or repeatedly request it. Do not hard-kill the JVM or ignore
+save failures. This permission is also recorded in AGENTS.md. Both restarts above had zero connected
+game clients, following the user's voluntary logout.
 
 Cerberus client test plan after deployment: `::cerberus`, approach/wake, opening triple and all
 ordinary styles, Souls/prayer switching, lava movement, firewall crossing/reset, death/repeat,
@@ -128,7 +142,7 @@ an inherited access gap, not a newly invented location. Capture and visual parit
    persistent fingerprints and the corrected75-assertion live Vorkath audit are complete. Do not
    repeat them merely because an older section or message says they are pending. Visual/full OSRS
    acceptance remains separate.
-2. Continue Cerberus, Royal Titans, Nex, Yama, Doom and DT2 in separate focused migration
+2. Continue Royal Titans, Nex, Yama, Doom and DT2 in separate focused migration
    branches/commits. Review Dagannoth Kings separately. Preserve existing research and mechanics.
 3. Resolve or explicitly report remaining generic DSL concerns (unused condition/phase fields,
    ignored selection hints and any proven timing/lifecycle gap); do not silently rebalance content.
@@ -155,7 +169,7 @@ The resume helper prints these instructions with current Git identity:
 .\scripts\resume-boss-migration.ps1
 ```
 
-Optional `-CopyPrompt` copies the prompt to the clipboard. Optional `-Verify -Boss cerberus` runs the
+Optional `-CopyPrompt` copies the prompt to the clipboard. Optional `-Verify -Boss royal-titans` runs the
 doctor, architecture detector and focused boss/API/instance tests first. It does not modify source,
 switch branches, commit, deploy, restart or contact GitHub. Build/test outputs are the usual local
 generated files. Paste its output into a new session in the canonical workspace after allowance resets.

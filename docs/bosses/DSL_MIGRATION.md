@@ -1295,3 +1295,33 @@ Final corrected backup created: branch `backup/cerberus-native-frame-verified-20
 `173612586CDAD4B5C39F4BAB304B6A63FF33E0FD10A7D1194B5CC20E74E4257D`.
 The ZIP contains7,439 entries and no excluded .data/log/build/cache/config-secret paths under
 the checked exclusion policy. No remote push/merge or runtime restart was performed.
+
+Cerberus local deployment completed September10 after the user logged out. Game-port connection
+count was0 before each normal shutdown. Controlled rebuild/restart23164 ->32456 ->36776 used
+`cerberus-controlled-restart.ps1` with restart numbers202609101 and202609102. Both starts report
+OPENRUNE CUSTOM BUILD ACTIVE, canonical directory, revision240 and Server ready (01:08:18,
+01:15:07 EDT). The marker's Git fields remain unavailable; deployment source was `c421aca33`
+plus documentation checkpoint `4417447e3`, rebuilt by the canonical Gradle run workflow.
+Both read-only doctors pass. SERVER dat2 SHA256 remains
+`D01985ED94C9814DBF99509B335E964C69F1FF91C2464A5165D42A78E1915D75`;
+LIVE remains `FD0FE5EF66039A791A900EDDDF1CDBCFE57E09E8C32EA3496C69E96217A41A7B`.
+
+Read-only PostgreSQL fingerprints match the logged-out snapshot before and after both restarts:
+
+- 22 inventory containers: `85989c0b4aa1079086bfb308ab78c6161120f950dcd3ea76c152b298635d4991`.
+- 1,152 inventory/bank rows: `dae3cf5f00d31c4df803067408c4af97164659777d18fc5d5a041103974fd70c`.
+- 1 realm spawn/respawn row: `c971b1f6d8e431e9f25d64c6dc154d7c60ff22ce7c9e20274a73f671e911ef50`.
+
+Evidence logs under logs/: `cerberus-deploy-logged-out-persistence-before.log`,
+`cerberus-deploy-doctor-restart{1,2}-20260910.log`,
+`cerberus-deploy-persistence-restart{1,2}-20260910.log`, and
+`cerberus-audit-20260907/restart-20260910{1,2}.{stdout,stderr}.log`.
+Normal old-server shutdown emitted PostgreSQL listener/pool warnings while services closed;
+no connected player or pending-player-save failure was observed in this checkpoint. Initial
+long-cycle startup warnings do not constitute a gameplay test. No Cerberus rendered-client or
+OSRS packet diff was performed. Eight boss groups are now source-migrated and locally deployed,
+not certified1:1. Royal Titans is the next separate branch.
+
+User now authorizes native forced logout/save for future tested, backed-up local deployments.
+Do not pause merely for their connected client. Confirm saves before normal shutdown, retain
+the persistence safeguards and do not hard-kill the JVM. Recorded in AGENTS.md and the handoff.

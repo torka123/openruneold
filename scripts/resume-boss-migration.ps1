@@ -2,7 +2,7 @@
 param(
     [switch]$Verify,
     [switch]$CopyPrompt,
-    [ValidatePattern('^[a-z0-9-]+$')][string]$Boss = 'cerberus'
+    [ValidatePattern('^[a-z0-9-]+$')][string]$Boss = 'royal-titans'
 )
 
 Set-StrictMode -Version Latest
