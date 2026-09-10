@@ -1289,3 +1289,9 @@ the controlled restart because of the previously recorded pending-save shutdown 
 The read-only predeployment PostgreSQL snapshot (`cerberus-predeploy-persistence.log`) has22
 containers,1,152 inventory rows and1 realm row; its inventory hash differs from the earlier1,147
 rows while the user is playing. This is live player progress, not evidence of migration data loss.
+
+Final corrected backup created: branch `backup/cerberus-native-frame-verified-20260910` at
+`c421aca33`; source-only ZIP `logs/cerberus-native-frame-verified-20260910.zip`, SHA256
+`173612586CDAD4B5C39F4BAB304B6A63FF33E0FD10A7D1194B5CC20E74E4257D`.
+The ZIP contains7,439 entries and no excluded .data/log/build/cache/config-secret paths under
+the checked exclusion policy. No remote push/merge or runtime restart was performed.

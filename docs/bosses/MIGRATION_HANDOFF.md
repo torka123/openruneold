@@ -28,6 +28,10 @@ Update this checkpoint after each completed boss and immediately before any auth
   BossSpec owns normal attacks, triple/rotation and phase deadlines; native InstanceScript owns
   membership and same-actor death/reveal. The arena handler retains Souls/lava/firewall behavior.
   No Cerberus migration has been deployed or visually accepted; the seven-boss live build remains.
+- Corrected Cerberus source backup: `backup/cerberus-native-frame-verified-20260910`,
+  commit `c421aca33`. ZIP `logs/cerberus-native-frame-verified-20260910.zip`, SHA256
+  `173612586CDAD4B5C39F4BAB304B6A63FF33E0FD10A7D1194B5CC20E74E4257D`.
+  7,439 entries, no excluded-path violations. Use this instead of the pre-frame-fix backup.
 - Completed source migrations: Kraken, Vorkath, Corporeal Beast, Alchemical Hydra, Grotesque Guardians,
   Zulrah, Muspah and Cerberus. This means source/headless migration, not client or full OSRS parity certification.
 - Muspah verification: `logs/muspah-native-phase-dsl-regression.log`, all67 tests pass
@@ -101,6 +105,10 @@ tests, app classes and architecture enforcement pass in `cerberus-final-broad-ch
 mistake: world deadlines precede MapClock.tick/LateCycle. Three timing tests fail before the
 correction; all75 pass afterward in `cerberus-native-frame-order-green.log`. See the detailed
 mapping and subsequent final verification in DSL_MIGRATION.md.
+
+Corrected final broad check: `logs/cerberus-corrected-final-broad-check.log`,28s/509tasks,
+successful. This includes affected shared suites and all applicable boss tests (up-to-date
+where unchanged), scoped Cerberus check, app compilation and architecture enforcement.
 
 Deployment checkpoint is still pending: live JVM23164 has a connected game client. The user was
 asked to log out briefly because an earlier shutdown exposed a pending-save risk. Do not treat
