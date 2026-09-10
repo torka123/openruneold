@@ -27,6 +27,8 @@ dependencies {
     testImplementation(projects.engine.events)
     testImplementation(projects.api.registry)
     testImplementation(projects.api.gameProcess)
+    testImplementation(projects.content.generic.killcount)
+    testImplementation("dev.or2:toml-rsconfig:1.0")
     testImplementation(projects.api.deathPlugin)
     testImplementation(projects.api.combat.combatFormulas)
 }

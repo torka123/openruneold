@@ -2,9 +2,17 @@ package org.rsmod.content.bosses.muspah
 
 import com.google.inject.AbstractModule
 import com.google.inject.Guice
+import dev.openrune.ParamMap
 import dev.openrune.ServerCacheManager
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
+import dev.openrune.toml.rsconfig.decodeRuneScape
+import dev.openrune.toml.rsconfig.decodeRuneScapeBlocks
+import dev.openrune.toml.rsconfig.rsconfig
+import dev.openrune.toml.tomlMapper
+import dev.openrune.types.NpcServerType
+import java.io.File
+import kotlin.reflect.typeOf
 import kotlin.test.*
 import org.junit.jupiter.api.BeforeAll
 import org.mockito.Mockito.*
@@ -52,6 +60,7 @@ import org.rsmod.api.repo.npc.NpcRepository
 import org.rsmod.api.repo.obj.ObjRepository
 import org.rsmod.api.repo.region.RegionRepository
 import org.rsmod.api.repo.world.WorldRepository
+import org.rsmod.content.generic.killcount.KillcountNpcKillHook
 import org.rsmod.events.EventBus
 import org.rsmod.game.MapClock
 import org.rsmod.game.cheat.CheatCommandMap
@@ -78,6 +87,49 @@ import org.rsmod.routefinder.collision.CollisionFlagMap
 /** Characterizes the existing draft through native registration, not independent OSRS proof. */
 @OptIn(InternalApi::class)
 class MuspahNativeTest {
+    @Test
+    fun `source KC metadata uses the native kill hook once across two completions`() {
+        val f = MuspahFixture()
+        f.start()
+        val blocks =
+            tomlMapper { rsconfig { enableConstantProvider() } }
+                .decodeRuneScapeBlocks(File(".data/raw-cache/server/npcs.toml").toPath())
+        val mapper = tomlMapper {}
+        val overlay =
+            assertNotNull(
+                blocks
+                    .asSequence()
+                    .filter { it.name == "npc" }
+                    .map {
+                        mapper.decodeRuneScape(typeOf<List<NpcServerType>>(), it.map.properties)
+                            as NpcServerType
+                    }
+                    .firstOrNull { it.id == 12077 }
+            )
+        val definition = f.boss.type
+        val previous = definition.paramMap
+        try {
+            definition.paramMap =
+                ParamMap(definition.paramsRaw.orEmpty() + overlay.paramsRaw.orEmpty())
+            repeat(2) { round ->
+                f.until(f.clock.cycle + 4)
+                f.damage(1)
+                f.boss.hitpoints = 0
+                f.killQueue()
+                f.until(f.clock.cycle + 15)
+                assertEquals(round + 1, f.kills.size)
+                assertEquals(round + 1, f.player.vars["varp.total_muspah_kills"])
+                val state = assertNotNull(f.instances.muspahState(f.player))
+                f.encounters.finishBossDeath(state)
+                assertEquals(round + 1, f.player.vars["varp.total_muspah_kills"])
+                f.until(f.clock.cycle + 60)
+                assertEquals(1, f.npcList.count())
+            }
+        } finally {
+            definition.paramMap = previous
+        }
+    }
+
     @Test
     fun `crack forms on tick two and its queued spike hit is retired on departure`() {
         val f = MuspahFixture()
@@ -583,7 +635,7 @@ private class MuspahFixture(melee: Boolean = false, magic: Boolean = false) {
             players,
             mock(ObjRepository::class.java),
             setOf(NpcDeathDropHook { true }),
-            setOf(NpcDeathKillHook { kills += it }),
+            setOf(KillcountNpcKillHook(), NpcDeathKillHook { kills += it }),
         )
     val instanceScript =
         MuspahWorld(BossInstanceRegistry(), encounters, mock(ProtectedAccessLauncher::class.java))

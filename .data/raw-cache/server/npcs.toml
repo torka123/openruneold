@@ -4064,6 +4064,9 @@ respawnRate = 50
 attackRange = 10
 huntRange = 12
 [npc.params]
+# The configured instance actor retains this base identity through visual forms and respawn.
+"param.killcount_varp" = "varp.total_muspah_kills"
+"param.killcount_notify" = false
 "param.poison_immunity" = 1
 "param.venom_immunity" = 2
 "param.cannon_immunity" = 1
