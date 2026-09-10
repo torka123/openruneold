@@ -71,11 +71,7 @@ constructor(
             val quantity = NexRules.commonQuantity(base, damage, total, mvp)
             award(common.itemId, quantity)
             when (common.itemId) {
-                SHARK ->
-                    award(
-                        PRAYER_POTION_4,
-                        NexRules.commonQuantity(3, damage, total, mvp),
-                    )
+                SHARK -> award(PRAYER_POTION_4, NexRules.commonQuantity(3, damage, total, mvp))
                 SARADOMIN_BREW_4 ->
                     award(
                         SUPER_RESTORE_4,
@@ -115,11 +111,7 @@ constructor(
         collectionLog.recordBatch(
             player = player,
             awards = awards,
-            source =
-                CollectionLogAwardSource(
-                    CollectionLogAwardKind.NpcDrop,
-                    "nex",
-                ),
+            source = CollectionLogAwardSource(CollectionLogAwardKind.NpcDrop, "nex"),
             eventId = "${player.uid}:$killcount",
         )
         if (petAwarded) {
@@ -127,11 +119,7 @@ constructor(
                 player = player,
                 itemId = NEXLING,
                 amount = 1,
-                source =
-                    CollectionLogAwardSource(
-                        CollectionLogAwardKind.PetGrant,
-                        "nexling",
-                    ),
+                source = CollectionLogAwardSource(CollectionLogAwardKind.PetGrant, "nexling"),
                 eventId = "${player.uid}:$killcount",
             )
         }
