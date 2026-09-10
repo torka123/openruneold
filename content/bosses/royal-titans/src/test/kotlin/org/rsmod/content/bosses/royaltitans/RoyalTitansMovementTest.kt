@@ -147,6 +147,36 @@ class RoyalTitansMovementTest {
         assertEquals(1.0, f.npc(player, 14147).incomingRangedAccuracyMultiplier)
     }
 
+    @Test
+    fun `characterized close action budget and second retreat keep independently staggered ticks`() {
+        val rng = mock(GameRandom::class.java)
+        `when`(rng.of(10)).thenReturn(1, 0)
+        `when`(rng.of(2)).thenReturn(1, 0)
+        val f = RoyalTitansTestWorld(random = rng, arenaCollision = true)
+        val player = f.enter()
+        val actions = mutableMapOf<Int, MutableList<Int>>()
+        for (tick in 1..61) {
+            if (tick == 30) player.coords = f.tile(player, 31, 28)
+            f.tick()
+            for (npc in f.activeNpcs(player).filter { it.id in listOf(12596, 14147) }) {
+                if (npc.pendingSequence.id in listOf(11974, 11973))
+                    actions.getOrPut(npc.id) { mutableListOf() } += tick
+            }
+            if (tick == 55) {
+                assertEquals(f.tile(player, 20, 26), f.npc(player, 12596).pendingFaceSquare)
+                assertEquals(6.0, f.npc(player, 12596).incomingRangedAccuracyMultiplier)
+                assertEquals(1.0, f.npc(player, 14147).incomingRangedAccuracyMultiplier)
+            }
+            if (tick == 58) {
+                assertEquals(f.tile(player, 24, 26), f.npc(player, 12596).coords)
+                assertEquals(f.tile(player, 40, 27), f.npc(player, 14147).pendingFaceSquare)
+            }
+        }
+        assertEquals(listOf(34, 41, 48), actions[12596]?.toList())
+        assertEquals(listOf(37, 44, 51), actions[14147]?.toList())
+        assertEquals(f.tile(player, 36, 27), f.npc(player, 14147).coords)
+    }
+
     companion object {
         @JvmStatic @BeforeAll fun cache() = RoyalTitansCombatIntegrationTest.cache()
     }

@@ -186,6 +186,10 @@ cache/shared checks and broader505-task verification pass. The exact due-frame d
 regression required native keyed-leave rebinding, not a LateCycle-only fallback. Both corpse
 orders retire their own native clocks. Live STILL remains the Cerberus checkpoint. Continue
 platform-phase wiring and focused handler extraction; do not call Royal Titans complete yet.
+Passing arena backup: `backup/royal-titans-arena-dsl-20260910` at `bf05c2def`, ZIP
+`logs/royal-titans-arena-dsl-20260910.zip`, SHA256
+`2707C222E490231E4FD35E9E4E1420B456722FB127D7BA7A33A0CA8D33E8DC38`.
+Archive:7,445 entries, zero excluded-path violations; no runtime data or generated output.
 
 1. Collect user client-test feedback. Backup, local deployment, two gameplay checkpoint restarts,
    persistent fingerprints and the corrected75-assertion live Vorkath audit are complete. Do not

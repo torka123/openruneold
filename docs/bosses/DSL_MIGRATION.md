@@ -1525,3 +1525,20 @@ Broader `royal-titans-arena-dsl-broad-20260910.log`:1m20s/505tasks,59 executed44
 app classes, all applicable boss/shared suites and architecture enforcement pass. No deployment.
 Manager is1,911 lines. Platform phase clocks, stage/reset choreography and handler extraction
 remain migration work; the unresolved OSRS selection rules are unchanged.
+
+### Royal Titans platform phase-clock mapping
+
+Continue the approved phase/rotation mapping without new shared code. The existing movement
+handler uses native routes and occupied footprints correctly for its characterized cases, but
+RoyalTitanMovement still duplicates phase identity, readyCycle and the three-close-action counter.
+Move those waits, identity and close-action sequence into the same per-Titan BossSpec/BossEncounter.
+Keep only route destination, verified arrival, after-arrival action and paired elemental unlock
+state in the movement adapter. Native route completion, not elapsed time, advances walking.
+The external handler still chooses collision-aware patrol/return routes and the paired unlock
+replacement action; it must not retain an independent timer or phase/attack-count engine.
+
+Use pre-input phase origins (the preceding frame for a LateCycle transition) so even one-tick
+turn/facing intervals remain positive native deadlines. Existing native golden routes/animations,
+platform damage tests, blocked-footprint and canceled-route tests characterize this wiring. Add
+a second-retreat/three-stomp characterization before production edits. Preserve the explicitly
+unverified patrol weighting, return-row selection and three-action policy; no new OSRS claim.
