@@ -201,6 +201,7 @@ constructor(
     fun attack(access: StandardNpcAccess, target: Player) {
         val run = runs[target.uid] ?: return
         if (run.boss !== access.npc || !isCombatState(run.state)) return
+        if (access.npc.actionDelay > clock.cycle) return
         when (run.currentForm) {
             MuspahForm.MELEE -> attackMelee(access, run, target)
             MuspahForm.RANGED -> attackRanged(access, run, target, reinforced = false)

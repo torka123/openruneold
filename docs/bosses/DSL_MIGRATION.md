@@ -899,3 +899,7 @@ stationary counter, making the second committed stationary hit max34 instead of 
 Gate rejected attempts before private selection/counter mutation, then replace that gate with
 BossCombat's established readiness/selection pipeline. The intended per-attack formula is retained;
 this fixes execution-vs-declared-rule behavior, not a newly researched OSRS maximum.
+
+`muspah-native-readiness-green.log`: all 50 tests pass, scoped check37s/164tasks. Readiness is now
+checked before legacy selector/counter mutation; the next step transfers that responsibility to
+BossCombat. Existing phases, source data and rewards are unchanged.
