@@ -843,3 +843,48 @@ NO-SOURCE modules do not constitute gameplay coverage. Architecture waivers now 
 reviewed spatial-hit/parameter sites and persistent reclaim reminder, not private combat/membership.
 Doctor still identifies canonical PID41396 and revision240 authority. No live deployment,
 cache packing, controlled restart, client scenario or new packet comparison was performed.
+
+## Muspah mapping (before migration)
+
+Branch starts at Zulrah checkpoint `2aecefe5f`. Current Muspah is a 1,088-line manager with
+PlayerUid membership, phase/respawn deadlines, ordinary attack selectors and manual actor creation.
+Its 40 rules tests do not execute native combat. All module files, NPC source overlays, drop-table
+registration, Collection Log KC reference and Git history inspected. Repository/upstream searches
+find one local encounter; upstream contains a Muspah drop table but no encounter implementation.
+No Muspah capture ledger was found under docs. Preserve current numeric behavior as characterization,
+not normal-game evidence. No quest requirement, reward rebalance or new scoreboard is added here.
+
+Official architecture references at `61139e76a216592d66c2b20366ef26d48609875d`:
+[ScurriusInstance](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/content/bosses/scurrius/src/main/kotlin/org/rsmod/content/bosses/scurrius/ScurriusInstance.kt),
+[BossCombat](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/api/bosses/src/main/kotlin/org/rsmod/api/bosses/runtime/BossCombat.kt),
+[InstanceManager](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/api/instances/src/main/kotlin/org/rsmod/api/instances/InstanceManager.kt).
+BossSpec/BossEncounter/InstanceScript/native repositories and death pipeline are upstream workflows.
+Effect.NpcAttack, parameter adapters, scoped hit/task lifetimes, source instance settings and typed
+session state are existing **local shared extensions** documented above, not official provenance.
+
+| Mechanic / retained behavior | Evidence confidence | Existing pathway | Planned established workflow / tests |
+|---|---|---|---|
+| Random ranged/melee opening, 850HP, four-tick spawn, fixed room/template/facing | Draft/config and rev240 definitions; no packet proof | Manager creates NPC and private ready timer | Configured instance actor, native spawn/respawn and DSL phase entry; native both-form entry and readiness tests |
+| Ranged 1/5 magic, reinforced 1/3; maxima61/72/79; rates6/5; magic impact3 | Draft only | Private RNG before NvPCombat readiness gate | DSL WeightedRandom/phase cadence plus native attack parameters; launch/deadline/prayer/blocked-selection tests |
+| Melee step-back and stationary maxima, 50% prayer reduction | Draft/rules; unverified OSRS geometry | Private pre-launch counter | Native melee attack with pure launch snapshot and committed counter; movement/prayer/cooldown tests |
+| First swaps100/80damage; later also4positive ticks; four-tick transform | Draft/rules; crossing currently evaluated during Modify | Manager counters/deadlines | BossEncounter phase identity and named form policy; native resolve/impact characterization before changing crossing semantics; multi-hit and queued-race tests |
+| Specials637/425, order from initial form | Draft only | Manager flags and state switch | DSL phase identity/transition policy, unchanged priority; executable both orders and boundary tests |
+| Lightning12teleports/+2 then3ticks, moving clouds; homing34ticks and orthogonal pursuit | Draft-only spatial values | Post-tick private phase loop and hazard lists | Focused arena handler, existing movement/collision/loc APIs, encounter-owned scheduling; route/expiry/cleanup tests |
+| Below127 shockwave+4/shield+5,75shield; prayer/bolt/mace drain, passive2, soul-split half | Draft/rules; lethal skip and damage attribution unresolved | Pre-resolution hit mutation and callbacks | Existing BossCombat damage callbacks/native NvP hit handlers, phase-owned counters; threshold/shield/late-hit tests; do not invent new drain pipeline |
+| Final spike every4attacks, two-tick crack and75%spike healing | Draft only | Ordinary onAttack manually counts and loc onDespawn callback | DSL forced cadence plus focused geometry using scoped native effects; exact crack/cadence/teardown tests |
+| Solo natural crevice, exits/teleport/logout/death | Existing module and cache locs46597..46599 | Direct telejump/create/finalize and custom cleanup | InstanceScript/native keyed lifecycle and session state; natural entry, isolation and departure tests |
+| Native drops, KC/PB,50tick repeat and charged-ice timer attribute | Existing table/persistence keys; no new rates research | Native death plus local KC and manually replaced actor | Native kill hook/source metadata and same-actor respawn; verify source identities, exactly one completion, preserved reward attribute and two kills |
+
+Before removing any manager engine, add native characterization through existing registration,
+hit and instance APIs. Suspected issues (cooldown-consuming RNG/counters, unscoped delayed hits,
+stale crack callbacks and duplicate respawn ownership) need failing tests, not assumptions. Preserve
+the current non-player damage exclusion as an explicit mechanical gap, not as OSRS-certified behavior.
+No additional shared capability is proposed in this mapping; explain any newly proven gap first.
+
+The native baseline found an actual launch exception: `projanim.magic` is unmapped. After fixing
+fixture sequence-reset/prayer assertions, `muspah-native-characterization-before-3.log` has 48 tests
+and exactly four failures, all that missing controller. Use the existing `projanim.magic_spell`
+controller, defined in upstream `.data/raw-cache/server/projectiles.toml:69` and the current mapping
+as ID6. This repairs the invalid generic controller reference; it does not certify its heights/travel
+as Muspah-specific OSRS values. Validate the selected controller during asset validation. Existing
+lightning/homing/form/exit native characterizations pass; no new spatial behavior is inferred.
