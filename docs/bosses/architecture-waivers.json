@@ -139,27 +139,15 @@
   },
   {
     "boss": "muspah",
-    "rule": "global-runs-map",
-    "maximum": 1,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "muspah",
     "rule": "manual-lifecycle",
-    "maximum": 5,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+    "maximum": 4,
+    "reason": "Reviewed spatial/corruption post-tick hook and native respawn handoff only (including imports/bindings). InstanceScript/InstanceLifecycleScript own membership, departure, death and teardown; BossEncounter owns phase deadlines."
   },
   {
     "boss": "muspah",
     "rule": "direct-combat-review",
     "maximum": 5,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "muspah",
-    "rule": "instance-script",
-    "maximum": 1,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+    "reason": "Reviewed two native launch-parameter objects plus three scoped environmental hit sites in MuspahArenaEffects. No ordinary projectile/hit scheduling or selection outside BossSpec/Effect.NpcAttack."
   },
   {
     "boss": "nex",

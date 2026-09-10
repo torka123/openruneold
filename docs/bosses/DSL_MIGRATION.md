@@ -233,7 +233,7 @@ Diagnostic-only modules are excluded. Zero manager lines is not proof of archite
 | Alchemical Hydra | manager; 858 | Ordinary native volleys, rotation, forced cadence and phase identity | Native InstanceScript, typed session state and native same-actor respawn | 260-line observation/form coordinator; 317-line arena hazards; 71-line transform presentation; parameter/hit-policy adapters | 22 deterministic tests pass, including native lifecycle and two kills | No live verification; baseline-only hazard/pathing constants, non-player damage exclusion and natural exterior entrance remain uncertified |
 | Grotesque Guardians | manager; 945 -> 327 coordinator lines | Two BossSpecs: ordinary native volleys, phase identity, ordinal style selection and forced cadence | Native InstanceScript, typed session state, configured actors and validated native pair reset | Arena geometry/effects (343 lines), paired form coordination, native parameter/damage adapters | 21 deterministic tests (15 native), 48 drop tests pass | No live verification or cache repack; inherited lightning vulnerability, non-player damage exclusion and draft-only spatial values remain uncertified |
 | Zulrah | manager; 993 -> 300 coordinator lines | Four unchanged declarative rotation programs, native attacks and separate snakeling specs | Native InstanceScript, configured actor, typed session state and same-actor respawn | Spatial clouds/eggs/tail handler (307 lines), surface positioning, existing reclaim storage and native parameter adapters | 43 tests (21 native, 22 retained) and revision-240 cache audit pass; all boss/shared regressions and app classes pass | No deployment/cache repack/client verification; Grid Master capture context, tail-order conflict and inherited non-player damage exclusion remain uncertified |
-| Muspah | manager; 1,088 -> 996 (intermediate) | Ordinary weighted attacks/cadence on BossSpec/NvPCombat; phase/forced-special migration still pending | Pending; private membership/respawn remain | Native launch/impact parameters; spatial split pending | 54 tests (14 native, 40 retained) pass | Not a completed migration; generic projectile controller and draft-only timings not packet-certified; no deployment |
+| Muspah | manager; 1,088 -> 552 | Weighted normal attacks, final cadence and all timed phases on BossSpec/BossEncounter | InstanceScript, configured actor, typed session, native death/respawn and KC | Threshold/shield policy, spatial cloud/spike/LOS handlers, corruption presentation | 67 tests (27 native, 40 retained) pass | Draft timings, projectile geometry, source exclusions and shield-skip policy not OSRS-certified; client verification pending |
 | Cerberus | manager; 1,290 | Pending | Pending | Ghosts/lava | Existing capture tests preserved | Detailed mapping pending |
 | Royal Titans | manager; 2,017 | Pending | Pending | Paired coordination/walls/statistics | Existing tests preserved | Existing evidence gaps remain distinct from migration |
 | Nex | manager; 1,321 | Pending | Pending | Group specials/reward coordination | Existing tests preserved | Full encounter work remains incomplete |
@@ -1010,3 +1010,27 @@ clock now advances declared phases through the native queue/access interpreter, 
 deadlines, waits for native busy access, and retires source/target-invalid work. Ordinary attack
 callbacks cannot execute the same timed entry twice. Positive durations are required to avoid a
 zero-tick phase cycle. Existing non-opted-in bosses retain their current transition behavior.
+
+### Muspah completed source phase migration
+
+`muspah-native-phase-dsl-first.log`: the existing60 tests pass through declared spawn/swap,
+38-tick lightning,34-tick homing and4+1-tick shockwave/shield phases (42s/167tasks).
+MuspahArenaState derives phase identity from BossEncounter; removed its private phase deadlines,
+ordinary-attack counter, membership map, respawn timer and generation. InstanceScript owns room
+entry/exit, native lifecycle owns departures, and native death/reveal owns the same actor across kills.
+Named external entry handlers retain presentation and specialized shield/form policy; the spatial
+handler owns only arena geometry/resource effects using native repositories and encounter queues.
+
+`muspah-native-phase-dsl-edge-red.log`:65 tests, one failure. Queue-before-post-tick ordering allowed
+a new cloud to damage the player on its birth tick. The preserved draft only processed that cloud
+the following tick. A next-movement gate repairs this migration regression without changing its
+declared damage. `muspah-native-phase-dsl-regression.log`:all67 tests pass,39s/167tasks. Added exact
+cloud movement/hit timing, out-of-reach timed entry without post-tick phase polling, shield
+interruption of lightning, same-tick lethal skip races, passive-shield-break expansion, natural
+crevice/both exit interactions and two independent native rooms with isolated teardown.
+
+Architecture waivers now remove private-membership/InstanceScript debt and explicitly review only
+the spatial/corruption post-tick handoff, two native attack parameter objects and three scoped
+environmental hit sites. These tests preserve the existing researched/draft behavior; they do not
+certify the unresolved non-player damage exclusion, generic projectile geometry, source contribution,
+exact OSRS specials or live visuals. No packet comparison is claimed.

@@ -36,6 +36,38 @@ constructor(
 ) {
     private val lineValidator = LineValidator(collision)
 
+    fun lightningRoute(run: MuspahArenaState) {
+        val route =
+            listOf(
+                41 to 34,
+                23 to 43,
+                31 to 22,
+                39 to 43,
+                20 to 34,
+                39 to 25,
+                31 to 46,
+                23 to 25,
+                41 to 34,
+                23 to 43,
+                31 to 22,
+                39 to 43,
+            )
+        for ((index, local) in route.withIndex()) {
+            run.encounter.scheduleAt(queues, clock, clock.cycle + 2 + index * 3) {
+                if (
+                    instances.muspahState(run.player) !== run ||
+                        run.state != MuspahState.LIGHTNING_CLOUDS
+                )
+                    return@scheduleAt
+                val destination = requireLocal(run.session, local.first, local.second)
+                run.boss.anim(MuspahAssets.TELEPORT_DISAPPEAR)
+                run.boss.teleport(collision, destination)
+                run.boss.anim(MuspahAssets.TELEPORT_APPEAR)
+                spawnLightningCloud(run, destination)
+            }
+        }
+    }
+
     fun spawnLightningCloud(run: MuspahArenaState, source: CoordGrid) {
         val center = arenaCenter(run.session)
         val dx = (center.x - source.x).coerceIn(-1, 1)
@@ -46,7 +78,7 @@ constructor(
                 deltaX = dx,
                 deltaZ = dz,
                 endCycle = clock.cycle + 18,
-                nextMoveCycle = clock.cycle,
+                nextMoveCycle = clock.cycle + 1,
             )
     }
 
@@ -58,6 +90,9 @@ constructor(
                 iterator.remove()
                 continue
             }
+            // Route callbacks precede post-tick movement. A new cloud did not move or hit
+            // until the following tick in the characterized draft.
+            if (clock.cycle < cloud.nextMoveCycle) continue
             if (clock.cycle >= cloud.nextMoveCycle) {
                 cloud.tile = cloud.tile.translate(cloud.deltaX, cloud.deltaZ)
                 cloud.nextMoveCycle++

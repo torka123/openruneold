@@ -16,17 +16,15 @@ internal fun InstanceManager.muspahState(player: Player): MuspahArenaState? =
 internal fun InstanceManager.muspahState(npc: Npc): MuspahArenaState? =
     instanceForNpc(npc)?.let(::sessionForId)?.stateOrNull(MUSPAH_ARENA_STATE)
 
-/** Session-owned presentation and specialized mechanics; phase timers migrate in the next step. */
+/** Session-owned specialized data. Phase identity and deadlines belong to BossEncounter. */
 internal class MuspahArenaState(
     val player: Player,
     val session: InstanceSession,
     val boss: Npc,
     var encounter: BossEncounter,
     var pendingRespawn: Boolean = false,
-    var state: MuspahState = MuspahState.STARTING,
     var currentForm: MuspahForm = MuspahForm.RANGED,
     var initialForm: MuspahForm = MuspahForm.RANGED,
-    var resumeState: MuspahState = MuspahState.RANGED,
     var transformTarget: MuspahForm? = null,
     var firstSwapComplete: Boolean = false,
     var positiveAttacks: Int = 0,
@@ -36,14 +34,6 @@ internal class MuspahArenaState(
     var secondSpecialFired: Boolean = false,
     var shieldPoints: Int = 0,
     var stationaryMeleeAttacks: Int = 0,
-    var startReadyCycle: Int = Int.MAX_VALUE,
-    var transformCycle: Int = Int.MAX_VALUE,
-    var homingEndCycle: Int = Int.MAX_VALUE,
-    var lightningIndex: Int = 0,
-    var nextLightningCycle: Int = Int.MAX_VALUE,
-    var shockwaveCycle: Int = Int.MAX_VALUE,
-    var shieldApplyCycle: Int = Int.MAX_VALUE,
-    var shockwaveFired: Boolean = false,
     var shieldSkipPending: Boolean = false,
     var killStartCycle: Int = 0,
     var killTicks: Int = 0,
@@ -54,4 +44,26 @@ internal class MuspahArenaState(
     val movingSpikes: MutableList<MovingSpike> = mutableListOf(),
     val clouds: MutableList<LightningCloud> = mutableListOf(),
     val shieldDrainSources: MutableSet<String> = linkedSetOf(),
-)
+) {
+    val state: MuspahState
+        get() =
+            when (val phase = encounter.currentPhaseName) {
+                "RANGED" -> MuspahState.RANGED
+                "MELEE" -> MuspahState.MELEE
+                "SHIELD" -> MuspahState.PRAYER_SHIELD
+                "FINAL" -> MuspahState.FINAL_STAND
+                "lightning" -> MuspahState.LIGHTNING_CLOUDS
+                "dying" -> MuspahState.DYING
+                "respawning" -> MuspahState.RESPAWNING
+                "invalidated" -> MuspahState.INVALIDATED
+                else ->
+                    when {
+                        phase.startsWith("spawn-") || phase == "dormant" -> MuspahState.STARTING
+                        phase.startsWith("swap-") -> MuspahState.TRANSFORMING
+                        phase.startsWith("homing-") -> MuspahState.HOMING_SPIKES
+                        phase.startsWith("shockwave-") || phase.startsWith("shield-arrival-") ->
+                            MuspahState.SHOCKWAVE
+                        else -> error("Unmapped Muspah phase: $phase")
+                    }
+            }
+}

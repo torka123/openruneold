@@ -5,7 +5,7 @@ import org.rsmod.api.combat.commons.CombatAttack
 import org.rsmod.api.combat.commons.types.MeleeAttackType
 import org.rsmod.api.combat.commons.types.RangedAttackType
 
-/** Ordinary combat only; spatial phase migration is the next strangler step. */
+/** Native attack selection and phase deadlines; named handlers retain only specialized effects. */
 internal fun muspahCombatSpec(): BossSpec {
     val abilities = linkedMapOf<String, Effect>()
     val phases = linkedMapOf("dormant" to PhaseSpec("dormant", lockMovement = true))
@@ -79,8 +79,56 @@ internal fun muspahCombatSpec(): BossSpec {
                 lockMovement = form != MuspahForm.MELEE,
                 attackRate = rate,
                 selector = selector,
+                entry =
+                    if (form == MuspahForm.SHIELD) "shield-arrival"
+                    else if (form != MuspahForm.FINAL) "ordinary-arrival" else null,
             )
     }
+    abilities["ordinary-arrival"] = Effect.External("muspah.ordinary-arrival")
+    abilities["shield-arrival"] = Effect.External("muspah.shield-arrival")
+    abilities["shockwave"] = Effect.External("muspah.shockwave")
+    for (form in listOf(MuspahForm.RANGED, MuspahForm.MELEE)) {
+        val name = form.name
+        phases["spawn-$name"] =
+            PhaseSpec("spawn-$name", exitAfter = 4, nextPhase = name, lockMovement = true)
+        phases["swap-$name"] =
+            PhaseSpec(
+                "swap-$name",
+                exitAfter = 4,
+                nextPhase = name,
+                lockMovement = form == MuspahForm.MELEE,
+            )
+        phases["homing-$name"] =
+            requireNotNull(phases[name])
+                .copy(
+                    name = "homing-$name",
+                    entry = null,
+                    exitAfter = MUSPAH_HOMING_DURATION,
+                    nextPhase = name,
+                )
+    }
+    phases["lightning"] =
+        PhaseSpec("lightning", exitAfter = 38, nextPhase = "RANGED", lockMovement = true)
+    for (locked in listOf(true, false)) {
+        val suffix = if (locked) "locked" else "mobile"
+        phases["shockwave-$suffix"] =
+            PhaseSpec(
+                "shockwave-$suffix",
+                exitAfter = 4,
+                nextPhase = "shield-arrival-$suffix",
+                lockMovement = locked,
+            )
+        phases["shield-arrival-$suffix"] =
+            PhaseSpec(
+                "shield-arrival-$suffix",
+                entry = "shockwave",
+                exitAfter = 1,
+                nextPhase = "SHIELD",
+                lockMovement = locked,
+            )
+    }
+    for (name in listOf("dying", "respawning", "invalidated")) phases[name] =
+        PhaseSpec(name, lockMovement = true)
     return BossSpec(
         MuspahAssets.npcForms,
         BossStats(attackRate = MUSPAH_RANGED_ATTACK_RATE, aggressionRadius = 10),

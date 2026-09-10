@@ -33,6 +33,8 @@ import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.instances.region.InstanceAreaResolver
 import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.api.npc.access.StandardNpcAccessContext
+import org.rsmod.api.npc.access.StandardNpcAccessContextFactory
+import org.rsmod.api.npc.access.StandardNpcAccessLauncher
 import org.rsmod.api.npc.events.NpcHitEvents
 import org.rsmod.api.npc.events.NpcQueueEvents
 import org.rsmod.api.npc.events.interact.AiPlayerEvents
@@ -40,6 +42,7 @@ import org.rsmod.api.npc.hit.modifier.StandardNpcHitModifier
 import org.rsmod.api.npc.hit.processor.StandardNpcHitProcessor
 import org.rsmod.api.npc.interact.AiPlayerInteractions
 import org.rsmod.api.player.events.PlayerMovementEvent
+import org.rsmod.api.player.events.interact.LocEvents
 import org.rsmod.api.player.hook.PlayerPostTickHook
 import org.rsmod.api.player.hook.PlayerTeleportHooks
 import org.rsmod.api.player.hook.PlayerTeleportValidator
@@ -71,6 +74,8 @@ import org.rsmod.game.entity.player.SessionStateEvent
 import org.rsmod.game.hit.Hit
 import org.rsmod.game.hit.HitBuilder
 import org.rsmod.game.hit.HitType
+import org.rsmod.game.loc.BoundLocInfo
+import org.rsmod.game.loc.LocEntity
 import org.rsmod.game.loc.LocInfo
 import org.rsmod.game.proj.ProjAnim
 import org.rsmod.game.queue.EngineQueueCache
@@ -87,6 +92,143 @@ import org.rsmod.routefinder.collision.CollisionFlagMap
 /** Characterizes the existing draft through native registration, not independent OSRS proof. */
 @OptIn(InternalApi::class)
 class MuspahNativeTest {
+    @Test
+    fun `natural crevice and both exits use registered protected instance interactions`() {
+        for (exit in listOf(MuspahAssets.EXIT_ID, MuspahAssets.ESCAPE_ID)) {
+            val f = MuspahFixture()
+            f.locOp(MuspahAssets.ENTRANCE_ID)
+            f.until(105)
+            assertNotNull(f.instances.sessionForPlayer(f.player))
+            assertEquals(1, f.npcList.count())
+            f.locOp(exit)
+            f.until(110)
+            assertNull(f.instances.sessionForPlayer(f.player))
+            assertTrue(f.npcList.none())
+            assertEquals(MUSPAH_OUTSIDE, f.player.coords)
+        }
+    }
+
+    @Test
+    fun `two native rooms retain independent owners clocks and cleanup`() {
+        val f = MuspahFixture()
+        f.start()
+        val second = f.newPlayer(2)
+        f.players[2] = second
+        f.start(second)
+        val one = assertNotNull(f.instances.muspahState(f.player))
+        val two = assertNotNull(f.instances.muspahState(second))
+        assertNotEquals(one.session.id, two.session.id)
+        assertNotEquals(one.boss.coords, two.boss.coords)
+        assertFalse(f.encounters.canAttack(one.boss, second))
+        f.until(104)
+        f.damage(213)
+        f.until(106)
+        assertEquals(MuspahState.LIGHTNING_CLOUDS, one.state)
+        assertEquals(MuspahState.RANGED, two.state)
+        f.leave()
+        assertEquals(listOf(two.boss), f.npcList.toList())
+        assertTrue(one.encounter.isEnded)
+        assertFalse(two.encounter.isEnded)
+        assertSame(two, f.instances.muspahState(second))
+        f.until(150)
+        assertEquals(MuspahState.RANGED, two.state)
+        assertTrue(f.activeLocs.isEmpty())
+        assertEquals(0, f.deps.worldQueues.size)
+        f.leave(second)
+        assertTrue(f.npcList.none())
+    }
+
+    @Test
+    fun `lightning cloud does not hit on its birth tick`() {
+        val f = MuspahFixture()
+        f.start()
+        f.until(104)
+        f.damage(213)
+        val run = assertNotNull(f.instances.muspahState(f.player))
+        f.until(106)
+        assertEquals(f.player.coords, run.clouds.single().tile)
+        assertTrue(f.hits().isEmpty())
+        f.player.coords = f.local(40, 34)
+        f.until(107)
+        assertEquals(f.player.coords, run.clouds.single().tile)
+        assertEquals(20, f.hits().single().second.damage)
+    }
+
+    @Test
+    fun `declared phases progress out of melee reach without post tick phase polling`() {
+        val f = MuspahFixture(melee = true)
+        f.start()
+        f.player.coords = f.local(42, 45)
+        f.until(104, postTick = false)
+        val run = assertNotNull(f.instances.muspahState(f.player))
+        assertEquals(MuspahState.MELEE, run.state)
+        assertEquals(1, f.boss.apRangeOverride)
+        f.damage(213)
+        f.until(137, postTick = false)
+        assertEquals(MuspahState.HOMING_SPIKES, run.state)
+        f.until(138, postTick = false)
+        assertEquals(MuspahState.MELEE, run.state)
+        assertTrue(run.movingSpikes.isEmpty())
+        assertEquals(1, f.boss.apRangeOverride)
+    }
+
+    @Test
+    fun `shield interruption prevents all remaining lightning movement and old phase return`() {
+        val f = MuspahFixture()
+        f.start()
+        f.until(104)
+        f.damage(213)
+        f.until(106)
+        f.damage(511)
+        val run = assertNotNull(f.instances.muspahState(f.player))
+        val center = f.boss.coords
+        f.until(110)
+        assertEquals(MuspahState.SHOCKWAVE, run.state)
+        assertEquals(80, f.hits().last().second.damage)
+        f.until(111)
+        assertEquals(MuspahState.PRAYER_SHIELD, run.state)
+        f.until(150)
+        assertEquals(center, f.boss.coords)
+        assertEquals(MuspahState.PRAYER_SHIELD, run.state)
+        assertEquals(0, f.deps.worldQueues.size)
+        assertTrue(run.clouds.isEmpty())
+    }
+
+    @Test
+    fun `same tick lethal shockwave races retain the characterized skip policy`() {
+        for (extraHits in listOf(1, 2)) {
+            val f = MuspahFixture()
+            f.start()
+            f.until(104)
+            f.boss.hitpoints = 128
+            f.damage(2)
+            repeat(extraHits) { f.damage(500) }
+            assertEquals(1, f.boss.hitpoints)
+            f.until(109)
+            val run = assertNotNull(f.instances.muspahState(f.player))
+            assertEquals(
+                if (extraHits == 1) MuspahState.FINAL_STAND else MuspahState.PRAYER_SHIELD,
+                run.state,
+            )
+        }
+    }
+
+    @Test
+    fun `passive shield break retains the draft spike expansion without counting a final shot`() {
+        val f = MuspahFixture()
+        f.start()
+        f.until(104)
+        f.boss.hitpoints = 128
+        f.damage(2)
+        f.until(111)
+        val run = assertNotNull(f.instances.muspahState(f.player))
+        run.shieldPoints = 2
+        f.attack()
+        assertEquals(MuspahState.FINAL_STAND, run.state)
+        assertEquals(1, f.projectiles.size)
+        assertEquals(2, run.warningSpikes.size)
+    }
+
     @Test
     fun `final spikes accompany every fourth committed shot without replacing normal combat`() {
         val f = MuspahFixture()
@@ -191,7 +333,6 @@ class MuspahNativeTest {
         assertTrue(run.warningSpikes.isNotEmpty())
         run.lastCloudHitCycle = 109
         run.stationaryMeleeAttacks = 9
-        run.lightningIndex = 12
         f.damage(200)
         f.killQueue()
         f.until(130)
@@ -201,7 +342,7 @@ class MuspahNativeTest {
         assertSame(run, f.instances.muspahState(f.player))
         assertEquals(Int.MIN_VALUE, run.lastCloudHitCycle)
         assertEquals(0, run.stationaryMeleeAttacks)
-        assertEquals(0, run.lightningIndex)
+        assertEquals(0, run.encounter.phaseAbilityCount)
         assertTrue(run.shieldDrainSources.isEmpty())
         assertFalse(run.shieldSkipPending)
         assertEquals(850, f.boss.hitpoints)
@@ -533,10 +674,11 @@ private class MuspahFixture(melee: Boolean = false, magic: Boolean = false) {
     val clock = MapClock(100)
     val events = EventBus()
     val collision = CollisionFlagMap()
-    val player =
+
+    fun newPlayer(slot: Int) =
         Player().apply {
-            slotId = 1
-            uuid = 1L
+            slotId = slot
+            uuid = slot.toLong()
             assignUid()
             coords = MUSPAH_OUTSIDE
             statMap.setBaseLevel("stat.hitpoints", 99)
@@ -546,22 +688,27 @@ private class MuspahFixture(melee: Boolean = false, magic: Boolean = false) {
             inv = invMap.getOrPut("inv.inv")
             worn = invMap.getOrPut("inv.worn")
         }
+
+    val player = newPlayer(1)
     val players = PlayerList().apply { this[1] = player }
     val npcList = NpcList()
     val npcs = NpcRepository(clock, NpcRegistry(npcList, collision, events), npcList)
+    private var regionNumber = 0
     private val regions =
         mock(RegionRepository::class.java) { call ->
             when (call.method.name) {
-                "add" ->
-                    Region(CoordGrid(6400, 6400), CoordGrid(6464, 6464), 1, 1).apply {
+                "add" -> {
+                    val base = 6400 + 64 * regionNumber++
+                    Region(CoordGrid(base, 6400), CoordGrid(base + 64, 6464), 1, 1).apply {
                         for (x in 0..7) for (z in 0..7) {
                             registerZone(
                                 RegionZoneCopy(ZoneKey(352 + x, 528 + z, 0), 0, null),
-                                ZoneKey(800 + x, 800 + z, 0),
+                                ZoneKey(base / 8 + x, 800 + z, 0),
                             )
-                            collision.allocateIfAbsent(6400 + x * 8, 6400 + z * 8, 0)
+                            collision.allocateIfAbsent(base + x * 8, 6400 + z * 8, 0)
                         }
                     }
+                }
                 "isValid" -> true
                 else -> RETURNS_DEFAULTS.answer(call)
             }
@@ -657,6 +804,15 @@ private class MuspahFixture(melee: Boolean = false, magic: Boolean = false) {
                 deps.worldQueues,
                 corruption,
             ),
+            BossPhaseClock(
+                deps,
+                StandardNpcAccessLauncher(
+                    mock(StandardNpcAccessContextFactory::class.java) { call ->
+                        if (call.method.name == "create") accessContext()
+                        else RETURNS_DEFAULTS.answer(call)
+                    }
+                ),
+            ),
         )
     val boss
         get() = npcList.first()
@@ -721,7 +877,7 @@ private class MuspahFixture(melee: Boolean = false, magic: Boolean = false) {
         nativeLifecycle = lifecycle as PlayerPostTickHook
     }
 
-    fun start() {
+    fun start(player: Player = this.player) {
         player.launch {
             with(instanceScript) {
                 ProtectedAccess(player, this@launch, protectedContext).startLair()
@@ -730,7 +886,7 @@ private class MuspahFixture(melee: Boolean = false, magic: Boolean = false) {
         assertTrue(encounters.isActive(player))
     }
 
-    fun leave() {
+    fun leave(player: Player = this.player) {
         player.launch {
             with(instanceScript) {
                 ProtectedAccess(player, this@launch, protectedContext).leaveLair()
@@ -744,10 +900,27 @@ private class MuspahFixture(melee: Boolean = false, magic: Boolean = false) {
 
     fun spot(name: String) = name.asRSCM(RSCMType.SPOTANIM)
 
-    fun until(tick: Int) {
+    fun locOp(id: Int) {
+        val type = assertNotNull(ServerCacheManager.getObject(id))
+        val loc = BoundLocInfo(LocInfo(2, player.coords, LocEntity(type.id, 10, 0)), type)
+        player.previousCoords = player.coords
+        player.launch {
+            events.publish(
+                ProtectedAccess(player, this, protectedContext),
+                LocEvents.Op1(loc, loc, type),
+            )
+        }
+    }
+
+    fun until(tick: Int, postTick: Boolean = true) {
         while (clock.cycle < tick) {
             npcList.forEach { it.pendingSequence = EntitySeq.NULL }
             clock.cycle++
+            players.forEach {
+                it.currentMapClock = clock.cycle
+                it.processedMapClock = clock.cycle
+                if (it.activeCoroutine != null) it.advanceActiveCoroutine()
+            }
             EntityLifecycleProcess(
                     npcs,
                     locs,
@@ -762,7 +935,7 @@ private class MuspahFixture(melee: Boolean = false, magic: Boolean = false) {
                 NpcRevealProcessor(npcs).process(it)
             }
             WorldQueueListProcess(deps.worldQueues).process()
-            encounters.tick(player)
+            if (postTick) players.forEach { encounters.tick(it) }
         }
     }
 

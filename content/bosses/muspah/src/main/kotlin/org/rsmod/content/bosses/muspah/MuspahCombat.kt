@@ -20,6 +20,15 @@ constructor(
     private val parameters: MuspahAttackParameters,
 ) : PluginScript() {
     override fun ScriptContext.startup() {
+        deps.extensionRegistry.register("muspah.ordinary-arrival") { _, npc, target, _ ->
+            encounters.ordinaryArrival(npc, target)
+        }
+        deps.extensionRegistry.register("muspah.shield-arrival") { _, npc, target, _ ->
+            encounters.shieldArrival(npc, target)
+        }
+        deps.extensionRegistry.register("muspah.shockwave") { _, npc, target, _ ->
+            encounters.shockwave(npc, target)
+        }
         deps.extensionRegistry.register("muspah.final-spikes") { _, npc, target, _ ->
             encounters.finalSpikes(npc, target)
         }
