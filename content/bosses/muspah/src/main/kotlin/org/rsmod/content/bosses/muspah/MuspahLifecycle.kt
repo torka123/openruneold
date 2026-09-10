@@ -4,7 +4,6 @@ import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import org.rsmod.api.death.NpcAttackValidateHook
 import org.rsmod.api.death.NpcAttackValidateResult
-import org.rsmod.api.death.PlayerDeathCleanupHook
 import org.rsmod.api.death.PlayerDeathContext
 import org.rsmod.api.death.PlayerDeathDrops.Companion.DROP_DURATION_STANDARD
 import org.rsmod.api.death.PlayerDeathDrops.Companion.standardKeepCount
@@ -12,9 +11,10 @@ import org.rsmod.api.death.PlayerDeathHandling
 import org.rsmod.api.death.PlayerDeathHook
 import org.rsmod.api.death.UntradeableHandling
 import org.rsmod.api.player.hook.PlayerPostTickHook
-import org.rsmod.api.script.onPlayerLogout
+import org.rsmod.api.script.onEvent
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
+import org.rsmod.game.entity.npc.NpcStateEvents
 import org.rsmod.plugin.scripts.PluginScript
 import org.rsmod.plugin.scripts.ScriptContext
 
@@ -52,22 +52,10 @@ constructor(private val encounters: MuspahEncounterManager) : PlayerDeathHook {
     }
 }
 
-@Singleton
-internal class MuspahDeathCleanup
-@Inject
-constructor(private val encounters: MuspahEncounterManager) : PlayerDeathCleanupHook {
-    override fun cleanup(player: Player) {
-        encounters.abort(player, "player death", teleport = false)
-    }
-}
-
-internal class MuspahLifecycle
-@Inject
-constructor(private val encounters: MuspahEncounterManager) : PluginScript(), PlayerPostTickHook {
+internal class MuspahLifecycle @Inject constructor(private val encounters: MuspahEncounterManager) :
+    PluginScript(), PlayerPostTickHook {
     override fun ScriptContext.startup() {
-        onPlayerLogout {
-            encounters.abort(player, "logout or disconnect", teleport = false, logout = true)
-        }
+        onEvent<NpcStateEvents.Respawn> { encounters.onNativeRespawn(npc) }
     }
 
     override fun onPostTick(player: Player) = encounters.tick(player)

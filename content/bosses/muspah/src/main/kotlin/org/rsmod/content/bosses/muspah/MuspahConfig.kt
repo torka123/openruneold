@@ -2,6 +2,7 @@ package org.rsmod.content.bosses.muspah
 
 import org.rsmod.api.attr.AttributeKey
 import org.rsmod.api.instances.InstanceArea
+import org.rsmod.api.instances.InstanceNpc
 import org.rsmod.api.instances.InstanceSettings
 import org.rsmod.api.instances.RegionLocal
 import org.rsmod.game.loc.LocInfo
@@ -39,6 +40,7 @@ internal val MUSPAH_AREA =
         regionIds = listOf(11330),
         enterCoord = RegionLocal(0, 44, 66, 41, 34),
         exitCoord = MUSPAH_OUTSIDE,
+        npcSpawns = listOf(InstanceNpc(MuspahAssets.RANGED, CoordGrid(2847, 4258))),
     )
 
 internal fun muspahSpec(activeType: dev.openrune.types.NpcServerType) =

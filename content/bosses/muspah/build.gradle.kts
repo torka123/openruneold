@@ -26,6 +26,7 @@ dependencies {
     testImplementation(projects.engine.coroutine)
     testImplementation(projects.engine.events)
     testImplementation(projects.api.registry)
+    testImplementation(projects.api.gameProcess)
     testImplementation(projects.api.deathPlugin)
     testImplementation(projects.api.combat.combatFormulas)
 }

@@ -19,6 +19,8 @@ import org.rsmod.api.death.NpcDeathDropHook
 import org.rsmod.api.death.NpcDeathKillContext
 import org.rsmod.api.death.NpcDeathKillHook
 import org.rsmod.api.death.plugin.NpcDeathScript
+import org.rsmod.api.game.process.world.WorldQueueListProcess
+import org.rsmod.api.instances.BossInstanceRegistry
 import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.instances.region.InstanceAreaResolver
 import org.rsmod.api.npc.access.StandardNpcAccess
@@ -31,6 +33,11 @@ import org.rsmod.api.npc.hit.processor.StandardNpcHitProcessor
 import org.rsmod.api.npc.interact.AiPlayerInteractions
 import org.rsmod.api.player.events.PlayerMovementEvent
 import org.rsmod.api.player.hook.PlayerPostTickHook
+import org.rsmod.api.player.hook.PlayerTeleportHooks
+import org.rsmod.api.player.hook.PlayerTeleportValidator
+import org.rsmod.api.player.protect.ProtectedAccess
+import org.rsmod.api.player.protect.ProtectedAccessContext
+import org.rsmod.api.player.protect.ProtectedAccessLauncher
 import org.rsmod.api.player.vars.VarPlayerIntMapSetter
 import org.rsmod.api.random.GameRandom
 import org.rsmod.api.registry.loc.LocRegistry
@@ -71,6 +78,63 @@ import org.rsmod.routefinder.collision.CollisionFlagMap
 /** Characterizes the existing draft through native registration, not independent OSRS proof. */
 @OptIn(InternalApi::class)
 class MuspahNativeTest {
+    @Test
+    fun `crack forms on tick two and its queued spike hit is retired on departure`() {
+        val f = MuspahFixture()
+        f.start()
+        f.until(104)
+        val tile = f.player.coords
+        f.damage(100)
+        f.until(105)
+        assertEquals(MuspahAssets.SPIKE_PRE.asRSCM(RSCMType.LOC), f.activeLocs[tile]?.id)
+        f.until(106)
+        assertEquals(MuspahAssets.SPIKE.asRSCM(RSCMType.LOC), f.activeLocs[tile]?.id)
+        val hit = f.hits().single().second
+        assertTrue(hit.context.isValid())
+        val run = assertNotNull(f.instances.muspahState(f.player))
+        assertTrue(run.warningSpikes.isEmpty())
+        f.leave()
+        assertFalse(hit.context.isValid())
+        f.until(120)
+        assertTrue(f.activeLocs.isEmpty())
+    }
+
+    @Test
+    fun `death cancels a warning before formation and native repeat resets round fields`() {
+        val f = MuspahFixture()
+        f.start()
+        f.until(104)
+        val run = assertNotNull(f.instances.muspahState(f.player))
+        f.boss.hitpoints = 128
+        f.damage(2)
+        f.until(109)
+        VarPlayerIntMapSetter.set(f.player, "varbit.prayer_smite", 1)
+        repeat(3) { f.damage(100) }
+        assertTrue(run.warningSpikes.isNotEmpty())
+        run.lastCloudHitCycle = 109
+        run.stationaryMeleeAttacks = 9
+        run.lightningIndex = 12
+        f.damage(200)
+        f.killQueue()
+        f.until(130)
+        assertTrue(f.activeLocs.isEmpty())
+        assertTrue(run.warningSpikes.isEmpty())
+        f.until(190)
+        assertSame(run, f.instances.muspahState(f.player))
+        assertEquals(Int.MIN_VALUE, run.lastCloudHitCycle)
+        assertEquals(0, run.stationaryMeleeAttacks)
+        assertEquals(0, run.lightningIndex)
+        assertTrue(run.shieldDrainSources.isEmpty())
+        assertFalse(run.shieldSkipPending)
+        assertEquals(850, f.boss.hitpoints)
+        assertEquals(listOf(f.boss), f.instances.npcsForInstance(run.session.id))
+        f.leave()
+        f.start()
+        assertNotSame(run, f.instances.muspahState(f.player))
+        assertTrue(f.activeLocs.isEmpty())
+        assertEquals(1, f.npcList.count())
+    }
+
     @Test
     fun `native departure immediately retires encounter membership and hazards`() {
         for (reason in listOf("teleport", "logout", "disconnect", "death")) {
@@ -169,7 +233,7 @@ class MuspahNativeTest {
         f.attack()
         val hit = f.hits().single().second
         assertTrue(hit.isValidNow())
-        f.encounters.escape(f.player)
+        f.leave()
         assertFalse(hit.isValidNow())
     }
 
@@ -367,7 +431,7 @@ class MuspahNativeTest {
         f.until(104)
         f.damage(213)
         assertTrue(f.activeLocs.isNotEmpty())
-        assertTrue(f.encounters.escape(f.player))
+        f.leave()
         assertFalse(f.encounters.isActive(f.player))
         assertNull(f.instances.sessionForPlayer(f.player))
         assertTrue(f.activeLocs.isEmpty())
@@ -500,7 +564,6 @@ private class MuspahFixture(melee: Boolean = false, magic: Boolean = false) {
         MuspahEncounterManager(
             clock,
             instances,
-            npcs,
             locs,
             AiPlayerInteractions(events, players),
             collision,
@@ -508,6 +571,7 @@ private class MuspahFixture(melee: Boolean = false, magic: Boolean = false) {
             registry,
             corruption,
             world,
+            deps.worldQueues,
         )
     val boss
         get() = npcList.first()
@@ -521,6 +585,19 @@ private class MuspahFixture(melee: Boolean = false, magic: Boolean = false) {
             setOf(NpcDeathDropHook { true }),
             setOf(NpcDeathKillHook { kills += it }),
         )
+    val instanceScript =
+        MuspahWorld(BossInstanceRegistry(), encounters, mock(ProtectedAccessLauncher::class.java))
+    val protectedContext =
+        mock(ProtectedAccessContext::class.java) { call ->
+            when (call.method.name) {
+                "getCollision" -> collision
+                "getEventBus" -> events
+                "getTeleportHooks" -> PlayerTeleportHooks.EMPTY
+                "getTeleportValidator" -> PlayerTeleportValidator(emptySet())
+                "getAreaChecker" -> mock(call.method.returnType)
+                else -> RETURNS_DEFAULTS.answer(call)
+            }
+        }
     val nativeLifecycle: PlayerPostTickHook
 
     init {
@@ -547,6 +624,9 @@ private class MuspahFixture(melee: Boolean = false, magic: Boolean = false) {
                     }
                 }
             )
+        injector.injectMembers(instanceScript)
+        with(instanceScript) { context.startup() }
+        with(MuspahLifecycle(encounters)) { context.startup() }
         val lifecycle =
             injector.getInstance(
                 Class.forName("org.rsmod.api.instances.hook.InstanceLifecycleScript")
@@ -557,7 +637,20 @@ private class MuspahFixture(melee: Boolean = false, magic: Boolean = false) {
     }
 
     fun start() {
-        assertTrue(encounters.enter(player))
+        player.launch {
+            with(instanceScript) {
+                ProtectedAccess(player, this@launch, protectedContext).startLair()
+            }
+        }
+        assertTrue(encounters.isActive(player))
+    }
+
+    fun leave() {
+        player.launch {
+            with(instanceScript) {
+                ProtectedAccess(player, this@launch, protectedContext).leaveLair()
+            }
+        }
     }
 
     fun local(x: Int, z: Int) = CoordGrid(6400 + x, 6400 + z)
@@ -583,6 +676,7 @@ private class MuspahFixture(melee: Boolean = false, magic: Boolean = false) {
                 if (it.canProcess && it.activeCoroutine != null) it.advanceActiveCoroutine()
                 NpcRevealProcessor(npcs).process(it)
             }
+            WorldQueueListProcess(deps.worldQueues).process()
             encounters.tick(player)
         }
     }

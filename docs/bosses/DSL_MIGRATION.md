@@ -938,3 +938,30 @@ The resume helper's default read-only mode passes with Muspah as its current def
 (`boss-migration-resume-muspah-check.log`). Doctor identifies canonical PID41396, revision240 and
 unchanged SERVER/LIVE/PostgreSQL authority. `git diff --check` passes; unrelated source-data edits
 remain outside the focused commit. Continue with the remaining Muspah mapping above.
+
+### Muspah native lifecycle checkpoint
+
+`muspah-native-lifecycle-red.log`: 56 tests, three failures. Native exit/logout/disconnect/death
+left private membership behind; native death plus the private respawn timer created two actors.
+Exercising the native location duration processor also exposed a concurrent-modification exception
+when the old warning-expiry callback added its replacement during duration-list iteration.
+
+InstanceScript now owns natural crevice entry and both exits, keyed join/leave requests and protected
+teleporting. A configured native actor and typed session state replace the private PlayerUid map,
+generation counter, manual actor creation/deletion and respawn deadline. Native death/50-tick reveal
+reuses the same actor; visual starting-form selection copies that form's native stats each round.
+Native lifecycle callbacks retire the session; its cleanup cancels hazards and encounter queues.
+No new shared API or engine edit was required.
+
+Warning replacement now uses the existing encounter-owned native queue at +2; it removes its warning
+record on formation. Cloud/shockwave/spike hits carry native environment provenance and a hazard
+scope invalidated at death/reset/exit. This avoids Muspah's re-entrant location callback; it does not
+claim the shared LocRepository duration-list re-entrancy defect is generally repaired.
+
+`muspah-native-lifecycle-first.log`: all56 tests pass,42s/165tasks.
+`muspah-native-lifecycle-regression.log`: all58 tests pass,35s/165tasks, including exact crack tick,
+queued-hit retirement, warning cancellation on death, same-actor repeat, round-field reset and
+fresh-session re-entry. These are native headless tests, not client/packet verification.
+Phase timers and final forced cadence remain the next migration step; KC metadata still needs its
+native integration test. Doctor log `muspah-lifecycle-doctor.log` confirms PID41396/canonical root,
+revision240 and unchanged cache/database authority. No deployment or restart has occurred.

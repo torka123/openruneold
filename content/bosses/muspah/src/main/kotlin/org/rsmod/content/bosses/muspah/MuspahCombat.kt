@@ -44,8 +44,8 @@ constructor(
                 if (run == null) {
                     death.deathNoDrops(this)
                 } else {
-                    death.deathWithDrops(this, npc.coords)
-                    encounters.finishBossDeath(npc)
+                    death.deathWithDrops(this, npc.coords, respawnDelay = MUSPAH_RESPAWN_TICKS)
+                    encounters.finishBossDeath(run)
                 }
             }
         }

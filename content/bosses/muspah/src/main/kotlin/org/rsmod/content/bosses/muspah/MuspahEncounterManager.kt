@@ -1,6 +1,5 @@
 package org.rsmod.content.bosses.muspah
 
-import com.github.michaelbull.logging.InlineLogger
 import dev.openrune.ServerCacheManager
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
@@ -12,7 +11,6 @@ import kotlin.math.max
 import org.rsmod.api.attr.BossRewardAttributes
 import org.rsmod.api.bosses.runtime.EncounterRegistry
 import org.rsmod.api.combat.commons.CombatCorruption
-import org.rsmod.api.instances.InstanceAccess
 import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.instances.InstanceSession
 import org.rsmod.api.instances.RegionLocal
@@ -29,18 +27,19 @@ import org.rsmod.api.player.stat.hitpoints
 import org.rsmod.api.player.vars.VarPlayerIntMapSetter
 import org.rsmod.api.random.GameRandom
 import org.rsmod.api.repo.loc.LocRepository
-import org.rsmod.api.repo.npc.NpcRepository
 import org.rsmod.api.repo.world.WorldRepository
 import org.rsmod.game.MapClock
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
-import org.rsmod.game.entity.player.PlayerUid
 import org.rsmod.game.entity.util.PathingEntityCommon
+import org.rsmod.game.hit.HitAttribution
 import org.rsmod.game.hit.HitBuilder
+import org.rsmod.game.hit.HitContext
+import org.rsmod.game.hit.HitOrigin
 import org.rsmod.game.hit.HitType
 import org.rsmod.game.loc.LocAngle
-import org.rsmod.game.loc.LocInfo
 import org.rsmod.game.loc.LocShape
+import org.rsmod.game.queue.WorldQueueList
 import org.rsmod.map.CoordGrid
 import org.rsmod.routefinder.LineValidator
 import org.rsmod.routefinder.collision.CollisionFlagMap
@@ -51,7 +50,6 @@ internal class MuspahEncounterManager
 constructor(
     private val clock: MapClock,
     private val instances: InstanceManager,
-    private val npcs: NpcRepository,
     private val locs: LocRepository,
     private val interactions: AiPlayerInteractions,
     private val collision: CollisionFlagMap,
@@ -59,11 +57,9 @@ constructor(
     private val bossEncounters: EncounterRegistry,
     private val corruption: CombatCorruption,
     private val world: WorldRepository,
+    private val queues: WorldQueueList,
 ) {
-    private val log = InlineLogger()
     private val lineValidator = LineValidator(collision)
-    private val runs = mutableMapOf<PlayerUid, Run>()
-    private var generation = 1L
 
     fun validateAssets() {
         MuspahAssets.npcForms.forEach(::requireNpc)
@@ -96,82 +92,38 @@ constructor(
         requireItem("obj.ancient_goblin_mace")
     }
 
-    fun teleportOutside(player: Player): Boolean {
-        val current = instances.sessionForPlayer(player)
-        if (current != null && current.key != MUSPAH_INSTANCE_KEY) {
-            player.mes("Leave your current instance before travelling to Ghorrock Dungeon.")
-            return false
+    fun onJoin(player: Player, session: InstanceSession) {
+        session.state(MUSPAH_ARENA_STATE) {
+            val boss = instances.npcsForInstance(session.id).single { it.type.id == 12077 }
+            val run = MuspahArenaState(player, session, boss, bossEncounters.of(boss))
+            prepareRound(run)
+            player.lootDropDuration = MUSPAH_DROP_DURATION
+            session.onCleanup {
+                run.state = MuspahState.INVALIDATED
+                cleanupHazards(run)
+                bossEncounters.remove(boss)
+                corruption.clear(player)
+                player.lootDropDuration = null
+                prepare(player)
+            }
+            player.mes("The Phantom Muspah begins to emerge from the darkness.")
+            run
         }
-        runs[player.uid]?.let { abort(player, "staff travel command", teleport = false) }
-        if (current != null) instances.leave(player, current, clock.cycle)
-        prepare(player)
-        PathingEntityCommon.telejump(player, collision, MUSPAH_OUTSIDE)
-        player.mes("You arrive immediately outside the Phantom Muspah crevice.")
-        return true
     }
 
-    fun enter(player: Player): Boolean {
-        if (MUSPAH_REQUIRE_SECRETS_OF_NORTH) {
-            player.mes("You must complete Secrets of the North before entering this crevice.")
-            return false
-        }
-        if (player.hitpoints <= 0 || player.isAccessProtected) {
-            player.mes("Finish what you are doing before entering the Muspah's lair.")
-            return false
-        }
-        if (runs.containsKey(player.uid) || instances.sessionForPlayer(player) != null) {
-            player.mes("You already have an active instance.")
-            return false
-        }
-        val rangedType = requireNpc(MuspahAssets.RANGED)
-        val result =
-            instances.create(
-                owner = player,
-                key = MUSPAH_INSTANCE_KEY,
-                spec = muspahSpec(rangedType),
-                access = InstanceAccess.Private,
-                currentTick = clock.cycle,
-            )
-        if (result !is InstanceManager.Result.Created) {
-            player.mes(
-                (result as? InstanceManager.Result.Failed)?.reason
-                    ?: "The Phantom Muspah arena is unavailable."
-            )
-            return false
-        }
-        prepare(player)
-        PathingEntityCommon.telejump(player, collision, result.enter)
-        instances.finalizeEntry(player, result.session, clock.cycle)
-        player.lootDropDuration = MUSPAH_DROP_DURATION
-        val initial = MuspahRules.startingForm(random.of(2))
-        val boss = spawnBoss(player, result.session, initial)
-        val run =
-            Run(
-                player = player,
-                session = result.session,
-                generation = generation++,
-                boss = boss,
-                state = MuspahState.STARTING,
-                currentForm = initial,
-                initialForm = initial,
-                startReadyCycle = clock.cycle + 4,
-            )
-        runs[player.uid] = run
-        boss.anim(MuspahAssets.SPAWN)
-        player.mes("The Phantom Muspah begins to emerge from the darkness.")
-        log.info {
-            "[Muspah] player=${player.displayName} generation=${run.generation} " +
-                "instance=${result.session.id} initial=$initial"
-        }
-        return true
+    fun onNativeRespawn(npc: Npc) {
+        val run = instances.muspahState(npc) ?: return
+        if (run.boss === npc && run.state == MuspahState.RESPAWNING) run.pendingRespawn = true
     }
 
     fun tick(player: Player) {
-        val run = runs[player.uid] ?: return
+        val run = instances.muspahState(player) ?: return
         if (!player.isSlotAssigned || player.pendingLogout || player.loggingOut) return
-        if (instances.sessionForPlayer(player)?.id != run.session.id) {
-            abort(player, "left instance without the crevice", teleport = false)
-            return
+        if (run.pendingRespawn) {
+            run.pendingRespawn = false
+            run.encounter = bossEncounters.of(run.boss)
+            prepareRound(run)
+            player.mes("A new Phantom Muspah begins to emerge.")
         }
         corruption.tick(player)
         when (run.state) {
@@ -184,14 +136,14 @@ constructor(
             MuspahState.MELEE,
             MuspahState.PRAYER_SHIELD,
             MuspahState.FINAL_STAND -> keepAggressive(run)
-            MuspahState.RESPAWNING -> if (clock.cycle >= run.respawnCycle) respawn(run)
+            MuspahState.RESPAWNING -> Unit
             MuspahState.DYING,
             MuspahState.INVALIDATED -> Unit
         }
     }
 
-    fun combatRun(npc: Npc, target: Player): Run? =
-        runs[target.uid]?.takeIf { it.boss === npc && isCombatState(it.state) }
+    fun combatRun(npc: Npc, target: Player): MuspahArenaState? =
+        instances.muspahState(target)?.takeIf { it.boss === npc && isCombatState(it.state) }
 
     fun canAttack(npc: Npc, target: Player): Boolean {
         val run = combatRun(npc, target) ?: return false
@@ -203,7 +155,7 @@ constructor(
     }
 
     fun validHit(npc: Npc, target: Player): Boolean =
-        runs[target.uid]?.let {
+        instances.muspahState(target)?.let {
             it.boss === npc &&
                 instances.sessionForPlayer(target)?.id == it.session.id &&
                 target.isSlotAssigned &&
@@ -214,7 +166,7 @@ constructor(
         } == true
 
     fun modifyNpcHit(player: Player, npc: Npc, hit: HitBuilder) {
-        val run = runs[player.uid]
+        val run = instances.muspahState(player)
         if (run == null || run.boss !== npc || !npc.isSpawnOwnedBy(player)) {
             hit.damage = 0
             return
@@ -288,7 +240,7 @@ constructor(
         }
     }
 
-    private fun modifyShieldHit(run: Run, hit: HitBuilder) {
+    private fun modifyShieldHit(run: MuspahArenaState, hit: HitBuilder) {
         val incoming = hit.damage.coerceAtLeast(0)
         var drain = 0
         if (incoming > 0 && run.player.vars["varbit.prayer_smite"] == 1) {
@@ -314,10 +266,11 @@ constructor(
             requireItem("obj.xbows_crossbow_bolts_mithril_tipped_sapphire_enchanted")
         ) || hit.isSecondaryObj(requireItem("obj.dragon_bolts_enchanted_sapphire"))
 
-    fun beginBossDeath(npc: Npc): Run? {
-        val run = runs.values.firstOrNull { it.boss === npc } ?: return null
+    fun beginBossDeath(npc: Npc): MuspahArenaState? {
+        val run = instances.muspahState(npc)?.takeIf { it.boss === npc } ?: return null
         if (run.state in setOf(MuspahState.DYING, MuspahState.RESPAWNING)) return null
         run.state = MuspahState.DYING
+        run.encounter.runCleanupActions()
         cleanupHazards(run)
         corruption.clear(run.player)
         run.player.combatClearQueue()
@@ -329,9 +282,9 @@ constructor(
         return run
     }
 
-    fun finishBossDeath(npc: Npc) {
-        val run = runs.values.firstOrNull { it.boss === npc } ?: return
-        if (runs[run.player.uid] !== run) return
+    fun finishBossDeath(run: MuspahArenaState) {
+        if (run.state != MuspahState.DYING) return
+        if (instances.muspahState(run.player) !== run) return
         val oldPb = run.player.attr[MUSPAH_PERSONAL_BEST_TICKS]
         val personalBest = oldPb == null || run.killTicks < oldPb
         if (personalBest) run.player.attr[MUSPAH_PERSONAL_BEST_TICKS] = run.killTicks
@@ -341,18 +294,19 @@ constructor(
                 "${MuspahRules.formatTicks(run.killTicks)}.$suffix</col>"
         )
         run.state = MuspahState.RESPAWNING
-        run.respawnCycle = clock.cycle + MUSPAH_RESPAWN_TICKS
     }
 
-    fun isActive(player: Player): Boolean = runs.containsKey(player.uid)
+    fun isActive(player: Player): Boolean = (instances.muspahState(player) != null)
 
-    fun isEncounterNpc(npc: Npc): Boolean = runs.values.any { it.boss === npc }
+    fun isEncounterNpc(npc: Npc): Boolean = (instances.muspahState(npc)?.boss === npc)
 
     fun isOwnedBy(player: Player, npc: Npc): Boolean =
-        runs[player.uid]?.let { it.boss === npc && npc.isSpawnOwnedBy(player) } == true
+        instances.muspahState(player)?.let { it.boss === npc && npc.isSpawnOwnedBy(player) } == true
 
     fun attackDenial(player: Player, npc: Npc): String? {
-        val run = runs[player.uid] ?: return "You do not have an active Phantom Muspah encounter."
+        val run =
+            instances.muspahState(player)
+                ?: return "You do not have an active Phantom Muspah encounter."
         if (run.boss !== npc) return "That creature belongs to another encounter."
         return when (run.state) {
             MuspahState.STARTING -> "Wait for the Phantom Muspah to finish emerging."
@@ -364,44 +318,16 @@ constructor(
         }
     }
 
-    fun escape(player: Player): Boolean {
-        if (!runs.containsKey(player.uid)) return false
-        abort(player, "left through the crevice", teleport = true)
-        player.mes("You escape from the Phantom Muspah's lair.")
-        return true
-    }
-
-    fun abort(player: Player, reason: String, teleport: Boolean, logout: Boolean = false) {
-        val run = runs.remove(player.uid) ?: return
-        run.state = MuspahState.INVALIDATED
-        cleanupHazards(run)
-        corruption.clear(player)
-        if (run.boss.isSlotAssigned) npcs.del(run.boss, Int.MAX_VALUE)
-        player.lootDropDuration = null
-        if (logout) {
-            instances.handleLogout(player, clock.cycle)
-        } else {
-            val exit = instances.leave(player, run.session, clock.cycle)
-            if (teleport && player.isSlotAssigned) {
-                PathingEntityCommon.telejump(player, collision, exit)
-            }
-        }
-        prepare(player)
-        log.info {
-            "[Muspah] player=${player.displayName} generation=${run.generation} abort=$reason"
-        }
-    }
-
     fun debugStatus(player: Player): String {
-        val run = runs[player.uid] ?: return "Muspah: no active encounter."
-        return "Muspah generation=${run.generation} state=${run.state} form=${run.currentForm} " +
+        val run = instances.muspahState(player) ?: return "Muspah: no active encounter."
+        return "Muspah instance=${run.session.id} state=${run.state} form=${run.currentForm} " +
             "hp=${run.boss.hitpoints} shield=${run.shieldPoints} " +
             "hits=${run.positiveAttacks} damage=${run.eligibleDamage} " +
             "spikes=${run.staticSpikes.size}+${run.movingSpikes.size} " +
             "clouds=${run.clouds.size}"
     }
 
-    private fun activate(run: Run) {
+    private fun activate(run: MuspahArenaState) {
         run.state = stateFor(run.currentForm)
         run.killStartCycle = clock.cycle
         run.boss.movementLocked = run.currentForm != MuspahForm.MELEE
@@ -410,14 +336,27 @@ constructor(
         run.boss.apPlayer2(run.player, interactions)
     }
 
-    private fun respawn(run: Run) {
+    private fun prepareRound(run: MuspahArenaState) {
         cleanupHazards(run)
         val initial = MuspahRules.startingForm(random.of(2))
-        val boss = spawnBoss(run.player, run.session, initial)
-        run.boss = boss
+        val boss = run.boss
+        boss.mode = null
+        // Keep the opening form's native base/current stats; transmog alone is visual.
+        boss.copyStats(requireNpc(internalFor(initial)))
+        boss.baseHitpointsLvl = MUSPAH_MAX_HITPOINTS
+        boss.hitpoints = MUSPAH_MAX_HITPOINTS
+        boss.transmog(requireNpc(internalFor(initial)), Int.MAX_VALUE)
+        boss.assignSpawnOwner(run.player, clock.cycle)
+        boss.movementLocked = true
+        boss.apRangeOverride = if (initial == MuspahForm.MELEE) 1 else 10
+        boss.apRequiresLineOfSight = true
+        boss.actionDelay = 0
+        boss.showAllOps()
         run.state = MuspahState.STARTING
         run.currentForm = initial
         run.initialForm = initial
+        run.resumeState = MuspahState.RANGED
+        run.transformTarget = null
         run.firstSwapComplete = false
         run.positiveAttacks = 0
         run.eligibleDamage = 0
@@ -428,13 +367,25 @@ constructor(
         run.attackCounter = 0
         run.stationaryMeleeAttacks = 0
         run.startReadyCycle = clock.cycle + 4
+        run.transformCycle = Int.MAX_VALUE
+        run.homingEndCycle = Int.MAX_VALUE
+        run.lightningIndex = 0
+        run.nextLightningCycle = Int.MAX_VALUE
+        run.shockwaveCycle = Int.MAX_VALUE
+        run.shieldApplyCycle = Int.MAX_VALUE
+        run.shockwaveFired = false
         run.shieldSkipPending = false
+        run.killStartCycle = 0
+        run.killTicks = 0
+        run.killcount = 0
+        run.lastCloudHitCycle = Int.MIN_VALUE
         run.shieldDrainSources.clear()
+        run.encounter.onCleanup { cleanupHazards(run) }
         boss.anim(MuspahAssets.SPAWN)
-        run.player.mes("A new Phantom Muspah begins to emerge.")
+        prepare(run.player)
     }
 
-    private fun beginTransformation(run: Run) {
+    private fun beginTransformation(run: MuspahArenaState) {
         if (run.state == MuspahState.TRANSFORMING) return
         run.transformTarget =
             if (run.currentForm == MuspahForm.RANGED) MuspahForm.MELEE else MuspahForm.RANGED
@@ -445,7 +396,7 @@ constructor(
         spawnCrack(run, run.player.coords)
     }
 
-    private fun tickTransformation(run: Run) {
+    private fun tickTransformation(run: MuspahArenaState) {
         if (clock.cycle < run.transformCycle) return
         val target = run.transformTarget ?: return
         run.boss.transmog(requireNpc(internalFor(target)), Int.MAX_VALUE)
@@ -466,14 +417,14 @@ constructor(
         run.boss.apPlayer2(run.player, interactions)
     }
 
-    private fun beginSpecial(run: Run, special: MuspahSpecial) {
+    private fun beginSpecial(run: MuspahArenaState, special: MuspahSpecial) {
         when (special) {
             MuspahSpecial.LIGHTNING_CLOUDS -> beginLightning(run)
             MuspahSpecial.HOMING_SPIKES -> beginHoming(run)
         }
     }
 
-    private fun beginLightning(run: Run) {
+    private fun beginLightning(run: MuspahArenaState) {
         hardenMovingSpikes(run)
         run.state = MuspahState.LIGHTNING_CLOUDS
         run.currentForm = MuspahForm.TELEPORT
@@ -486,7 +437,7 @@ constructor(
         run.boss.actionDelay = clock.cycle + 40
     }
 
-    private fun tickLightning(run: Run) {
+    private fun tickLightning(run: MuspahArenaState) {
         tickClouds(run)
         if (clock.cycle < run.nextLightningCycle) return
         if (run.lightningIndex >= lightningRoute.size) {
@@ -509,7 +460,7 @@ constructor(
         run.nextLightningCycle = clock.cycle + 3
     }
 
-    private fun spawnLightningCloud(run: Run, source: CoordGrid) {
+    private fun spawnLightningCloud(run: MuspahArenaState, source: CoordGrid) {
         val center = arenaCenter(run.session)
         val dx = (center.x - source.x).coerceIn(-1, 1)
         val dz = (center.z - source.z).coerceIn(-1, 1)
@@ -523,7 +474,7 @@ constructor(
             )
     }
 
-    private fun tickClouds(run: Run) {
+    private fun tickClouds(run: MuspahArenaState) {
         val iterator = run.clouds.iterator()
         while (iterator.hasNext()) {
             val cloud = iterator.next()
@@ -540,6 +491,7 @@ constructor(
                 run.lastCloudHitCycle = clock.cycle
                 run.player.queueHit(
                     source = run.boss,
+                    context = HitContext.of(HitAttribution(HitOrigin.Environment), run.hazardScope),
                     delay = 1,
                     type = HitType.Typeless,
                     damage = random.of(0..20),
@@ -549,7 +501,7 @@ constructor(
         }
     }
 
-    private fun beginHoming(run: Run) {
+    private fun beginHoming(run: MuspahArenaState) {
         run.resumeState = stateFor(run.currentForm)
         run.state = MuspahState.HOMING_SPIKES
         run.homingEndCycle = MuspahRules.homingEndCycle(clock.cycle)
@@ -581,7 +533,7 @@ constructor(
         }
     }
 
-    private fun tickHoming(run: Run) {
+    private fun tickHoming(run: MuspahArenaState) {
         if (MuspahRules.homingExpired(clock.cycle, run.homingEndCycle)) {
             finishHoming(run, resume = true)
             return
@@ -605,7 +557,7 @@ constructor(
         keepAggressive(run)
     }
 
-    private fun homingNextTile(run: Run, from: CoordGrid): CoordGrid {
+    private fun homingNextTile(run: MuspahArenaState, from: CoordGrid): CoordGrid {
         val primary =
             MuspahRules.nextOrthogonalStep(from.x, from.z, run.player.coords.x, run.player.coords.z)
                 .let { CoordGrid(it.first, it.second, from.level) }
@@ -616,7 +568,7 @@ constructor(
         return alternate.takeIf { validSpikeTile(run, it) } ?: from
     }
 
-    private fun finishHoming(run: Run, resume: Boolean) {
+    private fun finishHoming(run: MuspahArenaState, resume: Boolean) {
         hardenMovingSpikes(run)
         if (resume && run.state == MuspahState.HOMING_SPIKES) {
             run.state = run.resumeState
@@ -624,7 +576,7 @@ constructor(
         }
     }
 
-    private fun hardenMovingSpikes(run: Run) {
+    private fun hardenMovingSpikes(run: MuspahArenaState) {
         for (moving in run.movingSpikes) {
             val tile = moving.loc.coords
             locs.del(moving.loc, Int.MAX_VALUE)
@@ -633,7 +585,7 @@ constructor(
         run.movingSpikes.clear()
     }
 
-    private fun beginShieldTransition(run: Run) {
+    private fun beginShieldTransition(run: MuspahArenaState) {
         if (run.state == MuspahState.SHOCKWAVE || run.state == MuspahState.PRAYER_SHIELD) return
         if (run.state == MuspahState.HOMING_SPIKES) finishHoming(run, resume = false)
         run.clouds.clear()
@@ -649,7 +601,7 @@ constructor(
         run.boss.actionDelay = run.shieldApplyCycle + 2
     }
 
-    private fun tickShockwave(run: Run) {
+    private fun tickShockwave(run: MuspahArenaState) {
         if (!run.shockwaveFired && clock.cycle >= run.shockwaveCycle) {
             run.shockwaveFired = true
             world.spotanimMap(spot(MuspahAssets.SHOCKWAVE), arenaCenter(run.session))
@@ -666,6 +618,7 @@ constructor(
             if (exposed) {
                 run.player.queueHit(
                     source = run.boss,
+                    context = HitContext.of(HitAttribution(HitOrigin.Environment), run.hazardScope),
                     delay = 1,
                     type = HitType.Typeless,
                     damage = random.of(0..80),
@@ -693,13 +646,13 @@ constructor(
         run.boss.apPlayer2(run.player, interactions)
     }
 
-    private fun drainShield(run: Run, amount: Int) {
+    private fun drainShield(run: MuspahArenaState, amount: Int) {
         run.shieldPoints = MuspahRules.drainShield(run.shieldPoints, amount)
         run.player.mes("The Phantom Muspah has ${run.shieldPoints} prayer shield points remaining.")
         if (run.shieldPoints == 0 && run.state == MuspahState.PRAYER_SHIELD) beginFinal(run)
     }
 
-    private fun beginFinal(run: Run) {
+    private fun beginFinal(run: MuspahArenaState) {
         run.boss.transmog(requireNpc(MuspahAssets.FINAL), Int.MAX_VALUE)
         run.boss.anim(MuspahAssets.TRANSFORM_APPEAR_1)
         run.currentForm = MuspahForm.FINAL
@@ -714,7 +667,7 @@ constructor(
     }
 
     // Transitional form-specific side effects; final forced cadence moves with the phase engine.
-    fun onRangedAttack(run: Run) {
+    fun onRangedAttack(run: MuspahArenaState) {
         run.attackCounter++
         if (run.state == MuspahState.PRAYER_SHIELD) {
             drainShield(run, MuspahRules.passiveShieldDrain())
@@ -728,27 +681,34 @@ constructor(
         }
     }
 
-    private fun spawnCrack(run: Run, tile: CoordGrid) {
+    private fun spawnCrack(run: MuspahArenaState, tile: CoordGrid) {
         if (!validSpikeTile(run, tile)) return
         world.spotanimMap(spot(MuspahAssets.SPIKE_WARNING), tile)
         val warning =
             locs.add(
                 tile,
                 MuspahAssets.SPIKE_PRE,
-                2,
+                Int.MAX_VALUE,
                 LocAngle.North,
                 LocShape.CentrepieceStraight,
-                onDespawn = {
-                    if (runs[run.player.uid] === run && run.state != MuspahState.INVALIDATED) {
-                        spawnStaticSpike(run, tile)
-                        if (run.player.coords == tile) spikeHit(run)
-                    }
-                },
             )
         run.warningSpikes += warning
+        // Native encounter queue owns the replacement, not a re-entrant loc expiry callback.
+        run.encounter.scheduleAt(queues, clock, clock.cycle + 2) {
+            if (
+                instances.muspahState(run.player) !== run ||
+                    run.state in
+                        setOf(MuspahState.DYING, MuspahState.RESPAWNING, MuspahState.INVALIDATED)
+            )
+                return@scheduleAt
+            run.warningSpikes.remove(warning)
+            locs.del(warning, Int.MAX_VALUE)
+            spawnStaticSpike(run, tile)
+            if (run.player.coords == tile) spikeHit(run)
+        }
     }
 
-    private fun spawnStaticSpike(run: Run, tile: CoordGrid) {
+    private fun spawnStaticSpike(run: MuspahArenaState, tile: CoordGrid) {
         if (!validSpikeTile(run, tile)) return
         if (run.staticSpikes.containsKey(tile)) return
         val loc =
@@ -762,7 +722,7 @@ constructor(
         run.staticSpikes[tile] = loc
     }
 
-    private fun spreadFinalSpikes(run: Run) {
+    private fun spreadFinalSpikes(run: MuspahArenaState) {
         val existing = run.staticSpikes.keys.toList()
         for (tile in existing.take(6)) {
             val candidates =
@@ -777,10 +737,11 @@ constructor(
         }
     }
 
-    private fun spikeHit(run: Run) {
+    private fun spikeHit(run: MuspahArenaState) {
         val damage = random.of(0..20)
         run.player.queueHit(
             source = run.boss,
+            context = HitContext.of(HitAttribution(HitOrigin.Environment), run.hazardScope),
             delay = 1,
             type = HitType.Typeless,
             damage = damage,
@@ -799,7 +760,8 @@ constructor(
         if (destination != null) PathingEntityCommon.telejump(run.player, collision, destination)
     }
 
-    private fun cleanupHazards(run: Run) {
+    private fun cleanupHazards(run: MuspahArenaState) {
+        run.hazardScope.invalidate()
         run.warningSpikes.forEach { locs.del(it, Int.MAX_VALUE) }
         run.warningSpikes.clear()
         run.staticSpikes.values.forEach { locs.del(it, Int.MAX_VALUE) }
@@ -809,13 +771,13 @@ constructor(
         run.clouds.clear()
     }
 
-    private fun keepAggressive(run: Run) {
+    private fun keepAggressive(run: MuspahArenaState) {
         if (run.boss.isSlotAssigned && run.boss.mode == null) {
             run.boss.apPlayer2(run.player, interactions)
         }
     }
 
-    private fun canStartThresholdSpecial(run: Run): Boolean =
+    private fun canStartThresholdSpecial(run: MuspahArenaState): Boolean =
         run.state in setOf(MuspahState.RANGED, MuspahState.MELEE)
 
     private fun isCombatState(state: MuspahState): Boolean =
@@ -857,25 +819,6 @@ constructor(
             MuspahForm.TELEPORT -> MuspahAssets.TELEPORT
         }
 
-    private fun spawnBoss(player: Player, session: InstanceSession, form: MuspahForm): Npc {
-        val boss = Npc(requireNpc(internalFor(form)), bossSpawn(session))
-        boss.mode = null
-        boss.baseHitpointsLvl = MUSPAH_MAX_HITPOINTS
-        boss.hitpoints = MUSPAH_MAX_HITPOINTS
-        boss.assignSpawnOwner(player, clock.cycle)
-        boss.movementLocked = true
-        boss.apRangeOverride = if (form == MuspahForm.MELEE) 1 else 10
-        boss.apRequiresLineOfSight = true
-        npcs.add(boss, MUSPAH_NPC_LIFETIME)
-        instances.attachNpc(session.id, boss)
-        // Establish dormant encounter ownership before activation unlocks melee movement.
-        // Otherwise the first player hit can lazily recreate the dormant movement lock.
-        bossEncounters.of(boss)
-        return boss
-    }
-
-    private fun bossSpawn(session: InstanceSession): CoordGrid = requireLocal(session, 31, 34)
-
     private fun arenaCenter(session: InstanceSession): CoordGrid = requireLocal(session, 31, 34)
 
     private fun requireLocal(session: InstanceSession, x: Int, z: Int): CoordGrid =
@@ -889,13 +832,13 @@ constructor(
             tile.z in southWest.z..northEast.z
     }
 
-    private fun validSpikeTile(run: Run, tile: CoordGrid): Boolean =
+    private fun validSpikeTile(run: MuspahArenaState, tile: CoordGrid): Boolean =
         inArena(run.session, tile) &&
             tile !in run.staticSpikes &&
             run.movingSpikes.none { it.loc.coords == tile } &&
             !bossOccupies(run, tile)
 
-    private fun bossOccupies(run: Run, tile: CoordGrid): Boolean =
+    private fun bossOccupies(run: MuspahArenaState, tile: CoordGrid): Boolean =
         tile.x in run.boss.coords.x until (run.boss.coords.x + run.boss.size) &&
             tile.z in run.boss.coords.z until (run.boss.coords.z + run.boss.size)
 
@@ -934,46 +877,6 @@ constructor(
         player.clearInteraction()
         player.resetAnim()
     }
-
-    internal data class Run(
-        val player: Player,
-        val session: InstanceSession,
-        val generation: Long,
-        var boss: Npc,
-        var state: MuspahState,
-        var currentForm: MuspahForm,
-        var initialForm: MuspahForm,
-        var resumeState: MuspahState = MuspahState.RANGED,
-        var transformTarget: MuspahForm? = null,
-        var firstSwapComplete: Boolean = false,
-        var positiveAttacks: Int = 0,
-        var eligibleDamage: Int = 0,
-        var lastPositiveAttackCycle: Int = Int.MIN_VALUE,
-        var firstSpecialFired: Boolean = false,
-        var secondSpecialFired: Boolean = false,
-        var shieldPoints: Int = 0,
-        var attackCounter: Int = 0,
-        var stationaryMeleeAttacks: Int = 0,
-        var startReadyCycle: Int = Int.MAX_VALUE,
-        var transformCycle: Int = Int.MAX_VALUE,
-        var homingEndCycle: Int = Int.MAX_VALUE,
-        var lightningIndex: Int = 0,
-        var nextLightningCycle: Int = Int.MAX_VALUE,
-        var shockwaveCycle: Int = Int.MAX_VALUE,
-        var shieldApplyCycle: Int = Int.MAX_VALUE,
-        var shockwaveFired: Boolean = false,
-        var shieldSkipPending: Boolean = false,
-        var respawnCycle: Int = Int.MAX_VALUE,
-        var killStartCycle: Int = 0,
-        var killTicks: Int = 0,
-        var killcount: Int = 0,
-        var lastCloudHitCycle: Int = Int.MIN_VALUE,
-        val warningSpikes: MutableList<LocInfo> = mutableListOf(),
-        val staticSpikes: MutableMap<CoordGrid, LocInfo> = linkedMapOf(),
-        val movingSpikes: MutableList<MovingSpike> = mutableListOf(),
-        val clouds: MutableList<LightningCloud> = mutableListOf(),
-        val shieldDrainSources: MutableSet<String> = linkedSetOf(),
-    )
 
     private companion object {
         val lightningRoute =
