@@ -49,7 +49,6 @@ constructor(
                 deps,
                 name,
                 canTarget = encounters::canAttack,
-                onAbilityCommitted = encounters::onAbility,
                 onModifyHit = {
                     val player =
                         if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players)
@@ -67,17 +66,21 @@ constructor(
                 if (run == null) {
                     death.deathNoDrops(this)
                 } else {
-                    death.deathNoDrops(this)
-                    if (!run.debug) death.spawnDrops(this, encounters.dropTile(npc))
-                    encounters.finishBossDeath(npc)
+                    val dropTile = encounters.dropTile(npc)
+                    death.deathWithDrops(
+                        this,
+                        dropTile,
+                        respawnDelay = if (run.debug) Int.MAX_VALUE else ZULRAH_RESPAWN_TICKS,
+                    )
+                    encounters.finishBossDeath(run)
                 }
             }
         }
         ZulrahAssets.snakelings.forEach { internal ->
             val type = requireNpc(internal)
             onNpcQueue(type, "queue.death") {
-                death.deathNoDrops(this)
                 encounters.finishSnakelingDeath(npc)
+                death.deathNoDrops(this)
             }
         }
     }

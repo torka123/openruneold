@@ -2011,6 +2011,14 @@ inherit = "npc.gargboss_dusk_phase1_defensive"
 [npc.params]
 "param.killcount_varp"="varp.total_gargboss_kills"
 
+# Zulrah keeps its ranged spawn identity across all visual forms. Use the native kill hook.
+[[npc]]
+id = "npc.snakeboss_boss_ranged"
+inherit = "npc.snakeboss_boss_ranged"
+[npc.params]
+"param.killcount_varp"="varp.total_snakeboss_kills"
+"param.killcount_notify"=false
+
 [[npc]]
 id = "npc.godwars_armadyl_avatar"
 inherit = "npc.godwars_armadyl_avatar"

@@ -30,6 +30,8 @@ dependencies {
     testImplementation(projects.api.registry)
     testImplementation(projects.api.deathPlugin)
     testImplementation(projects.api.combat.combatFormulas)
+    testImplementation(projects.content.generic.killcount)
+    testImplementation("dev.or2:toml-rsconfig:1.0")
 }
 
 tasks.test {

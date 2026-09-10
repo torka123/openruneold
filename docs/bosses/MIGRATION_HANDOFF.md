@@ -9,12 +9,13 @@ Update this checkpoint after each completed boss and immediately before any auth
 - Canonical workspace: `C:\Users\norma\Documents\Codex\2026-08-10\lets-work-on-the-openrune-server\work\OpenRune-Server`.
 - Source safety baseline: `798b8c320`, branch `backup/boss-dsl-source-baseline-20260909`.
 - Current work: `refactor/zulrah-boss-dsl-20260909`. Re-read actual Git state on resume.
-- Completed source migrations: Kraken, Vorkath, Corporeal Beast, Alchemical Hydra, Grotesque Guardians.
-- Latest broad passing checkpoint: Guardians `cb056e5`; architecture Gradle integration `165ded8c4`.
-- Zulrah is **in progress**: seven native characterization tests added; outside-shrine death
-  activation defect fixed; shared post-death projectile lifetime and seeded-selection adapters pass
-  all 41 boss API tests. Zulrah has 30 passing tests (eight native, 22 prior tests). The old Zulrah
-  manager remains authoritative until migration passes.
+- Completed source migrations: Kraken, Vorkath, Corporeal Beast, Alchemical Hydra, Grotesque Guardians,
+  Zulrah. This means source/headless migration, not client or full OSRS parity certification.
+- Latest passing verification: `logs/zulrah-final-native-check.log` (43 Zulrah tests and cache audit);
+  `logs/zulrah-broad-regression.log` (all applicable boss/shared tests, app classes, architecture check;
+  49s/509 tasks). Shared boss API has 41 passing tests. Inspect Git for the final Zulrah commit.
+- Zulrah uses declarative rotation programs, native instances/death/respawn and scoped spatial
+  handlers. Its private membership and ordinary attack/phase timers are removed. Next: Muspah.
 - Live deployment: **not performed during this migration**. Existing server PID must be rechecked;
   the last doctor identified 41396 in this canonical workspace. Do not assume it is still current.
 - Cache: revision240, `.data/cache/SERVER` definitions and `.data/cache/LIVE` JS5; PostgreSQL
@@ -36,12 +37,14 @@ Update this checkpoint after each completed boss and immediately before any auth
 | Corporeal Beast | DSL ordinary attack selection; native public-room lifecycle, focused core and split-area handlers | 24 module tests | Both existing lairs, melee/magic attacks, core, stomp, group targeting, room reset and loot |
 | Alchemical Hydra | DSL normal volleys/phase rotations; native instance and same-actor respawn; removed duplicate KC increment | 22 module tests | `::hydra`, observation-room doors, vents/forms/specials, prayer, loot/KC once, two kills, `::leavehydra` |
 | Grotesque Guardians | Two DSL specs; native roof instance, paired forms and reset; base-Dusk drop/KC identity fixed | 21 module tests; 48 drop-module tests; all boss/shared regression tasks and app classes pass | Natural roof entrance, bell, both attacks, lightning/spheres, hammer, prison, loot/KC once, 17-tick paired reset, repeat and exit |
+| Zulrah | Four DSL rotation programs and snake specs; native boat instance and same-actor respawn; scoped clouds/eggs/tail; native KC metadata | 43 module tests (21 native), revision-240 cache audit, broad boss/shared regressions | Natural boat entry/camera, all forms and rotations, clouds, eggs/snakes, tail dodge, prayer, death/reclaim, loot/KC once, two kills, exit/teleport/logout; debug mode must award nothing |
 | Architecture enforcement | Existing detector/self-tests now run from root Gradle check; explicit reviewed waivers retained | `bossArchitectureCheck` passes | Developer check, not a visible game change |
 
-Important: Guardians KC also needs the intentional seven-line source overlay in
-`.data/raw-cache/server/npcs.toml` packed during an authorized controlled deployment. It was tested
-in memory through the native kill hook; SERVER/LIVE have **not** been repacked. Do not silently deploy
-only jars and declare that metadata fix live. Preserve the unrelated source-data hunks in that file.
+Important: Guardians KC needs the intentional seven-line source overlay and Zulrah KC needs its
+eight-line overlay in `.data/raw-cache/server/npcs.toml` packed during an authorized controlled
+deployment. Both were tested in memory through the native kill hook; SERVER/LIVE have **not** been
+repacked. Do not silently deploy only jars and declare those metadata fixes live. Preserve the
+unrelated source-data hunks in that file.
 
 For each fight record: account, solo/group, entry path, observed problem, approximate tick/time and
 a clip/RSProx capture when possible. Test both normal completion and departure during a delayed
@@ -50,7 +53,8 @@ tests and a boot marker do not certify visuals or full OSRS parity.
 
 ## Work still required
 
-1. Finish Zulrah characterization, scoped DSL/instance conversion and native lifecycle tests.
+1. Inspect the completed Zulrah pattern before proceeding; confirm native scheduling/membership
+   ownership rather than reproducing the old manager in another class.
 2. Continue Muspah, Cerberus, Royal Titans, Nex, Yama, Doom and DT2 in separate focused migration
    branches/commits. Review Dagannoth Kings separately. Preserve existing research and mechanics.
 3. Resolve or explicitly report remaining generic DSL concerns (unused condition/phase fields,

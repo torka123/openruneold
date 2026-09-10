@@ -232,7 +232,7 @@ Diagnostic-only modules are excluded. Zero manager lines is not proof of archite
 | Corporeal Beast | manager; 502 -> 0 | BossSpec normal attacks, weighted styles/animations/cadence, native NvPCombat; old selector test-only | Public lairs retained, so no InstanceScript required; native NPC/encounter lifecycle | Room recovery/stomp (161 lines), core (114), split area (95), drain impact parameters (29), state (49) | 24 tests pass (17 native fixture + 7 prior rules/oracle); all boss/shared tests and server classes pass | Existing third-party projectile provenance, core poison stun and live visuals remain unverified |
 | Alchemical Hydra | manager; 858 | Ordinary native volleys, rotation, forced cadence and phase identity | Native InstanceScript, typed session state and native same-actor respawn | 260-line observation/form coordinator; 317-line arena hazards; 71-line transform presentation; parameter/hit-policy adapters | 22 deterministic tests pass, including native lifecycle and two kills | No live verification; baseline-only hazard/pathing constants, non-player damage exclusion and natural exterior entrance remain uncertified |
 | Grotesque Guardians | manager; 945 -> 327 coordinator lines | Two BossSpecs: ordinary native volleys, phase identity, ordinal style selection and forced cadence | Native InstanceScript, typed session state, configured actors and validated native pair reset | Arena geometry/effects (343 lines), paired form coordination, native parameter/damage adapters | 21 deterministic tests (15 native), 48 drop tests pass | No live verification or cache repack; inherited lightning vulnerability, non-player damage exclusion and draft-only spatial values remain uncertified |
-| Zulrah | manager; 993 | Pending | Pending | Positions/clouds/snakes | Pending | Detailed mapping pending |
+| Zulrah | manager; 993 -> 300 coordinator lines | Four unchanged declarative rotation programs, native attacks and separate snakeling specs | Native InstanceScript, configured actor, typed session state and same-actor respawn | Spatial clouds/eggs/tail handler (307 lines), surface positioning, existing reclaim storage and native parameter adapters | 43 tests (21 native, 22 retained) and revision-240 cache audit pass; all boss/shared regressions and app classes pass | No deployment/cache repack/client verification; Grid Master capture context, tail-order conflict and inherited non-player damage exclusion remain uncertified |
 | Muspah | manager; 1,088 | Pending | Pending | Spikes/pathing/shield | Pending | Detailed mapping pending |
 | Cerberus | manager; 1,290 | Pending | Pending | Ghosts/lava | Existing capture tests preserved | Detailed mapping pending |
 | Royal Titans | manager; 2,017 | Pending | Pending | Paired coordination/walls/statistics | Existing tests preserved | Existing evidence gaps remain distinct from migration |
@@ -808,3 +808,38 @@ preserve native projectile geometry, launch prayer, venom and sounds. Snakeling 
 registered BossSpecs. Removed the manager's ordinary attack functions and action/phase tick engine;
 this is an intermediate strangler checkpoint, not a completed instance/hazard migration. Spatial
 pending work and private membership/respawn remain for the next focused change. Nothing deployed.
+
+### Zulrah source migration result
+
+The instance/hazard migration now replaces that intermediate checkpoint. ZulrahWorld extends the
+existing InstanceScript; native configured spawns, keyed joins, typed session state and native
+departure/death cleanup replace the private PlayerUid map. Native deathWithDrops and 17-tick respawn
+reuse the same actor. BossEncounter owns delayed spatial effects; snakelings have their own
+encounter-owned expiry and detach callbacks. Boss death cancels spatial work using the existing
+runCleanupActions API without invalidating an already-fired ordinary projectile; destruction,
+respawn and instance departure still invalidate it. No additional shared API was needed in this step.
+The remaining 300-line coordinator handles surface presentation and completion data; the 307-line
+arena handler contains only cloud, egg and tail geometry/effects. Ordinary sequencing is not duplicated.
+
+Native KC inspection found the same spawn-definition issue as Guardians: Zulrah's immutable 2042
+definition lacks killcount_varp in the active cache. Add only the eight-line intentional source
+overlay in `.data/raw-cache/server/npcs.toml`, and remove the boss-local counter. The regression
+parses that source overlay and executes the native kill hook in memory, restoring the test
+definition afterward. SERVER/LIVE are unchanged; an authorized deployment must pack that metadata.
+All pre-existing Royal Titans/GE data hunks remain unstaged. No reward rates or quantities changed.
+
+`zulrah-final-native-check.log`: 43 tests pass (21 native and 22 retained); the revision-240 cache
+audit also passes. Scoped Zulrah check succeeds (42s, 170 tasks, exit0). Native cases cover all four
+complete programs, actual protected boat interaction/camera completion, two isolated rooms,
+teleport/logout/disconnect/death/exit, two same-actor kills, one native KC with source metadata,
+debug reward suppression, queued-hit lifetime, tail hit/dodge/pillars, cloud overlap and
+source-death cancellation, snakeling attack lock and deletion/expiry cancellation. The suspected
+protected-boat rejection was not reproduced; it is not recorded as a corrected defect.
+
+`zulrah-broad-regression.log`: all applicable boss tests, drops, bosses/instances/NPC/death/
+game-process/combat-scripts/engine-game tests, server app classes and bossArchitectureCheck pass
+(49s, 509 tasks). The boss-module XML reports contain 893 tests, zero failures/errors/skips;
+NO-SOURCE modules do not constitute gameplay coverage. Architecture waivers now retain only the
+reviewed spatial-hit/parameter sites and persistent reclaim reminder, not private combat/membership.
+Doctor still identifies canonical PID41396 and revision240 authority. No live deployment,
+cache packing, controlled restart, client scenario or new packet comparison was performed.

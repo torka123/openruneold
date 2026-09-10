@@ -2,6 +2,7 @@ package org.rsmod.content.bosses.zulrah
 
 import org.rsmod.api.attr.AttributeKey
 import org.rsmod.api.instances.InstanceArea
+import org.rsmod.api.instances.InstanceNpc
 import org.rsmod.api.instances.InstanceSettings
 import org.rsmod.api.instances.RegionLocal
 import org.rsmod.api.repo.region.RegionTemplate
@@ -130,6 +131,7 @@ internal val ZULRAH_AREA =
         template = ZULRAH_TEMPLATE,
         enterCoord = RegionLocal(0, 35, 47, 28, 60),
         exitCoord = ZULRAH_DOCK,
+        npcSpawns = listOf(InstanceNpc(ZulrahAssets.GREEN, CoordGrid(2266, 3073))),
     )
 
 internal fun zulrahSpec(activeType: dev.openrune.types.NpcServerType) =

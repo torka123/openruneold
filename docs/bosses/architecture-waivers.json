@@ -265,32 +265,14 @@
   },
   {
     "boss": "zulrah",
-    "rule": "boss-api-dependency",
-    "maximum": 1,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "zulrah",
-    "rule": "global-runs-map",
-    "maximum": 1,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "zulrah",
     "rule": "manual-lifecycle",
-    "maximum": 5,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+    "maximum": 4,
+    "reason": "Only the existing persistent death-storage login reminder uses PlayerPostTickHook (import/interface/binding references). Native InstanceScript/InstanceLifecycleScript own membership, death, logout, disconnect and teleport cleanup."
   },
   {
     "boss": "zulrah",
     "rule": "direct-combat-review",
-    "maximum": 7,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "zulrah",
-    "rule": "instance-script",
-    "maximum": 1,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+    "maximum": 5,
+    "reason": "Two pure NpcAttackOverride launch-parameter snapshots, cloud/tail spatial queueHit calls and one hazard-only projectile sender. Ordinary boss and snakeling hits/projectiles use DSL NpcAttack. See Zulrah mapping and native tests."
   }
 ]
