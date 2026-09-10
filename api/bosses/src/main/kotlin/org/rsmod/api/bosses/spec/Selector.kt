@@ -13,6 +13,27 @@ sealed interface Selector {
 
     data class Rotation(val sequence: List<String>) : Selector
 
+    /**
+     * Repeats a selected ordinary ability on subsequent eligible opportunities, not on a second
+     * timeline. Forced specials retain their normal precedence and do not consume repetitions.
+     * Ineligible opportunities clear the continuation and select the fallback without RNG.
+     */
+    data class RepeatSelected(
+        val delegate: Selector,
+        val repeatedAbility: String,
+        val extraSelections: Int,
+        val eligible: Condition,
+        val ineligibleAbility: String,
+        val sameTarget: Boolean = true,
+    ) : Selector {
+        init {
+            require(extraSelections >= 0) { "Additional selection count must not be negative." }
+            require(repeatedAbility.isNotBlank() && ineligibleAbility.isNotBlank()) {
+                "Continuation and fallback abilities must be named."
+            }
+        }
+    }
+
     /** Keeps a ranged/magic script in order while allowing adjacent targets to receive melee. */
     data class MeleeOverrideRotation(val meleeAbility: String, val sequence: List<String>) :
         Selector

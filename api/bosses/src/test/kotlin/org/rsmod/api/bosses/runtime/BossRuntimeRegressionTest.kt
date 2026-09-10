@@ -1234,7 +1234,7 @@ class BossRuntimeRegressionTest {
         assertEquals("a", next.selectAbility(choice, 108))
     }
 
-    private class Fixture(
+    internal class Fixture(
         phase: PhaseSpec = PhaseSpec("main"),
         val random: GameRandom = DefaultGameRandom(42L),
         nativeCombat: Boolean = false,

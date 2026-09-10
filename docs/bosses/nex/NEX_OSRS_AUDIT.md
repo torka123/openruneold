@@ -92,11 +92,22 @@ Focused files changed in this continuation:
   `MIGRATION_HANDOFF.md`, `RESUME_OPENRUNE_BOSS_API_DSL.txt`, `architecture-waivers.json`,
   and `scripts/resume-boss-migration.ps1`.
 
-### S09 proposal: target-bound ordinary-attack continuation (new approval boundary)
+### S09 approved: target-bound ordinary-attack continuation
 
-**Proposed new shared capability, not an existing official API and not implemented.**
+**User approval received September 10; shared implementation tested. This is a new shared extension,
+not an existing official upstream API.**
+The shared checkpoint adds 11 executable tests (61 boss API tests total); all 35 Nex tests,
+application classes and architecture check pass. Log: `logs/nex-s09-verified-20260910.log`.
+Formatting passes for the changed files. An additional unscoped `:api:bosses:check` fails on
+pre-existing formatting in eight untouched files (DragonDsl, DragonDslHigh, EffectBuilders,
+StatDrainBuilder, BossFx, BossPluginScript, DamageExpr, TargetExpr); see
+`logs/nex-s09-unscoped-20260910.log`. Those files were not mass-formatted.
+No deployment of S09 has occurred at this checkpoint.
 The existing M01-M36/S01-S08 approval remains valid. S09 is not retroactively folded into S07
-(RNG injection); it changes selection expressiveness and has its own AGENTS checkpoint.
+(RNG injection); it changes selection expressiveness and its separate AGENTS checkpoint is now
+satisfied. Do not request this approval again. Preserve defaults for other selectors. Source scope
+also includes the existing SpecValidator's exhaustive selector validation and focused runtime tests;
+these are integration of the approved selector, not another selection or validation pipeline.
 
 Requirement: [Jagex, June 25, 2025](https://secure.runescape.com/m=news/summer-sweep-up-combat?oldschool=1)
 documents two additional melee attempts when the target is within melee distance. Confidence:

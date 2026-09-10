@@ -82,6 +82,17 @@ object SpecValidator {
         errors: MutableList<ValidationError>,
     ) {
         when (selector) {
+            is Selector.RepeatSelected -> {
+                for (name in listOf(selector.repeatedAbility, selector.ineligibleAbility)) {
+                    if (name !in abilityNames) {
+                        errors +=
+                            ValidationError(
+                                "Continuation in '$context' references ability '$name' which does not exist."
+                            )
+                    }
+                }
+                validateSelector(selector.delegate, context, abilityNames, errors)
+            }
             is Selector.WeightedRandom -> {
                 for (ref in selector.entries) {
                     if (ref.ability !in abilityNames) {

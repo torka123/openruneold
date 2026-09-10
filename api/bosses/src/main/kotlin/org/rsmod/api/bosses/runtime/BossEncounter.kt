@@ -6,6 +6,7 @@ import org.rsmod.api.random.GameRandom
 import org.rsmod.game.MapClock
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
+import org.rsmod.game.entity.player.PlayerUid
 import org.rsmod.game.hit.HitScope
 import org.rsmod.game.queue.WorldQueueList
 
@@ -43,6 +44,24 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
     private class SelectionState {
         val cooldowns = mutableMapOf<String, Int>()
         var rotationCursor = 0
+        val continuations = IdentityHashMap<Selector.RepeatSelected, ContinuationState>()
+
+        fun clear() {
+            cooldowns.clear()
+            rotationCursor = 0
+            continuations.clear()
+        }
+    }
+
+    private class ContinuationState {
+        val delegate = SelectionState()
+        var remaining = 0
+        var target: PlayerUid? = null
+
+        fun clear() {
+            remaining = 0
+            target = null
+        }
     }
 
     private val phaseSelection = SelectionState()
@@ -114,6 +133,7 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
         val actions = cleanupActions.toList()
         cleanupActions.clear()
         encounterState.clear()
+        phaseSelection.clear()
         branchSelections.clear()
         var failure: Throwable? = null
         actions.forEach { action ->
@@ -232,7 +252,7 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
         val from = currentPhaseName
         currentPhaseName = phaseName
         phaseEnteredTick = tick
-        rotationCursor = 0
+        phaseSelection.clear()
         lastRotationIndex = -1
         cooldowns.clear()
         branchSelections.clear()
@@ -269,6 +289,7 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
     }
 
     fun selectAbility(selector: Selector, tick: Int, target: Player? = null): String? {
+        if (isEnded) return null
         val phase = currentPhase ?: return null
 
         for (forced in phase.forceAbilities) {
@@ -302,12 +323,14 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
 
     /** A nested effect chooses a branch, not another phase attack opportunity. */
     internal fun selectBranch(choice: Effect.Choose, tick: Int, target: Player?): String? =
-        select(
-            choice.selector,
-            tick,
-            target,
-            branchSelections.getOrPut(choice) { SelectionState() },
-        )
+        if (isEnded) null
+        else
+            select(
+                choice.selector,
+                tick,
+                target,
+                branchSelections.getOrPut(choice) { SelectionState() },
+            )
 
     private fun select(
         selector: Selector,
@@ -318,6 +341,7 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
         when (selector) {
             is Selector.WeightedRandom -> selectWeightedRandom(selector, tick, target, state)
             is Selector.Rotation -> selectRotation(selector, state)
+            is Selector.RepeatSelected -> selectContinuation(selector, tick, target, state)
             is Selector.MeleeOverrideRotation ->
                 selectMeleeOverrideRotation(selector, target, state)
             is Selector.Conditional ->
@@ -330,6 +354,34 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
         val min = forced.attackMin ?: return Int.MAX_VALUE
         val max = (forced.attackMax ?: min).coerceAtLeast(min)
         return if (max == min) min else random.of(min, max)
+    }
+
+    private fun selectContinuation(
+        selector: Selector.RepeatSelected,
+        tick: Int,
+        target: Player?,
+        state: SelectionState,
+    ): String? {
+        val continuation = state.continuations.getOrPut(selector) { ContinuationState() }
+        if (!evaluate(selector.eligible, target) || (selector.sameTarget && target == null)) {
+            continuation.clear()
+            return selector.ineligibleAbility
+        }
+        if (
+            continuation.remaining > 0 &&
+                (!selector.sameTarget || continuation.target == target?.uid)
+        ) {
+            continuation.remaining--
+            if (continuation.remaining == 0) continuation.target = null
+            return selector.repeatedAbility
+        }
+        continuation.clear()
+        val selected = select(selector.delegate, tick, target, continuation.delegate)
+        if (selected == selector.repeatedAbility && selector.extraSelections > 0) {
+            continuation.remaining = selector.extraSelections
+            continuation.target = if (selector.sameTarget) target?.uid else null
+        }
+        return selected
     }
 
     private fun selectWeightedRandom(
