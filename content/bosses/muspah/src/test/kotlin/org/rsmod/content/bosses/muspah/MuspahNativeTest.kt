@@ -88,6 +88,32 @@ import org.rsmod.routefinder.collision.CollisionFlagMap
 @OptIn(InternalApi::class)
 class MuspahNativeTest {
     @Test
+    fun `final spikes accompany every fourth committed shot without replacing normal combat`() {
+        val f = MuspahFixture()
+        f.start()
+        f.until(104)
+        f.boss.hitpoints = 128
+        f.damage(2)
+        f.until(109)
+        VarPlayerIntMapSetter.set(f.player, "varbit.prayer_smite", 1)
+        repeat(3) { f.damage(100) }
+        val run = assertNotNull(f.instances.muspahState(f.player))
+        repeat(8) { index ->
+            f.until(112 + 5 * index)
+            f.player.coords = f.local(40, 27 + index)
+            assertTrue(run.warningSpikes.isEmpty())
+            f.attack()
+            assertEquals(index + 1, f.projectiles.size)
+            assertEquals((index + 1) % 4 == 0, run.warningSpikes.isNotEmpty())
+            val warnings = run.warningSpikes.toList()
+            repeat(3) { f.attack() }
+            assertEquals(index + 1, f.projectiles.size)
+            assertEquals(warnings, run.warningSpikes)
+            assertEquals(117 + 5 * index, f.boss.actionDelay)
+        }
+    }
+
+    @Test
     fun `source KC metadata uses the native kill hook once across two completions`() {
         val f = MuspahFixture()
         f.start()
