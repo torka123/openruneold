@@ -4,6 +4,8 @@ import dev.openrune.ServerCacheManager
 import dev.openrune.types.NpcMode
 import dev.openrune.types.aconverted.SpotanimType
 import jakarta.inject.Inject
+import org.rsmod.api.bosses.runtime.BossDeps
+import org.rsmod.api.bosses.runtime.BossEncounter
 import org.rsmod.api.npc.apPlayer2
 import org.rsmod.api.npc.hit.modifier.StandardNpcHitModifier
 import org.rsmod.api.npc.hit.queueHit
@@ -40,6 +42,7 @@ constructor(
     private val interactions: AiPlayerInteractions,
     private val npcHitModifier: StandardNpcHitModifier,
     private val arena: RoyalTitansArena,
+    private val bosses: BossDeps,
 ) {
     private val routes = RouteFactory(collision)
     private val bounds = BoundValidator(collision)
@@ -241,13 +244,13 @@ constructor(
 
     fun finishElementalDeath(run: Run, npc: Npc) {
         val state = run.elementals.remove(npc) ?: return
+        val encounter = bosses.encounterRegistry.of(npc)
         npc.clearInteraction()
         npc.resetMovement()
         npc.movementLocked = true
         npc.hideAllOps()
         if (state.exploding) {
-            run.pendingRemovals[npc] =
-                clock.cycle + if (state.element == RoyalElement.FIRE) 2 else 1
+            scheduleRemoval(run, encounter, if (state.element == RoyalElement.FIRE) 2 else 1)
             return
         }
         npc.anim(
@@ -267,6 +270,29 @@ constructor(
                 if (state.element == RoyalElement.FIRE) RoyalTitansAssets.FIRE_ELEMENTAL_DEATH
                 else RoyalTitansAssets.ICE_ELEMENTAL_DEATH
             )
-        run.pendingRemovals[npc] = clock.cycle + (sequence?.tickDuration ?: 1).coerceAtLeast(1)
+        scheduleRemoval(run, encounter, (sequence?.tickDuration ?: 1).coerceAtLeast(1))
+    }
+
+    private fun scheduleRemoval(run: Run, encounter: BossEncounter, ticks: Int) {
+        val npc = encounter.npc
+        run.dyingElementals += npc
+        encounter.onCleanup {
+            run.dyingElementals.remove(npc)
+            run.removableElementals.remove(npc)
+        }
+        // Mark before input, remove at the former LateCycle position after native hit processing.
+        encounter.scheduleAt(bosses.worldQueues, clock, clock.cycle + ticks - 1) {
+            if (!run.retired) run.removableElementals += npc
+        }
+    }
+
+    fun removeFinishedDeaths(run: Run) {
+        run.removableElementals.toList().forEach { arena.removeNpc(run, it) }
+    }
+
+    fun clearDying(run: Run) {
+        run.dyingElementals.toList().forEach { arena.removeNpc(run, it) }
+        run.dyingElementals.clear()
+        run.removableElementals.clear()
     }
 }

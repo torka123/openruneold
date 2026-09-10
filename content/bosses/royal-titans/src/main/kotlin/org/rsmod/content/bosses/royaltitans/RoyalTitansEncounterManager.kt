@@ -204,14 +204,7 @@ constructor(
         elementals.processPendingSummons(run)
         elementals.processElementals(run)
         tileAttacks.process(run)
-        run.pendingRemovals
-            .filterValues { clock.cycle >= it }
-            .keys
-            .toList()
-            .forEach {
-                run.pendingRemovals.remove(it)
-                arena.removeNpc(run, it)
-            }
+        elementals.removeFinishedDeaths(run)
 
         if (
             run.stage in
@@ -522,11 +515,6 @@ constructor(
             )
         )
         run.corpses[corpse] = element
-        if (element == RoyalElement.FIRE) {
-            run.brandaCorpse = corpse
-        } else {
-            run.eldricCorpse = corpse
-        }
         when {
             // Defeating one Titan does not restart the surviving Titan's rotation clock.
             run.branda != null && run.eldric == null -> run.stage = RoyalTitansStage.FINAL_BRANDA
@@ -776,19 +764,12 @@ constructor(
         run.areaAttack?.let { tileAttacks.end(run, it) }
         run.corpses.keys.toList().forEach { arena.removeNpc(run, it) }
         run.corpses.clear()
-        run.brandaCorpse = null
-        run.eldricCorpse = null
         landings.clearArenaFloors(run)
         run.claimed.clear()
         run.elementalsUnlocked = false
-        run.areaSequence = 0
-        run.packSequence = 0
-        run.sameTickElementalKills = 0
-        run.elementalKillCycle = -1
         run.rangedGrace = 0
         run.creditedElementalKills.clear()
-        run.pendingRemovals.keys.toList().forEach { arena.removeNpc(run, it) }
-        run.pendingRemovals.clear()
+        elementals.clearDying(run)
         run.lastBossTarget.clear()
         run.dyingTitans.clear()
         spawnTitans(run)
@@ -809,7 +790,8 @@ constructor(
         walls.clearWalls(run)
         elementals.clearElementals(run)
         landings.clearArenaFloors(run)
-        run.pendingRemovals.clear()
+        run.dyingElementals.clear()
+        run.removableElementals.clear()
         run.lastBossTarget.clear()
         // Native destruction owns Titans/corpses and all remaining actor deletion.
         // Stop interaction immediately during the shared deferred logout reclaim interval.

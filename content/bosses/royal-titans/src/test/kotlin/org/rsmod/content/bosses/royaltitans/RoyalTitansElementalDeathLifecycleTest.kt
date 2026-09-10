@@ -18,7 +18,8 @@ class RoyalTitansElementalDeathLifecycleTest {
             f.tick(3) // Finish the cache-priority spawn presentation before the death event.
             npc.hitpoints = 0
             f.manager.finishElementalDeath(npc)
-            val duration = assertNotNull(ServerCacheManager.getAnim(animation)).tickDuration.coerceAtLeast(1)
+            val duration =
+                assertNotNull(ServerCacheManager.getAnim(animation)).tickDuration.coerceAtLeast(1)
             assertEquals(animation, npc.pendingSequence.id)
             f.tick(duration - 1)
             assertTrue(npc.isSlotAssigned)

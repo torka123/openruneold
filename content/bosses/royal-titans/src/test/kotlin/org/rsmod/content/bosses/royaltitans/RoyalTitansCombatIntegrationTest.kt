@@ -772,6 +772,7 @@ internal class RoyalTitansTestWorld(
             AiPlayerInteractions(events, players),
             modifier,
             arena,
+            bossDeps,
         )
     private val tileAttacks = RoyalTitansTileAttacks(clock, locs, world, random, arena)
     private val landings = RoyalTitansLandings(locs, world, collision, random, arena)

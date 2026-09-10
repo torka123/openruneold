@@ -6,6 +6,15 @@ Update this checkpoint after each completed boss and immediately before any auth
 
 ## Current checkpoint
 
+Latest source update (September10): Royal Titans has129 passing module tests and3 cache audit
+cases. Native platform/arena/teleport phases, paired reset and elemental death-deadline ownership
+are implemented; focused handlers leave an830-line coordinator (original2,017). Scoped and broad
+505-task checks pass. The local live checkpoint is being prepared; until the deployment record
+below says otherwise, live remains Cerberus `c421aca33`. Earlier incremental sections are history,
+not instructions to repeat completed work. Continue Nex after this backed-up live checkpoint,
+without ending the task at the routine boss boundary. Existing mechanics/reward/CA uncertainties
+and client acceptance remain explicitly open in DSL_MIGRATION.md.
+
 - Canonical workspace: `C:\Users\norma\Documents\Codex\2026-08-10\lets-work-on-the-openrune-server\work\OpenRune-Server`.
 - Source safety baseline: `798b8c320`, branch `backup/boss-dsl-source-baseline-20260909`.
 - Additional passing source checkpoint: `69f9deeba`,
@@ -219,6 +228,13 @@ timer polls. Source backup `backup/royal-titans-paired-lifecycle-20260910` at `6
 ZIP `logs/royal-titans-paired-lifecycle-20260910.zip`, SHA256
 `EFDC34DE929CB7D56A683ADBEEDBB428B293E1549BD41AF9D554F1BC87C16718` (7,456 entries,0violations).
 Native ownership of the remaining elemental corpse-removal deadlines is next. Live unchanged.
+
+The elemental corpse-deadline step is now implemented:129 tests pass, with exact fire/ice death
+frames and early native-deletion cancellation. Scoped verification50s/206tasks; broader check
+23s/505tasks. Logs `royal-titans-elemental-death-{native-verified,broad}-20260910.log`.
+Prepare the source-only backup, normal local rebuild/two restarts and persistence/doctor checks;
+then continue Nex on a focused branch. Do not pause merely for a routine checkpoint or connected
+user: use the authorized native logout/save workflow when needed, never an unsaved hard kill.
 
 1. Collect user client-test feedback. Backup, local deployment, two gameplay checkpoint restarts,
    persistent fingerprints and the corrected75-assertion live Vorkath audit are complete. Do not

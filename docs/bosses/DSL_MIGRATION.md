@@ -236,7 +236,7 @@ Diagnostic-only modules are excluded. Zero manager lines is not proof of archite
 | Zulrah | manager; 993 -> 300 coordinator lines | Four unchanged declarative rotation programs, native attacks and separate snakeling specs | Native InstanceScript, configured actor, typed session state and same-actor respawn | Spatial clouds/eggs/tail handler (307 lines), surface positioning, existing reclaim storage and native parameter adapters | 43 tests (21 native, 22 retained) and revision-240 cache audit pass; all boss/shared regressions and app classes pass | No deployment/cache repack/client verification; Grid Master capture context, tail-order conflict and inherited non-player damage exclusion remain uncertified |
 | Muspah | manager; 1,088 -> 552 | Weighted normal attacks, final cadence and all timed phases on BossSpec/BossEncounter | InstanceScript, configured actor, typed session, native death/respawn and KC | Threshold/shield policy, spatial cloud/spike/LOS handlers, corruption presentation | 67 tests (27 native, 40 retained) pass | Draft timings, projectile geometry, source exclusions and shield-skip policy not OSRS-certified; client verification pending |
 | Cerberus | manager; 1,290 -> 598 | Native ordinary attacks, triple components, weighted/conditional rotation, forced diagnostics and timed phases | Protected InstanceScript, typed session state and same-actor native death/reveal | Arena effects426 lines (Souls/lava/wall); phase-ready presentation, debug and CA policy | 75 module tests,2 revision-240 audit tests; all boss/shared regressions and app classes pass | Command-only access retained; donor/capture geometry and timeout fallbacks not OSRS-certified; not yet deployed |
-| Royal Titans | manager; 2,017 -> 1,911 (in progress) | Elemental ordinary attacks and per-Titan arena phases migrated; platform phases/extraction next | Protected InstanceScript/session ownership completed; no private membership indexes | Paired geometry/walls/statistics; pending focused extraction | 121 passing module tests,3 revision-240 audit cases; broader boss/shared checks pass | Source-only checkpoints; legacy rotation selection and other evidence gaps remain distinct from migration |
+| Royal Titans | manager; 2,017 -> 830 | Elemental ordinary attacks, per-Titan platform/arena/teleport phases migrated | Protected InstanceScript/session ownership; native paired reset and elemental corpse deadlines; no private membership indexes | Focused routes, landings, walls, elementals, paired tile attacks and statistics/reward policy | 129 passing module tests,3 revision-240 audit cases; broader boss/shared checks pass | Live checkpoint pending below; legacy rotation/reward/CA and visual evidence gaps are not resolved by architecture migration |
 | Nex | manager; 1,321 | Pending | Pending | Group specials/reward coordination | Existing tests preserved | Full encounter work remains incomplete |
 | Yama | managers; 2,908 | Pending | Pending | Contracts/judges/group mechanics | Pending | Detailed mapping pending |
 | Doom of Mokhaiotl | managers; 4,432 | Pending | Pending | Delves/larvae/scoreboard | Pending | Detailed mapping pending |
@@ -1670,3 +1670,15 @@ spawn's higher-priority animation. Waiting for that presentation in the fixture 
 animation change) isolates the intended death timing. Corrected red run:2tests,1expected failure
 for missing native deadline ownership; exact fire/ice deletion timing passes. Log
 `royal-titans-elemental-death-ownership-red-corrected-20260910.log`,34s/196tasks.
+
+Native actor-owned removal now passes both regressions. Early repository deletion cancels the
+deadline and releases the dying/removable references; normal fire/ice visuals retain their exact
+deletion frame. Removed the private deadline map and confirmed write-only pack/area/same-tick
+counters and duplicate corpse fields. The pair coordinator is now830 lines versus2,017 originally.
+`royal-titans-elemental-death-native-first-20260910.log`:129 tests,0failures/errors/skips,
+1m1s/196tasks. Scoped formatter/check, shared boss/instance and3 cache cases pass in
+`royal-titans-elemental-death-native-verified-20260910.log`,50s/206tasks. Broader all-boss/shared
+tests, app classes and architecture enforcement pass in `royal-titans-elemental-death-broad-
+20260910.log`,23s/505tasks (4executed501up-to-date). No new API, cache, reward or balance change.
+This passing source checkpoint is ready for its backed-up controlled local deployment; it does
+not certify rendered gameplay, packet parity, unresolved reward integration or all Combat Achievements.
