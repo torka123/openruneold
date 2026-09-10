@@ -28,6 +28,7 @@ import org.rsmod.api.instances.RegionLocal
 import org.rsmod.api.instances.region.InstanceAreaResolver
 import org.rsmod.api.npc.access.StandardNpcAccessContextFactory
 import org.rsmod.api.npc.access.StandardNpcAccessLauncher
+import org.rsmod.api.npc.apPlayer2
 import org.rsmod.api.npc.hit.NpcDamageContributor
 import org.rsmod.api.npc.hit.modifier.StandardNpcHitModifier
 import org.rsmod.api.npc.hit.processor.StandardNpcHitProcessor
@@ -722,6 +723,13 @@ internal class RoyalTitansTestWorld(
             events,
             StandardNpcAccessLauncher(StandardNpcAccessContextFactory(random, modifier, processor)),
         )
+    val accuracy = mock(org.rsmod.api.combat.formulas.AccuracyFormulae::class.java)
+    val npcCombat =
+        org.rsmod.api.combat.NvPCombat(
+            accuracy,
+            mock(org.rsmod.api.combat.formulas.MaxHitFormulae::class.java),
+            world,
+        )
     val manager =
         RoyalTitansEncounterManager(
             clock,
@@ -746,11 +754,7 @@ internal class RoyalTitansTestWorld(
             hud,
             modifier,
             statistics,
-            org.rsmod.api.combat.NvPCombat(
-                mock(org.rsmod.api.combat.formulas.AccuracyFormulae::class.java),
-                mock(org.rsmod.api.combat.formulas.MaxHitFormulae::class.java),
-                world,
-            ),
+            npcCombat,
         )
 
     private val nativeInteractions =
@@ -823,6 +827,17 @@ internal class RoyalTitansTestWorld(
             assertTrue(manager.enter(player))
             activity.flag(ZoneKey.from(player.coords))
         }
+
+    fun attack(npc: Npc, target: Player) {
+        npc.apPlayer2(target, AiPlayerInteractions(events, players))
+        StandardNpcAccessLauncher(StandardNpcAccessContextFactory(random, modifier, processor))
+            .launch(npc) {
+                events.publish(
+                    this,
+                    org.rsmod.api.npc.events.interact.AiPlayerEvents.Ap2(target, npc),
+                )
+            }
+    }
 
     private fun loadArenaCollision() {
         val cache = dev.openrune.filesystem.Cache.load(java.nio.file.Path.of(".data/cache/SERVER"))

@@ -1325,3 +1325,56 @@ not certified1:1. Royal Titans is the next separate branch.
 User now authorizes native forced logout/save for future tested, backed-up local deployments.
 Do not pause merely for their connected client. Confirm saves before normal shutdown, retain
 the persistence safeguards and do not hard-kill the JVM. Recorded in AGENTS.md and the handoff.
+
+## Royal Titans migration mapping (September10)
+
+Starting branch: `refactor/royal-titans-boss-dsl-20260910`. Canonical doctor was rerun after
+the Cerberus deployment; no Royal Titans changes were included in that live build. Additional
+Cerberus live checkpoint backup: `backup/cerberus-live-verified-20260910` at `d86baed87`, ZIP
+`logs/cerberus-live-verified-20260910.zip`, SHA256
+`9345A54A1B02464636E141AF45FEBF44E3485D5AC9C2AA5BAEB2B5D021E59EDB` (7,439 entries,0 excluded-path
+violations). No unrelated `.data` changes were staged or replaced.
+
+Current manager measurement:2,017 lines. Search across content/api/engine/or-cache finds51
+Royal Titans-related source/test/evidence files. The existing module/World/Combat registration
+is authoritative; rtenter/rtjoin/rtstatus remain testing conveniences. Baseline focused command
+passes in25s/196tasks, including the revision-240 cache audit; existing module XML records97
+tests,0 failures. These are characterizations, not proof that inherited uncertainties are resolved.
+Retain the existing capture ledger, approved API mapping, tests and source data.
+
+Architecture reference: official `upstream/main` commit
+`61139e76a216592d66c2b20366ef26d48609875d`. Exact comparable paths inspected:
+`content/bosses/scurrius/src/main/kotlin/org/rsmod/content/bosses/scurrius/ScurriusInstance.kt`,
+`api/instances/src/main/kotlin/org/rsmod/api/instances/{InstanceScript,InstanceManager}.kt`,
+`api/bosses/src/main/kotlin/org/rsmod/api/bosses/{runtime/BossCombat,runtime/EffectInterpreter,spec/Effect}.kt`,
+and `api/combat/combat-scripts/src/main/kotlin/org/rsmod/api/combat/NvPCombat.kt`.
+The corresponding GitHub tree is https://github.com/OpenRune/OpenRune-Server/tree/61139e76a216592d66c2b20366ef26d48609875d .
+Local Cerberus/Guardians are migration examples, not upstream provenance.
+
+| Mechanic / existing ownership | Planned native integration / classification | Characterization and evidence constraints |
+|---|---|---|
+| Elemental four-tick ordinary melee in manager.attackElemental | BossSpec/BossCombat/EffectInterpreter (official family); existing local Effect.NpcAttack adapter to native NvPCombat; Rotation selector to avoid extra RNG | Execute real attack events for11947 slash/11950 stab, max4, impact+1, launch prayer, cadence, duo ownership and queued-hit lifetime; retain movement/stacking tests |
+| Free solo/duo start/join/exit, warning, name input, private membership maps | Official InstanceScript protected completeInstanceEntry/defaultLeaveFlow, keyed join/leave and InstanceLifecycleScript; existing local source-spec constructor and typed InstanceSession state | Preserve all entrance options,450 comparison, two-player maximum; refusal/teleport/logout/disconnect/death/rejoin/two-room tests before removing manual flows |
+| Titan patrol/arrival and independent readiness, summons/walls/stomps | Per-actor BossEncounter phase/cadence plus existing local BossPhaseClock; small external route/geometry handlers using official RouteFactory/Npc.walk and native collision | Preserve existing golden anchors, platform restriction, facing, phase-one damage; do not certify unproved patrol distribution/close-action budget |
+| Paired transition, Blast, survivor rotation and collapse/reset | Declarative phases/deadlines with paired-session coordinator; native scoped scheduling, instance actor ownership and death queue transforms | Preserve teleport3/4/7, opening8, charge6/pulses7/9/11, first36 then29 inherited cadence, corpse transform and first-claim21/26/29 reset; rotation selection/sub100 policy remains uncertain |
+| Walls, landing floors, packs/explosions, custom death presentation | Focused external handlers using native loc/NPC repositories, routefinder, map/sound APIs; existing local encounter hit/task scopes | Keep four-tick walls/three-piece spell removal, vertical packs, custom death-before-delete and pending-hit cancellation; candidate distributions/landing fallback/lifetime remain unverified |
+| Spell accuracy/maxhit, wall manual/autocast, splash/echo/refunds | Existing authoritative spell handlers and native onNpcHit; preserve approved local HitContext and source attribution | Existing wall-cast/lethal-race/refund tests remain; no new private spell callbacks or alternate damage pipeline |
+| Boss HUD/body models/ranged vulnerability | Native target HUD/presentation; existing approved local body model and accuracy fields remain explicitly local | Keep target switching and model reset tests; migration alone does not establish ranged-grace OSRS parity |
+| KC/PB/global/deaths/scoreboard | Existing PostgreSQL GameDatabase transactions and named interface909 workflow retained; last-defeated spawn clock remains boss-specific | Preserve completion retries, duplicate callbacks, concurrency tests and varp4648; do not replace the specialized committed scoreboard with generic first-boss timing |
+| Rewards, claims, CA observations | Preserve existing authoritative drop definitions/source ledger while reviewing shared delivery and award paths separately | Durable claims and eleven CA predicates were already unfinished, not a migration regression. Do not represent the current local claim flag/200-tick drops as native durable delivery |
+
+No new shared API is proposed for the first bounded step. Effect.NpcAttack, its lifecycle checks,
+BossCombat.canTarget/onImpactHit and typed session state are existing LOCAL migration extensions,
+not upstream APIs. The requested framework/migration authorization covers their reuse. Each helper
+will have one DSL owner only; remove its old direct attack registration in the same source step.
+Use survivesSourceDeath=true for the already-launched elemental melee hit to retain its existing
+lifetime through the custom death animation, while native deletion/instance/member scopes still
+cancel it. Do not turn an architecture change into an undocumented damage rebalance.
+
+Elemental characterization added before production edits: five real-registration/NvPCombat cases
+cover both styles, native accuracy invocation, max4/impact+1, launch prayer, missed hits, four-tick
+recovery, duo ownership/departure and launched-hit survival during custom death presentation.
+The test helper now enters native ApPlayer2 mode before dispatching its event; omitting that mode
+initially caused four fixture failures because NvPCombat correctly refused idle NPC attacks.
+No production change was needed for the characterization. All102 module tests pass in
+`royal-titans-elemental-characterization-final-20260910.log` (48s/194tasks).
