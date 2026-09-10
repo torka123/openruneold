@@ -32,8 +32,11 @@ KNOWN STARTING CHECKPOINT (RECHECK; DO NOT REPEAT COMPLETED WORK)
 - Nex test-only checkpoint 4c6dc9f2b had 21 tests, including 3 native minion
   characterizations; no Nex production migration was completed in that step.
 - Latest user priority: continue Nex. Its native guard/Reaver migration checkpoint
-  now has 30 Nex tests and 4 executable cache tests; main Nex phases/lifecycle are
-  not yet migrated. Read the latest ledger/handoff for deployment status.
+  is deployed as 41fd77bff after two controlled restarts. There are now 35 Nex tests
+  (five newer main-loop characterizations) and 4 executable cache tests; main Nex
+  phases/lifecycle are not yet migrated. Proposed S09 target-bound continuation
+  has its own mapping/approval checkpoint in the Nex ledger; no shared S09 code
+  was added. Do not request the previously approved S01-S08 again.
   Then continue Yama, Doom of Mokhaiotl and DT2. Review Dagannoth Kings separately.
   Preserve remaining Royal Titans evidence/reward gaps; do not repeat its completed
   native-delivery work or mistake that pass for full reward/persistence parity.

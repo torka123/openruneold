@@ -10,7 +10,8 @@ The latest user request resumes Nex. Branch `refactor/nex-native-minions-2026091
 `30e94ae13`; pre-work backup `backup/nex-before-minion-dsl-20260910` preserves that source.
 The previously characterized four guards and encounter Reaver now use BossCombat/BossSpec and
 the existing approved Effect.NpcAttack adapter. Nine additional lifecycle/ownership tests pass;
-Nex total30 and executable revision240 cache audit4 pass. Exact regression failures, successful
+Nex total35 (including five newer main-loop characterizations) and executable revision240 cache audit4
+pass. Exact regression failures, successful
 runs, upstream/local classification and packet contradictions are in
 [NEX_OSRS_AUDIT.md](nex/NEX_OSRS_AUDIT.md). No new engine API was added.
 
@@ -18,9 +19,13 @@ This is a bounded helper migration, not full Nex completion. Main Nex ordinary/s
 phase coordination and fixed public-room lifecycle still require migration; rewards, healing
 conflicts, CAs and rendered-client parity remain open. The existing wrong minion presentation is
 retained as an explicit architecture characterization, not silently certified as OSRS-correct.
-Deployment and broader verification for this checkpoint must be read from the latest ledger entry;
-the previous live source was Royal Titans `eb5d0f4a8`/JVM21724, not this branch merely because it
-is checked out. The resume helper now defaults to Nex and never repeats the completed RT reward pass.
+Production source `41fd77bff` is deployed: JVM21724 ->17376 ->27808, markers13:02:40/13:05:34 EDT,
+two canonical revision240 doctors and unchanged fresh inventory/bank/realm/cache fingerprints.
+Backup `backup/nex-native-minions-20260910`; source ZIP/hash and exact logs are in the Nex ledger.
+Newer main-loop tests/documentation do not change that running production build. No client fight
+or OSRS/OpenRune packet comparison was completed. The next genuinely missing selector capability
+is mapped as proposed S09 in the ledger, with its own required approval checkpoint; do not request
+M01-M36/S01-S08 approval again. The resume helper defaults to Nex, not the completed RT reward pass.
 
 ## Earlier continuation: Royal Titans native rewards (September10 history)
 

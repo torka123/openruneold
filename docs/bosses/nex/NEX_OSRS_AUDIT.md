@@ -1,5 +1,145 @@
 # Nex revision-240 evidence ledger and approval mapping
 
+## September 10 deployed checkpoint and next main-loop boundary
+
+**Live production source: `41fd77bff`, minion DSL migration only. Main Nex is not yet converted.**
+Preceding commit `6bf7424fa` only formats three existing NexRewards expressions. Both are on
+`refactor/nex-native-minions-20260910`; no remote push, merge or PR was made.
+
+### Deployment, recovery and persistence
+
+- Source backup branch: `backup/nex-native-minions-20260910` at `41fd77bff`.
+- Source-only archive: `logs/nex-native-minions-20260910.zip`, 7,475 entries, zero excluded-path
+  violations. SHA-256: `DD14CF0BD0744A7E973BDFF05CE44395569974D9A3FF780E456F757C6798CEB8`.
+  It excludes credentials, `.data`, logs and generated output; it is not a database backup.
+- Controlled rebuild/assemble passed before deployment. Native orderly shutdowns/restarts:
+  JVM 21724 -> 17376 -> 27808. No established game client was connected at either shutdown.
+  No hard kill or manual player-data write was used.
+- `OPENRUNE CUSTOM BUILD ACTIVE` appeared at 13:02:40 and 13:05:34 EDT, September 10.
+  Startup completed and Nex's IDLE room spawned at 13:02:42 and 13:05:36 respectively.
+  Logs: `logs/cerberus-audit-20260907/restart-2026091007.*.log` and `restart-2026091008.*.log`.
+- `logs/nex-minion-doctor-restart1-20260910.log` and `...restart2...` confirm the canonical
+  working directory, revision 240, SERVER/LIVE and project PostgreSQL authority. `jcmd`
+  class-hierarchy checks confirm `NexMinionSpecKt` is loaded in both replacement JVMs.
+- Fresh read-only SQL audits before, after restart 1 and after restart 2 all match:
+
+| Persisted scope | Rows | SHA-256 |
+|---|---:|---|
+| Inventory containers | 23 | `0312a19af5d3db794f34a8beb4a6864f0cf4db8ca36b5010fd9927065d0d72ec` |
+| Inventory items, including banks | 1,153 | `343de321331febedd4e1aaa551f3e232cd2799959ee8289b1011872e2867144b` |
+| Realm spawn/respawn | 1 | `c971b1f6d8e431e9f25d64c6dc154d7c60ff22ce7c9e20274a73f671e911ef50` |
+
+Audit command: Java 21, PostgreSQL JDBC from the existing app install, and
+`scripts/BossMigrationPersistenceAudit.java`. Logs are
+`logs/nex-minion-persistence-{before,restart1,restart2}-20260910.log`; no account contents printed.
+Post-restart cache dat2 digests also match the pre-work fingerprints:
+SERVER `D01985ED94C9814DBF99509B335E964C69F1FF91C2464A5165D42A78E1915D75`,
+LIVE `FD0FE5EF66039A791A900EDDDF1CDBCFE57E09E8C32EA3496C69E96217A41A7B`.
+Startup emitted isolated long-cycle warnings (747/723 ms); shutdown helper emitted the JDK's
+dynamic-agent warning. Neither was represented as a gameplay test or silently treated as a crash.
+No rendered-client Nex fight or OSRS/OpenRune packet comparison was performed in this pass.
+
+### Main-combat characterization after deployment (test-only)
+
+`NexMainCombatCharacterizationTest` adds five executable tests before replacing the main loop:
+all five phase normals with launch prayer on/off; three consecutive same-target melee selections
+with one random draw; a forced special interrupting an unfinished melee chain; range exit clearing
+the chain without a draw and re-entry selecting afresh; and all four launch/impact-prayer
+combinations for final magic. Tests execute production registration, native queues, hit modifiers
+and HP processing. They are characterization of the draft, **not OSRS certification**.
+
+The fixture now runs native `NpcPostTickProcess` (including facing and pending-animation cleanup),
+captures injected style-selection draws, and inspects `DeferredPlayerHit` separately from already
+modified hits. Early test failures exposed three incorrect fixture/expectation assumptions:
+Smoke's native poison adds an immediate 8 damage; old pending sequences must be cleared between
+frames; final-phase magic is deferred until impact and is not a premodified `Hit` queue argument.
+No production constants were changed to make those tests pass.
+
+All 35 Nex tests passed in 31 seconds / 165 tasks including scoped formatting:
+`logs/nex-main-characterization-verified-20260910.log`. This is five more than the deployed
+minion checkpoint's 30 tests. Tests do not prove bodyguard death timing (phase setup calls the
+existing handoff hook), normal OSRS random weights, target/pathfinding parity, visual playback,
+or the main loop's complete departure cancellation. Those remain implementation work.
+
+Final unscoped checkpoint command:
+
+```powershell
+.\gradlew.bat :content:bosses:nex:check :or-cache:test --tests dev.openrune.NexR240CacheAuditTest :api:bosses:test :api:instances:test :api:combat:combat-scripts:test :api:npc:test :api:player:test :server:app:assemble bossArchitectureCheck --no-daemon --console=plain
+```
+
+Passed in 21 seconds / 475 tasks (4 executed, 471 up-to-date),
+`logs/nex-native-checkpoint-final-20260910.log`. Result XML totals: Nex 35, cache 4,
+boss API 50, instances 34, combat-scripts 8, NPC 12, player 17: **160 tests**, zero failures,
+errors or skips. Up-to-date suites are identified honestly; they were not all rerun unnecessarily.
+`git diff --check` passes. The unrelated four modified `.data` files and untracked GE area remain
+untouched and outside the focused source commits. Post-deployment changes here are tests/docs only.
+
+### S09 proposal: target-bound ordinary-attack continuation (new approval boundary)
+
+**Proposed new shared capability, not an existing official API and not implemented.**
+The existing M01-M36/S01-S08 approval remains valid. S09 is not retroactively folded into S07
+(RNG injection); it changes selection expressiveness and has its own AGENTS checkpoint.
+
+Requirement: [Jagex, June 25, 2025](https://secure.runescape.com/m=news/summer-sweep-up-combat?oldschool=1)
+documents two additional melee attempts when the target is within melee distance. Confidence:
+officially documented for that requirement. The draft's one-in-three initiation, same-target UID
+retention, eligibility sampling on ordinary opportunities and special-interruption behavior are
+current implementation/characterization, not independently proven hidden OSRS algorithms.
+Preserve those explicitly while separating any subsequent evidence-backed behavior correction.
+
+Searches performed before proposing this addition:
+
+- Complete local `api/` and `content/` selector/continuation references and tests; the only
+  `meleeChain` state is Nex's private manager. No `RepeatSelected` implementation exists.
+- `git grep` at official `upstream/main` commit `61139e76a216592d66c2b20366ef26d48609875d`;
+  direct inspection of upstream/local BossEncounter, BossCombat, Selector and Condition;
+  relevant selector Git history (`fa793579c`, `f9dd030fc`).
+- Exact official declarations: [Selector](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/api/bosses/src/main/kotlin/org/rsmod/api/bosses/spec/Selector.kt),
+  [Condition](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/api/bosses/src/main/kotlin/org/rsmod/api/bosses/spec/Condition.kt),
+  and A01's BossEncounter/BossCombat references. Official weighted/rotation/conditional selectors
+  lack prior-target and bounded-continuation state. Local MeleeOverrideRotation and
+  AbilityCountModulo do not express it either.
+- Official Scurrius remains the workflow/style reference (A05). The completed **local** Vorkath
+  `VorkathCombatSpec` special registration and `VorkathArenaEffects.beginSpecial` show an acceptable
+  tiny encounter-owned special alternation handler; they are not labelled official upstream.
+
+Why existing alternatives are insufficient: `forceNextAbility` bypasses native ordinary attack
+counting and takes priority over the scheduled special. `Repeat(3, gap=4)` is one ability commit,
+not three independently gated normal opportunities. A phase per chain length resets forced cadence.
+A content callback that picks ordinary melee/magic would simply preserve the private selector.
+An outer `Whenever(range)` would hide a range exit from retained selector state. A weighted melee
+entry alone would consume randomness even outside melee range, unlike the characterized draft.
+
+Smallest proposed owner/change: extend **existing** `api/bosses/spec/Selector.kt` and
+`runtime/BossEncounter.kt`, with focused tests under `api/bosses/src/test/`. Optional builder syntax
+belongs only in the existing DSL builders if needed. No hit, movement, queue, instance or engine
+replacement. Proposed `Selector.RepeatSelected` wraps an existing selector, with a repeated ability,
+extra-selection count, eligibility Condition, deterministic ineligible fallback and same-target
+flag. On each ordinary opportunity it checks eligibility first, clearing the chain and returning
+the fallback without RNG if false; otherwise it continues the same immutable target UID without
+RNG, or draws from the delegate and arms a fresh chain only for the named repeated ability.
+State belongs to BossEncounter.SelectionState, not a content counter, player object or global map.
+Forced specials retain their existing precedence and do not consume the chain. Each returned
+ordinary attack, including fallback, passes normal basic-attack counting and native hit execution.
+Phase transition/end/deletion must clear it; delegate state must not alias continuation state.
+Other selectors keep their existing behavior. Names and source signatures remain proposals.
+
+| Next main-loop behavior | Native owner / classification | Planned implementation and regression |
+|---|---|---|
+| Ordinary attacks, four-tick readiness, accuracy, projectiles, impacts | A01/A02 official workflows; approved local Effect.NpcAttack adapter | Declarative phase abilities; retain exact launch/HP characterizations and native attack metadata |
+| Bounded melee continuation and no unnecessary choice RNG | Proposed S09 | Selector state above; no manager melee counter; same/different target, range exit/re-entry and no-extra-draw tests |
+| Five normals before special | Official forced-ability workflow, local injected GameRandom | forceEveryAttacks(5,5); prove a special can interrupt the chain without changing its remaining normals |
+| Alternating phase specials across handoffs | Official named external-handler workflow, approved local encounter-owned state | Tiny special coordinator retains only encounter-wide parity; DSL owns when it runs; no second normal selector |
+| Zaros four/four/four overhead order | W2 plus official Rotation, local nested selection | Declarative 12-opportunity cycle and idempotent transformation handler; native hit callbacks for source-tagged effects |
+| Launch/late protection | A03 and already approved S01, not a newly discovered gap | Preserve native queued/deferred processing; the five characterization tests include all launch/impact combinations |
+| Called-guard phase and range geometry | M10/M11/M25, existing native reach/phase workflows | Explicit separate corrections: current lower-floor attack suppression is capture-contradicted, and anchor range is not native footprint reach |
+
+S09 acceptance tests: injected RNG bounds, two extra same-target selections, range exit without
+selection RNG, re-entry fresh roll, changed target/fresh chain, special interruption, normal-count
+fallback, no cancellation for movement entirely between selection opportunities, and phase/end/
+deletion/slot-reuse isolation. Run all boss API tests, main Nex native attack tests and existing
+migrated-boss regressions. No new shared source has been edited for this proposal.
+
 ## September10 native minion combat implementation
 
 Current continuation branch: `refactor/nex-native-minions-20260910`, based on Royal Titans

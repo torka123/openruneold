@@ -14,6 +14,8 @@ import org.rsmod.api.combat.NvPCombat
 import org.rsmod.api.combat.formulas.AccuracyFormulae
 import org.rsmod.api.combat.formulas.MaxHitFormulae
 import org.rsmod.api.death.NpcDeath
+import org.rsmod.api.game.process.npc.NpcFaceSquareProcessor
+import org.rsmod.api.game.process.npc.NpcPostTickProcess
 import org.rsmod.api.game.process.npc.NpcQueueProcessor
 import org.rsmod.api.game.process.player.PlayerQueueProcessor
 import org.rsmod.api.game.process.world.WorldQueueListProcess
@@ -26,6 +28,7 @@ import org.rsmod.api.npc.hit.modifier.StandardNpcHitModifier
 import org.rsmod.api.npc.hit.processor.StandardNpcHitProcessor
 import org.rsmod.api.npc.hit.queueHit
 import org.rsmod.api.npc.interact.AiPlayerInteractions
+import org.rsmod.api.player.hit.DeferredPlayerHit
 import org.rsmod.api.player.protect.ProtectedAccessContext
 import org.rsmod.api.player.protect.ProtectedAccessContextFactory
 import org.rsmod.api.player.protect.ProtectedAccessLauncher
@@ -35,6 +38,7 @@ import org.rsmod.api.registry.npc.NpcRegistry
 import org.rsmod.api.repo.loc.LocRepository
 import org.rsmod.api.repo.npc.NpcRepository
 import org.rsmod.api.repo.world.WorldRepository
+import org.rsmod.api.utils.logging.GameExceptionHandler
 import org.rsmod.events.EventBus
 import org.rsmod.game.MapClock
 import org.rsmod.game.cheat.CheatCommandMap
@@ -146,12 +150,28 @@ internal class NexMinionTestWorld {
     val players = PlayerList()
     val npcs = NpcList()
     val collision = CollisionFlagMap()
-    val repository = NpcRepository(clock, NpcRegistry(npcs, collision, events), npcs)
+    private val registry = NpcRegistry(npcs, collision, events)
+    val repository = NpcRepository(clock, registry, npcs)
+    private val postTick =
+        NpcPostTickProcess(
+            npcs,
+            registry,
+            NpcFaceSquareProcessor(),
+            GameExceptionHandler { error, message ->
+                throw AssertionError(message().toString(), error)
+            },
+        )
     val world = mock(WorldRepository::class.java)
     val worldQueues = WorldQueueList()
+    val selectionBounds = mutableListOf<Int>()
+    val selectionRolls = ArrayDeque<Int>()
     val random =
         object : GameRandom {
-            override fun of(maxExclusive: Int) = maxExclusive - 1
+            override fun of(maxExclusive: Int): Int {
+                selectionBounds += maxExclusive
+                return if (selectionRolls.isEmpty()) maxExclusive - 1
+                else selectionRolls.removeFirst().also { require(it in 0 until maxExclusive) }
+            }
 
             override fun of(minInclusive: Int, maxInclusive: Int) = maxInclusive
 
@@ -292,8 +312,26 @@ internal class NexMinionTestWorld {
         return npc(11294)
     }
 
+    /** Setup through existing phase hooks; this is not a bodyguard death-timing assertion. */
+    fun reachPhase(phase: NexState) {
+        val guard =
+            when (phase) {
+                NexState.SMOKE -> return
+                NexState.SHADOW -> 11283
+                NexState.BLOOD -> 11284
+                NexState.ICE -> 11285
+                NexState.ZAROS -> 11286
+                else -> error("Not an elemental/final phase: $phase")
+            }
+        reachGuard(guard)
+        manager.handleDeath(npc(guard))
+        tick(2)
+    }
+
     fun tick(count: Int = 1) =
         repeat(count) {
+            // Finish the preceding frame, including sequence priority/reset and arrival actions.
+            postTick.process()
             WorldQueueListProcess(worldQueues).process()
             clock.tick()
             player.currentMapClock = clock.cycle
@@ -321,13 +359,17 @@ internal class NexMinionTestWorld {
             playerQueues.process(player)
         }
 
-    fun hits(): List<Pair<Int, Hit>> {
+    fun hits(): List<Pair<Int, Hit>> = queued()
+
+    fun deferredHits(): List<Pair<Int, DeferredPlayerHit>> = queued()
+
+    private inline fun <reified T : Any> queued(): List<Pair<Int, T>> {
         val iterator = player.queueList.iterator() ?: return emptyList()
         return try {
             buildList {
                 while (iterator.hasNext()) {
                     val queue = iterator.next()
-                    (queue.args as? Hit)?.let { add(queue.remainingCycles to it) }
+                    (queue.args as? T)?.let { add(queue.remainingCycles to it) }
                 }
             }
         } finally {
