@@ -1,5 +1,7 @@
 package org.rsmod.content.bosses.muspah
 
+import com.google.inject.AbstractModule
+import com.google.inject.Guice
 import dev.openrune.ServerCacheManager
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
@@ -13,21 +15,31 @@ import org.rsmod.api.combat.commons.CombatCorruption
 import org.rsmod.api.combat.formulas.AccuracyFormulae
 import org.rsmod.api.combat.formulas.MaxHitFormulae
 import org.rsmod.api.death.NpcDeath
+import org.rsmod.api.death.NpcDeathDropHook
+import org.rsmod.api.death.NpcDeathKillContext
+import org.rsmod.api.death.NpcDeathKillHook
+import org.rsmod.api.death.plugin.NpcDeathScript
 import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.instances.region.InstanceAreaResolver
 import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.api.npc.access.StandardNpcAccessContext
 import org.rsmod.api.npc.events.NpcHitEvents
+import org.rsmod.api.npc.events.NpcQueueEvents
 import org.rsmod.api.npc.events.interact.AiPlayerEvents
 import org.rsmod.api.npc.hit.modifier.StandardNpcHitModifier
 import org.rsmod.api.npc.hit.processor.StandardNpcHitProcessor
 import org.rsmod.api.npc.interact.AiPlayerInteractions
+import org.rsmod.api.player.events.PlayerMovementEvent
+import org.rsmod.api.player.hook.PlayerPostTickHook
 import org.rsmod.api.player.vars.VarPlayerIntMapSetter
 import org.rsmod.api.random.GameRandom
 import org.rsmod.api.registry.loc.LocRegistry
 import org.rsmod.api.registry.loc.LocRegistryResult
 import org.rsmod.api.registry.npc.NpcRegistry
 import org.rsmod.api.registry.region.RegionRegistry
+import org.rsmod.api.repo.EntityLifecycleProcess
+import org.rsmod.api.repo.NpcRevealProcessor
+import org.rsmod.api.repo.controller.ControllerRepository
 import org.rsmod.api.repo.loc.LocRepository
 import org.rsmod.api.repo.npc.NpcRepository
 import org.rsmod.api.repo.obj.ObjRepository
@@ -39,6 +51,7 @@ import org.rsmod.game.cheat.CheatCommandMap
 import org.rsmod.game.entity.NpcList
 import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
+import org.rsmod.game.entity.player.SessionStateEvent
 import org.rsmod.game.hit.Hit
 import org.rsmod.game.hit.HitBuilder
 import org.rsmod.game.hit.HitType
@@ -51,12 +64,51 @@ import org.rsmod.game.region.zone.RegionZoneCopy
 import org.rsmod.game.seq.EntitySeq
 import org.rsmod.map.CoordGrid
 import org.rsmod.map.zone.ZoneKey
+import org.rsmod.plugin.scripts.PluginScript
 import org.rsmod.plugin.scripts.ScriptContext
 import org.rsmod.routefinder.collision.CollisionFlagMap
 
 /** Characterizes the existing draft through native registration, not independent OSRS proof. */
 @OptIn(InternalApi::class)
 class MuspahNativeTest {
+    @Test
+    fun `native departure immediately retires encounter membership and hazards`() {
+        for (reason in listOf("teleport", "logout", "disconnect", "death")) {
+            val f = MuspahFixture(melee = true)
+            f.start()
+            f.until(104)
+            f.damage(213)
+            assertTrue(f.activeLocs.isNotEmpty())
+            f.end(reason)
+            f.instances.tickReclaim(f.clock.cycle + 1)
+            assertFalse(f.encounters.isActive(f.player), reason)
+            assertTrue(f.activeLocs.isEmpty(), reason)
+            assertTrue(f.npcList.none(), reason)
+        }
+    }
+
+    @Test
+    fun `native death and repeat retain one actor instead of spawning a duplicate`() {
+        val f = MuspahFixture()
+        f.start()
+        f.until(104)
+        f.boss.hitpoints = 128
+        f.damage(2)
+        f.until(109)
+        VarPlayerIntMapSetter.set(f.player, "varbit.prayer_smite", 1)
+        repeat(3) { f.damage(100) }
+        val original = f.boss
+        f.damage(200)
+        f.killQueue()
+        f.until(130)
+        assertEquals(1, f.kills.size)
+        assertFalse(original.isVisible)
+        f.until(190)
+        assertEquals(listOf(original), f.npcList.toList())
+        assertEquals(850, original.hitpoints)
+        assertEquals(1, f.kills.size)
+    }
+
     @Test
     fun `first incoming hit cannot relock an activated melee form before it reaches the player`() {
         val f = MuspahFixture(melee = true)
@@ -460,10 +512,21 @@ private class MuspahFixture(melee: Boolean = false, magic: Boolean = false) {
     val boss
         get() = npcList.first()
 
+    val kills = mutableListOf<NpcDeathKillContext>()
+    val death =
+        NpcDeath(
+            npcs,
+            players,
+            mock(ObjRepository::class.java),
+            setOf(NpcDeathDropHook { true }),
+            setOf(NpcDeathKillHook { kills += it }),
+        )
+    val nativeLifecycle: PlayerPostTickHook
+
     init {
         collision.allocateIfAbsent(player.coords.x, player.coords.z, 0)
         val context = ScriptContext(events, CheatCommandMap(), EngineQueueCache())
-        val death = NpcDeath(npcs, players, mock(ObjRepository::class.java), emptySet(), emptySet())
+        with(NpcDeathScript(death)) { context.startup() }
         with(
             MuspahCombat(
                 encounters,
@@ -475,6 +538,22 @@ private class MuspahFixture(melee: Boolean = false, magic: Boolean = false) {
         ) {
             context.startup()
         }
+        val injector =
+            Guice.createInjector(
+                object : AbstractModule() {
+                    override fun configure() {
+                        bind(InstanceManager::class.java).toInstance(instances)
+                        bind(MapClock::class.java).toInstance(clock)
+                    }
+                }
+            )
+        val lifecycle =
+            injector.getInstance(
+                Class.forName("org.rsmod.api.instances.hook.InstanceLifecycleScript")
+                    .asSubclass(PluginScript::class.java)
+            )
+        with(lifecycle) { context.startup() }
+        nativeLifecycle = lifecycle as PlayerPostTickHook
     }
 
     fun start() {
@@ -491,7 +570,45 @@ private class MuspahFixture(melee: Boolean = false, magic: Boolean = false) {
         while (clock.cycle < tick) {
             npcList.forEach { it.pendingSequence = EntitySeq.NULL }
             clock.cycle++
+            EntityLifecycleProcess(
+                    npcs,
+                    locs,
+                    mock(ObjRepository::class.java),
+                    mock(ControllerRepository::class.java),
+                )
+                .process()
+            npcList.toList().forEach {
+                it.currentMapClock = clock.cycle
+                it.processedMapClock = clock.cycle
+                if (it.canProcess && it.activeCoroutine != null) it.advanceActiveCoroutine()
+                NpcRevealProcessor(npcs).process(it)
+            }
             encounters.tick(player)
+        }
+    }
+
+    fun end(reason: String) {
+        when (reason) {
+            "teleport" -> {
+                val previous = player.coords
+                player.coords = MUSPAH_OUTSIDE
+                events.publish(PlayerMovementEvent.CoordsMovedEvent(player, previous))
+            }
+            "logout" -> events.publish(SessionStateEvent.Logout(player))
+            "disconnect" -> {
+                player.clientDisconnected.set(true)
+                nativeLifecycle.onPostTick(player)
+            }
+            "death" -> instances.handleDeath(player, clock.cycle)
+        }
+    }
+
+    fun killQueue() {
+        boss.launch {
+            events.publish(
+                StandardNpcAccess(boss, this, accessContext()),
+                NpcQueueEvents.Type(boss, null, "queue.death".asRSCM(RSCMType.QUEUE)),
+            )
         }
     }
 
