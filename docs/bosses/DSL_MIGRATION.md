@@ -233,7 +233,7 @@ Diagnostic-only modules are excluded. Zero manager lines is not proof of archite
 | Alchemical Hydra | manager; 858 | Ordinary native volleys, rotation, forced cadence and phase identity | Native InstanceScript, typed session state and native same-actor respawn | 260-line observation/form coordinator; 317-line arena hazards; 71-line transform presentation; parameter/hit-policy adapters | 22 deterministic tests pass, including native lifecycle and two kills | No live verification; baseline-only hazard/pathing constants, non-player damage exclusion and natural exterior entrance remain uncertified |
 | Grotesque Guardians | manager; 945 -> 327 coordinator lines | Two BossSpecs: ordinary native volleys, phase identity, ordinal style selection and forced cadence | Native InstanceScript, typed session state, configured actors and validated native pair reset | Arena geometry/effects (343 lines), paired form coordination, native parameter/damage adapters | 21 deterministic tests (15 native), 48 drop tests pass | No live verification or cache repack; inherited lightning vulnerability, non-player damage exclusion and draft-only spatial values remain uncertified |
 | Zulrah | manager; 993 -> 300 coordinator lines | Four unchanged declarative rotation programs, native attacks and separate snakeling specs | Native InstanceScript, configured actor, typed session state and same-actor respawn | Spatial clouds/eggs/tail handler (307 lines), surface positioning, existing reclaim storage and native parameter adapters | 43 tests (21 native, 22 retained) and revision-240 cache audit pass; all boss/shared regressions and app classes pass | No deployment/cache repack/client verification; Grid Master capture context, tail-order conflict and inherited non-player damage exclusion remain uncertified |
-| Muspah | manager; 1,088 | Pending | Pending | Spikes/pathing/shield | Pending | Detailed mapping pending |
+| Muspah | manager; 1,088 -> 996 (intermediate) | Ordinary weighted attacks/cadence on BossSpec/NvPCombat; phase/forced-special migration still pending | Pending; private membership/respawn remain | Native launch/impact parameters; spatial split pending | 54 tests (14 native, 40 retained) pass | Not a completed migration; generic projectile controller and draft-only timings not packet-certified; no deployment |
 | Cerberus | manager; 1,290 | Pending | Pending | Ghosts/lava | Existing capture tests preserved | Detailed mapping pending |
 | Royal Titans | manager; 2,017 | Pending | Pending | Paired coordination/walls/statistics | Existing tests preserved | Existing evidence gaps remain distinct from migration |
 | Nex | manager; 1,321 | Pending | Pending | Group specials/reward coordination | Existing tests preserved | Full encounter work remains incomplete |
@@ -909,3 +909,32 @@ An ordinary queued shot remains valid after escape/deletion. Use the existing Bo
 scope and native player/session validity through Effect.NpcAttack; no new timer or shared hook.
 The first strangler step replaces ordinary selectors/launch functions only. Remaining manager
 phase, membership, hazard and respawn ownership is still migration debt, not an accepted end state.
+
+`muspah-native-dsl-first.log`: all 51 tests pass through BossCombat/Effect.NpcAttack (44s/166tasks).
+MuspahSpec owns ordinary form-dependent weights, maxima, animations and cadence. Parameter handlers
+only snapshot native prayer/projectile/melee policies and invoke existing impact effects; they do
+not launch or schedule normal attacks. Native Op2 and Ap2 now share the same cooldown and encounter.
+Phase/spatial/membership migration still remains; no second ordinary attack selector is retained.
+
+Additional review found an integration-order defect before accepting this partial checkpoint:
+creating the default dormant BossEncounter on the first incoming hit re-locks active melee movement
+before Muspah reaches the player. `muspah-native-initial-ownership-red.log` proves this (54tests,
+one failure). Establish the native encounter when its actor is spawned, before activation unlocks
+movement. No shared override is needed. `muspah-native-dsl-final.log` passes all54tests (14native,
+40retained), scoped check37s/166tasks. The added tests also execute every1/5 and1/3 style boundary
+and both native interaction registrations. The earlier combined API/instance/drops/app-class and
+architecture invocation passed (`muspah-native-dsl-check.log`,40s/460tasks).
+
+Remaining Muspah work: replace the private membership/phase/respawn engine with InstanceScript,
+typed session state and native BossEncounter transitions; migrate final forced cadence and spatial
+queues; characterize threshold races, native rewards/KC, two kills, real collision and all native
+departure paths. Existing unscoped hazard callbacks and inherited non-player exclusion are not
+fixed by ordinary projectile scoping. This partial checkpoint must not be reported as a completed
+boss migration or OSRS parity. No server/cache restart or client verification has occurred.
+
+`muspah-broad-regression.log`: all applicable boss/shared/drop tests, app classes and architecture
+enforcement pass (24s/509tasks; unchanged tests reused Gradle's passing up-to-date results).
+The resume helper's default read-only mode passes with Muspah as its current default
+(`boss-migration-resume-muspah-check.log`). Doctor identifies canonical PID41396, revision240 and
+unchanged SERVER/LIVE/PostgreSQL authority. `git diff --check` passes; unrelated source-data edits
+remain outside the focused commit. Continue with the remaining Muspah mapping above.

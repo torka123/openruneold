@@ -8,14 +8,22 @@ Update this checkpoint after each completed boss and immediately before any auth
 
 - Canonical workspace: `C:\Users\norma\Documents\Codex\2026-08-10\lets-work-on-the-openrune-server\work\OpenRune-Server`.
 - Source safety baseline: `798b8c320`, branch `backup/boss-dsl-source-baseline-20260909`.
-- Current work: `refactor/zulrah-boss-dsl-20260909`. Re-read actual Git state on resume.
+- Current work: `refactor/muspah-boss-dsl-20260909`. Re-read actual Git state on resume.
 - Completed source migrations: Kraken, Vorkath, Corporeal Beast, Alchemical Hydra, Grotesque Guardians,
   Zulrah. This means source/headless migration, not client or full OSRS parity certification.
 - Latest passing verification: `logs/zulrah-final-native-check.log` (43 Zulrah tests and cache audit);
   `logs/zulrah-broad-regression.log` (all applicable boss/shared tests, app classes, architecture check;
-  49s/509 tasks). Shared boss API has 41 passing tests. Inspect Git for the final Zulrah commit.
+  49s/509 tasks). Shared boss API has 41 passing tests. Final Zulrah commit: `2aecefe5f`.
+- Muspah partial checkpoint verification: `logs/muspah-native-dsl-final.log` (54 tests, scoped check);
+  `logs/muspah-broad-regression.log` (all applicable boss/shared/drop tests, app classes, architecture;
+  24s/509tasks, including unchanged passing up-to-date results).
 - Zulrah uses declarative rotation programs, native instances/death/respawn and scoped spatial
-  handlers. Its private membership and ordinary attack/phase timers are removed. Next: Muspah.
+  handlers. Its private membership and ordinary attack/phase timers are removed.
+- Muspah is **in progress**: ordinary attacks now use BossSpec/native NvPCombat; 54 tests pass
+  (14 native, 40 retained). Fixed an unmapped projectile controller, blocked-attempt RNG/melee
+  counter mutation and post-exit ordinary projectiles. Native encounter initialization precedes
+  activation so an incoming hit cannot re-lock melee movement. Private instance/phase/hazard and
+  respawn ownership still require migration; do not mark Muspah finished or deploy a half-wired change.
 - Live deployment: **not performed during this migration**. Existing server PID must be rechecked;
   the last doctor identified 41396 in this canonical workspace. Do not assume it is still current.
 - Cache: revision240, `.data/cache/SERVER` definitions and `.data/cache/LIVE` JS5; PostgreSQL
@@ -53,9 +61,10 @@ tests and a boot marker do not certify visuals or full OSRS parity.
 
 ## Work still required
 
-1. Inspect the completed Zulrah pattern before proceeding; confirm native scheduling/membership
-   ownership rather than reproducing the old manager in another class.
-2. Continue Muspah, Cerberus, Royal Titans, Nex, Yama, Doom and DT2 in separate focused migration
+1. Finish Muspah's native instance/session, phase, forced-special, hazard and respawn migration.
+   Characterize threshold races, native reward/KC identities, two kills and all departure paths
+   before removing the old ownership code. Preserve the completed ordinary attack DSL and tests.
+2. Continue Cerberus, Royal Titans, Nex, Yama, Doom and DT2 in separate focused migration
    branches/commits. Review Dagannoth Kings separately. Preserve existing research and mechanics.
 3. Resolve or explicitly report remaining generic DSL concerns (unused condition/phase fields,
    ignored selection hints and any proven timing/lifecycle gap); do not silently rebalance content.
@@ -82,7 +91,7 @@ The resume helper prints these instructions with current Git identity:
 .\scripts\resume-boss-migration.ps1
 ```
 
-Optional `-CopyPrompt` copies the prompt to the clipboard. Optional `-Verify -Boss zulrah` runs the
+Optional `-CopyPrompt` copies the prompt to the clipboard. Optional `-Verify -Boss muspah` runs the
 doctor, architecture detector and focused boss/API/instance tests first. It does not modify source,
 switch branches, commit, deploy, restart or contact GitHub. Build/test outputs are the usual local
 generated files. Paste its output into a new session in the canonical workspace after allowance resets.

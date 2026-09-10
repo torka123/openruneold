@@ -139,12 +139,6 @@
   },
   {
     "boss": "muspah",
-    "rule": "boss-api-dependency",
-    "maximum": 1,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "muspah",
     "rule": "global-runs-map",
     "maximum": 1,
     "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."

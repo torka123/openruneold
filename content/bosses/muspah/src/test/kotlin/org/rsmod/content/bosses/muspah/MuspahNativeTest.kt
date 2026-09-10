@@ -7,6 +7,7 @@ import kotlin.test.*
 import org.junit.jupiter.api.BeforeAll
 import org.mockito.Mockito.*
 import org.rsmod.annotations.InternalApi
+import org.rsmod.api.bosses.runtime.*
 import org.rsmod.api.combat.NvPCombat
 import org.rsmod.api.combat.commons.CombatCorruption
 import org.rsmod.api.combat.formulas.AccuracyFormulae
@@ -44,6 +45,7 @@ import org.rsmod.game.hit.HitType
 import org.rsmod.game.loc.LocInfo
 import org.rsmod.game.proj.ProjAnim
 import org.rsmod.game.queue.EngineQueueCache
+import org.rsmod.game.queue.WorldQueueList
 import org.rsmod.game.region.Region
 import org.rsmod.game.region.zone.RegionZoneCopy
 import org.rsmod.game.seq.EntitySeq
@@ -55,6 +57,58 @@ import org.rsmod.routefinder.collision.CollisionFlagMap
 /** Characterizes the existing draft through native registration, not independent OSRS proof. */
 @OptIn(InternalApi::class)
 class MuspahNativeTest {
+    @Test
+    fun `first incoming hit cannot relock an activated melee form before it reaches the player`() {
+        val f = MuspahFixture(melee = true)
+        f.start()
+        f.until(104)
+        assertFalse(f.boss.movementLocked)
+        f.damage(1)
+        assertFalse(f.boss.movementLocked)
+        assertEquals(849, f.boss.hitpoints)
+    }
+
+    @Test
+    fun `every native weighted selection boundary preserves ordinary and reinforced styles`() {
+        for (reinforced in listOf(false, true)) {
+            for (roll in 0 until if (reinforced) 3 else 5) {
+                val f = MuspahFixture()
+                f.start()
+                f.until(104)
+                if (reinforced) {
+                    f.boss.hitpoints = 128
+                    f.damage(2)
+                    f.until(111)
+                }
+                f.selectionRoll = roll
+                f.attack()
+                val hit = f.hits().last().second
+                assertEquals(if (roll == 0) HitType.Magic else HitType.Ranged, hit.type)
+                assertEquals(
+                    if (roll == 0) {
+                        if (reinforced) 79 else 72
+                    } else {
+                        if (reinforced) 72 else 61
+                    },
+                    hit.damage,
+                )
+                assertEquals(1, f.projectiles.size)
+            }
+        }
+    }
+
+    @Test
+    fun `native approach and operate registrations share one attack cooldown`() {
+        val f = MuspahFixture()
+        f.start()
+        f.until(104)
+        f.attack(operate = true)
+        f.attack()
+        assertEquals(1, f.projectiles.size)
+        assertEquals(1, f.registry.of(f.boss).recentAttackTraces().size)
+        assertEquals(110, f.boss.actionDelay)
+    }
+
     @Test
     fun `ordinary projectile is invalidated after leaving its encounter`() {
         val f = MuspahFixture()
@@ -321,6 +375,7 @@ private class MuspahFixture(melee: Boolean = false, magic: Boolean = false) {
     val instances =
         InstanceManager(regions, npcs, players, events, InstanceAreaResolver(), clock, collision)
     val bounds = mutableListOf<Int>()
+    var selectionRoll: Int? = null
     val random =
         object : GameRandom {
             override fun of(maxExclusive: Int): Int {
@@ -328,7 +383,7 @@ private class MuspahFixture(melee: Boolean = false, magic: Boolean = false) {
                 return when (maxExclusive) {
                     2 -> if (melee) 1 else 0
                     3,
-                    5 -> if (magic) 0 else maxExclusive - 1
+                    5 -> selectionRoll ?: if (magic) 0 else maxExclusive - 1
                     else -> maxExclusive - 1
                 }
             }
@@ -366,6 +421,29 @@ private class MuspahFixture(melee: Boolean = false, magic: Boolean = false) {
             mock(RegionRegistry::class.java),
         )
     val corruption = CombatCorruption(clock)
+    val combat =
+        NvPCombat(
+            mock(AccuracyFormulae::class.java) { call ->
+                if (call.method.name.startsWith("roll")) true else RETURNS_DEFAULTS.answer(call)
+            },
+            mock(MaxHitFormulae::class.java),
+            world,
+        )
+    val registry = EncounterRegistry(random)
+    val deps =
+        BossDeps(
+            random,
+            mock(AccuracyFormulae::class.java),
+            world,
+            npcs,
+            players,
+            clock,
+            WorldQueueList(),
+            collision,
+            registry,
+            BossExtensionRegistry(),
+            combat,
+        )
     val encounters =
         MuspahEncounterManager(
             clock,
@@ -375,13 +453,7 @@ private class MuspahFixture(melee: Boolean = false, magic: Boolean = false) {
             AiPlayerInteractions(events, players),
             collision,
             random,
-            NvPCombat(
-                mock(AccuracyFormulae::class.java) { call ->
-                    if (call.method.name.startsWith("roll")) true else RETURNS_DEFAULTS.answer(call)
-                },
-                mock(MaxHitFormulae::class.java),
-                world,
-            ),
+            registry,
             corruption,
             world,
         )
@@ -392,7 +464,17 @@ private class MuspahFixture(melee: Boolean = false, magic: Boolean = false) {
         collision.allocateIfAbsent(player.coords.x, player.coords.z, 0)
         val context = ScriptContext(events, CheatCommandMap(), EngineQueueCache())
         val death = NpcDeath(npcs, players, mock(ObjRepository::class.java), emptySet(), emptySet())
-        with(MuspahCombat(encounters, death, players)) { context.startup() }
+        with(
+            MuspahCombat(
+                encounters,
+                death,
+                players,
+                deps,
+                MuspahAttackParameters(encounters, corruption),
+            )
+        ) {
+            context.startup()
+        }
     }
 
     fun start() {
@@ -413,13 +495,13 @@ private class MuspahFixture(melee: Boolean = false, magic: Boolean = false) {
         }
     }
 
-    fun attack() {
+    fun attack(operate: Boolean = false) {
         boss.currentMapClock = clock.cycle
         boss.processedMapClock = clock.cycle
         boss.launch {
             events.publish(
                 StandardNpcAccess(boss, this, accessContext()),
-                AiPlayerEvents.Ap2(player, boss),
+                if (operate) AiPlayerEvents.Op2(player, boss) else AiPlayerEvents.Ap2(player, boss),
             )
         }
     }

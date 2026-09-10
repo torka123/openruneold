@@ -10,18 +10,12 @@ import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlin.math.max
 import org.rsmod.api.attr.BossRewardAttributes
-import org.rsmod.api.combat.NpcAttackOverride
-import org.rsmod.api.combat.NpcProjectile
-import org.rsmod.api.combat.NvPCombat
-import org.rsmod.api.combat.commons.CombatAttack
+import org.rsmod.api.bosses.runtime.EncounterRegistry
 import org.rsmod.api.combat.commons.CombatCorruption
-import org.rsmod.api.combat.commons.types.MeleeAttackType
-import org.rsmod.api.combat.commons.types.RangedAttackType
 import org.rsmod.api.instances.InstanceAccess
 import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.instances.InstanceSession
 import org.rsmod.api.instances.RegionLocal
-import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.api.npc.apPlayer2
 import org.rsmod.api.npc.heal
 import org.rsmod.api.npc.interact.AiPlayerInteractions
@@ -29,8 +23,6 @@ import org.rsmod.api.npc.owner.assignSpawnOwner
 import org.rsmod.api.npc.owner.isSpawnOwnedBy
 import org.rsmod.api.player.combatClearQueue
 import org.rsmod.api.player.hit.modifier.NpcBypassProtectionPrayerPlayerHitModifier
-import org.rsmod.api.player.hit.modifier.NpcCalculatedProtectionPrayerPlayerHitModifier
-import org.rsmod.api.player.hit.modifier.NpcPartialProtectionPrayerPlayerHitModifier
 import org.rsmod.api.player.hit.queueHit
 import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.stat.hitpoints
@@ -64,7 +56,7 @@ constructor(
     private val interactions: AiPlayerInteractions,
     private val collision: CollisionFlagMap,
     private val random: GameRandom,
-    private val combat: NvPCombat,
+    private val bossEncounters: EncounterRegistry,
     private val corruption: CombatCorruption,
     private val world: WorldRepository,
 ) {
@@ -198,18 +190,28 @@ constructor(
         }
     }
 
-    fun attack(access: StandardNpcAccess, target: Player) {
-        val run = runs[target.uid] ?: return
-        if (run.boss !== access.npc || !isCombatState(run.state)) return
-        if (access.npc.actionDelay > clock.cycle) return
-        when (run.currentForm) {
-            MuspahForm.MELEE -> attackMelee(access, run, target)
-            MuspahForm.RANGED -> attackRanged(access, run, target, reinforced = false)
-            MuspahForm.SHIELD -> attackRanged(access, run, target, reinforced = true)
-            MuspahForm.FINAL -> attackRanged(access, run, target, reinforced = true)
-            MuspahForm.TELEPORT -> Unit
-        }
+    fun combatRun(npc: Npc, target: Player): Run? =
+        runs[target.uid]?.takeIf { it.boss === npc && isCombatState(it.state) }
+
+    fun canAttack(npc: Npc, target: Player): Boolean {
+        val run = combatRun(npc, target) ?: return false
+        if (!validHit(npc, target)) return false
+        val encounter = bossEncounters.of(npc)
+        val phase = run.currentForm.name
+        if (encounter.currentPhaseName != phase) encounter.transitionTo(phase, clock.cycle)
+        return true
     }
+
+    fun validHit(npc: Npc, target: Player): Boolean =
+        runs[target.uid]?.let {
+            it.boss === npc &&
+                instances.sessionForPlayer(target)?.id == it.session.id &&
+                target.isSlotAssigned &&
+                target.hitpoints > 0 &&
+                !target.pendingLogout &&
+                !target.loggingOut &&
+                it.state != MuspahState.INVALIDATED
+        } == true
 
     fun modifyNpcHit(player: Player, npc: Npc, hit: HitBuilder) {
         val run = runs[player.uid]
@@ -711,103 +713,19 @@ constructor(
         run.boss.apPlayer2(run.player, interactions)
     }
 
-    private fun attackMelee(access: StandardNpcAccess, run: Run, target: Player) {
-        val moved = run.boss.coords != run.boss.previousCoords
-        val protected = target.vars["varbit.prayer_protectfrommelee"] == 1
-        if (moved) run.stationaryMeleeAttacks = 0 else run.stationaryMeleeAttacks++
-        val maximum =
-            if (MuspahRules.meleeStepBackBlocks(moved, protected)) 0
-            else MuspahRules.meleeMaximum(run.stationaryMeleeAttacks)
-        combat.attack(
-            access,
-            target,
-            CombatAttack.NpcMelee(MeleeAttackType.Crush),
-            NpcAttackOverride(
-                attackAnimation = MuspahAssets.ATTACK_MELEE,
-                maxHit = maximum,
-                attackRate = MUSPAH_MELEE_ATTACK_RATE,
-                hitModifier = NpcPartialProtectionPrayerPlayerHitModifier(50),
-                onAttack = { run.attackCounter++ },
-            ),
-        )
-    }
-
-    private fun attackRanged(
-        access: StandardNpcAccess,
-        run: Run,
-        target: Player,
-        reinforced: Boolean,
-    ) {
-        val magic = random.of(if (reinforced) 3 else 5) == 0
-        val attack = if (magic) MuspahAttack.CHARGED_MAGIC else MuspahAttack.RANGED
-        val protectedAtCalculation =
-            if (magic) target.vars["varbit.prayer_protectfrommagic"] == 1
-            else target.vars["varbit.prayer_protectfrommissiles"] == 1
-        val maxHit =
-            when {
-                magic && reinforced -> 79
-                magic -> 72
-                reinforced -> 72
-                else -> 61
-            }
-        val projectile =
-            NpcProjectile(
-                if (magic) MuspahAssets.MAGIC_TRAVEL else MuspahAssets.RANGED_TRAVEL,
-                projectileType(MuspahAssets.PROJECTILE_CONTROLLER),
-            )
-        val override =
-            NpcAttackOverride(
-                attackAnimation =
-                    if (magic) MuspahAssets.ATTACK_MAGIC else MuspahAssets.ATTACK_RANGED,
-                maxHit = maxHit,
-                projectile = projectile,
-                impactDelay = if (magic) 3 else null,
-                attackRate =
-                    when (run.currentForm) {
-                        MuspahForm.SHIELD -> MUSPAH_SHIELD_ATTACK_RATE
-                        MuspahForm.FINAL -> MUSPAH_FINAL_ATTACK_RATE
-                        else -> MUSPAH_RANGED_ATTACK_RATE
-                    },
-                hitModifier =
-                    NpcCalculatedProtectionPrayerPlayerHitModifier(
-                        protectedAtCalculation = protectedAtCalculation,
-                        reductionPercent = if (magic) 100 else 90,
-                    ),
-                onAttack = {
-                    run.attackCounter++
-                    if (run.state == MuspahState.PRAYER_SHIELD) {
-                        drainShield(run, MuspahRules.passiveShieldDrain())
-                    }
-                    if (
-                        run.state == MuspahState.FINAL_STAND &&
-                            run.attackCounter % MUSPAH_FINAL_SPIKE_ATTACKS == 0
-                    ) {
-                        spawnCrack(run, run.player.coords)
-                        spreadFinalSpikes(run)
-                    }
-                },
-                onImpact = { _, impact ->
-                    target.spotanim(
-                        if (magic) MuspahAssets.MAGIC_IMPACT else MuspahAssets.RANGED_IMPACT
-                    )
-                    if (magic && !protectedAtCalculation && impact.damage > 0) {
-                        corruption.apply(target)
-                    }
-                    if (run.state == MuspahState.PRAYER_SHIELD && impact.damage > 0) {
-                        run.boss.heal(MuspahRules.soulSplitHeal(impact.damage))
-                    }
-                },
-            )
-        combat.attack(
-            access,
-            target,
-            if (attack == MuspahAttack.RANGED) {
-                CombatAttack.NpcRanged(RangedAttackType.Standard)
-            } else {
-                CombatAttack.NpcMagic(maxHit)
-            },
-            override,
-        )
+    // Transitional form-specific side effects; final forced cadence moves with the phase engine.
+    fun onRangedAttack(run: Run) {
+        run.attackCounter++
+        if (run.state == MuspahState.PRAYER_SHIELD) {
+            drainShield(run, MuspahRules.passiveShieldDrain())
+        }
+        if (
+            run.state == MuspahState.FINAL_STAND &&
+                run.attackCounter % MUSPAH_FINAL_SPIKE_ATTACKS == 0
+        ) {
+            spawnCrack(run, run.player.coords)
+            spreadFinalSpikes(run)
+        }
     }
 
     private fun spawnCrack(run: Run, tile: CoordGrid) {
@@ -950,6 +868,9 @@ constructor(
         boss.apRequiresLineOfSight = true
         npcs.add(boss, MUSPAH_NPC_LIFETIME)
         instances.attachNpc(session.id, boss)
+        // Establish dormant encounter ownership before activation unlocks melee movement.
+        // Otherwise the first player hit can lazily recreate the dormant movement lock.
+        bossEncounters.of(boss)
         return boss
     }
 
