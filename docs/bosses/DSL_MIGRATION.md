@@ -1603,3 +1603,16 @@ No reward/CA policy changes, no cache edits, no deployment and no new shared cap
 Broader `royal-titans-handlers-broad-20260910.log` passes in28s/505tasks (4executed501up-to-date):
 all applicable boss/shared suites, server app classes and architecture enforcement. `git diff
 --check` passes. Unrelated dirty `.data` changes remain outside this source checkpoint.
+
+### Royal Titans paired teleport deadline mapping
+
+Replace transitionStartCycle polling with declared per-actor BossSpec phases on the existing
+BossPhaseClock. Branda lands at+3; Eldric's wait preserves his already-issued route until cast+4,
+then lands at+7. Phase entry only marks the presentation action; LateCycle retains the exact
+native teleport/facing/model/loc/damage ordering. Existing native target rebinding must preserve
+both clocks when the selected duo player leaves at a due frame. Instance destruction must remove
+both deadlines. No new shared API or changed landing geometry/damage is proposed. Add duo
+departure-at-each-transition-boundary and empty-room characterization tests before production edits.
+The two added native fixture cases pass against the prior implementation: departure offsets2/3/6
+retain landing+3, cast+4, landing+7 and charge+15; room destruction at0/3/4/6 cannot retain actors
+or clocks. `royal-titans-teleport-characterization-20260910.log`:33s/196tasks,2tests,0failures.

@@ -209,6 +209,10 @@ Coordinator1,913 ->864 lines. Run/Definitions/Arena/Walls/Elementals/TileAttacks
 are the focused native-API components, not a replacement combat or membership engine. Timing and
 reward policies remain unchanged. Logs `royal-titans-handlers-{verified,broad}-20260910.log`.
 Continue paired transition/reset deadline ownership; no reason to pause at this checkpoint.
+Handler backup: `backup/royal-titans-handlers-20260910` at `8b4ec3f55`, ZIP
+`logs/royal-titans-handlers-20260910.zip`, SHA256
+`DA091675D090295A71968BC0D2EFBAD87211777E5279FD9A09C2E169B42F2880`.
+Validated7,453 entries and zero excluded-path violations; live still unchanged.
 
 1. Collect user client-test feedback. Backup, local deployment, two gameplay checkpoint restarts,
    persistent fingerprints and the corrected75-assertion live Vorkath audit are complete. Do not
