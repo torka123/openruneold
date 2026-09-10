@@ -1,11 +1,11 @@
 package dtx.rs
 
 import dtx.core.ArgMap
+import dtx.core.RollRandom
 import dtx.core.RollResult
 import dtx.impl.weighted.WeightedRollable
 import dtx.impl.weighted.WeightedTable
 import dtx.table.TableHooks
-import kotlin.random.Random
 
 public class RSWeightedTable<T, R>(
     public override val tableIdentifier: String,
@@ -44,7 +44,7 @@ public class RSWeightedTable<T, R>(
 
         val localMax = entries.maxOf { it.rangeEnd }
 
-        val baseRoll = Random.nextInt(0, localMax)
+        val baseRoll = otherArgs[RollRandom.Context].nextInt(localMax)
         val flatMod = rollModifier(target, 0.0)
 
         val roll = (baseRoll * flatMod).toInt()

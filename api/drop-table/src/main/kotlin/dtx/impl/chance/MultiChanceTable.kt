@@ -1,12 +1,12 @@
 package dtx.impl.chance
 
 import dtx.core.ArgMap
+import dtx.core.RollRandom
 import dtx.core.RollResult
 import dtx.core.flattenToList
 import dtx.table.Table
 import dtx.table.TableHooks
 import dtx.util.NoTransform
-import kotlin.random.Random
 
 public interface MultiChanceTable<T, R> : Table<T, R> {
 
@@ -40,7 +40,7 @@ public open class MultiChanceTableImpl<T, R>(
                     return@filter true
                 }
 
-                val roll = Random.nextDouble(0.0, maxRollChance)
+                val roll = otherArgs[RollRandom.Context].nextDouble(maxRollChance)
                 val select = (roll * modifier) <= entry.chanceFor(target, otherArgs)
 
                 select

@@ -103,7 +103,8 @@ constructor(
         }
     }
 
-    private fun nextLootTrackerEventId(): Int {
+    /** Allocates a game-thread loot event for normal deaths or deferred personal NPC rewards. */
+    public fun nextLootTrackerEventId(): Int {
         lootTrackerEventId = if (lootTrackerEventId == Int.MAX_VALUE) 1 else lootTrackerEventId + 1
         return lootTrackerEventId
     }
