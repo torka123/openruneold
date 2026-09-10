@@ -95,7 +95,7 @@ internal fun cerberusCombatSpec(): BossSpec {
                 PhaseSpec(
                     "standing",
                     lockMovement = true,
-                    exitAfter = CerberusRules.STAND_TRANSITION_TICKS,
+                    exitAfter = lateCycleDeadline(CerberusRules.STAND_TRANSITION_TICKS),
                     nextPhase = "standing-ready",
                 ),
             // The native clock owns the deadline; LateCycle preserves the original presentation
@@ -104,7 +104,7 @@ internal fun cerberusCombatSpec(): BossSpec {
             "resetting" to
                 PhaseSpec(
                     "resetting",
-                    exitAfter = CerberusRules.RESET_TRANSITION_TICKS,
+                    exitAfter = lateCycleDeadline(CerberusRules.RESET_TRANSITION_TICKS),
                     nextPhase = "reset-travel",
                 ),
             "reset-travel" to
@@ -120,7 +120,7 @@ internal fun cerberusCombatSpec(): BossSpec {
                 PhaseSpec(
                     "reset-sit",
                     lockMovement = true,
-                    exitAfter = CerberusRules.RESET_TRANSITION_TICKS,
+                    exitAfter = lateCycleDeadline(CerberusRules.RESET_TRANSITION_TICKS),
                     nextPhase = "reset-ready",
                 ),
             "reset-ready" to PhaseSpec("reset-ready", lockMovement = true),
@@ -155,3 +155,10 @@ internal fun cerberusCombatSpec(): BossSpec {
 }
 
 internal data class CerberusHeadAttack(val style: CerberusAttackStyle, val head: CerberusHead)
+
+/**
+ * GameCycle processes world deadlines before MapClock.tick and LateCycle. These phases start and
+ * present in LateCycle, so their ready marker must be set in the preceding pre-input stage. The
+ * reset-travel phase starts pre-input already and consequently needs no adjustment.
+ */
+private fun lateCycleDeadline(presentationTicks: Int): Int = presentationTicks - 1

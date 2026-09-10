@@ -1262,3 +1262,30 @@ Final source verification:
   NO-SOURCE modules do not constitute executed gameplay tests.
 - `git diff --check` passes. Unrelated dirty .data hunks remain unstaged and untouched.
 No rendered Cerberus client scenario or OSRS event diff has been completed by this migration.
+
+Predeployment frame-order correction: review of native GameCycle.tick found that worldMain
+deadlines run before MapClock.tick and LateCycle. The fixture previously processed world queues
+after the increment, masking a one-tick delay for LateCycle-authored wake/reset presentation.
+The corrected fixture produces3 failures in `cerberus-native-frame-order-red.log` (test commit
+`ecca4372a`). Standing/reset/sit ready markers now use the existing PhaseSpec.exitAfter with
+the named lateCycleDeadline conversion (presentation interval minus the native stage advance);
+the pre-input-to-pre-input reset-travel interval remains20. No new shared API or private timer
+was added. `cerberus-native-frame-order-green.log` passes all75 tests,32s/160tasks.
+The earlier `backup/cerberus-source-verified-20260910` at `c96d06528` and ZIP hash
+`7F74E783B5491A1318E30A70632448CF07A82E8CA68AEFB5594B0AE5A767DB1D` preserve the prior
+checkpoint but are superseded for deployment by this correction. Neither was deployed.
+
+Corrected final broad verification: `cerberus-corrected-final-broad-check.log` passes,
+28s/509tasks (7 executed,502up-to-date), including scoped Cerberus check, every applicable boss
+test, the affected shared suites, app compilation and architecture detector. The full75-case
+Cerberus execution immediately preceding it is in the32s green log above. No failures or skips
+in Cerberus,47 boss-runtime tests or8 combat-script tests. The corrected source will be backed
+up as `backup/cerberus-native-frame-verified-20260910` before deployment.
+
+Live checkpoint pending: doctor still identifies canonical JVM23164 running the earlier
+seven-boss build; SERVER/LIVE hashes and revision240 are unchanged. A game-port43594 client
+remains connected. Deployment was not attempted; the user was asked to log out briefly before
+the controlled restart because of the previously recorded pending-save shutdown risk.
+The read-only predeployment PostgreSQL snapshot (`cerberus-predeploy-persistence.log`) has22
+containers,1,152 inventory rows and1 realm row; its inventory hash differs from the earlier1,147
+rows while the user is playing. This is live player progress, not evidence of migration data loss.

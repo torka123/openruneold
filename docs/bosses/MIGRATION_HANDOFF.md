@@ -24,10 +24,12 @@ Update this checkpoint after each completed boss and immediately before any auth
 - Completed live-checkpoint backup: `backup/boss-dsl-live-verified-20260909`, commit `18a8aad57`.
   ZIP `logs/boss-dsl-live-verified-20260909-source.zip`, SHA256
   `C4EECA806195DFEB29E7E8630290C58A46772FB11E3685C754EDAAB81BDE3B93`.
-- Cerberus has only begun its source migration: mapping plus four new executed characterization
-  tests (56 module tests passing). No Cerberus gameplay migration has been deployed or accepted.
+- Cerberus source migration now has75 passing module tests and2 revision-240 cache-audit tests.
+  BossSpec owns normal attacks, triple/rotation and phase deadlines; native InstanceScript owns
+  membership and same-actor death/reveal. The arena handler retains Souls/lava/firewall behavior.
+  No Cerberus migration has been deployed or visually accepted; the seven-boss live build remains.
 - Completed source migrations: Kraken, Vorkath, Corporeal Beast, Alchemical Hydra, Grotesque Guardians,
-  Zulrah and Muspah. This means source/headless migration, not client or full OSRS parity certification.
+  Zulrah, Muspah and Cerberus. This means source/headless migration, not client or full OSRS parity certification.
 - Muspah verification: `logs/muspah-native-phase-dsl-regression.log`, all67 tests pass
   (27 native,40 retained),39s/167tasks. Shared clock: `logs/boss-phase-clock-regression.log`.
   Broader verification passed: `logs/muspah-final-broad-check.log`,1m10s/508tasks, all applicable
@@ -92,13 +94,27 @@ tests and a boot marker do not certify visuals or full OSRS parity.
 
 ## Work still required
 
-Current source step: Cerberus native instance/actor lifecycle is implemented and passes62 module
-tests plus instance tests (`logs/cerberus-native-instance-final.log`,39s/151tasks). The private
-membership map, duplicate departure hooks and delete/recreate respawn were removed. Protected
-entry/exit refusal, logout-panel results, departure cancellation, multi-instance isolation and
-two same-actor death/reveal cycles are executable. This is NOT deployed; combat DSL conversion,
-phase deadlines and specialized handler extraction are next. Current live JVM23164 remains the
-seven-boss checkpoint while the user tests. See the detailed mapping/result in DSL_MIGRATION.md.
+Current source step: Cerberus migration and handler extraction are implemented (manager1,290 ->
+598 lines, arena handler426). All75 module tests and2 cache-audit tests pass. Broad boss/shared
+tests, app classes and architecture enforcement pass in `cerberus-final-broad-check.log`
+(1m38s/505tasks). Final predeployment review then found and corrected a fixture frame-order
+mistake: world deadlines precede MapClock.tick/LateCycle. Three timing tests fail before the
+correction; all75 pass afterward in `cerberus-native-frame-order-green.log`. See the detailed
+mapping and subsequent final verification in DSL_MIGRATION.md.
+
+Deployment checkpoint is still pending: live JVM23164 has a connected game client. The user was
+asked to log out briefly because an earlier shutdown exposed a pending-save risk. Do not treat
+the existing passing seven-boss runtime as verification of Cerberus. Do not restart while that
+client is being used for testing. Once safely logged out, back up the final corrected source,
+perform controlled rebuild/two restarts, verify doctor/custom marker/cache/persistence, and then
+continue Royal Titans on its own branch. The pre-correction backup `c96d06528` is recoverable but
+is NOT the deployment target. No cache or PostgreSQL authority changes are needed.
+
+Cerberus client test plan after deployment: `::cerberus`, approach/wake, opening triple and all
+ordinary styles, Souls/prayer switching, lava movement, firewall crossing/reset, death/repeat,
+normal exit, external teleport and logout. `::cerbdebug` can force mechanics but makes the kill
+reward-ineligible; test actual loot/KC with a fresh natural kill. Natural public entrance remains
+an inherited access gap, not a newly invented location. Capture and visual parity remain open.
 
 1. Collect user client-test feedback. Backup, local deployment, two gameplay checkpoint restarts,
    persistent fingerprints and the corrected75-assertion live Vorkath audit are complete. Do not
