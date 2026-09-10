@@ -1410,3 +1410,22 @@ combat-scripts, combat-manager, engine:game, content:drops, server:app:classes a
 enforcement. NO-SOURCE/up-to-date tasks are not represented as newly executed gameplay tests.
 git diff --check passes. Save this passing bounded stage on
 `backup/royal-titans-elemental-dsl-20260910` before proceeding; live remains the Cerberus checkpoint.
+
+### Royal Titans native session/lifecycle step
+
+Use the already approved instance mapping above; no shared engine change is proposed. Rechecked
+official Scurrius/InstanceScript against the pinned upstream revision. Source-defined specs and
+typed session state remain explicitly existing local extensions. The next source change moves
+start/join/exit into RoyalTitansWorld : InstanceScript, uses native member-name lookup and keyed
+join/leave events, and resolves actor ownership from InstanceManager. Delete the manager's three
+parallel run/member/NPC indexes. Session-owned participant data holds only combat scopes and
+encounter statistics, not authority to join or remain in a room. Native InstanceLifecycleScript
+owns logout, disconnect, movement and repository deletion; the session cleanup callback retires
+specialized hazards. SQL retry records intentionally outlive the room and must not be removed.
+
+Characterize native leave/death/logout/teleport, duo continuity, separate rooms and direct native
+termination before production edits. Add protected-entry/exit refusal tests when the actual
+InstanceScript entry boundary is wired into the fixture. Death recording must happen before
+native membership disappears (including death's respawn teleport), remain idempotent, and retry
+after destruction. The death cleanup adapter may observe a death but must not own detachment.
+Preserve existing spawn ticks, warning/name dialogs, join threshold, corpse/reset and rewards.
