@@ -413,6 +413,25 @@ class VorkathEncounterManagerTest {
     }
 
     @Test
+    fun liveAuditDisconnectExercisesNativePostTickWithoutRequestingAnAccountSave() {
+        val f = VorkathFixture()
+        val oldHit = f.seedMechanics()
+        VorkathLiveAudit.requestAuditDisconnect(f.player)
+        assertTrue(f.player.clientDisconnected.get())
+        assertFalse(f.player.pendingLogout)
+        f.lifecycle.onPostTick(f.player)
+        assertTrue(f.player.forceDisconnect)
+        assertNull(f.manager.auditRun(f.player))
+        VorkathLiveAudit.finishAuditDisconnect(f.player, f.instances)
+        assertFalse(f.player.clientDisconnected.get())
+        assertFalse(f.player.forceDisconnect)
+        assertFalse(f.player.pendingLogout)
+        assertFalse(f.player.loggingOut)
+        f.instances.tickReclaim(f.clock.cycle + 1)
+        f.assertClean(oldHit)
+    }
+
+    @Test
     fun logoutAndDisconnectClearEffectsAndRouteToTheCorrectInstanceCleanup() {
         for (loggingOut in listOf(false, true)) {
             val f = VorkathFixture()

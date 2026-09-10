@@ -179,8 +179,10 @@ constructor(
     private fun input(audit: Player) {
         if (complete) return
         if (disconnectRequested) {
-            // StartCycle sees the final disconnect flag; clear it before the account logout stage.
-            audit.pendingLogout = false
+            // The native instance post-tick hook observes clientDisconnected, retires the room
+            // and requests forceDisconnect. Clear both on the next input pass, before the account
+            // logout stage: this synthetic player must never submit an account save.
+            finishAuditDisconnect(audit, instances)
             disconnectRequested = false
         }
         if (stage != "player-death") audit.statMap.setCurrentLevel("stat.hitpoints", 99)
@@ -460,7 +462,7 @@ constructor(
             "disconnect" ->
                 if (run?.state == VorkathState.ACTIVE) {
                     retainedRun = run
-                    audit.pendingLogout = true
+                    requestAuditDisconnect(audit)
                     disconnectRequested = true
                     next("disconnect-wait")
                 }
@@ -733,5 +735,19 @@ constructor(
             registry.del(audit)
         }
         log("${if (success) "SUCCESS" else "FAILURE"} $message")
+    }
+
+    internal companion object {
+        fun requestAuditDisconnect(player: Player) {
+            player.clientDisconnected.set(true)
+        }
+
+        fun finishAuditDisconnect(player: Player, instances: InstanceManager) {
+            check(instances.sessionForPlayer(player) == null) {
+                "Native post-tick disconnect did not retire the instance"
+            }
+            player.clientDisconnected.set(false)
+            player.forceDisconnect = false
+        }
     }
 }

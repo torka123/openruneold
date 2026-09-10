@@ -5,7 +5,8 @@
 Requested scope: architecture migration, not a combat rebalance. The user's later instruction
 conditionally authorizes local deployment/restarts at about 5% remaining Codex plan allowance,
 after finishing and testing the current migration and preparing a change/testing/continuation
-handoff. That cutoff has not been reported or established; no deployment has occurred. Account
+handoff. The later checkpoint instruction also authorizes a backed-up, tested local deployment
+before moving to the next boss; its results are recorded at the end of this report. Account
 allowance is not the model's context/token counter. No remote push, merge or PR is authorized.
 The current user instruction authorizes
 the listed shared repairs and routine migrations; the older AGENTS combat checkpoint is satisfied
@@ -1049,3 +1050,48 @@ Select only `npc.gargboss_dusk_phase1_defensive`, `npc.snakeboss_boss_ranged`, `
 gameplay tests. Before packing, `boss-migration-kc-install-red.log` correctly reports missing
 Dusk spawn KC metadata (one test/one failure), not a Kotlin or gameplay-test failure. Cache paths,
 revision240 and PostgreSQL authority must remain unchanged; LIVE is not part of this installation.
+
+### Backed-up local deployment checkpoint
+
+Source checkpoint `c48e36cadf1c29db550f9d7da6557405311c45db` is preserved by
+`backup/boss-dsl-predeploy-20260909-muspah`. The source-only ZIP
+`logs/boss-dsl-predeploy-20260909-muspah-source.zip` contains7,274 entries; SHA256
+`C1B93AE0C0B631FB7DB2938792A66C88DB5D1B1C8629B31B036F16E4F4603AAB`.
+It excludes runtime/cache/PostgreSQL/log/generated/config-secret paths. Limited credential-pattern
+scans found no candidates in the new selected source. Historical Git objects were not certified.
+The cold SERVER copy is `logs/boss-dsl-predeploy-20260909-server-cache/`; original encoded selected
+NPCs also remain under `logs/npc-parameter-backups/`. No remote push or merge occurred.
+
+The existing selected-NPC installer completed in16s/16tasks. Installed SERVER KC tests plus
+Vorkath/Zulrah cache audits pass all5 tests,45s/18tasks (`boss-migration-installed-cache-check.log`).
+Only selected NPC metadata changed. SERVER dat2 SHA256 is now
+`D01985ED94C9814DBF99509B335E964C69F1FF91C2464A5165D42A78E1915D75`;
+LIVE remains `FD0FE5EF66039A791A900EDDDF1CDBCFE57E09E8C32EA3496C69E96217A41A7B`.
+Revision240 and paths are unchanged.143 source/unrelated-dirty-data fingerprints matched after
+packing; later intentional audit-harness/documentation edits are recorded separately.
+
+Canonical JVM41396 stopped through the normal shutdown helper. Its old, pre-migration runtime
+reported closed database connections while saving pending account requests. Stored inventory,
+bank and realm-setting fingerprints remained identical, but this does NOT prove any previously
+unsaved in-memory progress was retained. This shutdown defect is recorded, not silently fixed as
+boss-migration work. New JVM38976 started at23:19 on September9 and shut down normally; JVM13012
+started at23:21. Both emitted the custom-build marker and Server ready, and passed the canonical
+doctor (`boss-migration-doctor-restart-1.log`, `boss-migration-doctor-restart-2.log`). The marker's
+Git fields said unavailable in the background launcher; doctor resolved the actual checkpoint,
+and jcmd confirmed the new BossPhaseClock class loaded. Startup alone is not gameplay verification.
+
+The read-only repeatable-read `BossMigrationPersistenceAudit.java` queries the native embedded
+PostgreSQL authority and emits only ordered-table counts/hashes. Before and after both restarts:
+22 inventory containers,1,147 inventory rows (including banks),1 realm spawn/respawn row; every
+SHA256 matches. Logs: `boss-migration-persistence-before.log`, `-restart-1.log`, `-restart-2.log`.
+No account data was changed by this audit.
+
+The opt-in real-game-loop Vorkath audit passed normal/special attacks, reset, native boss/player
+death, external teleport and normal exit, then timed out at tick801 on its stale disconnect step.
+It signalled pendingLogout for the removed private loop instead of clientDisconnected for native
+InstanceLifecycleScript.onPostTick. Mapping: adapt the diagnostic signal to the existing native
+hook, then clear the synthetic player's force-disconnect flag before the account logout stage.
+No gameplay/shared API change. A native regression executes the same audit helper and lifecycle
+hook and verifies room/effect cleanup without a save request. All111 Vorkath tests, instance tests,
+app classes and architecture check pass,41s/452tasks (`boss-migration-live-audit-disconnect-regression.log`).
+The corrected live audit must be rerun; the timeout must not be reported as a successful fight audit.
