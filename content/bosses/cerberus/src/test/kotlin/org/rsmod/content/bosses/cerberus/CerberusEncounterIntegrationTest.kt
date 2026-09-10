@@ -742,6 +742,8 @@ internal class CerberusTestWorld {
 
     fun tick(count: Int = 1) =
         repeat(count) {
+            // GameCycle runs world deadlines before advancing MapClock into LateCycle.
+            queueProcess.process()
             clock.tick()
             playerList.forEach { player ->
                 player.currentMapClock = clock.cycle
@@ -759,7 +761,6 @@ internal class CerberusTestWorld {
                 if (it.canProcess && it.activeCoroutine != null) it.advanceActiveCoroutine()
                 NpcRevealProcessor(npcs).process(it)
             }
-            queueProcess.process()
             instances.tickReclaim(clock.cycle)
             manager.tickAll()
         }
