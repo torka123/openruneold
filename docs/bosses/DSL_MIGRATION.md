@@ -1034,3 +1034,18 @@ the spatial/corruption post-tick handoff, two native attack parameter objects an
 environmental hit sites. These tests preserve the existing researched/draft behavior; they do not
 certify the unresolved non-player damage exclusion, generic projectile geometry, source contribution,
 exact OSRS specials or live visuals. No packet comparison is claimed.
+
+`muspah-final-broad-check.log`: all applicable boss tests, Muspah scoped check, boss/instance,
+combat-manager/combat-scripts/game/drop tests, app classes and architecture enforcement pass,
+1m10s/508tasks (63 executed,445up-to-date; modules with no tests report NO-SOURCE).
+The initial `muspah-final-native-check.log` command used a nonexistent `:content:other:drops`
+path and failed task resolution; the corrected broad command uses `:content:drops:test`.
+
+Deployment mapping: reuse existing `NpcParameterConfigInstaller`, which patches only selected
+NPC parameters/explicit occupancy and backs up original encoded definitions. A generic explicit
+Gradle entry point exposes that existing installer; no new packing engine or startup hook.
+Select only `npc.gargboss_dusk_phase1_defensive`, `npc.snakeboss_boss_ranged`, `npc.muspah`.
+`BossMigrationKcCacheAuditTest` verifies the installed SERVER definitions separately from native
+gameplay tests. Before packing, `boss-migration-kc-install-red.log` correctly reports missing
+Dusk spawn KC metadata (one test/one failure), not a Kotlin or gameplay-test failure. Cache paths,
+revision240 and PostgreSQL authority must remain unchanged; LIVE is not part of this installation.

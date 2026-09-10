@@ -33,6 +33,19 @@ tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
 }
 
 tasks {
+    register<JavaExec>("installNpcParameters") {
+        group = "cache"
+        description = "Explicitly installs selected named NPC overlays into SERVER; never regenerates source"
+        classpath = sourceSets["main"].runtimeClasspath
+        mainClass.set("dev.openrune.NpcParameterConfigInstallerKt")
+        workingDir = rootProject.projectDir
+        dependsOn("classes")
+        doFirst {
+            val names = providers.gradleProperty("npcParameterNames").get().split(',')
+            require(names.isNotEmpty() && names.all { it.startsWith("npc.") })
+            args(names)
+        }
+    }
     register<JavaExec>("installGrandExchangeConfig") {
         group = "cache"
         description = "Installs only GE staff movement, music row/index and area into SERVER"

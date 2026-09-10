@@ -12,22 +12,20 @@ Update this checkpoint after each completed boss and immediately before any auth
   `backup/boss-dsl-passing-20260909-muspah-lifecycle`. Includes native Muspah membership/respawn,
   hazard retirement, native KC metadata, DSL final cadence and the spatial split (60 passing tests).
   This local Git backup includes no new runtime/cache/PostgreSQL copy and is not a deployment.
-- Current work: `refactor/muspah-boss-dsl-20260909`. Re-read actual Git state on resume.
+- Current work: `refactor/muspah-phase-dsl-20260909`, Muspah checkpoint `f35675be2`.
+  Shared phase clock: `f0f1d8d99` (46 passing API tests). Re-read actual Git state on resume.
 - Completed source migrations: Kraken, Vorkath, Corporeal Beast, Alchemical Hydra, Grotesque Guardians,
-  Zulrah. This means source/headless migration, not client or full OSRS parity certification.
-- Latest passing verification: `logs/zulrah-final-native-check.log` (43 Zulrah tests and cache audit);
-  `logs/zulrah-broad-regression.log` (all applicable boss/shared tests, app classes, architecture check;
-  49s/509 tasks). Shared boss API has 41 passing tests. Final Zulrah commit: `2aecefe5f`.
-- Muspah partial checkpoint verification: `logs/muspah-native-dsl-final.log` (54 tests, scoped check);
-  `logs/muspah-broad-regression.log` (all applicable boss/shared/drop tests, app classes, architecture;
-  24s/509tasks, including unchanged passing up-to-date results).
-- Zulrah uses declarative rotation programs, native instances/death/respawn and scoped spatial
-  handlers. Its private membership and ordinary attack/phase timers are removed.
-- Muspah is **in progress**: ordinary attacks now use BossSpec/native NvPCombat; 54 tests pass
-  (14 native, 40 retained). Fixed an unmapped projectile controller, blocked-attempt RNG/melee
-  counter mutation and post-exit ordinary projectiles. Native encounter initialization precedes
-  activation so an incoming hit cannot re-lock melee movement. Private instance/phase/hazard and
-  respawn ownership still require migration; do not mark Muspah finished or deploy a half-wired change.
+  Zulrah and Muspah. This means source/headless migration, not client or full OSRS parity certification.
+- Muspah verification: `logs/muspah-native-phase-dsl-regression.log`, all67 tests pass
+  (27 native,40 retained),39s/167tasks. Shared clock: `logs/boss-phase-clock-regression.log`.
+  Final broader verification is being run before the controlled deployment; see newer log/results.
+- Muspah ordinary attacks, forced final cadence and phase deadlines use BossSpec/BossEncounter.
+  InstanceScript owns native membership; configured actor/death/reveal and native KC replace local
+  actor/respawn/KC ownership. Spatial cloud/spike/LOS handlers remain focused and session-scoped.
+  Natural crevice/exits, all departure paths, two independent rooms and repeated kills are tested.
+  No private phase clock or player/run map remains. Manager fell from1,088 to552 lines of
+  specialized threshold, shield and presentation policy. OSRS-specific unresolved behavior is
+  listed in DSL_MIGRATION.md; architecture completion is not full fight-parity certification.
 - Live deployment: **not performed during this migration**. Existing server PID must be rechecked;
   the last doctor identified 41396 in this canonical workspace. Do not assume it is still current.
 - Cache: revision240, `.data/cache/SERVER` definitions and `.data/cache/LIVE` JS5; PostgreSQL
@@ -54,12 +52,13 @@ Update this checkpoint after each completed boss and immediately before any auth
 | Alchemical Hydra | DSL normal volleys/phase rotations; native instance and same-actor respawn; removed duplicate KC increment | 22 module tests | `::hydra`, observation-room doors, vents/forms/specials, prayer, loot/KC once, two kills, `::leavehydra` |
 | Grotesque Guardians | Two DSL specs; native roof instance, paired forms and reset; base-Dusk drop/KC identity fixed | 21 module tests; 48 drop-module tests; all boss/shared regression tasks and app classes pass | Natural roof entrance, bell, both attacks, lightning/spheres, hammer, prison, loot/KC once, 17-tick paired reset, repeat and exit |
 | Zulrah | Four DSL rotation programs and snake specs; native boat instance and same-actor respawn; scoped clouds/eggs/tail; native KC metadata | 43 module tests (21 native), revision-240 cache audit, broad boss/shared regressions | Natural boat entry/camera, all forms and rotations, clouds, eggs/snakes, tail dodge, prayer, death/reclaim, loot/KC once, two kills, exit/teleport/logout; debug mode must award nothing |
+| Muspah | DSL normal attacks, timed phases and final cadence; native solo instance, same-actor repeat and KC; scoped cloud/spike effects | 67 module tests, including27 native gameplay tests | `::muspah` then natural crevice, both opening forms, form changes, lightning, homing, shield/Smite, final spikes, two kills/KC once, exits/teleport/logout/death; separate rooms isolated |
 | Architecture enforcement | Existing detector/self-tests now run from root Gradle check; explicit reviewed waivers retained | `bossArchitectureCheck` passes | Developer check, not a visible game change |
 
 Important: Guardians KC needs the intentional seven-line source overlay and Zulrah KC needs its
-eight-line overlay in `.data/raw-cache/server/npcs.toml` packed during an authorized controlled
-deployment. Both were tested in memory through the native kill hook; SERVER/LIVE have **not** been
-repacked. Do not silently deploy only jars and declare those metadata fixes live. Preserve the
+eight-line overlay and Muspah its three-line overlay in `.data/raw-cache/server/npcs.toml` packed
+during the controlled deployment. All were tested in memory through the native kill hook; actual
+cache installation results must be recorded below before claiming them live. Preserve the
 unrelated source-data hunks in that file.
 
 For each fight record: account, solo/group, entry path, observed problem, approximate tick/time and
@@ -69,9 +68,8 @@ tests and a boot marker do not certify visuals or full OSRS parity.
 
 ## Work still required
 
-1. Finish Muspah's native instance/session, phase, forced-special, hazard and respawn migration.
-   Characterize threshold races, native reward/KC identities, two kills and all departure paths
-   before removing the old ownership code. Preserve the completed ordinary attack DSL and tests.
+1. Complete the pending passing-checkpoint backup/local deployment, record two controlled restarts,
+   startup markers and canonical doctor identity; client/visual and packet checks remain separate.
 2. Continue Cerberus, Royal Titans, Nex, Yama, Doom and DT2 in separate focused migration
    branches/commits. Review Dagannoth Kings separately. Preserve existing research and mechanics.
 3. Resolve or explicitly report remaining generic DSL concerns (unused condition/phase fields,
