@@ -52,6 +52,26 @@ import org.rsmod.routefinder.collision.CollisionFlagMap
 @OptIn(InternalApi::class)
 class BossRuntimeRegressionTest {
     @Test
+    fun `declared phase deadline progresses without another attack interaction`() {
+        val f =
+            Fixture(
+                phase = PhaseSpec("main", exitAfter = 4, nextPhase = "arrived"),
+                extraPhases = mapOf("arrived" to PhaseSpec("arrived", entry = "arrive")),
+                extraAbilities = mapOf("arrive" to Effect.Say("arrived")),
+            )
+        f.armPhaseClock()
+        f.player.coords = f.player.coords.translate(20, 0)
+        f.tick(3)
+        assertEquals("main", f.encounter.currentPhaseName)
+        assertTrue(f.speech.isEmpty())
+        f.tick(1)
+        assertEquals("arrived", f.encounter.currentPhaseName)
+        assertEquals(listOf(104 to "arrived"), f.speech)
+        f.tick(5)
+        assertEquals(1, f.speech.size)
+    }
+
+    @Test
     fun `retiring one summon detaches only that resource and ended state cannot be read`() {
         val f = Fixture()
         val second = Npc(f.npc.type, f.npc.coords)
@@ -1068,6 +1088,8 @@ class BossRuntimeRegressionTest {
         nativeCombat: Boolean = false,
         accurate: Boolean = true,
         accuracyResults: List<Boolean>? = null,
+        extraPhases: Map<String, PhaseSpec> = emptyMap(),
+        extraAbilities: Map<String, Effect> = emptyMap(),
     ) {
         val clock = MapClock().apply { cycle = 100 }
         val speech = mutableListOf<Pair<Int, String>>()
@@ -1117,8 +1139,8 @@ class BossRuntimeRegressionTest {
             BossSpec(
                 listOf(npc.type.internalName),
                 BossStats(),
-                mapOf("basic" to Effect.NoOp),
-                mapOf("main" to phase),
+                mapOf("basic" to Effect.NoOp) + extraAbilities,
+                mapOf("main" to phase) + extraPhases,
                 emptyList(),
             )
         val registry = EncounterRegistry(random).apply { register(npc.type.id, spec, "fixture") }
@@ -1157,6 +1179,10 @@ class BossRuntimeRegressionTest {
             }
         }
 
+        fun armPhaseClock() {
+            encounter.transitionTo("main", clock.cycle)
+        }
+
         fun access(coroutine: GameCoroutine, events: EventBus): StandardNpcAccess =
             StandardNpcAccess(
                 npc,
@@ -1174,6 +1200,16 @@ class BossRuntimeRegressionTest {
                 npc.currentMapClock = clock.cycle
                 npc.processedMapClock = clock.cycle
                 npc.advanceActiveCoroutine()
+                val iterator = deps.worldQueues.iterator()
+                while (iterator.hasNext()) {
+                    val queue = iterator.next()
+                    queue.remainingCycles--
+                    if (queue.remainingCycles <= 0 && queue.ready()) {
+                        iterator.remove()
+                        queue.action()
+                    }
+                }
+                iterator.cleanUp()
             }
         }
 

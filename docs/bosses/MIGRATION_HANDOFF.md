@@ -8,6 +8,10 @@ Update this checkpoint after each completed boss and immediately before any auth
 
 - Canonical workspace: `C:\Users\norma\Documents\Codex\2026-08-10\lets-work-on-the-openrune-server\work\OpenRune-Server`.
 - Source safety baseline: `798b8c320`, branch `backup/boss-dsl-source-baseline-20260909`.
+- Additional passing source checkpoint: `69f9deeba`,
+  `backup/boss-dsl-passing-20260909-muspah-lifecycle`. Includes native Muspah membership/respawn,
+  hazard retirement, native KC metadata, DSL final cadence and the spatial split (60 passing tests).
+  This local Git backup includes no new runtime/cache/PostgreSQL copy and is not a deployment.
 - Current work: `refactor/muspah-boss-dsl-20260909`. Re-read actual Git state on resume.
 - Completed source migrations: Kraken, Vorkath, Corporeal Beast, Alchemical Hydra, Grotesque Guardians,
   Zulrah. This means source/headless migration, not client or full OSRS parity certification.
@@ -33,6 +37,10 @@ Update this checkpoint after each completed boss and immediately before any auth
   There is no reliable account-balance tool in this session; obtain that cutoff from the user or
   an actual supported usage display. Do not confuse context capacity with subscription allowance.
   No remote Git push, merge or PR is authorized. Do not auto-deploy merely by running the resume script.
+- Updated user checkpoint: before moving to the next boss, make another recoverable source backup,
+  run focused/broader verification, deploy the passing checkpoint locally and verify the controlled
+  restart. Do not deploy a failing/in-progress shared phase-clock change. Record exact backup ref,
+  deployed build/cache identity and two restart results here, then continue the migrations.
 
 ## Changes ready for testing after deployment
 
