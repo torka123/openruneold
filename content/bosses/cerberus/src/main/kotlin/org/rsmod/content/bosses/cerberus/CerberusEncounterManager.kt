@@ -11,6 +11,7 @@ import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import org.rsmod.api.bosses.runtime.BossDeps
 import org.rsmod.api.bosses.runtime.BossEncounter
+import org.rsmod.api.bosses.runtime.BossPhaseClock
 import org.rsmod.api.combat.commons.magic.ArceuusSpellState
 import org.rsmod.api.combat.formulas.attributes.DamageReductionAttributes
 import org.rsmod.api.combat.formulas.attributes.collector.DamageReductionAttributeCollector
@@ -70,6 +71,7 @@ constructor(
     private val routeFactory: RouteFactory,
     private val arena: CerberusArena,
     private val deps: BossDeps,
+    private val phaseClock: BossPhaseClock,
 ) {
     private fun run(player: Player): Run? =
         instances
@@ -147,7 +149,9 @@ constructor(
                 }
             configureBoss(player, boss, true)
             boss.anim(CerberusAssets.SITTING_ANIMATION)
-            val run = Run(player, session, boss, deps.encounterRegistry.of(boss))
+            val run = Run(player, session, boss, deps.encounterRegistry.of(boss), clock)
+            run.encounter.onCleanup { clearHazards(run) }
+            phaseClock.bind(boss, player)
             session.onCleanup { retireRun(run) }
             player.mes("You enter Cerberus's lair. Approach the chamber to wake her.")
             run
@@ -259,7 +263,7 @@ constructor(
     }
 
     private fun launchSouls(run: Run) {
-        val generation = run.generation
+        val encounter = run.encounter
         playAttackAnimation(
             run,
             CerberusAssets.HOWL_ANIMATION,
@@ -296,10 +300,11 @@ constructor(
             soul.respawns = false
             instances.attachNpc(run.session.id, soul)
             run.souls += soul
+            encounter.own(soul)
             run.soulWaveSpawned = true
             soul.anim(CerberusAssets.SOUL_READY_ANIMATION)
-            worldQueues.add(CerberusRules.SOUL_APPROACH_DELAY_TICKS) {
-                if (isCurrent(run, generation) && soul.isSlotAssigned) {
+            encounter.schedule(worldQueues, CerberusRules.SOUL_APPROACH_DELAY_TICKS) {
+                if (isCurrent(run, encounter) && soul.isSlotAssigned) {
                     soul.movementLocked = false
                     soul.anim(CerberusAssets.SOUL_FLY_ANIMATION)
                     soul.walk(soulPath(spawn, towardBoss = true))
@@ -312,10 +317,10 @@ constructor(
                     CerberusRules.SOUL_WALK_DISTANCE +
                     CerberusRules.SOUL_FIRST_ATTACK_DELAY_TICKS +
                     index * CerberusRules.SOUL_COMPONENT_GAP_TICKS
-            worldQueues.add(attackDelay) {
-                if (!isCurrent(run, generation) || !soul.isSlotAssigned) {
+            encounter.schedule(worldQueues, attackDelay) {
+                if (!isCurrent(run, encounter) || !soul.isSlotAssigned) {
                     removeSoul(run, soul)
-                    return@add
+                    return@schedule
                 }
                 if (soul.coords != attackTile) {
                     soul.teleport(collision, attackTile)
@@ -323,16 +328,18 @@ constructor(
                 soul.abortRoute()
                 soul.movementLocked = true
                 launchSoulHit(run, soul, style)
-                worldQueues.add(CerberusRules.SOUL_RETREAT_DELAY_TICKS) {
-                    if (!isCurrent(run, generation) || !soul.isSlotAssigned) {
+                encounter.schedule(worldQueues, CerberusRules.SOUL_RETREAT_DELAY_TICKS) {
+                    if (!isCurrent(run, encounter) || !soul.isSlotAssigned) {
                         removeSoul(run, soul)
-                        return@add
+                        return@schedule
                     }
                     soul.movementLocked = false
                     soul.clearFacingLock()
                     soul.anim(CerberusAssets.SOUL_FLY_ANIMATION)
                     soul.walk(soulPath(attackTile, towardBoss = false))
-                    worldQueues.add(CerberusRules.SOUL_WALK_DISTANCE + 1) { removeSoul(run, soul) }
+                    encounter.schedule(worldQueues, CerberusRules.SOUL_WALK_DISTANCE + 1) {
+                        removeSoul(run, soul)
+                    }
                 }
             }
         }
@@ -347,7 +354,7 @@ constructor(
         CerberusRules.soulOrder(random.of(3), random.of(2))
 
     private fun launchSoulHit(run: Run, soul: Npc, style: CerberusAttackStyle) {
-        val generation = run.generation
+        val encounter = run.encounter
         val target = run.player
         val protectedAtLaunch = isProtected(target, style)
         // The projectile targets the player; the Soul keeps its fixed lane-facing direction.
@@ -363,8 +370,8 @@ constructor(
                     hasWard = ArceuusSpellState.hasWard(target, clock.cycle),
                 )
             run.negatedSoulAttacks++
-            worldQueues.add(delay) {
-                if (isCurrent(run, generation)) {
+            encounter.schedule(worldQueues, delay) {
+                if (isCurrent(run, encounter)) {
                     target.statSub("stat.prayer", constant = drain, percent = 0)
                 }
             }
@@ -380,7 +387,7 @@ constructor(
             delay = delay,
             type = hitType(style),
             damage = damage,
-            validity = HitValidity { isCurrent(run, generation) },
+            validity = HitValidity { isCurrent(run, encounter) },
             modifier = CerberusFixedHitModifier,
             impactHandler =
                 HitImpactHandler { impact ->
@@ -392,6 +399,7 @@ constructor(
     }
 
     private fun removeSoul(run: Run, soul: Npc) {
+        run.encounter.disown(soul)
         run.souls.remove(soul)
         soul.clearInteraction()
         if (soul.isSlotAssigned) npcs.del(soul, Int.MAX_VALUE)
@@ -497,7 +505,7 @@ constructor(
                     CerberusPhase.SITTING -> if (inside) beginStanding(run)
                     CerberusPhase.STANDING -> {
                         if (!inside) beginReset(run)
-                        else if (clock.cycle >= run.stateCycle) activate(run)
+                        else if (run.encounter.currentPhaseName == "standing-ready") activate(run)
                     }
                     CerberusPhase.ACTIVE -> {
                         if (hasLeftActiveArena(localX, localZ)) {
@@ -513,7 +521,7 @@ constructor(
                     CerberusPhase.COMPLETE,
                     CerberusPhase.INVALIDATED -> Unit
                 }
-                // Outward crossing can reset the fight above. Bind its hit to that new generation.
+                // Outward crossing can reset the fight above. Bind its hit to that new encounter.
                 if (crossedFireWall) {
                     queueFixedDamage(run, CerberusRules.FIRE_WALL_DAMAGE)
                 }
@@ -533,16 +541,14 @@ constructor(
             localZ > CERBERUS_CHAMBER_MAX_Z
 
     private fun beginStanding(run: Run) {
+        renewEncounter(run)
         run.phase = CerberusPhase.STANDING
-        run.generation++
-        run.stateCycle = clock.cycle + CerberusRules.STAND_TRANSITION_TICKS
         run.boss.facePlayer(run.player)
         run.boss.anim(CerberusAssets.STAND_ANIMATION)
         run.boss.movementLocked = true
     }
 
     private fun activate(run: Run) {
-        run.encounter.transitionTo("active", clock.cycle)
         run.boss.transmog(requireNpc(CerberusAssets.ACTIVE_NPC_ID), Int.MAX_VALUE)
         run.boss.hitpoints = CerberusRules.HITPOINTS
         run.boss.movementLocked = false
@@ -601,13 +607,13 @@ constructor(
 
     private fun queueLavaHit(run: Run, damage: Int) {
         if (!isCurrent(run)) return
-        val generation = run.generation
+        val encounter = run.encounter
         run.player.queueHit(
             source = run.boss,
             delay = 1,
             type = HitType.Typeless,
             damage = damage,
-            validity = HitValidity { isCurrent(run, generation) },
+            validity = HitValidity { isCurrent(run, encounter) },
             modifier = CerberusFixedHitModifier,
             impactHandler =
                 HitImpactHandler { impact -> if (impact.damage > 0) run.tookLavaDamage = true },
@@ -617,13 +623,13 @@ constructor(
     private fun queueFixedDamage(run: Run, damage: Int) {
         if (!run.player.isSlotAssigned || run.player.hitpoints <= 0) return
         if (!run.boss.isSlotAssigned) return
-        val generation = run.generation
+        val encounter = run.encounter
         run.player.queueHit(
             source = run.boss,
             delay = 1,
             type = HitType.Typeless,
             damage = damage,
-            validity = HitValidity { isCurrent(run, generation, activeOnly = false) },
+            validity = HitValidity { isCurrent(run, encounter, activeOnly = false) },
             modifier = CerberusFixedHitModifier,
         )
     }
@@ -632,14 +638,9 @@ constructor(
         DRAGONFIRE_SHIELDS.any { player.lefthand.isType(it) }
 
     private fun beginReset(run: Run) {
-        deps.encounterRegistry.remove(run.boss)
-        run.encounter = deps.encounterRegistry.of(run.boss)
-        run.generation++
+        renewEncounter(run)
         run.phase = CerberusPhase.RESETTING
-        run.stateCycle = clock.cycle + CerberusRules.RESET_TRANSITION_TICKS
-        run.resetDeadlineCycle = clock.cycle + CerberusRules.RESET_WALK_TIMEOUT_TICKS
         run.resetArrived = false
-        run.resetSitting = false
         run.diagnosticCounterOffset = 0
         run.forcedAttack = null
         run.forcedNormalStyle = null
@@ -657,12 +658,13 @@ constructor(
         if (run.boss.coords == home) {
             run.resetArrived = true
         } else {
-            val generation = run.generation
+            val encounter = run.encounter
             run.boss.anim(CerberusAssets.WALK_ANIMATION)
             run.boss.walkTo(routeFactory, home, passThroughEntities = true) {
                 if (
                     run(run.player) === run &&
-                        run.generation == generation &&
+                        run.encounter === encounter &&
+                        !encounter.isEnded &&
                         run.phase == CerberusPhase.RESETTING
                 ) {
                     run.resetArrived = true
@@ -671,27 +673,35 @@ constructor(
         }
     }
 
+    private fun renewEncounter(run: Run) {
+        deps.encounterRegistry.remove(run.boss)
+        run.encounter = deps.encounterRegistry.of(run.boss)
+        run.encounter.onCleanup { clearHazards(run) }
+        phaseClock.bind(run.boss, run.player)
+    }
+
     private fun processReset(run: Run) {
         if (!run.boss.isSlotAssigned) return
-        if (!run.resetArrived && clock.cycle >= run.resetDeadlineCycle) {
-            run.boss.teleport(
-                collision,
-                localCoord(run.session, CERBERUS_BOSS_LOCAL_X, CERBERUS_BOSS_LOCAL_Z),
-            )
-            run.resetArrived = true
+        when (run.encounter.currentPhaseName) {
+            "reset-ready" -> finishReset(run)
+            "reset-travel",
+            "reset-timeout" -> {
+                // Retain the characterized draft fallback; OSRS path parity remains unverified.
+                if (!run.resetArrived && run.encounter.currentPhaseName == "reset-timeout") {
+                    run.boss.teleport(
+                        collision,
+                        localCoord(run.session, CERBERUS_BOSS_LOCAL_X, CERBERUS_BOSS_LOCAL_Z),
+                    )
+                    run.resetArrived = true
+                }
+                if (!run.resetArrived) return
+                run.encounter.transitionTo("reset-sit", clock.cycle)
+                run.boss.anim(
+                    CerberusAssets.SIT_ANIMATION,
+                    priority = CerberusRules.ATTACK_ANIMATION_PRIORITY,
+                )
+            }
         }
-        if (!run.resetArrived || clock.cycle < run.stateCycle) return
-        if (!run.resetSitting) {
-            run.resetSitting = true
-            run.stateCycle = clock.cycle + CerberusRules.RESET_TRANSITION_TICKS
-            run.boss.movementLocked = true
-            run.boss.anim(
-                CerberusAssets.SIT_ANIMATION,
-                priority = CerberusRules.ATTACK_ANIMATION_PRIORITY,
-            )
-            return
-        }
-        finishReset(run)
     }
 
     private fun finishReset(run: Run) {
@@ -717,7 +727,8 @@ constructor(
 
     private fun respawn(run: Run) {
         run.encounter = deps.encounterRegistry.of(run.boss)
-        run.generation++
+        run.encounter.onCleanup { clearHazards(run) }
+        phaseClock.bind(run.boss, run.player)
         run.rewardEligible = true
         run.forcedAttack = null
         run.forcedNormalStyle = null
@@ -738,7 +749,6 @@ constructor(
         if (run.phase != CerberusPhase.ACTIVE) return false
         deps.encounterRegistry.remove(npc)
         run.phase = CerberusPhase.DYING
-        run.generation++
         run.player.combatClearQueue()
         clearHazards(run)
         clearFireWall(run)
@@ -808,7 +818,7 @@ constructor(
         if (operation == "status") {
             val candidate = CerberusRules.specialCandidate(run.attackNumber, run.boss.hitpoints)
             return "Cerberus phase=${run.phase} hp=${run.boss.hitpoints}/${CerberusRules.HITPOINTS} " +
-                "counter=${run.attackNumber} generation=${run.generation} " +
+                "counter=${run.attackNumber} phaseStarted=${run.encounter.phaseEnteredTick} " +
                 "next=${candidate ?: CerberusAttack.BASIC} " +
                 "souls=${run.souls.count { it.isSlotAssigned }} lava=${run.activeLava.size} " +
                 "eligible=${run.rewardEligible}."
@@ -949,7 +959,7 @@ constructor(
 
     private fun isCurrent(
         run: Run,
-        generation: Int = run.generation,
+        encounter: BossEncounter = run.encounter,
         activeOnly: Boolean = true,
     ): Boolean =
         run(run.player) === run &&
@@ -957,7 +967,8 @@ constructor(
             arena.contains(run.session, run.player.coords) &&
             arena.contains(run.session, run.boss.coords) &&
             run.player.coords.level == run.boss.coords.level &&
-            run.generation == generation &&
+            run.encounter === encounter &&
+            !encounter.isEnded &&
             (!activeOnly || run.phase == CerberusPhase.ACTIVE) &&
             run.boss.isSlotAssigned &&
             run.boss.hitpoints > 0 &&
@@ -968,7 +979,6 @@ constructor(
         if (run.phase == CerberusPhase.INVALIDATED) return
         deps.encounterRegistry.remove(run.boss)
         run.phase = CerberusPhase.INVALIDATED
-        run.generation++
         run.player.combatClearQueue()
         clearHazards(run)
         clearFireWall(run)
@@ -1074,16 +1084,12 @@ constructor(
         val session: InstanceSession,
         val boss: Npc,
         var encounter: BossEncounter,
+        val clock: MapClock,
         var pendingRespawn: Boolean = false,
-        var phase: CerberusPhase = CerberusPhase.SITTING,
         var diagnosticCounterOffset: Int = 0,
-        var generation: Int = 1,
-        var stateCycle: Int = 0,
         var wasInsideChamber: Boolean = false,
         var lastPlayerCoord: CoordGrid? = null,
-        var resetDeadlineCycle: Int = 0,
         var resetArrived: Boolean = false,
-        var resetSitting: Boolean = false,
         var attackAnimationUntilCycle: Int = 0,
         var forcedAttack: CerberusAttack? = null,
         var forcedNormalStyle: CerberusAttackStyle? = null,
@@ -1098,6 +1104,25 @@ constructor(
         val souls: MutableList<Npc> = mutableListOf(),
         val fireWallLocs: MutableList<LocInfo> = mutableListOf(),
     ) {
+        var phase: CerberusPhase
+            get() =
+                when (encounter.currentPhaseName) {
+                    "standing",
+                    "standing-ready" -> CerberusPhase.STANDING
+                    "resetting",
+                    "reset-travel",
+                    "reset-timeout",
+                    "reset-sit",
+                    "reset-ready" -> CerberusPhase.RESETTING
+                    else ->
+                        CerberusPhase.valueOf(
+                            requireNotNull(encounter.currentPhaseName).uppercase()
+                        )
+                }
+            set(value) {
+                encounter.transitionTo(value.name.lowercase(), clock.cycle)
+            }
+
         val attackNumber: Int
             get() = encounter.phaseAbilityCount + diagnosticCounterOffset + 1
     }

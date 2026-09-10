@@ -90,7 +90,44 @@ internal fun cerberusCombatSpec(): BossSpec {
         BossStats(CerberusRules.ATTACK_RATE_TICKS, CerberusRules.ATTACK_RANGE),
         abilities,
         linkedMapOf(
-            "dormant" to PhaseSpec("dormant", lockMovement = true),
+            "sitting" to PhaseSpec("sitting", lockMovement = true),
+            "standing" to
+                PhaseSpec(
+                    "standing",
+                    lockMovement = true,
+                    exitAfter = CerberusRules.STAND_TRANSITION_TICKS,
+                    nextPhase = "standing-ready",
+                ),
+            // The native clock owns the deadline; LateCycle preserves the original presentation
+            // stage.
+            "standing-ready" to PhaseSpec("standing-ready", lockMovement = true),
+            "resetting" to
+                PhaseSpec(
+                    "resetting",
+                    exitAfter = CerberusRules.RESET_TRANSITION_TICKS,
+                    nextPhase = "reset-travel",
+                ),
+            "reset-travel" to
+                PhaseSpec(
+                    "reset-travel",
+                    exitAfter =
+                        CerberusRules.RESET_WALK_TIMEOUT_TICKS -
+                            CerberusRules.RESET_TRANSITION_TICKS,
+                    nextPhase = "reset-timeout",
+                ),
+            "reset-timeout" to PhaseSpec("reset-timeout"),
+            "reset-sit" to
+                PhaseSpec(
+                    "reset-sit",
+                    lockMovement = true,
+                    exitAfter = CerberusRules.RESET_TRANSITION_TICKS,
+                    nextPhase = "reset-ready",
+                ),
+            "reset-ready" to PhaseSpec("reset-ready", lockMovement = true),
+            "dying" to PhaseSpec("dying", lockMovement = true),
+            "respawning" to PhaseSpec("respawning", lockMovement = true),
+            "invalidated" to PhaseSpec("invalidated", lockMovement = true),
+            "complete" to PhaseSpec("complete", lockMovement = true),
             "active" to
                 PhaseSpec(
                     "active",

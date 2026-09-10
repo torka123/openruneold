@@ -1233,3 +1233,12 @@ ready phases; do not activate one tick earlier. Replace the private generation w
 BossEncounter identity. Preserve characterized four-tick wake, four-tick reset minimum plus
 four-tick sitting and existing unverified24-tick reset path fallback. Tests cover both exact
 deadlines and immediate queue cancellation on departure/reset/death; no new shared API is needed.
+
+Phase/scope checkpoint: all75 Cerberus tests plus shared boss/instance suites pass in
+`logs/cerberus-native-phase-checkpoint.log` (39s/167tasks). Six new native tests cover immediate
+standing/reset deadline removal, isolated two-room Soul queues, reset/death cancellation,
+NPC-deletion ownership cleanup, the characterized24-tick route fallback, and protected Soul
+drain cancellation after teleport. BossEncounter now owns phase identity and cancellable tasks;
+private generation/stateCycle/resetDeadline/resetSitting fields are removed. Souls are attached
+to both the native instance and encounter ownership and detached on deletion. Remaining arena
+geometry, hazard snapshots and presentation are being extracted, not rebalanced or OSRS-certified.

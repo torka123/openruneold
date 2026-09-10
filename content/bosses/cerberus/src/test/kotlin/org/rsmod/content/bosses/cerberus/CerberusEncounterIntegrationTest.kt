@@ -25,6 +25,8 @@ import org.rsmod.api.instances.RegionLocal
 import org.rsmod.api.instances.region.InstanceAreaResolver
 import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.api.npc.access.StandardNpcAccessContext
+import org.rsmod.api.npc.access.StandardNpcAccessContextFactory
+import org.rsmod.api.npc.access.StandardNpcAccessLauncher
 import org.rsmod.api.npc.events.interact.AiPlayerEvents
 import org.rsmod.api.npc.interact.AiPlayerInteractions
 import org.rsmod.api.player.bonus.WornBonuses
@@ -486,6 +488,20 @@ internal class CerberusTestWorld {
             RouteFactory(collision),
             arena,
             deps,
+            BossPhaseClock(
+                deps,
+                StandardNpcAccessLauncher(
+                    mock(StandardNpcAccessContextFactory::class.java) { call ->
+                        if (call.method.name == "create")
+                            StandardNpcAccessContext(
+                                { random },
+                                { error("Not processing NPC hits") },
+                                { error("Not processing NPC hits") },
+                            )
+                        else RETURNS_DEFAULTS.answer(call)
+                    }
+                ),
+            ),
         )
 
     var denyTeleport = false
