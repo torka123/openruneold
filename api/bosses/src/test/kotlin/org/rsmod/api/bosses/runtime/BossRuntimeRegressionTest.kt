@@ -1336,15 +1336,16 @@ class BossRuntimeRegressionTest {
             bindPhaseClock()
         }
 
-        fun partner(): Player = Player().apply {
-            slotId = 2
-            uuid = 2L
-            assignUid()
-            coords = player.coords
-            statMap.setBaseLevel("stat.hitpoints", 99)
-            statMap.setCurrentLevel("stat.hitpoints", 99)
-            players[2] = this
-        }
+        fun partner(): Player =
+            Player().apply {
+                slotId = 2
+                uuid = 2L
+                assignUid()
+                coords = player.coords
+                statMap.setBaseLevel("stat.hitpoints", 99)
+                statMap.setCurrentLevel("stat.hitpoints", 99)
+                players[2] = this
+            }
 
         fun bindPhaseClock(target: Player = player) {
             val events = EventBus()

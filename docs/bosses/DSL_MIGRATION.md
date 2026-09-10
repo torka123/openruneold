@@ -1480,3 +1480,28 @@ unrelated scheduled work, phase counters and timing. No new public API or boss-s
 concept is required. Tests must fail on current code for target replacement, then prove same-tick
 multiple binds execute one entry, old-target departure does not cancel the new target, and current
 target/actor teardown still cancels. Re-run shared boss, Cerberus and all other migrated suites.
+
+The three new regressions reproduced two failures before the fix (50 shared runtime tests total,
+`boss-phase-clock-target-red-20260910.log`). Replacing the captured closure and canceling only its
+owned deadline passes all50 (`boss-phase-clock-target-green-20260910.log`,45s/158tasks). Repeated
+same-frame binds retain one pending phase entry; unrelated scheduled hazards are not canceled.
+
+### Royal Titans paired arena DSL step
+
+Before changing production, `RoyalTitansArenaCadenceTest` executes the existing encounter through
+109 ticks after transition and records both actors' charge/execute/summon/stomp sequences. Its
+second case retains cadence when the initial duo player leaves. Both pass against the old arena
+scheduler (`royal-titans-arena-cadence-baseline-20260910.log`,39s/196tasks). This characterizes the
+draft's first36/subsequent29-tick policy; it does NOT resolve the OSRS rotation-selection gap.
+
+Use existing BossSpec/PhaseSpec, BossCombat registration and the explicitly local BossPhaseClock
+extension to own each Titan's arena deadlines. Remove the shared tickArena modulo selector.
+The existing shared external-handler registry records a ready presentation marker; LateCycle
+consumes it in the same order as the old code. This preserves native pre-input versus LateCycle
+frame timing and paired Blast geometry without a second timer or selector. Unique wall, stomp,
+summon and Blast geometry still uses the existing handlers pending focused extraction. Rebind
+the native phase clock to the surviving participant on departure without resetting phase time.
+Retire its deadline on Titan defeat or room cleanup. Register incoming hit processing through
+BossCombat callbacks; remove the redundant manually registered Titan approach callback. No new
+shared API or gameplay policy is proposed in this step. Add native-world-queue frame processing
+to the fixture and prove cadence, both kill orders, duo continuation, cleanup and room isolation.

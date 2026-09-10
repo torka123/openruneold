@@ -252,10 +252,14 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
         phaseClock?.invoke()
     }
 
-    /** One native timed-phase owner per encounter; ordinary combat keeps its own readiness. */
+    /**
+     * One native timed-phase owner per encounter. Rebinding replaces its captured target/lifetime
+     * without resetting phase time or canceling unrelated effects (for example a duo departure).
+     */
     internal fun bindPhaseClock(arm: () -> Unit) {
         check(!isEnded) { "Encounter has ended." }
-        if (hasPhaseClock) return
+        cancelPhaseDeadline?.invoke()
+        cancelPhaseDeadline = null
         phaseClock = arm
         arm()
     }
