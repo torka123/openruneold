@@ -1463,3 +1463,20 @@ and501 up-to-date. All applicable boss/shared suites, app compilation and archit
 pass. Manager1,932 lines (was1,997 after elemental step; original2,017). Frame timings/mechanics
 remain characterized, not newly OSRS-certified. No deployment in this step; live remains Cerberus.
 Paired Titan DSL phases/cadence and specialized handler extraction are still next.
+
+### Shared phase-clock target continuity regression
+
+The approved shared-framework scope includes target selection, multiplayer ownership and lifetime
+cleanup. Before wiring paired Titan deadlines, complete local searches of BossPhaseClock,
+BossEncounter.bindPhaseClock, all bind callers and runtime tests show a captured initial Player
+and an early return on subsequent bind calls. Native session departure can therefore cancel the
+clock even while a valid duo partner remains. Official upstream has no BossPhaseClock at the
+pinned reference; this is a defect in the already approved LOCAL migration extension, not an
+official API claim or a request for a second scheduler. No suitable retarget operation exists.
+
+Repair the existing internal bind operation to cancel only its old owned deadline, replace the
+target/lifetime closure and rearm from unchanged phaseEnteredTick. Keep encounter identity,
+unrelated scheduled work, phase counters and timing. No new public API or boss-specific DSL
+concept is required. Tests must fail on current code for target replacement, then prove same-tick
+multiple binds execute one entry, old-target departure does not cancel the new target, and current
+target/actor teardown still cancels. Re-run shared boss, Cerberus and all other migrated suites.

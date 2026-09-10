@@ -173,6 +173,10 @@ cross-room claim denial and SQL retry coverage. Focused check/cache/shared suite
 passes in `royal-titans-native-lifecycle-broad-20260910.log` (46s/505tasks).
 This checkpoint is source-only, not live. Continue paired Titan combat phases/cadence and
 specialized handler extraction; do not repeat the completed elemental/session work.
+Backup: `backup/royal-titans-native-lifecycle-20260910` at `779fad05e`.
+ZIP `logs/royal-titans-native-lifecycle-20260910.zip`, SHA256
+`4C53022AEB9887F50BEAD7445BFA47F9CE8227CFB0B93F090880896FFCBB448E`.
+Source-only archive validation: 7,442 entries, zero excluded-path violations.
 
 1. Collect user client-test feedback. Backup, local deployment, two gameplay checkpoint restarts,
    persistent fingerprints and the corrected75-assertion live Vorkath audit are complete. Do not

@@ -61,6 +61,51 @@ class BossRuntimeRegressionTest {
         )
 
     @Test
+    fun `phase clock target replacement retains deadline and unrelated work after old target leaves`() {
+        val f = timedFixture()
+        f.armPhaseClock()
+        var hazard = false
+        f.encounter.scheduleAt(f.deps.worldQueues, f.clock, 110) { hazard = true }
+        f.tick(2)
+        val partner = f.partner()
+        f.player.pendingLogout = true
+        f.bindPhaseClock(partner)
+        assertEquals(100, f.encounter.phaseEnteredTick)
+        assertEquals(2, f.deps.worldQueues.size)
+        f.tick(2)
+        assertEquals(listOf(104 to "arrived"), f.speech)
+        f.tick(6)
+        assertTrue(hazard)
+        assertEquals(0, f.deps.worldQueues.size)
+    }
+
+    @Test
+    fun `repeated phase clock binding keeps a single deadline and entry`() {
+        val f = timedFixture()
+        f.armPhaseClock()
+        f.tick(2)
+        repeat(5) { f.bindPhaseClock() }
+        assertEquals(1, f.deps.worldQueues.size)
+        f.tick(4)
+        assertEquals(listOf(104 to "arrived"), f.speech)
+        assertEquals(0, f.deps.worldQueues.size)
+    }
+
+    @Test
+    fun `rebound clock observes new target departure rather than the still present old target`() {
+        val f = timedFixture()
+        f.armPhaseClock()
+        val partner = f.partner()
+        f.tick(2)
+        f.bindPhaseClock(partner)
+        partner.pendingLogout = true
+        f.tick(4)
+        assertTrue(f.speech.isEmpty())
+        assertEquals(0, f.deps.worldQueues.size)
+        assertEquals("main", f.encounter.currentPhaseName)
+    }
+
+    @Test
     fun `phase replacement removes old deadline but retains unrelated encounter work`() {
         val f = timedFixture()
         f.armPhaseClock()
@@ -1288,6 +1333,20 @@ class BossRuntimeRegressionTest {
 
         fun armPhaseClock() {
             encounter.transitionTo("main", clock.cycle)
+            bindPhaseClock()
+        }
+
+        fun partner(): Player = Player().apply {
+            slotId = 2
+            uuid = 2L
+            assignUid()
+            coords = player.coords
+            statMap.setBaseLevel("stat.hitpoints", 99)
+            statMap.setCurrentLevel("stat.hitpoints", 99)
+            players[2] = this
+        }
+
+        fun bindPhaseClock(target: Player = player) {
             val events = EventBus()
             val factory =
                 mock(StandardNpcAccessContextFactory::class.java) { call ->
@@ -1299,7 +1358,7 @@ class BossRuntimeRegressionTest {
                         )
                     else Answers.RETURNS_DEFAULTS.answer(call)
                 }
-            BossPhaseClock(deps, StandardNpcAccessLauncher(factory)).bind(npc, player)
+            BossPhaseClock(deps, StandardNpcAccessLauncher(factory)).bind(npc, target)
         }
 
         fun access(coroutine: GameCoroutine, events: EventBus): StandardNpcAccess =
