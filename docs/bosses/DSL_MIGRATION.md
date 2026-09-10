@@ -1565,3 +1565,41 @@ scoped module check, shared boss/instance and3 cache cases pass,1m2s/206tasks. B
 `royal-titans-platform-dsl-broad-20260910.log`:28s/505tasks,4 executed501up-to-date; applicable
 boss/shared suites, app classes and architecture enforcement pass. Manager1,913 lines: phase
 authority changed, not a claim of major handler extraction yet. Source-only, no deployment.
+
+### Royal Titans focused handler extraction mapping
+
+Continue the approved specialized-handler separation without adding shared APIs. Move typed
+session Run data to RoyalTitansRun; keep SQL retry ownership in the completion coordinator.
+RoyalTitansDefinitions retains the same revision-240 lookup/validation functions. A small
+RoyalTitansArena adapter composes existing InstanceManager coordinate/member queries,
+NpcRepository add/del plus native instance attachment, and scoped native hazard hits. It has
+no scheduler, combat selector, private membership, persistence or teardown authority.
+RoyalTitansWalls owns only wall geometry/presentation/removal and its existing run-owned pending
+hazards. Ordinary phase scheduling remains in BossSpec/BossPhaseClock. Subsequent elemental
+and Blast geometry handlers reuse that same arena adapter, not copied native workflows.
+
+Preserve exact existing body-model, animation, loc/hitbox ordering, sound delays, target selection,
+scope and packet behavior. The123 executable encounter tests (including wall casts/autocasts,
+movement/collision, duo, hit lifetimes and cleanup) characterize this extraction. Do not change
+drop policy, PostgreSQL schemas, cache authority or unresolved mechanics during file separation.
+
+Platform route selection/arrival is the next focused handler: RoyalTitansPlatforms consumes the
+existing native phase identity and calls RouteFactory/Npc.walk; it owns no cooldown or phase clock.
+Its arrival guard queries native instance ownership through RoyalTitansArena, retaining the same
+run-generation/stage guard. Landing telegraphs, floor locations and footprint blockers move to
+RoyalTitansLandings with the same native loc repository and telejump calls. The existing landing
+damage/knockback policy is preserved, not newly certified. Paired transition ordering remains with
+the pair coordinator until its deadline ownership is reviewed. No new shared API is needed.
+
+Extraction results: coordinator1,913 ->864 lines; Arena129, Definitions28, session Run86,
+Walls177, Elementals272, TileAttacks272, Platforms194 and Landings108. This is responsibility
+separation, not a claim that moving lines alone removes architecture debt. All123 existing
+encounter tests pass after each step: arena1m6s, walls1m11s, elementals1m4s, tile attacks1m6s,
+positioning1m1s (196tasks each). Initial arena extraction compile failures exposed incorrectly
+qualified calls and a shadowing local `arena` flag; corrected source before any deployment.
+`royal-titans-handlers-verified-20260910.log`: scoped formatter/check,123 module tests, shared
+boss/instance suites and3 cache audit cases pass,1m1s/206tasks (6executed200up-to-date).
+No reward/CA policy changes, no cache edits, no deployment and no new shared capability.
+Broader `royal-titans-handlers-broad-20260910.log` passes in28s/505tasks (4executed501up-to-date):
+all applicable boss/shared suites, server app classes and architecture enforcement. `git diff
+--check` passes. Unrelated dirty `.data` changes remain outside this source checkpoint.

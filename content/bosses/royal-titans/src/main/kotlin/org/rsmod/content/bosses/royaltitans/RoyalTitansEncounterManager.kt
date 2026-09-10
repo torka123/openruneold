@@ -7,7 +7,6 @@ import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
 import dev.openrune.types.MoveRestrict
 import dev.openrune.types.NpcMode
-import dev.openrune.types.aconverted.SpotanimType
 import dtx.core.ArgMap
 import dtx.core.RollResult
 import dtx.core.flatten
@@ -15,8 +14,6 @@ import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.sql.SQLException
 import java.util.UUID
-import kotlin.math.abs
-import kotlin.math.max
 import org.rsmod.api.bossbar.plugin.BossHpBarScript
 import org.rsmod.api.droptable.DropRollItem
 import org.rsmod.api.droptable.DropTableRegistry
@@ -26,46 +23,29 @@ import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.instances.InstanceSession
 import org.rsmod.api.instances.InstanceStateKey
 import org.rsmod.api.instances.RegionLocal
-import org.rsmod.api.npc.apPlayer2
-import org.rsmod.api.npc.hit.modifier.StandardNpcHitModifier
-import org.rsmod.api.npc.hit.queueHit
-import org.rsmod.api.npc.interact.AiPlayerInteractions
-import org.rsmod.api.npc.queueDeath
 import org.rsmod.api.player.combatClearQueue
-import org.rsmod.api.player.hit.modifier.NpcBypassProtectionPrayerPlayerHitModifier
-import org.rsmod.api.player.hit.modifier.StandardPlayerHitModifier
-import org.rsmod.api.player.hit.queueHit
 import org.rsmod.api.player.output.mes
-import org.rsmod.api.player.output.soundSynth
 import org.rsmod.api.player.stat.hitpoints
 import org.rsmod.api.player.vars.VarPlayerIntMapSetter
 import org.rsmod.api.random.GameRandom
-import org.rsmod.api.repo.loc.LocRepository
-import org.rsmod.api.repo.npc.NpcRepository
 import org.rsmod.api.repo.obj.ObjRepository
-import org.rsmod.api.repo.world.WorldRepository
-import org.rsmod.api.route.BoundValidator
-import org.rsmod.api.route.RouteFactory
+import org.rsmod.content.bosses.royaltitans.RoyalTitansDefinitions.anim
+import org.rsmod.content.bosses.royaltitans.RoyalTitansDefinitions.requireLoc
+import org.rsmod.content.bosses.royaltitans.RoyalTitansDefinitions.requireNpc
+import org.rsmod.content.bosses.royaltitans.RoyalTitansDefinitions.spot
+import org.rsmod.content.bosses.royaltitans.RoyalTitansRun as Run
+import org.rsmod.content.bosses.royaltitans.RoyalTitansRun.Participant
 import org.rsmod.content.skills.magic.spell.attacks.RoyalTitansWallSpells
 import org.rsmod.game.MapClock
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
-import org.rsmod.game.entity.player.PlayerUid
 import org.rsmod.game.entity.util.PathingEntityCommon
-import org.rsmod.game.headbar.Headbar
 import org.rsmod.game.hit.Hit
-import org.rsmod.game.hit.HitAttribution
 import org.rsmod.game.hit.HitBuilder
-import org.rsmod.game.hit.HitContext
-import org.rsmod.game.hit.HitOrigin
 import org.rsmod.game.hit.HitScope
 import org.rsmod.game.hit.HitType
 import org.rsmod.game.interact.InteractionNpc
-import org.rsmod.game.loc.LocAngle
-import org.rsmod.game.loc.LocInfo
-import org.rsmod.game.loc.LocShape
-import org.rsmod.map.CoordGrid
 import org.rsmod.map.util.Bounds
 import org.rsmod.routefinder.collision.CollisionFlagMap
 
@@ -75,27 +55,26 @@ internal class RoyalTitansEncounterManager
 constructor(
     private val clock: MapClock,
     private val instances: InstanceManager,
-    private val npcs: NpcRepository,
-    private val locs: LocRepository,
     private val objects: ObjRepository,
-    private val world: WorldRepository,
     private val collision: CollisionFlagMap,
     private val random: GameRandom,
-    private val interactions: AiPlayerInteractions,
     private val players: PlayerList,
     private val drops: DropTableRegistry,
     private val bossHpBar: BossHpBarScript,
-    private val npcHitModifier: StandardNpcHitModifier,
     private val statistics: RoyalTitansStatistics,
     private val phases: RoyalTitansPhaseProgram,
+    private val arena: RoyalTitansArena,
+    private val walls: RoyalTitansWalls,
+    private val elementals: RoyalTitansElementals,
+    private val tileAttacks: RoyalTitansTileAttacks,
+    private val platforms: RoyalTitansPlatforms,
+    private val landings: RoyalTitansLandings,
 ) {
     private val log = InlineLogger()
     private val RUN_STATE = InstanceStateKey<Run>("royal-titans-encounter")
     private val pendingDeaths = mutableMapOf<UUID, Pair<Int, UUID>>()
     // Retry ownership must outlive an empty/destroyed instance. This is not a durable outbox.
     private val pendingCompletions = mutableMapOf<UUID, PendingCompletion>()
-    private val routes = RouteFactory(collision)
-    private val bounds = BoundValidator(collision)
 
     fun validateAssets() {
         RoyalTitansAssets.npcIds.forEach(::requireNpc)
@@ -146,7 +125,7 @@ constructor(
             player.mes("Branda the Fire Queen and Eldric the Ice King turn toward the arena.")
             log.info { "[RoyalTitans] instance=${session.id} owner=${player.displayName}" }
         } else {
-            online(run).forEach {
+            arena.online(run).forEach {
                 it.mes("${player.displayName} joins the Royal Titans encounter.")
             }
         }
@@ -168,7 +147,8 @@ constructor(
         releaseParticipant(player, run)
         if (run.session.occupants.isEmpty()) retire(run)
         else
-            online(run)
+            arena
+                .online(run)
                 .firstOrNull { it.hitpoints > 0 }
                 ?.let { remaining ->
                     listOfNotNull(run.branda, run.eldric).forEach { phases.retarget(it, remaining) }
@@ -218,18 +198,18 @@ constructor(
     }
 
     private fun tick(run: Run) {
-        if (online(run).isEmpty()) return
-        expireWalls(run)
-        processPendingSummons(run)
-        processElementals(run)
-        processAreaAttack(run)
+        if (arena.online(run).isEmpty()) return
+        walls.expireWalls(run)
+        elementals.processPendingSummons(run)
+        elementals.processElementals(run)
+        tileAttacks.process(run)
         run.pendingRemovals
             .filterValues { clock.cycle >= it }
             .keys
             .toList()
             .forEach {
                 run.pendingRemovals.remove(it)
-                removeNpc(run, it)
+                arena.removeNpc(run, it)
             }
 
         if (
@@ -260,7 +240,7 @@ constructor(
     }
 
     private fun updateTargetHud(run: Run) {
-        online(run).forEach { player ->
+        arena.online(run).forEach { player ->
             val targeted =
                 (player.interaction as? InteractionNpc)?.target?.takeIf {
                     (it === run.branda || it === run.eldric) && it.hitpoints > 0
@@ -298,7 +278,7 @@ constructor(
         if (run.eldric == null && clock.cycle >= run.eldricSpawnCycle) {
             run.eldric = spawnTitan(run, RoyalTitansAssets.ELDRIC_ACTIVE, ROYAL_TITANS_ELDRIC_SPAWN)
         }
-        tickPhaseOneMovement(run)
+        platforms.tick(run)
         if (run.stageTick >= RoyalTitansRules.INTRO_TICKS) setStage(run, RoyalTitansStage.RANGED)
     }
 
@@ -312,274 +292,81 @@ constructor(
                 phases.movement(it).summonPending = true
             }
         }
-        tickPhaseOneMovement(run)
+        platforms.tick(run)
     }
 
     private fun tickMelee(run: Run) {
         tickRanged(run)
     }
 
-    private fun tickPhaseOneMovement(run: Run) {
-        val target = online(run).firstOrNull { it.hitpoints > 0 } ?: return
-        listOfNotNull(run.branda, run.eldric).forEach { titan ->
-            if (titan.hitpoints <= 0) return@forEach
-            phases.retarget(titan, target)
-            val movement = phases.movement(titan)
-            val element = if (titan === run.branda) RoyalElement.FIRE else RoyalElement.ICE
-            val outerX = if (element == RoyalElement.FIRE) 24 else 36
-            val innerX = if (element == RoyalElement.FIRE) 26 else 34
-            if (movement.phase == RoyalTitanMovementPhase.WALKING) {
-                if (movement.arrivalCycle == null) {
-                    if (
-                        !titan.movementLocked &&
-                            !titan.isBound &&
-                            titan.coords == titan.previousCoords
-                    ) {
-                        movement.destination?.let {
-                            walkTitan(run, titan, movement, it, movement.afterArrival)
-                        }
-                    }
-                }
-                return@forEach
-            }
-            if (movement.phase == RoyalTitanMovementPhase.ARRIVAL_READY)
-                movement.phase = movement.afterArrival
-            when (movement.phase) {
-                RoyalTitanMovementPhase.FACE_INWARD -> {
-                    titan.faceSquare(
-                        titan.coords.translate(if (element == RoyalElement.FIRE) 6 else -6, 0)
-                    )
-                    movement.phase = RoyalTitanMovementPhase.ARRIVAL_ACTION_WAIT
-                }
-                RoyalTitanMovementPhase.SPAWN,
-                RoyalTitanMovementPhase.TURN_OUTWARD -> {
-                    titan.clearInteraction()
-                    titan.mode = NpcMode.None
-                    titan.faceSquare(
-                        titan.coords.translate(if (element == RoyalElement.FIRE) -6 else 6, 0)
-                    )
-                    movement.rangedVulnerable = true
-                    movement.phase = RoyalTitanMovementPhase.RETREAT_WAIT
-                }
-                RoyalTitanMovementPhase.RETREAT ->
-                    walkTitan(
-                        run,
-                        titan,
-                        movement,
-                        local(run, outerX, localZ(run, titan.coords)),
-                        RoyalTitanMovementPhase.FIRST_EDGE_ACTION,
-                    )
-                RoyalTitanMovementPhase.FIRST_EDGE_ACTION -> {
-                    if (!consumeReadySummon(run, titan, movement, element))
-                        castWall(run, titan, element)
-                    movement.phase = RoyalTitanMovementPhase.PATROL_WAIT
-                }
-                RoyalTitanMovementPhase.PATROL -> {
-                    val row =
-                        RoyalTitansUnverifiedMovementSelection.patrolRow(
-                            localZ(run, titan.coords)
-                        ) {
-                            random.of(it)
-                        }
-                    walkTitan(
-                        run,
-                        titan,
-                        movement,
-                        local(run, outerX, row),
-                        RoyalTitanMovementPhase.SECOND_EDGE_ACTION,
-                    )
-                }
-                RoyalTitanMovementPhase.SECOND_EDGE_ACTION -> {
-                    if (!consumeReadySummon(run, titan, movement, element))
-                        castWall(run, titan, element)
-                    movement.phase = RoyalTitanMovementPhase.RETURN_WAIT
-                }
-                RoyalTitanMovementPhase.RETURN -> {
-                    val meleeTarget = targetFor(run, titan) ?: return@forEach
-                    val row =
-                        RoyalTitansUnverifiedMovementSelection.returnRow(
-                            localZ(run, meleeTarget.coords)
-                        ) {
-                            random.of(it)
-                        }
-                    // Snapshot at the turn: 2283 B1347/E1366 keep their route after the player
-                    // moves.
-                    movement.rangedVulnerable = false
-                    walkTitan(
-                        run,
-                        titan,
-                        movement,
-                        local(run, innerX, row),
-                        RoyalTitanMovementPhase.CLOSE_ACTION,
-                    )
-                }
-                RoyalTitanMovementPhase.CLOSE_ACTION,
-                RoyalTitanMovementPhase.CLOSE_SECOND,
-                RoyalTitanMovementPhase.CLOSE_THIRD -> {
-                    if (!consumeReadySummon(run, titan, movement, element))
-                        stomp(run, titan, element, false)
-                    movement.phase =
-                        when (movement.phase) {
-                            RoyalTitanMovementPhase.CLOSE_ACTION ->
-                                RoyalTitanMovementPhase.CLOSE_SECOND_WAIT
-                            RoyalTitanMovementPhase.CLOSE_SECOND ->
-                                RoyalTitanMovementPhase.CLOSE_THIRD_WAIT
-                            else -> RoyalTitanMovementPhase.TURN_WAIT
-                        }
-                }
-                else -> Unit
-            }
-        }
-    }
-
-    private fun consumeReadySummon(
-        run: Run,
-        titan: Npc,
-        movement: RoyalTitanMovement,
-        element: RoyalElement,
-    ): Boolean {
-        if (!movement.summonPending) return false
-        movement.summonPending = false
-        scheduleSummon(run, titan, element)
-        return true
-    }
-
-    private fun walkTitan(
-        run: Run,
-        titan: Npc,
-        movement: RoyalTitanMovement,
-        destination: CoordGrid,
-        afterArrival: RoyalTitanMovementPhase,
-    ) {
-        titan.clearInteraction()
-        titan.mode = NpcMode.None
-        titan.movementLocked = false
-        if (titan.coords == destination) {
-            movement.beginRoute(destination, afterArrival)
-            movement.arrive(titan.coords, clock.cycle)
-            return
-        }
-        val strategy = titan.collisionStrategy ?: return
-        val route = routes.create(titan.avatar, destination, strategy)
-        // A failed/partial route never advances a Titan's action clock or teleports it.
-        if (
-            !route.success ||
-                route.lastOrNull()?.let { CoordGrid(it.x, it.z, destination.level) } != destination
-        )
-            return
-        movement.beginRoute(destination, afterArrival)
-        val generation = run.generation
-        titan.walk(route.map { CoordGrid(it.x, it.z, destination.level) }) {
-            if (
-                run.generation == generation &&
-                    run(titan) === run &&
-                    run.stage in
-                        setOf(
-                            RoyalTitansStage.INTRO,
-                            RoyalTitansStage.RANGED,
-                            RoyalTitansStage.MELEE,
-                        )
-            ) {
-                movement.arrive(titan.coords, clock.cycle)
-            }
-        }
-    }
-
     private fun beginTransition(run: Run) {
         listOfNotNull(run.branda, run.eldric).forEach(phases::teleporting)
-        clearWalls(run)
-        clearElementals(run)
-        clearArenaFloors(run)
+        walls.clearWalls(run)
+        elementals.clearElementals(run)
+        landings.clearArenaFloors(run)
         setStage(run, RoyalTitansStage.TRANSITION)
         run.transitionStartCycle = clock.cycle
         run.branda?.apply {
             clearInteraction()
             movementLocked = true
-            anim(this@RoyalTitansEncounterManager.anim(RoyalTitansAssets.BRANDA_TELEPORT))
+            anim(RoyalTitansDefinitions.anim(RoyalTitansAssets.BRANDA_TELEPORT))
             spotanim(spot(RoyalTitansAssets.TELEPORT_GFX), slot = 2)
             say("Time to finish this!")
         }
-        landingTelegraph(run, RoyalElement.FIRE)
+        landings.landingTelegraph(run, RoyalElement.FIRE)
     }
 
     private fun tickTransition(run: Run) {
         when (clock.cycle - run.transitionStartCycle) {
             RoyalTitansRules.BRANDA_TRANSITION_TICKS -> {
                 run.branda?.let {
-                    PathingEntityCommon.telejump(it, collision, local(run, 30, 35))
+                    PathingEntityCommon.telejump(it, collision, arena.local(run, 30, 35))
                     it.moveRestrict = it.type.moveRestrict
                     it.anim(anim(RoyalTitansAssets.BRANDA_ARENA_SPAWN))
                     it.spotanim(spot(RoyalTitansAssets.BRANDA_SPAWN_GFX), slot = 2)
                     it.setBodyModels(listOf(RoyalTitansAssets.BRANDA_ARENA_BODY_MODEL))
-                    it.faceSquare(local(run, 31, 31))
+                    it.faceSquare(arena.local(run, 31, 31))
                     it.movementLocked = true
                 }
-                spawnBrandaArenaFloors(run)
-                resolveTitanLanding(run, RoyalElement.FIRE)
+                landings.spawnBrandaArenaFloors(run)
+                landings.resolveTitanLanding(run, RoyalElement.FIRE)
             }
             RoyalTitansRules.ELDRIC_TRANSITION_CAST_TICK -> {
                 run.eldric?.apply {
                     clearInteraction()
                     movementLocked = true
-                    anim(this@RoyalTitansEncounterManager.anim(RoyalTitansAssets.ELDRIC_TELEPORT))
+                    anim(RoyalTitansDefinitions.anim(RoyalTitansAssets.ELDRIC_TELEPORT))
                     say("This is no game anymore!")
                 }
-                landingTelegraph(run, RoyalElement.ICE)
+                landings.landingTelegraph(run, RoyalElement.ICE)
             }
             RoyalTitansRules.ELDRIC_TRANSITION_TICKS -> {
                 run.eldric?.let {
-                    PathingEntityCommon.telejump(it, collision, local(run, 30, 25))
+                    PathingEntityCommon.telejump(it, collision, arena.local(run, 30, 25))
                     it.moveRestrict = it.type.moveRestrict
                     it.anim(anim(RoyalTitansAssets.ELDRIC_ARENA_SPAWN))
                     it.setBodyModels(listOf(RoyalTitansAssets.ELDRIC_ARENA_BODY_MODEL))
-                    it.faceSquare(local(run, 30, 30))
+                    it.faceSquare(arena.local(run, 30, 30))
                     it.movementLocked = true
                 }
-                spawnEldricArenaFloors(run)
-                resolveTitanLanding(run, RoyalElement.ICE)
+                landings.spawnEldricArenaFloors(run)
+                landings.resolveTitanLanding(run, RoyalElement.ICE)
                 setStage(run, RoyalTitansStage.ARENA)
             }
         }
     }
 
-    private fun landingTelegraph(run: Run, element: RoyalElement) {
-        val row = if (element == RoyalElement.FIRE) 35 else 25
-        val gfx =
-            if (element == RoyalElement.FIRE) RoyalTitansAssets.FIRE_WALL_ACTIVE_GFX
-            else RoyalTitansAssets.ICE_WALL_ACTIVE_GFX
-        // 2283 T1555/T1559: the visual is5x3, the eventual occupied footprint is3x3.
-        for (z in row..row + 2) for (x in 29..33) {
-            world.spotanimMap(SpotanimType(gfx), local(run, x, z))
-        }
-    }
-
-    private fun resolveTitanLanding(run: Run, element: RoyalElement) {
-        online(run).forEach { player ->
-            if (inTitanLanding(run, player.coords, element)) {
-                hit(
-                    run,
-                    player,
-                    random.of(16) + 15,
-                    HitType.Typeless,
-                    bypassPrayer = true,
-                    mechanic = "royal_titans.landing",
-                )
-                PathingEntityCommon.telejump(player, collision, local(run, 31, 30))
-            }
-        }
-    }
-
     private fun tickArena(run: Run) {
-        val target = online(run).firstOrNull { it.hitpoints > 0 } ?: return
+        val target = arena.online(run).firstOrNull { it.hitpoints > 0 } ?: return
         // The native per-actor phase clock owns readiness. Consume only presentation here,
         // after existing hazards, preserving pre-input/LateCycle order and paired Blast geometry.
         for ((npc, element) in
             listOf(run.branda to RoyalElement.FIRE, run.eldric to RoyalElement.ICE)) {
             if (npc == null || npc.hitpoints <= 0) continue
             when (phases.consume(npc, target, clock.cycle - run.stageTick - 1)) {
-                RoyalTitansArenaAction.CHARGE -> startAreaAttack(run)
-                RoyalTitansArenaAction.SUMMON -> scheduleSummon(run, npc, element)
-                RoyalTitansArenaAction.STOMP -> stomp(run, npc, element, true)
+                RoyalTitansArenaAction.CHARGE -> tileAttacks.start(run)
+                RoyalTitansArenaAction.SUMMON -> elementals.scheduleSummon(run, npc, element)
+                RoyalTitansArenaAction.STOMP -> tileAttacks.stomp(run, npc, element, true)
                 null -> Unit
             }
         }
@@ -600,539 +387,15 @@ constructor(
                     )
                     if (element == RoyalElement.FIRE)
                         corpse.spotanim(spot(RoyalTitansAssets.BRANDA_DEATH_GFX), slot = 2)
-                    replaceArenaFloors(run, element)
+                    landings.replaceArenaFloors(run, element)
                 }
             26 -> {
-                run.corpses.keys.toList().forEach { removeNpc(run, it) }
-                clearArenaFloors(run)
+                run.corpses.keys.toList().forEach { arena.removeNpc(run, it) }
+                landings.clearArenaFloors(run)
             }
             29 -> reset(run)
         }
     }
-
-    private fun castWall(run: Run, titan: Npc, element: RoyalElement) {
-        val target = online(run).minByOrNull { distance(it.coords, titan.coords) } ?: return
-        titan.faceSquare(target.coords)
-        titan.anim(
-            anim(
-                if (element == RoyalElement.FIRE) RoyalTitansAssets.BRANDA_WALL_CAST
-                else RoyalTitansAssets.ELDRIC_WALL_CAST
-            )
-        )
-        titan.spotanim(spot(RoyalTitansAssets.WALL_CAST_GFX))
-        val row = localZ(run, target.coords).coerceIn(27, 34)
-        (0..4).forEach { index ->
-            val tile = local(run, 29 + index, row)
-            world.spotanimMap(
-                SpotanimType(
-                    if (element == RoyalElement.FIRE) RoyalTitansAssets.FIRE_WALL_START_GFX
-                    else RoyalTitansAssets.ICE_WALL_START_GFX
-                ),
-                tile,
-            )
-            world.soundArea(
-                tile,
-                if (element == RoyalElement.FIRE) RoyalTitansAssets.FIRE_WALL_FORM_SOUND
-                else RoyalTitansAssets.ICE_WALL_FORM_SOUND,
-                delay = 5,
-                radius = 1,
-            )
-            world.soundArea(
-                tile,
-                if (element == RoyalElement.FIRE) RoyalTitansAssets.FIRE_WALL_ACTIVE_SOUND
-                else RoyalTitansAssets.ICE_WALL_ACTIVE_SOUND,
-                delay = if (element == RoyalElement.FIRE) 120 else 122,
-                radius = 1,
-            )
-        }
-        run.pendingWalls +=
-            PendingWall(clock.cycle + RoyalTitansRules.WALL_TELEGRAPH_TICKS, element, row)
-    }
-
-    private fun formWall(run: Run, pending: PendingWall) {
-        (0..4).forEach { index ->
-            val tile = local(run, 29 + index, pending.row)
-            val occupant = online(run).firstOrNull { it.coords == tile }
-            if (occupant != null) {
-                hit(
-                    run,
-                    occupant,
-                    random.of(RoyalTitansRules.WALL_MAX_HIT + 1),
-                    HitType.Typeless,
-                    bypassPrayer = true,
-                    mechanic = "royal_titans.wall_formation",
-                )
-                return@forEach
-            }
-            run.elementals.entries
-                .filter { it.key.coords == tile && it.value.element != pending.element }
-                .map { it.key }
-                .forEach { it.queueDeath() }
-            val loc =
-                locs.add(
-                    tile,
-                    requireLoc(
-                        if (pending.element == RoyalElement.FIRE) RoyalTitansAssets.FIRE_WALL
-                        else RoyalTitansAssets.ICE_WALL
-                    ),
-                    Int.MAX_VALUE,
-                    LocAngle.West,
-                    LocShape.CentrepieceStraight,
-                )
-            val hitbox =
-                spawnNpc(
-                    run,
-                    if (pending.element == RoyalElement.FIRE) RoyalTitansAssets.FIRE_WALL_HITBOX
-                    else RoyalTitansAssets.ICE_WALL_HITBOX,
-                    tile,
-                    hitpoints = 1,
-                    movementLocked = true,
-                )
-            run.walls +=
-                WallSegment(
-                    pending.element,
-                    pending.row,
-                    index,
-                    loc,
-                    hitbox,
-                    clock.cycle + RoyalTitansRules.WALL_LIFETIME_TICKS,
-                )
-            world.spotanimMap(
-                SpotanimType(
-                    if (pending.element == RoyalElement.FIRE) RoyalTitansAssets.FIRE_WALL_ACTIVE_GFX
-                    else RoyalTitansAssets.ICE_WALL_ACTIVE_GFX
-                ),
-                tile,
-            )
-        }
-    }
-
-    private fun expireWalls(run: Run) {
-        val pending = run.pendingWalls.iterator()
-        while (pending.hasNext()) {
-            val wall = pending.next()
-            if (clock.cycle < wall.formCycle) continue
-            pending.remove()
-            formWall(run, wall)
-        }
-        run.walls.filter { clock.cycle >= it.expireCycle }.toList().forEach { clearWall(run, it) }
-    }
-
-    private fun clearWallTriplet(run: Run, wall: WallSegment) {
-        run.walls
-            .filter {
-                it.element == wall.element &&
-                    it.row == wall.row &&
-                    it.index in RoyalTitansRules.removedWallIndices(wall.index)
-            }
-            .sortedBy { if (it.index == wall.index) 0 else if (it.index < wall.index) 1 else 2 }
-            .toList()
-            .forEach { clearWall(run, it, playerRemoved = true) }
-    }
-
-    private fun clearWall(run: Run, wall: WallSegment, playerRemoved: Boolean = false) {
-        if (!run.walls.remove(wall)) return
-        locs.del(wall.loc, Int.MAX_VALUE)
-        removeNpc(run, wall.hitbox)
-        world.spotanimMap(
-            SpotanimType(
-                if (wall.element == RoyalElement.FIRE) RoyalTitansAssets.FIRE_WALL_END_GFX
-                else RoyalTitansAssets.ICE_WALL_END_GFX
-            ),
-            wall.loc.coords,
-        )
-        if (playerRemoved) return
-        world.soundArea(
-            wall.loc.coords,
-            if (wall.element == RoyalElement.FIRE) RoyalTitansAssets.FIRE_WALL_BREAK_SOUND
-            else RoyalTitansAssets.ICE_WALL_BREAK_SOUND,
-            delay = if (wall.element == RoyalElement.FIRE) 0 else 4,
-            radius = 1,
-        )
-    }
-
-    private fun scheduleSummon(run: Run, titan: Npc, element: RoyalElement) {
-        titan.anim(
-            anim(
-                if (element == RoyalElement.FIRE) RoyalTitansAssets.BRANDA_SUMMON
-                else RoyalTitansAssets.ELDRIC_SUMMON
-            )
-        )
-        if (element == RoyalElement.FIRE)
-            titan.spotanim(spot(RoyalTitansAssets.ELEMENTAL_SUMMON_GFX), slot = 2)
-        run.pendingSummons +=
-            PendingSummon(clock.cycle + RoyalTitansRules.SUMMON_DELAY_TICKS, element, titan)
-    }
-
-    private fun processPendingSummons(run: Run) {
-        val iterator = run.pendingSummons.iterator()
-        while (iterator.hasNext()) {
-            val summon = iterator.next()
-            if (clock.cycle < summon.spawnCycle) continue
-            iterator.remove()
-            if (summon.titan !== run.branda && summon.titan !== run.eldric) continue
-            if (summon.titan.hitpoints <= 0) continue
-            val arena =
-                run.stage in
-                    setOf(
-                        RoyalTitansStage.ARENA,
-                        RoyalTitansStage.FINAL_BRANDA,
-                        RoyalTitansStage.FINAL_ELDRIC,
-                    )
-            val (packX, baseZ) =
-                RoyalTitansUnverifiedMovementSelection.packStart(summon.element, arena) {
-                    random.of(it)
-                }
-            val packTarget = targetFor(run, summon.titan)
-            for (offset in 0..2) {
-                val npc =
-                    spawnNpc(
-                        run,
-                        if (summon.element == RoyalElement.FIRE) RoyalTitansAssets.FIRE_ELEMENTAL
-                        else RoyalTitansAssets.ICE_ELEMENTAL,
-                        local(run, packX, baseZ + offset),
-                        hitpoints = RoyalTitansRules.ELEMENTAL_HITPOINTS,
-                    )
-                npc.anim(
-                    anim(
-                        if (summon.element == RoyalElement.FIRE)
-                            RoyalTitansAssets.FIRE_ELEMENTAL_SPAWN
-                        else RoyalTitansAssets.ICE_ELEMENTAL_SPAWN
-                    )
-                )
-                npc.spotanim(
-                    spot(
-                        if (summon.element == RoyalElement.FIRE)
-                            RoyalTitansAssets.FIRE_ELEMENTAL_SPAWN_GFX
-                        else RoyalTitansAssets.ICE_ELEMENTAL_SPAWN_GFX
-                    ),
-                    slot = 2,
-                )
-                run.elementals[npc] =
-                    ElementalState(
-                        summon.element,
-                        clock.cycle + RoyalTitansRules.ELEMENTAL_LIFETIME_TICKS,
-                        packTarget?.uid,
-                    )
-                packTarget?.let { npc.apPlayer2(it, interactions) }
-            }
-            online(run).forEach {
-                it.mes(
-                    if (summon.element == RoyalElement.FIRE) "Branda summons fire elementals!"
-                    else "Eldric summons ice elementals!"
-                )
-            }
-            world.soundArea(
-                local(run, packX, baseZ),
-                if (summon.element == RoyalElement.FIRE)
-                    RoyalTitansAssets.FIRE_ELEMENTAL_SPAWN_SOUND
-                else RoyalTitansAssets.ICE_ELEMENTAL_SPAWN_SOUND,
-            )
-        }
-    }
-
-    private fun processElementals(run: Run) {
-        run.elementals.toMap().forEach { (npc, state) ->
-            if (!npc.isSlotAssigned || npc.hitpoints <= 0) return@forEach
-            if (clock.cycle >= state.explodeCycle) {
-                state.exploding = true
-                npc.anim(
-                    anim(
-                        if (state.element == RoyalElement.FIRE)
-                            RoyalTitansAssets.FIRE_ELEMENTAL_EXPLODE
-                        else RoyalTitansAssets.ICE_ELEMENTAL_EXPLODE
-                    )
-                )
-                world.spotanimMap(
-                    SpotanimType(
-                        if (state.element == RoyalElement.FIRE)
-                            RoyalTitansAssets.FIRE_ELEMENTAL_EXPLOSION_GFX
-                        else RoyalTitansAssets.ICE_ELEMENTAL_EXPLOSION_GFX
-                    ),
-                    npc.coords,
-                )
-                online(run)
-                    .filter { distance(it.coords, npc.coords) <= 1 }
-                    .forEach {
-                        hit(
-                            run,
-                            it,
-                            8 + random.of(3),
-                            HitType.Typeless,
-                            bypassPrayer = true,
-                            source = npc,
-                            mechanic = "royal_titans.elemental_explosion",
-                        )
-                    }
-                npc.queueDeath()
-            } else {
-                val retained =
-                    state.target?.resolve(players)?.takeIf {
-                        isPresent(run, it) && it.hitpoints > 0
-                    }
-                val target = retained ?: targetFor(run, npc)
-                state.target = target?.uid
-                if (target == null) {
-                    npc.clearInteraction()
-                    npc.resetMovement()
-                    npc.mode = NpcMode.None
-                } else if (
-                    bounds.touches(npc.avatar, target.avatar) ||
-                        bounds.collides(npc.avatar, target.avatar)
-                ) {
-                    if (
-                        (npc.interaction as? org.rsmod.game.interact.InteractionPlayer)?.target !=
-                            target
-                    ) {
-                        npc.apPlayer2(target, interactions)
-                    }
-                    state.routeTarget = null
-                } else if (
-                    state.routeTarget != target.coords ||
-                        npc.routeDestination.isEmpty() ||
-                        npc.mode != NpcMode.None ||
-                        (!npc.movementLocked && !npc.isBound && npc.coords == npc.previousCoords)
-                ) {
-                    // Keep native attack/reach processing when adjacent. For travel feed the
-                    // shared pathfinder's full route to native movement, including wall detours.
-                    npc.clearInteraction()
-                    npc.mode = NpcMode.None
-                    npc.facePlayer(target)
-                    val route = routes.create(npc.avatar, target.avatar)
-                    state.routeTarget = target.coords
-                    npc.walk(route.map { CoordGrid(it.x, it.z, it.level) })
-                }
-            }
-        }
-    }
-
-    private fun startAreaAttack(run: Run) {
-        if (run.areaAttack != null) return
-        val survivor =
-            when (run.stage) {
-                RoyalTitansStage.FINAL_BRANDA -> RoyalElement.FIRE
-                RoyalTitansStage.FINAL_ELDRIC -> RoyalElement.ICE
-                else -> null
-            }
-        val (safeX, safeZ) = RoyalTitansRules.safeTile(survivor) { random.of(it) }
-        val safeTile = local(run, safeX, safeZ)
-        val safeLoc =
-            locs.add(
-                safeTile,
-                requireLoc(RoyalTitansAssets.SAFE_TILE),
-                Int.MAX_VALUE,
-                LocAngle.West,
-                LocShape.GroundDecor,
-            )
-        val timer = spawnNpc(run, RoyalTitansAssets.AREA_TIMER, safeTile, 1, movementLocked = true)
-        val timerHeadbar =
-            requireNotNull(
-                ServerCacheManager.getHealthBar(
-                    RSCM.run { RoyalTitansAssets.AREA_TIMER_HEADBAR.asRSCM(RSCMType.HEADBAR) }
-                )
-            )
-        timer.showHeadbar(
-            Headbar.fromNoSource(
-                self = timerHeadbar.id,
-                public = timerHeadbar.id,
-                startFill = 0,
-                endFill = timerHeadbar.segments.coerceIn(1, 255),
-                startTime = 0,
-                endTime = 210,
-            )
-        )
-        run.branda
-            ?.takeIf { it.hitpoints > 0 }
-            ?.apply {
-                anim(this@RoyalTitansEncounterManager.anim(RoyalTitansAssets.BRANDA_AREA_CHARGE))
-                spotanim(spot(RoyalTitansAssets.AREA_CHARGE_GFX))
-            }
-        run.eldric
-            ?.takeIf { it.hitpoints > 0 }
-            ?.apply {
-                anim(this@RoyalTitansEncounterManager.anim(RoyalTitansAssets.ELDRIC_AREA_CHARGE))
-            }
-        val executeCycle = clock.cycle + RoyalTitansRules.AREA_CHARGE_TICKS
-        listOfNotNull(run.branda, run.eldric).forEach {
-            it.clearInteraction()
-            it.actionDelay = executeCycle + 6
-        }
-        run.areaAttack = AreaAttack(safeX, safeZ, executeCycle, safeLoc, timer, survivor)
-    }
-
-    private fun processAreaAttack(run: Run) {
-        val attack = run.areaAttack ?: return
-        val elapsed = clock.cycle - attack.impactCycle
-        if (elapsed < 0) return
-        if (elapsed == 0) {
-            run.branda
-                ?.takeIf { it.hitpoints > 0 }
-                ?.apply {
-                    anim(
-                        this@RoyalTitansEncounterManager.anim(RoyalTitansAssets.BRANDA_AREA_EXECUTE)
-                    )
-                    spotanim(spot(RoyalTitansAssets.AREA_EXECUTE_GFX))
-                }
-            run.eldric
-                ?.takeIf { it.hitpoints > 0 }
-                ?.anim(anim(RoyalTitansAssets.ELDRIC_AREA_EXECUTE))
-            // 2283 T1576/L24471-24473: one synth per pulse per viewer, not area sounds.
-            online(run).forEach { player ->
-                for (delay in listOf(28, 88, 148)) {
-                    player.soundSynth(RoyalTitansAssets.AREA_PULSE_SOUND, loops = 1, delay = delay)
-                }
-            }
-            return
-        }
-        if (elapsed == 7) {
-            endAreaAttack(run, attack)
-            return
-        }
-        if (elapsed !in setOf(1, 3, 5)) return
-        if (elapsed == 1) removeAreaTimer(run, attack)
-        for (z in 28..34) {
-            for (x in 29..33) {
-                if (RoyalTitansRules.isSafeTile(x, z, attack.safeX, attack.safeZ)) continue
-                val element = areaElement(run, attack, x, z) ?: continue
-                world.spotanimMap(
-                    SpotanimType(
-                        if (element == RoyalElement.FIRE) RoyalTitansAssets.FIRE_AREA_PROJECTILE
-                        else RoyalTitansAssets.ICE_AREA_PROJECTILE
-                    ),
-                    local(run, x, z),
-                )
-                // 2283 T1613: fire coverage kills every stacked ice elemental on the tile.
-                run.elementals.entries
-                    .filter { it.key.coords == local(run, x, z) && it.value.element != element }
-                    .map { it.key }
-                    .forEach { it.queueDeath() }
-            }
-        }
-        online(run)
-            .filter {
-                inArena(run, it.coords) &&
-                    areaElement(run, attack, localX(run, it.coords), localZ(run, it.coords)) != null
-            }
-            .forEach {
-                hit(
-                    run,
-                    it,
-                    random.of(RoyalTitansRules.AREA_MAX_HIT + 1),
-                    HitType.Typeless,
-                    bypassPrayer = true,
-                    mechanic = "royal_titans.elemental_blast",
-                )
-            }
-    }
-
-    private fun removeAreaTimer(run: Run, attack: AreaAttack) {
-        if (!attack.timer.isSlotAssigned) return
-        removeNpc(run, attack.timer)
-    }
-
-    private fun areaElement(run: Run, attack: AreaAttack, x: Int, z: Int): RoyalElement? {
-        if (RoyalTitansRules.isSafeTile(x, z, attack.safeX, attack.safeZ)) return null
-        val element =
-            attack.survivor
-                ?: if (z > attack.safeZ || (z == attack.safeZ && x > attack.safeX))
-                    RoyalElement.FIRE
-                else RoyalElement.ICE
-        return element.takeIf {
-            (if (it == RoyalElement.FIRE) run.branda else run.eldric)?.hitpoints?.let { hp ->
-                hp > 0
-            } == true
-        }
-    }
-
-    private fun endAreaAttack(run: Run, attack: AreaAttack) {
-        if (run.areaAttack !== attack) return
-        locs.del(attack.safeLoc, Int.MAX_VALUE)
-        removeAreaTimer(run, attack)
-        run.areaAttack = null
-        run.rangedGrace = RoyalTitansRules.AREA_GRACE_TICKS
-    }
-
-    private fun stomp(
-        run: Run,
-        titan: Npc,
-        element: RoyalElement,
-        arenaWide: Boolean =
-            run.stage in
-                setOf(
-                    RoyalTitansStage.ARENA,
-                    RoyalTitansStage.FINAL_BRANDA,
-                    RoyalTitansStage.FINAL_ELDRIC,
-                ),
-    ) {
-        titan.anim(
-            anim(
-                if (element == RoyalElement.FIRE) RoyalTitansAssets.BRANDA_STOMP
-                else RoyalTitansAssets.ELDRIC_STOMP
-            )
-        )
-        world.soundArea(
-            titan.coords,
-            if (element == RoyalElement.FIRE) RoyalTitansAssets.BRANDA_STOMP_SOUND
-            else RoyalTitansAssets.ELDRIC_STOMP_SOUND,
-        )
-        val tiles = stompTiles(run, titan, element, arenaWide)
-        tiles.forEach { tile ->
-            val column =
-                if (arenaWide) {
-                    if (element == RoyalElement.FIRE) tiles.maxOf { it.z } - tile.z
-                    else tile.z - tiles.minOf { it.z }
-                } else {
-                    if (element == RoyalElement.FIRE) tile.x - tiles.minOf { it.x }
-                    else tiles.maxOf { it.x } - tile.x
-                }
-            world.spotanimMap(
-                SpotanimType(RoyalTitansAssets.STOMP_TILE_GFX),
-                tile,
-                delay = column * 2,
-            )
-        }
-        world.soundArea(
-            titan.coords,
-            if (element == RoyalElement.FIRE) RoyalTitansAssets.BRANDA_STOMP_IMPACT_SOUND
-            else RoyalTitansAssets.ELDRIC_STOMP_IMPACT_SOUND,
-            delay = 1,
-        )
-        val final = run.branda == null || run.eldric == null
-        online(run)
-            .filter { it.coords in tiles }
-            .forEach { player ->
-                val protected = player.vars["varbit.prayer_protectfrommelee"] == 1
-                val roll = random.of(RoyalTitansRules.STOMP_MAX_HIT + 1)
-                val damage =
-                    if (!final && protected) 0
-                    else RoyalTitansRules.finalStompDamage(roll, protected)
-                hit(
-                    run,
-                    player,
-                    damage,
-                    HitType.Melee,
-                    bypassPrayer = true,
-                    source = titan,
-                    mechanic = "royal_titans.stomp",
-                )
-            }
-    }
-
-    private fun stompTiles(
-        run: Run,
-        titan: Npc,
-        element: RoyalElement,
-        arenaWide: Boolean,
-    ): List<CoordGrid> =
-        if (arenaWide) {
-            (29..33).flatMap { x -> (28..34).map { z -> local(run, x, z) } }
-        } else {
-            val zRange = titan.coords.z..(titan.coords.z + 2)
-            val xRange =
-                if (element == RoyalElement.FIRE) (titan.coords.x + 3)..(titan.coords.x + 7)
-                else (titan.coords.x - 5)..(titan.coords.x - 1)
-            xRange.flatMap { x -> zRange.map { z -> CoordGrid(x, z, titan.coords.level) } }
-        }
 
     fun canAttackTitan(npc: Npc, target: Player): Boolean =
         run(npc)?.let { run ->
@@ -1179,7 +442,7 @@ constructor(
                 // Damage comes from the native spell calculation. Special accuracy must be
                 // resolved by the spell content before presentation, never rerolled here.
                 if (hit.damage > 0)
-                    splashElementals(run, player, npc, elemental.element, hit.damage)
+                    elementals.splashElementals(run, player, npc, elemental.element, hit.damage)
             }
             return
         }
@@ -1206,7 +469,9 @@ constructor(
 
     fun canCastOnWall(player: Player, npc: Npc): Boolean {
         val run = run(npc) ?: return false
-        return npc.isSlotAssigned && isPresent(run, player) && run.walls.any { it.hitbox === npc }
+        return npc.isSlotAssigned &&
+            arena.isPresent(run, player) &&
+            run.walls.any { it.hitbox === npc }
     }
 
     /** Called by the wall's native hit queue at projectile impact, not the launch-time modifier. */
@@ -1218,7 +483,7 @@ constructor(
         val spell = hit.secondaryType() ?: return
         if (!RoyalTitansWallSpells.accepts(npc.visType.id, spell.internalName)) return
         val wall = run.walls.firstOrNull { it.hitbox === npc } ?: return
-        clearWallTriplet(run, wall)
+        walls.clearWallTriplet(run, wall)
     }
 
     /** The native impact event is emitted after HP capping/subtraction, before death execution. */
@@ -1226,43 +491,10 @@ constructor(
         val run = run(npc) ?: return
         if (!hit.isFromPlayer || hit.damage <= 0) return
         val player = hit.resolvePlayerSource(players) ?: return
-        if (!isPresent(run, player)) return
+        if (!arena.isPresent(run, player)) return
         if (npc in run.elementals) {
-            if (npc.hitpoints == 0) onElementalKilled(run, player, npc)
+            if (npc.hitpoints == 0) elementals.onElementalKilled(run, player, npc)
         }
-    }
-
-    private fun onElementalKilled(run: Run, player: Player, npc: Npc) {
-        if (!run.creditedElementalKills.add(npc) || !isPresent(run, player)) return
-        player.actionDelay =
-            clock.cycle +
-                RoyalTitansRules.elementalKillAttackDelay(player.actionDelay - clock.cycle)
-    }
-
-    private fun splashElementals(
-        run: Run,
-        player: Player,
-        primary: Npc,
-        element: RoyalElement,
-        damage: Int,
-    ) {
-        if (damage <= 0) return
-        run.elementals.entries
-            .filter {
-                it.key !== primary &&
-                    it.value.element == element &&
-                    distance(it.key.coords, primary.coords) <= 1
-            }
-            .forEach { (npc, _) ->
-                val splash = damage.coerceAtMost(npc.hitpoints)
-                npc.queueHit(
-                    source = player,
-                    delay = RoyalTitansRules.ELEMENTAL_SPLASH_HIT_DELAY_TICKS,
-                    type = HitType.Magic,
-                    damage = splash,
-                    modifier = npcHitModifier,
-                )
-            }
     }
 
     fun beginTitanDeath(npc: Npc): Run? {
@@ -1279,7 +511,7 @@ constructor(
     fun finishTitanDeath(npc: Npc) {
         val run = run(npc) ?: return
         if (!run.dyingTitans.remove(npc)) return
-        online(run).forEach { player ->
+        arena.online(run).forEach { player ->
             if (run.lastBossTarget[player.accountHash] === npc)
                 bossHpBar.onClose(player, npc, instant = true)
         }
@@ -1320,43 +552,15 @@ constructor(
     }
 
     fun finishElementalDeath(npc: Npc) {
-        val run = run(npc) ?: return
-        val state = run.elementals.remove(npc) ?: return
-        npc.clearInteraction()
-        npc.resetMovement()
-        npc.movementLocked = true
-        npc.hideAllOps()
-        if (state.exploding) {
-            run.pendingRemovals[npc] =
-                clock.cycle + if (state.element == RoyalElement.FIRE) 2 else 1
-            return
-        }
-        npc.anim(
-            anim(
-                if (state.element == RoyalElement.FIRE) RoyalTitansAssets.FIRE_ELEMENTAL_DEATH
-                else RoyalTitansAssets.ICE_ELEMENTAL_DEATH
-            )
-        )
-        npc.spotanim(
-            spot(
-                if (state.element == RoyalElement.FIRE) RoyalTitansAssets.FIRE_ELEMENTAL_DEATH_GFX
-                else RoyalTitansAssets.ICE_ELEMENTAL_DEATH_GFX
-            )
-        )
-        val sequence =
-            ServerCacheManager.getAnim(
-                if (state.element == RoyalElement.FIRE) RoyalTitansAssets.FIRE_ELEMENTAL_DEATH
-                else RoyalTitansAssets.ICE_ELEMENTAL_DEATH
-            )
-        run.pendingRemovals[npc] = clock.cycle + (sequence?.tickDuration ?: 1).coerceAtLeast(1)
+        run(npc)?.let { elementals.finishElementalDeath(it, npc) }
     }
 
     private fun complete(run: Run, lastTitan: Npc) {
         if (run.completion != null) return
         run.hitScope.invalidate()
         run.participants.values.forEach { it.hitScope.invalidate() }
-        clearWalls(run)
-        clearElementals(run)
+        walls.clearWalls(run)
+        elementals.clearElementals(run)
         setStage(run, RoyalTitansStage.COMPLETE)
         val duration =
             RoyalTitansTime.elapsed(requireNotNull(run.spawnCycles[lastTitan]), clock.cycle)
@@ -1364,7 +568,8 @@ constructor(
             RoyalTitansCompletion(
                 run.completionId,
                 duration,
-                online(run)
+                arena
+                    .online(run)
                     .filter { contribution(it) > 0 }
                     .map {
                         RoyalTitansFinisher(
@@ -1375,7 +580,7 @@ constructor(
                     }
                     .distinctBy { it.accountId },
             )
-        online(run).forEach {
+        arena.online(run).forEach {
             it.combatClearQueue()
             it.clearInteraction()
             run.lastBossTarget.remove(it.accountHash)?.let { target ->
@@ -1457,7 +662,7 @@ constructor(
             )
         if (run.firstClaimCycle == null) {
             run.firstClaimCycle = clock.cycle
-            online(run).forEach {
+            arena.online(run).forEach {
                 it.mes(
                     "<col=ef1020>The Royal Titans will reinvigorate themselves in 18 seconds.</col>"
                 )
@@ -1549,8 +754,8 @@ constructor(
 
     private fun spawnTitan(run: Run, id: Int, local: RegionLocal): Npc {
         val tile = requireNotNull(instances.localCoord(run.session, local))
-        val npc = spawnNpc(run, id, tile, ROYAL_TITANS_MAX_HITPOINTS)
-        phases.prepare(npc, online(run).first { it.hitpoints > 0 }) {
+        val npc = arena.spawnNpc(run, id, tile, ROYAL_TITANS_MAX_HITPOINTS)
+        phases.prepare(npc, arena.online(run).first { it.hitpoints > 0 }) {
             // Native encounter deletion must detach the pair reference before another LateCycle
             // can look up the removed actor and accidentally create a fresh combat identity.
             if (run.branda === npc) run.branda = null
@@ -1568,83 +773,9 @@ constructor(
                 else RoyalTitansAssets.ELDRIC_ARENA_SPAWN
             )
         )
-        npc.faceSquare(local(run, if (id == RoyalTitansAssets.BRANDA_ACTIVE) 32 else 28, 30))
+        npc.faceSquare(arena.local(run, if (id == RoyalTitansAssets.BRANDA_ACTIVE) 32 else 28, 30))
         npc.mode = NpcMode.None
         return npc
-    }
-
-    private fun spawnNpc(
-        run: Run,
-        id: Int,
-        tile: CoordGrid,
-        hitpoints: Int,
-        movementLocked: Boolean = false,
-    ): Npc {
-        val npc = Npc(requireNpc(id), tile)
-        npc.combatHitScope = run.hitScope
-        npc.mode = NpcMode.None
-        npc.baseHitpointsLvl = hitpoints
-        npc.hitpoints = hitpoints
-        npc.movementLocked = movementLocked
-        npcs.add(npc, ROYAL_TITANS_NPC_LIFETIME)
-        npc.respawns = false
-        instances.attachNpc(run.session.id, npc)
-        return npc
-    }
-
-    private fun spawnBrandaArenaFloors(run: Run) {
-        run.arenaFloors += spawnLoc(run, 29, 35, RoyalTitansAssets.BRANDA_FLOOR_WEST)
-        spawnTitanFootprintBlockers(run, 35, 30..31)
-        run.arenaFloors += spawnLoc(run, 33, 35, RoyalTitansAssets.BRANDA_FLOOR_EAST)
-        spawnTitanFootprintBlockers(run, 35, 32..32)
-    }
-
-    private fun spawnEldricArenaFloors(run: Run) {
-        run.arenaFloors += spawnLoc(run, 29, 25, RoyalTitansAssets.ELDRIC_FLOOR_WEST)
-        spawnTitanFootprintBlockers(run, 25, 30..31)
-        run.arenaFloors += spawnLoc(run, 33, 25, RoyalTitansAssets.ELDRIC_FLOOR_EAST)
-        spawnTitanFootprintBlockers(run, 25, 32..32)
-    }
-
-    private fun spawnTitanFootprintBlockers(run: Run, row: Int, columns: IntRange) {
-        for (x in columns) for (z in row..row + 2) {
-            run.arenaBlockers += spawnLoc(run, x, z, 26209)
-        }
-    }
-
-    private fun replaceArenaFloors(run: Run, element: RoyalElement) {
-        val relevant =
-            run.arenaFloors.filter {
-                if (element == RoyalElement.FIRE) localZ(run, it.coords) == 35
-                else localZ(run, it.coords) == 25
-            }
-        relevant.forEach {
-            locs.del(it, Int.MAX_VALUE)
-            run.arenaFloors.remove(it)
-        }
-        if (element == RoyalElement.FIRE) {
-            run.arenaFloors += spawnLoc(run, 29, 35, RoyalTitansAssets.BRANDA_DEATH_FLOOR_WEST)
-            run.arenaFloors += spawnLoc(run, 33, 35, RoyalTitansAssets.BRANDA_DEATH_FLOOR_EAST)
-        } else {
-            run.arenaFloors += spawnLoc(run, 29, 25, RoyalTitansAssets.ELDRIC_DEATH_FLOOR_WEST)
-            run.arenaFloors += spawnLoc(run, 33, 25, RoyalTitansAssets.ELDRIC_DEATH_FLOOR_EAST)
-        }
-    }
-
-    private fun spawnLoc(run: Run, x: Int, z: Int, id: Int): LocInfo =
-        locs.add(
-            local(run, x, z),
-            requireLoc(id),
-            Int.MAX_VALUE,
-            LocAngle.West,
-            LocShape.CentrepieceStraight,
-        )
-
-    private fun clearArenaFloors(run: Run) {
-        run.arenaFloors.toList().forEach { locs.del(it, Int.MAX_VALUE) }
-        run.arenaFloors.clear()
-        run.arenaBlockers.toList().forEach { locs.del(it, Int.MAX_VALUE) }
-        run.arenaBlockers.clear()
     }
 
     private fun setStage(run: Run, stage: RoyalTitansStage) {
@@ -1657,14 +788,14 @@ constructor(
         run.participants.values.forEach { it.hitScope.invalidate() }
         run.generation++
         run.participants.values.forEach { it.deathRecorded = false }
-        clearWalls(run)
-        clearElementals(run)
-        run.areaAttack?.let { endAreaAttack(run, it) }
-        run.corpses.keys.toList().forEach { removeNpc(run, it) }
+        walls.clearWalls(run)
+        elementals.clearElementals(run)
+        run.areaAttack?.let { tileAttacks.end(run, it) }
+        run.corpses.keys.toList().forEach { arena.removeNpc(run, it) }
         run.corpses.clear()
         run.brandaCorpse = null
         run.eldricCorpse = null
-        clearArenaFloors(run)
+        landings.clearArenaFloors(run)
         run.claimed.clear()
         run.elementalsUnlocked = false
         run.areaSequence = 0
@@ -1673,31 +804,13 @@ constructor(
         run.elementalKillCycle = -1
         run.rangedGrace = 0
         run.creditedElementalKills.clear()
-        run.pendingRemovals.keys.toList().forEach { removeNpc(run, it) }
+        run.pendingRemovals.keys.toList().forEach { arena.removeNpc(run, it) }
         run.pendingRemovals.clear()
         run.lastBossTarget.clear()
         run.dyingTitans.clear()
         spawnTitans(run)
         setStage(run, RoyalTitansStage.INTRO)
-        online(run).forEach { it.mes("The Royal Titans reinvigorate themselves.") }
-    }
-
-    private fun clearWalls(run: Run) {
-        run.pendingWalls.clear()
-        run.walls.toList().forEach { clearWall(run, it) }
-    }
-
-    private fun clearElementals(run: Run) {
-        run.pendingSummons.clear()
-        run.elementals.keys.toList().forEach { removeNpc(run, it) }
-        run.elementals.clear()
-    }
-
-    private fun removeNpc(run: Run, npc: Npc) {
-        npc.resetBodyModels()
-        run.elementals.remove(npc)
-        run.corpses.remove(npc)
-        if (npc.isSlotAssigned) npcs.del(npc, Int.MAX_VALUE)
+        arena.online(run).forEach { it.mes("The Royal Titans reinvigorate themselves.") }
     }
 
     private fun retire(run: Run) {
@@ -1705,13 +818,13 @@ constructor(
         run.retired = true
         listOfNotNull(run.branda, run.eldric).forEach(phases::retire)
         run.hitScope.close()
-        online(run).forEach { releaseParticipant(it, run) }
+        arena.online(run).forEach { releaseParticipant(it, run) }
         run.participants.values.forEach { it.hitScope.close() }
         run.participants.clear()
-        run.areaAttack?.let { endAreaAttack(run, it) }
-        clearWalls(run)
-        clearElementals(run)
-        clearArenaFloors(run)
+        run.areaAttack?.let { tileAttacks.end(run, it) }
+        walls.clearWalls(run)
+        elementals.clearElementals(run)
+        landings.clearArenaFloors(run)
         run.pendingRemovals.clear()
         run.lastBossTarget.clear()
         // Native destruction owns Titans/corpses and all remaining actor deletion.
@@ -1725,97 +838,11 @@ constructor(
         log.info { "[RoyalTitans] instance=${run.session.id} generation=${run.generation} retired" }
     }
 
-    private fun hit(
-        run: Run,
-        player: Player,
-        damage: Int,
-        type: HitType,
-        bypassPrayer: Boolean,
-        mechanic: String,
-        source: Npc? = null,
-    ) {
-        val attacker = source ?: run.branda ?: run.eldric ?: return
-        player.queueHit(
-            source = attacker,
-            delay = 1,
-            type = type,
-            damage = damage.coerceAtLeast(0),
-            context =
-                HitContext.of(HitAttribution(HitOrigin.Direct, mechanic = mechanic), run.hitScope),
-            modifier =
-                if (bypassPrayer) NpcBypassProtectionPrayerPlayerHitModifier
-                else StandardPlayerHitModifier,
-        )
-    }
-
-    private fun isPresent(run: Run, player: Player): Boolean =
-        run(player) === run &&
-            player.isSlotAssigned &&
-            !player.pendingLogout &&
-            !player.loggingOut &&
-            player.hitpoints > 0 &&
-            instances.sessionForPlayer(player)?.id == run.session.id
-
-    private fun targetFor(run: Run, npc: Npc): Player? =
-        online(run)
-            .filter { isPresent(run, it) && it.hitpoints > 0 }
-            .minByOrNull { npc.distanceTo(it) }
-
-    private fun online(run: Run): List<Player> =
-        players
-            .filter { it.uuid in run.session.occupants }
-            .filter { it.isSlotAssigned && !it.pendingLogout && !it.loggingOut }
-
-    private fun inArena(run: Run, tile: CoordGrid): Boolean {
-        val sw = local(run, 29, 28)
-        val ne = local(run, 33, 34)
-        return tile.level == sw.level && tile.x in sw.x..ne.x && tile.z in sw.z..ne.z
-    }
-
-    private fun inTitanLanding(run: Run, tile: CoordGrid, element: RoyalElement): Boolean {
-        val x = localX(run, tile)
-        val z = localZ(run, tile)
-        return x in 30..32 &&
-            when (element) {
-                RoyalElement.FIRE -> z in 35..37
-                RoyalElement.ICE -> z in 25..27
-            }
-    }
-
-    private fun local(run: Run, x: Int, z: Int): CoordGrid =
-        requireNotNull(instances.localCoord(run.session, RegionLocal(0, 45, 149, x, z)))
-
-    private fun localX(run: Run, tile: CoordGrid): Int = tile.x - local(run, 0, 0).x
-
-    private fun localZ(run: Run, tile: CoordGrid): Int = tile.z - local(run, 0, 0).z
-
-    private fun distance(a: CoordGrid, b: CoordGrid): Int = max(abs(a.x - b.x), abs(a.z - b.z))
-
     private fun prepare(player: Player) {
         player.combatClearQueue()
         player.clearInteraction()
         player.resetAnim()
     }
-
-    private fun requireNpc(id: Int) =
-        requireNotNull(ServerCacheManager.getNpc(id)) {
-            "Missing revision-240 Royal Titans NPC $id"
-        }
-
-    private fun requireLoc(id: Int) =
-        requireNotNull(ServerCacheManager.getObject(id)) {
-            "Missing revision-240 Royal Titans location $id"
-        }
-
-    private fun anim(id: Int) =
-        requireNotNull(RSCM.getReverseMapping(RSCMType.SEQ, id)) {
-            "Missing Royal Titans sequence $id"
-        }
-
-    private fun spot(id: Int) =
-        requireNotNull(RSCM.getReverseMapping(RSCMType.SPOTANIM, id)) {
-            "Missing Royal Titans spotanim $id"
-        }
 
     private fun participant(player: Player, session: InstanceSession): Participant {
         val base = requireNotNull(instances.localCoord(session, RegionLocal(0, 45, 149, 0, 0)))
@@ -1824,85 +851,9 @@ constructor(
         return Participant(scope)
     }
 
-    internal data class Participant(val hitScope: HitScope, var deathRecorded: Boolean = false)
-
     private data class PendingCompletion(
         val completion: RoyalTitansCompletion,
         var retryCycle: Int = Int.MIN_VALUE,
-    )
-
-    internal data class Run(
-        val session: InstanceSession,
-        var generation: Long = 1L,
-        var retired: Boolean = false,
-        val participants: MutableMap<Long, Participant> = mutableMapOf(),
-        val hitScope: HitScope = HitScope(),
-        var completionId: UUID = UUID.randomUUID(),
-        var completion: RoyalTitansCompletion? = null,
-        var completionCommitted: Boolean = false,
-        var firstClaimCycle: Int? = null,
-        val spawnCycles: MutableMap<Npc, Int> = mutableMapOf(),
-        var branda: Npc? = null,
-        var eldric: Npc? = null,
-        var brandaCorpse: Npc? = null,
-        var eldricCorpse: Npc? = null,
-        var stage: RoyalTitansStage = RoyalTitansStage.INTRO,
-        var stageTick: Int = 0,
-        var transitionStartCycle: Int = Int.MIN_VALUE,
-        var elementalsUnlocked: Boolean = false,
-        var areaSequence: Int = 0,
-        var packSequence: Int = 0,
-        var eldricSpawnCycle: Int = Int.MAX_VALUE,
-        var sameTickElementalKills: Int = 0,
-        var elementalKillCycle: Int = -1,
-        var areaAttack: AreaAttack? = null,
-        var rangedGrace: Int = 0,
-        val claimed: MutableSet<Long> = mutableSetOf(),
-        val lastBossTarget: MutableMap<Long, Npc> = mutableMapOf(),
-        val walls: MutableList<WallSegment> = mutableListOf(),
-        val pendingWalls: MutableList<PendingWall> = mutableListOf(),
-        val elementals: MutableMap<Npc, ElementalState> = mutableMapOf(),
-        val pendingSummons: MutableList<PendingSummon> = mutableListOf(),
-        val corpses: MutableMap<Npc, RoyalElement> = mutableMapOf(),
-        val dyingTitans: MutableSet<Npc> = mutableSetOf(),
-        val arenaFloors: MutableList<LocInfo> = mutableListOf(),
-        val arenaBlockers: MutableList<LocInfo> = mutableListOf(),
-        val pendingRemovals: MutableMap<Npc, Int> = mutableMapOf(),
-        val creditedElementalKills: MutableSet<Npc> = mutableSetOf(),
-    )
-
-    internal data class PendingWall(val formCycle: Int, val element: RoyalElement, val row: Int)
-
-    internal data class WallSegment(
-        val element: RoyalElement,
-        val row: Int,
-        val index: Int,
-        val loc: LocInfo,
-        val hitbox: Npc,
-        val expireCycle: Int,
-    )
-
-    internal data class PendingSummon(
-        val spawnCycle: Int,
-        val element: RoyalElement,
-        val titan: Npc,
-    )
-
-    internal data class ElementalState(
-        val element: RoyalElement,
-        val explodeCycle: Int,
-        var target: PlayerUid? = null,
-        var routeTarget: CoordGrid? = null,
-        var exploding: Boolean = false,
-    )
-
-    internal data class AreaAttack(
-        val safeX: Int,
-        val safeZ: Int,
-        val impactCycle: Int,
-        val safeLoc: LocInfo,
-        val timer: Npc,
-        val survivor: RoyalElement?,
     )
 }
 

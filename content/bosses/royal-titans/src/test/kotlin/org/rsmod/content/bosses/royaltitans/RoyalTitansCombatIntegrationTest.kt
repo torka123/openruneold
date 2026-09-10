@@ -750,31 +750,57 @@ internal class RoyalTitansTestWorld(
                 ),
             ),
         )
+    val arena = RoyalTitansArena(instances, npcs, players)
+    val locs =
+        LocRepository(
+            clock,
+            LocRegistry(
+                locStorage,
+                locRegistry,
+                LocRegistryRegion(updates, collision, locStorage, regions),
+            ),
+            regions,
+        )
+    private val walls = RoyalTitansWalls(clock, locs, world, random, arena)
+    private val elementals =
+        RoyalTitansElementals(
+            clock,
+            collision,
+            world,
+            random,
+            players,
+            AiPlayerInteractions(events, players),
+            modifier,
+            arena,
+        )
+    private val tileAttacks = RoyalTitansTileAttacks(clock, locs, world, random, arena)
     val manager =
         RoyalTitansEncounterManager(
             clock,
             instances,
-            npcs,
-            LocRepository(
-                clock,
-                LocRegistry(
-                    locStorage,
-                    locRegistry,
-                    LocRegistryRegion(updates, collision, locStorage, regions),
-                ),
-                regions,
-            ),
             objects,
-            world,
             collision,
             random,
-            AiPlayerInteractions(events, players),
             players,
             mock(DropTableRegistry::class.java),
             hud,
-            modifier,
             statistics,
             phaseProgram,
+            arena,
+            walls,
+            elementals,
+            tileAttacks,
+            RoyalTitansPlatforms(
+                clock,
+                collision,
+                random,
+                phaseProgram,
+                arena,
+                walls,
+                elementals,
+                tileAttacks,
+            ),
+            RoyalTitansLandings(locs, world, collision, random, arena),
         )
 
     var denyTeleport = false

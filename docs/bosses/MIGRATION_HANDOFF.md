@@ -199,6 +199,16 @@ reference so it cannot recreate an orphan encounter.123 module tests, scoped/cac
 checks and broader505-task check pass (logs `royal-titans-platform-dsl-verified-20260910.log`
 and `royal-titans-platform-dsl-broad-20260910.log`). Source-only; continue handler extraction
 and remaining paired lifecycle timing. Do not restart or re-migrate Cerberus unnecessarily.
+Platform backup: `backup/royal-titans-platform-dsl-20260910` at `e3c799e90`; ZIP
+`logs/royal-titans-platform-dsl-20260910.zip`, SHA256
+`67189BF867D4F648436EEE4DC1C571AA7C840CE51C26F362F7A616EE6C916243`.
+Validated7,445 entries, zero excluded paths. Live unchanged.
+
+Focused handler extraction now passes123 module tests and broader505-task checks; source-only.
+Coordinator1,913 ->864 lines. Run/Definitions/Arena/Walls/Elementals/TileAttacks/Platforms/Landings
+are the focused native-API components, not a replacement combat or membership engine. Timing and
+reward policies remain unchanged. Logs `royal-titans-handlers-{verified,broad}-20260910.log`.
+Continue paired transition/reset deadline ownership; no reason to pause at this checkpoint.
 
 1. Collect user client-test feedback. Backup, local deployment, two gameplay checkpoint restarts,
    persistent fingerprints and the corrected75-assertion live Vorkath audit are complete. Do not
