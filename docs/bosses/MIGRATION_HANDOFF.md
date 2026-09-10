@@ -13,7 +13,8 @@ death-deadline ownership are implemented; focused handlers leave an830-line coor
 36776 ->25860 ->39612, with canonical revision240 doctor/marker checks and matching fresh
 persistence/cache fingerprints. See the detailed deployment record below for shutdown warnings.
 Earlier incremental sections are history, not instructions to repeat completed work. Next is Nex;
-its migration has NOT started beyond the read-only refresh. Existing mechanics/reward/CA
+its first3 native minion characterization tests now pass (21 Nex tests total), with NO production
+Nex migration edits yet. Existing mechanics/reward/CA
 uncertainties and client acceptance remain explicitly open; this is not full OSRS parity.
 
 Recoverable Royal Titans source backup: `backup/royal-titans-native-checkpoint-20260910`,
@@ -272,7 +273,13 @@ acceptance or OpenRune-versus-OSRS packet comparison was completed by this migra
    persistent fingerprints and the corrected75-assertion live Vorkath audit are complete. Do not
    repeat them merely because an older section or message says they are pending. Visual/full OSRS
    acceptance remains separate.
-2. Next migrate Nex, then Yama, Doom and DT2 in separate focused branches/commits. Review
+2. Current branch `refactor/nex-boss-dsl-20260910` contains the passing minion characterization
+   checkpoint only:21 Nex tests, scoped check/shared suites/app classes/architecture enforcement
+   pass in37s/458tasks, log `nex-minion-characterization-verified-20260910.log`. Read the ledger's
+   September10 mapping, add departure/deletion regressions, then wire ordinary guards/Reavers
+   through the existing DSL. Do not treat the characterized legacy20/18 damage or811 animation
+   as OSRS-correct. No Nex production changes or extra restart occurred after the RT deployment.
+   Continue Nex, then Yama, Doom and DT2 in separate focused branches/commits. Review
    Dagannoth Kings separately. Retain Royal Titans client acceptance and documented outstanding
    mechanical/reward evidence as separate work; do not repeat its completed architecture steps.
 3. Resolve or explicitly report remaining generic DSL concerns (unused condition/phase fields,

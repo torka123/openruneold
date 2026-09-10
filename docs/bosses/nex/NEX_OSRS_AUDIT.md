@@ -52,6 +52,26 @@ No new raw packet decoding, normal-game capture, executable Nex cache audit or N
 comparison was completed. E02 player-healing75% official/50% Wiki conflict and E03 damage formula
 uncertainty remain. Do not label either resolved merely to advance the architecture migration.
 
+### Minion characterization checkpoint (no production changes)
+
+Branch `refactor/nex-boss-dsl-20260910` adds NexMinionCombatCharacterizationTest before replacing
+any manager attack. It executes the actual NexCombat registration, native NpcRegistry/Repository,
+StandardNpcAccessLauncher, NvPCombat, NPC hit queue/processor and injected clock/RNG. Assertions
+cover all four called guards with/without launch prayer, retained projectile-derived hit delay,
+animation811, current20/18 maxima, five-tick cooldown rejection without additional accuracy RNG,
+inactive/outside targets, native accuracy misses, and a Reaver spawned by the production Siphon
+path. These legacy values are characterization, not OSRS evidence. World output is recorded by a
+mock; player hit payloads are inspected rather than processed to HP. Guard handoff is setup via
+the existing production hook; no complete death/lifecycle or pathing parity is claimed.
+
+First run:3 tests pass,36s/162tasks, `logs/nex-minion-characterization-first-20260910.log`.
+Scoped formatter/check, all21 Nex tests, shared boss/instance suites, server app classes and
+architecture enforcement pass in37s/458tasks (6executed452up-to-date), zero failures/errors/skips:
+`logs/nex-minion-characterization-verified-20260910.log`. Test-only dependency additions expose
+the existing native combat-formula and registry fixtures; no runtime dependency or API changed.
+Next: add departure/deletion regressions, then migrate ordinary helper attacks per the mapping
+above. Live remains Royal Titans source1279d1676; these test-only changes require no new restart.
+
 ## Status: approved implementation in progress, 9 September 2026
 
 **S02 foundation and M35 removal implemented below; full Nex integration and runtime verification remain incomplete. Not ready for a complete Nex fix commit; not 1:1 OSRS.**
