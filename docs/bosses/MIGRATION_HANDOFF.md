@@ -178,6 +178,15 @@ ZIP `logs/royal-titans-native-lifecycle-20260910.zip`, SHA256
 `4C53022AEB9887F50BEAD7445BFA47F9CE8227CFB0B93F090880896FFCBB448E`.
 Source-only archive validation: 7,442 entries, zero excluded-path violations.
 
+Next source checkpoint: per-Titan arena deadlines are now declared in RoyalTitansTitanSpec and
+owned by BossPhaseClock. No private modulo arena selector remains. The shared clock now supports
+replacing its captured target without resetting the phase deadline;50 shared runtime tests pass,
+including the two reproduced target-continuity failures. Royal Titans121 tests, scoped check,
+cache/shared checks and broader505-task verification pass. The exact due-frame duo departure
+regression required native keyed-leave rebinding, not a LateCycle-only fallback. Both corpse
+orders retire their own native clocks. Live STILL remains the Cerberus checkpoint. Continue
+platform-phase wiring and focused handler extraction; do not call Royal Titans complete yet.
+
 1. Collect user client-test feedback. Backup, local deployment, two gameplay checkpoint restarts,
    persistent fingerprints and the corrected75-assertion live Vorkath audit are complete. Do not
    repeat them merely because an older section or message says they are pending. Visual/full OSRS

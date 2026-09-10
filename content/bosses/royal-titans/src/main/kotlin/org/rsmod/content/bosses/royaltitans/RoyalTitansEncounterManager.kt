@@ -87,6 +87,7 @@ constructor(
     private val bossHpBar: BossHpBarScript,
     private val npcHitModifier: StandardNpcHitModifier,
     private val statistics: RoyalTitansStatistics,
+    private val arena: RoyalTitansArenaProgram,
 ) {
     private val log = InlineLogger()
     private val RUN_STATE = InstanceStateKey<Run>("royal-titans-encounter")
@@ -166,6 +167,12 @@ constructor(
         if (player.hitpoints <= 0) recordDeath(player, run)
         releaseParticipant(player, run)
         if (run.session.occupants.isEmpty()) retire(run)
+        else
+            online(run)
+                .firstOrNull { it.hitpoints > 0 }
+                ?.let { remaining ->
+                    listOfNotNull(run.branda, run.eldric).forEach { arena.retarget(it, remaining) }
+                }
     }
 
     /** Statistics observation only. InstanceDeathCleanupHook owns membership/region teardown. */
@@ -563,36 +570,17 @@ constructor(
     }
 
     private fun tickArena(run: Run) {
-        // Stage tick zero is the first tick AFTER landing (setStage resets to -1).
-        val opening = RoyalTitansRules.ARENA_OPENING_TICKS - 1
-        if (run.stageTick < opening) return
-        val elapsed = run.stageTick - opening
-        val cycle =
-            if (elapsed < RoyalTitansRules.FIRST_ARENA_CYCLE_TICKS) elapsed
-            else
-                (elapsed - RoyalTitansRules.FIRST_ARENA_CYCLE_TICKS) %
-                    RoyalTitansRules.ARENA_CYCLE_TICKS
-        when (cycle) {
-            0 -> startAreaAttack(run)
-            14 -> {
-                run.branda
-                    ?.takeIf { it.hitpoints > 0 }
-                    ?.let { scheduleSummon(run, it, RoyalElement.FIRE) }
-                run.eldric
-                    ?.takeIf { it.hitpoints > 0 }
-                    ?.let { scheduleSummon(run, it, RoyalElement.ICE) }
-            }
-            21,
-            28 -> {
-                // A 29-tick rotation has two ordinary actions (+14,+21), not a third at +28
-                // immediately followed by charge. The legacy cycle-selection policy is unresolved.
-                if (cycle == 28 && elapsed >= RoyalTitansRules.FIRST_ARENA_CYCLE_TICKS) return
-                run.branda
-                    ?.takeIf { it.hitpoints > 0 }
-                    ?.let { stomp(run, it, RoyalElement.FIRE, true) }
-                run.eldric
-                    ?.takeIf { it.hitpoints > 0 }
-                    ?.let { stomp(run, it, RoyalElement.ICE, true) }
+        val target = online(run).firstOrNull { it.hitpoints > 0 } ?: return
+        // The native per-actor phase clock owns readiness. Consume only presentation here,
+        // after existing hazards, preserving pre-input/LateCycle order and paired Blast geometry.
+        for ((npc, element) in
+            listOf(run.branda to RoyalElement.FIRE, run.eldric to RoyalElement.ICE)) {
+            if (npc == null || npc.hitpoints <= 0) continue
+            when (arena.consume(npc, target, clock.cycle - run.stageTick - 1)) {
+                RoyalTitansArenaAction.CHARGE -> startAreaAttack(run)
+                RoyalTitansArenaAction.SUMMON -> scheduleSummon(run, npc, element)
+                RoyalTitansArenaAction.STOMP -> stomp(run, npc, element, true)
+                null -> Unit
             }
         }
     }
@@ -1146,22 +1134,10 @@ constructor(
             xRange.flatMap { x -> zRange.map { z -> CoordGrid(x, z, titan.coords.level) } }
         }
 
-    fun attackTitan(access: org.rsmod.api.npc.access.StandardNpcAccess, target: Player) {
-        val run = run(access.npc) ?: return
-        if (target.accountHash !in run.participants) return
-        if (
-            run.stage in
-                setOf(
-                    RoyalTitansStage.ARENA,
-                    RoyalTitansStage.FINAL_BRANDA,
-                    RoyalTitansStage.FINAL_ELDRIC,
-                )
-        ) {
-            access.actionDelay = clock.cycle + 7
-            return
-        }
-        access.actionDelay = clock.cycle + 7
-    }
+    fun canAttackTitan(npc: Npc, target: Player): Boolean =
+        run(npc)?.let { run ->
+            (npc === run.branda || npc === run.eldric) && run(target) === run
+        } == true
 
     fun canAttackElemental(npc: Npc, target: Player): Boolean =
         run(npc)?.let { run -> npc in run.elementals && target.accountHash in run.participants } ==
@@ -1293,6 +1269,7 @@ constructor(
         val run = run(npc) ?: return null
         if (npc !== run.branda && npc !== run.eldric) return null
         if (run.dyingTitans.add(npc)) {
+            arena.retire(npc)
             npc.clearInteraction()
             npc.movementLocked = true
         }
@@ -1573,6 +1550,7 @@ constructor(
     private fun spawnTitan(run: Run, id: Int, local: RegionLocal): Npc {
         val tile = requireNotNull(instances.localCoord(run.session, local))
         val npc = spawnNpc(run, id, tile, ROYAL_TITANS_MAX_HITPOINTS)
+        arena.prepare(npc)
         // The fire/ice platforms carry BLOCK_WALK in region 11669. Titans walk on those
         // blocked tiles; players and elementals retain normal terrain restrictions. Use the
         // same native restriction for route selection and step execution, preserving loc walls.
@@ -1721,6 +1699,7 @@ constructor(
     private fun retire(run: Run) {
         if (run.retired) return
         run.retired = true
+        listOfNotNull(run.branda, run.eldric).forEach(arena::retire)
         run.hitScope.close()
         online(run).forEach { releaseParticipant(it, run) }
         run.participants.values.forEach { it.hitScope.close() }

@@ -5,9 +5,7 @@ import jakarta.inject.Inject
 import org.rsmod.api.bosses.runtime.BossCombat
 import org.rsmod.api.bosses.runtime.BossDeps
 import org.rsmod.api.death.NpcDeath
-import org.rsmod.api.script.onAiApPlayer2
 import org.rsmod.api.script.onModifyNpcHit
-import org.rsmod.api.script.onNpcHit
 import org.rsmod.api.script.onNpcQueue
 import org.rsmod.api.script.onNpcQueueWithArgs
 import org.rsmod.game.entity.PlayerList
@@ -23,21 +21,33 @@ constructor(
     private val death: NpcDeath,
     private val players: PlayerList,
     private val deps: BossDeps,
+    private val arena: RoyalTitansArenaProgram,
 ) : PluginScript() {
     override fun ScriptContext.startup() {
+        deps.extensionRegistry.register("royal-titans.arena-action") { _, npc, _, data ->
+            arena.ready(npc, data as RoyalTitansArenaAction)
+        }
         for (id in listOf(RoyalTitansAssets.BRANDA_ACTIVE, RoyalTitansAssets.ELDRIC_ACTIVE)) {
             val type = requireNpc(id)
             // Scripted Titans keep their arrival-driven route when hit. Native hit/contribution
             // and queue-token processing still run; only the default chase action is consumed.
             onNpcQueue(type, "queue.com_retaliate_player") {}
-            onAiApPlayer2(type) { encounters.attackTitan(this, it.target) }
-            onNpcHit(type) { encounters.npcHit(npc, hit) }
-            onModifyNpcHit(type) {
-                val player =
-                    if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players)
-                    else null
-                encounters.modifyNpcHit(player, npc, hit)
-            }
+            val element =
+                if (id == RoyalTitansAssets.BRANDA_ACTIVE) RoyalElement.FIRE else RoyalElement.ICE
+            BossCombat.register(
+                this,
+                royalTitansTitanSpec(element),
+                deps,
+                ownerSlug = "royal-titans-${element.name.lowercase()}-titan",
+                canTarget = encounters::canAttackTitan,
+                onImpactHit = { encounters.npcHit(npc, hit) },
+                onModifyHit = {
+                    val player =
+                        if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players)
+                        else null
+                    encounters.modifyNpcHit(player, npc, hit)
+                },
+            )
             onNpcQueue(type, "queue.death") {
                 if (encounters.beginTitanDeath(npc) != null) encounters.finishTitanDeath(npc)
             }

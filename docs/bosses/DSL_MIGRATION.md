@@ -236,7 +236,7 @@ Diagnostic-only modules are excluded. Zero manager lines is not proof of archite
 | Zulrah | manager; 993 -> 300 coordinator lines | Four unchanged declarative rotation programs, native attacks and separate snakeling specs | Native InstanceScript, configured actor, typed session state and same-actor respawn | Spatial clouds/eggs/tail handler (307 lines), surface positioning, existing reclaim storage and native parameter adapters | 43 tests (21 native, 22 retained) and revision-240 cache audit pass; all boss/shared regressions and app classes pass | No deployment/cache repack/client verification; Grid Master capture context, tail-order conflict and inherited non-player damage exclusion remain uncertified |
 | Muspah | manager; 1,088 -> 552 | Weighted normal attacks, final cadence and all timed phases on BossSpec/BossEncounter | InstanceScript, configured actor, typed session, native death/respawn and KC | Threshold/shield policy, spatial cloud/spike/LOS handlers, corruption presentation | 67 tests (27 native, 40 retained) pass | Draft timings, projectile geometry, source exclusions and shield-skip policy not OSRS-certified; client verification pending |
 | Cerberus | manager; 1,290 -> 598 | Native ordinary attacks, triple components, weighted/conditional rotation, forced diagnostics and timed phases | Protected InstanceScript, typed session state and same-actor native death/reveal | Arena effects426 lines (Souls/lava/wall); phase-ready presentation, debug and CA policy | 75 module tests,2 revision-240 audit tests; all boss/shared regressions and app classes pass | Command-only access retained; donor/capture geometry and timeout fallbacks not OSRS-certified; not yet deployed |
-| Royal Titans | manager; 2,017 | Pending | Pending | Paired coordination/walls/statistics | Existing tests preserved | Existing evidence gaps remain distinct from migration |
+| Royal Titans | manager; 2,017 -> 1,911 (in progress) | Elemental ordinary attacks and per-Titan arena phases migrated; platform phases/extraction next | Protected InstanceScript/session ownership completed; no private membership indexes | Paired geometry/walls/statistics; pending focused extraction | 121 passing module tests,3 revision-240 audit cases; broader boss/shared checks pass | Source-only checkpoints; legacy rotation selection and other evidence gaps remain distinct from migration |
 | Nex | manager; 1,321 | Pending | Pending | Group specials/reward coordination | Existing tests preserved | Full encounter work remains incomplete |
 | Yama | managers; 2,908 | Pending | Pending | Contracts/judges/group mechanics | Pending | Detailed mapping pending |
 | Doom of Mokhaiotl | managers; 4,432 | Pending | Pending | Delves/larvae/scoreboard | Pending | Detailed mapping pending |
@@ -1505,3 +1505,23 @@ Retire its deadline on Titan defeat or room cleanup. Register incoming hit proce
 BossCombat callbacks; remove the redundant manually registered Titan approach callback. No new
 shared API or gameplay policy is proposed in this step. Add native-world-queue frame processing
 to the fixture and prove cadence, both kill orders, duo continuation, cleanup and room isolation.
+
+Implemented per-Titan arena specifications and native registration. RoyalTitansArenaProgram holds
+only an encounter-owned ready marker/target identity and adapts native phase entries to LateCycle;
+it has no private timer, selector, queue or membership map. The former tickArena modulo program
+and no-op Titan approach handler are removed. Both incoming hit callbacks use BossCombat. Native
+defeat retires the actor's deadline before the corpse transform restores its noncombat cache HP.
+An initial118-test run passes (`royal-titans-arena-dsl-first-20260910.log`,1m3s/196tasks).
+
+The added exact-departure-frame test then reproduced a one-tick delay: rebinding in LateCycle was
+too late if the old target lifetime expired at the due pre-input deadline. Rebinding inside the
+native keyed leave callback fixes it without altering phase time. Red log:
+`royal-titans-arena-dsl-departure-red-20260910.log`,five tests/one failure. Final focused log:
+`royal-titans-arena-dsl-verified-20260910.log`,all121 module tests pass, zero failures/errors/skips,
+scoped check, shared boss/instance and three cache audit cases pass (unchanged tasks up-to-date),
+1m5s/206tasks. Both kill orders, retained survivor cadence and room deadline destruction pass.
+`boss-phase-clock-target-regressions-20260910.log`: Cerberus/Muspah pass,43s/170tasks.
+Broader `royal-titans-arena-dsl-broad-20260910.log`:1m20s/505tasks,59 executed446up-to-date;
+app classes, all applicable boss/shared suites and architecture enforcement pass. No deployment.
+Manager is1,911 lines. Platform phase clocks, stage/reset choreography and handler extraction
+remain migration work; the unresolved OSRS selection rules are unchanged.

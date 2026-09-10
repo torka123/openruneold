@@ -740,6 +740,16 @@ internal class RoyalTitansTestWorld(
             org.rsmod.api.bosses.runtime.BossExtensionRegistry(),
             npcCombat,
         )
+    val arenaProgram =
+        RoyalTitansArenaProgram(
+            bossDeps,
+            org.rsmod.api.bosses.runtime.BossPhaseClock(
+                bossDeps,
+                StandardNpcAccessLauncher(
+                    StandardNpcAccessContextFactory(random, modifier, processor)
+                ),
+            ),
+        )
     val manager =
         RoyalTitansEncounterManager(
             clock,
@@ -764,6 +774,7 @@ internal class RoyalTitansTestWorld(
             hud,
             modifier,
             statistics,
+            arenaProgram,
         )
 
     var denyTeleport = false
@@ -875,7 +886,9 @@ internal class RoyalTitansTestWorld(
         if (hudBeforeInstances == false) with(hud) { context.startup() }
         val death = NpcDeath(npcs, players, objects, emptySet(), emptySet())
         with(NpcDeathScript(death)) { context.startup() }
-        with(RoyalTitansCombat(manager, death, players, bossDeps)) { context.startup() }
+        with(RoyalTitansCombat(manager, death, players, bossDeps, arenaProgram)) {
+            context.startup()
+        }
         with(RoyalTitansLifecycle(manager)) { context.startup() }
     }
 
@@ -1026,6 +1039,8 @@ internal class RoyalTitansTestWorld(
             // Finish the preceding tick through the native post-tick pipeline. Otherwise a previous
             // spawn's pending priority masks later actions in this fixture but not in the server.
             postTick.process()
+            // GameCycle processes native world queues BEFORE MapClock.tick and NPC/LateCycle work.
+            org.rsmod.api.game.process.world.WorldQueueListProcess(bossDeps.worldQueues).process()
             clock.tick()
             players.forEach {
                 it.currentMapClock = clock.cycle
