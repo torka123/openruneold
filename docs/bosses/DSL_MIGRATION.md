@@ -965,3 +965,12 @@ fresh-session re-entry. These are native headless tests, not client/packet verif
 Phase timers and final forced cadence remain the next migration step; KC metadata still needs its
 native integration test. Doctor log `muspah-lifecycle-doctor.log` confirms PID41396/canonical root,
 revision240 and unchanged cache/database authority. No deployment or restart has occurred.
+
+`muspah-native-kc-red.log` has59 tests/one failure: packing native KC metadata while retaining the
+local increment produces two kills for one completion. The configured base actor now declares
+`param.killcount_varp = varp.total_muspah_kills` and suppresses the generic notification so the
+existing duration/PB message remains. Removed the local KC increment; native death/drop/kill hooks
+own it. `muspah-native-kc-green.log`: all59 pass,41s/167tasks, including two consecutive completions
+and repeated completion notification without another increment. The three-line source overlay was
+selectively staged; unrelated Royal Titans/GE changes in the same file were excluded. SERVER/LIVE
+are not repacked; the overlay must accompany the authorized deployment.

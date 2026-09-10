@@ -24,7 +24,6 @@ import org.rsmod.api.player.hit.modifier.NpcBypassProtectionPrayerPlayerHitModif
 import org.rsmod.api.player.hit.queueHit
 import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.stat.hitpoints
-import org.rsmod.api.player.vars.VarPlayerIntMapSetter
 import org.rsmod.api.random.GameRandom
 import org.rsmod.api.repo.loc.LocRepository
 import org.rsmod.api.repo.world.WorldRepository
@@ -274,9 +273,6 @@ constructor(
         cleanupHazards(run)
         corruption.clear(run.player)
         run.player.combatClearQueue()
-        val killcount = run.player.vars["varp.total_muspah_kills"] + 1
-        VarPlayerIntMapSetter.set(run.player, "varp.total_muspah_kills", killcount)
-        run.killcount = killcount
         run.killTicks = (clock.cycle - run.killStartCycle).coerceAtLeast(0)
         run.player.attr[BossRewardAttributes.phantomMuspahLastKillTicks] = run.killTicks
         return run
@@ -290,7 +286,7 @@ constructor(
         if (personalBest) run.player.attr[MUSPAH_PERSONAL_BEST_TICKS] = run.killTicks
         val suffix = if (personalBest) " <col=ff0000>New personal best!</col>" else ""
         run.player.mes(
-            "<col=ff9900>Phantom Muspah kill ${run.killcount}: " +
+            "<col=ff9900>Phantom Muspah kill ${run.player.vars["varp.total_muspah_kills"]}: " +
                 "${MuspahRules.formatTicks(run.killTicks)}.$suffix</col>"
         )
         run.state = MuspahState.RESPAWNING
@@ -377,7 +373,6 @@ constructor(
         run.shieldSkipPending = false
         run.killStartCycle = 0
         run.killTicks = 0
-        run.killcount = 0
         run.lastCloudHitCycle = Int.MIN_VALUE
         run.shieldDrainSources.clear()
         run.encounter.onCleanup { cleanupHazards(run) }

@@ -48,7 +48,6 @@ internal class MuspahArenaState(
     var shieldSkipPending: Boolean = false,
     var killStartCycle: Int = 0,
     var killTicks: Int = 0,
-    var killcount: Int = 0,
     var lastCloudHitCycle: Int = Int.MIN_VALUE,
     val hazardScope: HitScope = HitScope(),
     val warningSpikes: MutableList<LocInfo> = mutableListOf(),
