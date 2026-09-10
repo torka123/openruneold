@@ -24,6 +24,13 @@ commit `1279d1676`; ZIP `logs/royal-titans-native-checkpoint-20260910.zip`, SHA2
 The user reported8% plan allowance at this checkpoint; do not infer a new remaining percentage
 from context capacity. Finish the current bounded work and use this handoff at the requested cutoff.
 
+Nex test-only continuation is committed as `4c6dc9f2b` and backed up on
+`backup/nex-minion-characterization-20260910`. ZIP `logs/nex-minion-characterization-20260910.zip`,
+SHA256 `EE25B9D73CB7A1D3BAE90E3FB621AAA120582B0B4EE0367593763BD844C234FB`.
+7,458 entries, zero excluded paths. Current production Nex is unchanged from the live checkpoint.
+Only the pre-existing four modified `.data` files and untracked GE area remain outside the commits;
+preserve them. The resume helper prints actual Git branch/HEAD rather than assuming these IDs.
+
 - Canonical workspace: `C:\Users\norma\Documents\Codex\2026-08-10\lets-work-on-the-openrune-server\work\OpenRune-Server`.
 - Source safety baseline: `798b8c320`, branch `backup/boss-dsl-source-baseline-20260909`.
 - Additional passing source checkpoint: `69f9deeba`,
