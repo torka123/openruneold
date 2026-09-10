@@ -772,6 +772,33 @@ class BossRuntimeRegressionTest {
     }
 
     @Test
+    fun `authored volley presentation can suppress default effects without bypassing native combat`() {
+        for (playFx in listOf(true, false)) {
+            val f = Fixture(random = Rolls(17), nativeCombat = true)
+            f.npc.mode = NpcMode.ApPlayer2
+            var authoredEffects = 0
+            f.extensions.registerAttackParameters("authored") { _, _, _ ->
+                NpcAttackOverride(
+                    attackAnimation = seq(11966),
+                    playAttackFx = playFx,
+                    onAttack = { authoredEffects++ },
+                )
+            }
+            f.run(Effect.NpcAttack(CombatAttack.NpcMagic(28), parameters = "authored"))
+            assertEquals(if (playFx) listOf(11966 to 0) else emptyList(), f.animations)
+            assertEquals(1, authoredEffects)
+            assertEquals(1, f.accuracyRolls)
+            assertEquals(104, f.npc.actionDelay)
+            assertEquals(100, f.player.vars["varp.lastcombat"])
+            val hit = f.queuedHits().single().second
+            assertEquals(17, hit.damage)
+            assertTrue(hit.isQueueArgumentValid())
+            f.registry.remove(f.npc)
+            assertFalse(hit.isQueueArgumentValid())
+        }
+    }
+
+    @Test
     fun `ordinary attack effect preserves native attack output metadata prayer and travel`() {
         val direct = Fixture(random = Rolls(17), nativeCombat = true)
         val interpreted = Fixture(random = Rolls(17), nativeCombat = true)

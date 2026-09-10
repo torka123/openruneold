@@ -78,6 +78,8 @@ public data class NpcAttackOverride(
     public val hitCount: Int? = null,
     /** Explicit heterogeneous components take precedence over the homogeneous count. */
     public val hits: List<NpcHitParameters>? = null,
+    /** DSL volleys may own one presentation while every component still uses native combat. */
+    public val playAttackFx: Boolean = true,
 ) {
     init {
         require(hitCount == null || hitCount > 0) { "Hit count must be positive." }
@@ -256,6 +258,7 @@ constructor(
 
     /** Uses only an animation that exists in this server revision. */
     private fun StandardNpcAccess.playAttackFx(target: Player, override: NpcAttackOverride) {
+        if (!override.playAttackFx) return
         if (override.attackAnimation != null) {
             anim(override.attackAnimation)
         } else {
