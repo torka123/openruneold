@@ -2,7 +2,7 @@
 param(
     [switch]$Verify,
     [switch]$CopyPrompt,
-    [ValidatePattern('^[a-z0-9-]+$')][string]$Boss = 'nex'
+    [ValidatePattern('^[a-z0-9-]+$')][string]$Boss = 'royal-titans'
 )
 
 Set-StrictMode -Version Latest
@@ -14,6 +14,8 @@ if (![string]::Equals($migrationRoot, $canonicalMigrationRoot, [StringComparison
 }
 $handoffPath = Join-Path $migrationRoot 'docs/bosses/MIGRATION_HANDOFF.md'
 if (!(Test-Path -LiteralPath $handoffPath -PathType Leaf)) { throw 'Migration handoff is missing.' }
+$starterPath = Join-Path $migrationRoot 'docs/bosses/RESUME_OPENRUNE_BOSS_API_DSL.txt'
+if (!(Test-Path -LiteralPath $starterPath -PathType Leaf)) { throw 'Boss workflow starter prompt is missing.' }
 $bossBuild = Join-Path $migrationRoot "content/bosses/$Boss/build.gradle.kts"
 if (!(Test-Path -LiteralPath $bossBuild -PathType Leaf)) { throw "Unknown boss module: $Boss" }
 
@@ -35,18 +37,18 @@ try {
     }
 
     $migrationPrompt = @"
-Continue the OpenRune all-boss DSL migration in this canonical workspace:
-$migrationRoot
+$(Get-Content -LiteralPath $starterPath -Raw)
 
 Current Git branch: $migrationBranch
 Current HEAD: $migrationCommit
 Current status (recheck before editing):
 $($migrationStatus -join "`n")
 
-Read docs/bosses/DSL_MIGRATION.md for the full mechanic-to-API mapping and exact test evidence.
-Next migration: Nex. Read docs/bosses/nex/NEX_OSRS_AUDIT.md and its September10 refresh first.
-Royal Titans source checkpoint 1279d1676 has been backed up and deployed through two controlled
-restarts. Do not repeat that deployment or discard its research. Client acceptance remains open.
+Selected boss for this continuation: $Boss.
+Read content/bosses/royal-titans/docs/reward-workflow-20260910.md for the reward continuation,
+approved mapping, executable results, and remaining conflicts. Royal Titans remains the latest
+user priority unless this selection or a newer user request changes it. Nex follows that work.
+Do not repeat completed deployments or discard research. Client acceptance remains open.
 Routine boss checkpoints are updates, not reasons to stop: back up, verify, deploy when authorized,
 record the result, and continue. Preserve unrelated work and do not push or merge remotely.
 The current checkpoint follows; actual newer code/commits take precedence over stale handoff notes.

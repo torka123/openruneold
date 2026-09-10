@@ -620,6 +620,19 @@ internal class RoyalTitansTestWorld(
         )
     val objRegistry = ObjRegistry(updates)
     private val objects = ObjRepository(clock, objRegistry)
+    private val npcDeath = NpcDeath(npcs, players, objects, emptySet(), emptySet())
+    var missingDropTable = false
+    val rewardLogEvents = mutableListOf<List<Any?>>()
+    private val dropTables =
+        mock(DropTableRegistry::class.java) { call ->
+            if (call.method.name != "forNpc" || missingDropTable) null
+            else
+                when (call.getArgument<Npc>(0).id) {
+                    12596 -> org.rsmod.content.drops.tables.monsters.brandaTheFireQueenDropTable
+                    14147 -> org.rsmod.content.drops.tables.monsters.eldricTheIceKingDropTable
+                    else -> null
+                }
+        }
     private val movement = NpcMovementProcessor(collision, StepFactory(collision), events)
     private val modes =
         NpcModeProcessor::class.java.constructors.single().let { ctor ->
@@ -780,11 +793,22 @@ internal class RoyalTitansTestWorld(
         RoyalTitansEncounterManager(
             clock,
             instances,
-            objects,
+            npcDeath,
             collision,
             random,
             players,
-            mock(DropTableRegistry::class.java),
+            dropTables,
+            org.rsmod.content.drops.NpcRewardDeliveryService(
+                mock(org.rsmod.api.area.checker.AreaChecker::class.java),
+                objects,
+                random,
+                mock(org.rsmod.api.collectionlog.CollectionLogService::class.java) { call ->
+                    if (call.method.name == "record") rewardLogEvents += call.arguments.toList()
+                    null
+                },
+                mock(org.rsmod.api.market.MarketPrices::class.java),
+                mock(org.rsmod.api.net.social.ClanChatService::class.java),
+            ),
             hud,
             statistics,
             phaseProgram,
@@ -913,7 +937,7 @@ internal class RoyalTitansTestWorld(
         with(instanceLifecycle) { context.startup() }
         nativeLifecycle = instanceLifecycle as org.rsmod.api.player.hook.PlayerPostTickHook
         if (hudBeforeInstances == false) with(hud) { context.startup() }
-        val death = NpcDeath(npcs, players, objects, emptySet(), emptySet())
+        val death = npcDeath
         with(NpcDeathScript(death)) { context.startup() }
         with(RoyalTitansCombat(manager, death, players, bossDeps, phaseProgram)) {
             context.startup()

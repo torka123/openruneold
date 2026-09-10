@@ -7,17 +7,15 @@ import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
 import dev.openrune.types.MoveRestrict
 import dev.openrune.types.NpcMode
-import dtx.core.ArgMap
 import dtx.core.RollResult
-import dtx.core.flatten
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.sql.SQLException
 import java.util.UUID
 import org.rsmod.api.bossbar.plugin.BossHpBarScript
+import org.rsmod.api.death.NpcDeath
 import org.rsmod.api.droptable.DropRollItem
 import org.rsmod.api.droptable.DropTableRegistry
-import org.rsmod.api.droptable.rollCount
 import org.rsmod.api.instances.InstanceId
 import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.instances.InstanceSession
@@ -28,13 +26,14 @@ import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.stat.hitpoints
 import org.rsmod.api.player.vars.VarPlayerIntMapSetter
 import org.rsmod.api.random.GameRandom
-import org.rsmod.api.repo.obj.ObjRepository
 import org.rsmod.content.bosses.royaltitans.RoyalTitansDefinitions.anim
 import org.rsmod.content.bosses.royaltitans.RoyalTitansDefinitions.requireLoc
 import org.rsmod.content.bosses.royaltitans.RoyalTitansDefinitions.requireNpc
 import org.rsmod.content.bosses.royaltitans.RoyalTitansDefinitions.spot
 import org.rsmod.content.bosses.royaltitans.RoyalTitansRun as Run
 import org.rsmod.content.bosses.royaltitans.RoyalTitansRun.Participant
+import org.rsmod.content.drops.NpcRewardDeliveryService
+import org.rsmod.content.drops.tables.monsters.royalTitansTertiaryTable
 import org.rsmod.content.skills.magic.spell.attacks.RoyalTitansWallSpells
 import org.rsmod.game.MapClock
 import org.rsmod.game.entity.Npc
@@ -55,11 +54,12 @@ internal class RoyalTitansEncounterManager
 constructor(
     private val clock: MapClock,
     private val instances: InstanceManager,
-    private val objects: ObjRepository,
+    private val npcDeath: NpcDeath,
     private val collision: CollisionFlagMap,
     private val random: GameRandom,
     private val players: PlayerList,
     private val drops: DropTableRegistry,
+    private val rewards: NpcRewardDeliveryService,
     private val bossHpBar: BossHpBarScript,
     private val statistics: RoyalTitansStatistics,
     private val phases: RoyalTitansPhaseProgram,
@@ -616,18 +616,40 @@ constructor(
         if (run.stage != RoyalTitansStage.COMPLETE || !run.completionCommitted)
             return player.mes("Defeat both Titans before claiming a reward.")
         if (contribution(player) <= 0) return player.mes("You did not contribute to this victory.")
-        if (!run.claimed.add(player.accountHash))
+        if (player.accountHash in run.claimed)
             return player.mes("You have already claimed this victory's reward.")
-        when (choice) {
-            ClaimChoice.LOOT -> rollLoot(player, corpse)
-            ClaimChoice.PAGES ->
-                objects.add("obj.desiccated_page", player.coords, 200, player, 10 + random.of(10))
-            ClaimChoice.SACRIFICE -> {
-                if (random.of(1500) == 0)
-                    objects.add("obj.rtbrandapet", player.coords, 200, player, 1)
-                player.mes("You sacrifice your loot for an improved pet chance.")
+        val args = rewards.rollArguments(corpse)
+        val result =
+            when (choice) {
+                ClaimChoice.LOOT ->
+                    drops.forNpc(corpse)?.roll(player, args)
+                        ?: return player.mes("No reward table was available.")
+                ClaimChoice.SACRIFICE ->
+                    royalTitansTertiaryTable(sacrifice = true).roll(player, args)
+                ClaimChoice.PAGES -> {
+                    val tertiary = royalTitansTertiaryTable().roll(player, args)
+                    val extras =
+                        when (tertiary) {
+                            RollResult.Nothing -> emptyList()
+                            is RollResult.Single -> listOf(tertiary.result)
+                            is RollResult.ListOf -> tertiary.results
+                        }
+                    // Full-contribution range retained; post-August saturation is not yet verified.
+                    RollResult.ListOf(listOf(DropRollItem("obj.desiccated_page", 10..19)) + extras)
+                }
             }
-        }
+        // Game-thread duplicate guard only: durable allocation/pickup remains a separate gap.
+        run.claimed.add(player.accountHash)
+        rewards.deliver(
+            receiver = player,
+            npc = corpse,
+            result = result,
+            coords = player.coords,
+            eventId = npcDeath.nextLootTrackerEventId(),
+            awardIdentity = "royal-titans:${run.completionId}:${player.accountHash}",
+        )
+        if (choice == ClaimChoice.SACRIFICE)
+            player.mes("You sacrifice your loot for an improved pet chance.")
         if (choice != ClaimChoice.SACRIFICE)
             player.mes(
                 "You take your reward from ${if (element == RoyalElement.FIRE) "Branda" else "Eldric"}."
@@ -639,29 +661,6 @@ constructor(
                 )
             }
         }
-    }
-
-    private fun rollLoot(player: Player, corpse: Npc) {
-        val activeType =
-            requireNpc(
-                if (runElement(corpse) == RoyalElement.FIRE) RoyalTitansAssets.BRANDA_ACTIVE
-                else RoyalTitansAssets.ELDRIC_ACTIVE
-            )
-        val proxy = Npc(activeType, corpse.coords)
-        when (val result = drops.forNpc(proxy)?.roll(player, ArgMap())?.flatten()) {
-            is RollResult.Single -> giveDrop(player, result.result)
-            is RollResult.ListOf -> result.results.forEach { giveDrop(player, it) }
-            else -> player.mes("No reward table was available.")
-        }
-    }
-
-    private fun runElement(corpse: Npc): RoyalElement =
-        run(corpse)?.corpses?.get(corpse) ?: RoyalElement.FIRE
-
-    private fun giveDrop(player: Player, drop: DropRollItem) {
-        if (drop.isNothing || !drop.condition(player)) return
-        val obj = drop.transformObj(player) ?: drop.obj
-        objects.add(obj, player.coords, 200, player, drop.rollCount(random))
     }
 
     fun finishAuxiliaryDeath(npc: Npc) {

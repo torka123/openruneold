@@ -176,8 +176,11 @@ Nine complete pack births were observed (three consecutive vertical tiles each):
 | 1759 | Ice | 2910 | 9564-9566 | 29527-29535 |
 
 Summon precedes birth by2 ticks. Both Titans summon1649, but Branda dies1650, so only the ice pack
-appears1651. All12 observed self-exploders have zero HP before exploding; their ages span
-16/19/21/25/28/30/31/34/40 ticks. This disproves a universal18-tick timer, not merely its numeric value.
+appears1651. Correction (2026-09-10): none of the twelve observed self-exploders has a decoded
+hit/headbar update from its birth to explosion. Missing HP updates do NOT establish zero HP.
+Their ages span16/19/21/25/28/30/31/34/40 ticks. Examples: fire54385 born1586 explodes1602
+(L25392, age16); fire54384 explodes1616 (L25871, age30); ice56995 born1759 explodes1799
+(L30618, age40). This disproves a universal18-tick timer, not merely its numeric value.
 No replacement lifetime rule is proved. First ice pack faces1407, starts distant travel1409,
 converges1410. Another elemental overlaps the player's spawn tile1716 and steps east1717, so an
 unconditional two-tick movement prohibition is also not supported.

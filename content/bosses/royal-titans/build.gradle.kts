@@ -37,6 +37,7 @@ dependencies {
     testImplementation(projects.api.net)
     testImplementation(projects.api.combat.combatFormulas)
     testImplementation(projects.api.attr)
+    testImplementation(projects.api.collectionLog)
     testImplementation(projects.api.hitPlugin)
     testImplementation(projects.api.mechanics.toxins)
     testImplementation(projects.api.market)

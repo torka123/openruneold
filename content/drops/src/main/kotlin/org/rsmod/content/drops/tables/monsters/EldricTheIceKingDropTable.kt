@@ -4,10 +4,7 @@ import dtx.rs.RSDropTable
 import dtx.rs.npcs
 import org.rsmod.api.droptable.DropRollItem
 import org.rsmod.api.droptable.RegisterDropTable
-import org.rsmod.api.droptable.rsPlayerPrerollTable
-import org.rsmod.api.droptable.rsPlayerTertiaryTable
 import org.rsmod.api.droptable.rsPlayerWeightedTable
-import org.rsmod.content.drops.clueScrollTransformObj
 import org.rsmod.game.entity.Player
 
 @field:RegisterDropTable
@@ -16,19 +13,14 @@ public val eldricTheIceKingDropTable: RSDropTable<Player, DropRollItem> =
     RSDropTable(
         tableIdentifier = "Eldric the Ice King Drops",
         npcs = npcs("npc.rt_ice_king"),
-        preRoll =
-            rsPlayerPrerollTable {
-                1 outOf 75 weight "obj.twinflame_piece_1" count 1
-                1 outOf
-                    75 weight
-                    "obj.deadeye_prayer_scroll" count
-                    1 condition
-                    { player ->
-                        // Drops Need Manual: No longer dropped after reading the scroll.
-                        true
-                    }
-                1 outOf 16 weight "obj.giantsoul_amulet_uncharged" count 1
-            },
+        separateRolls =
+            royalTitansUniques(
+                "obj.twinflame_piece_1",
+                "obj.deadeye_prayer_scroll",
+                "varbit.prayer_deadeye_unlocked",
+            ),
+        mainRolls = 2,
+        mainRollsFor = { _, unique -> royalTitansMainRolls(unique) },
         mainTable =
             rsPlayerWeightedTable(total = 56) {
                 name("Eldric the Ice King Drops")
@@ -63,23 +55,5 @@ public val eldricTheIceKingDropTable: RSDropTable<Player, DropRollItem> =
                 2 weight "obj.4doseprayerrestore" count 2..4
                 2 weight "obj.desiccated_page" count 6..24
             },
-        tertiaries =
-            rsPlayerTertiaryTable {
-                // Drops Need Manual (rate): Sacrificing loot doubles the pet drop rate.
-                1 outOf 3000 weight "obj.rtbrandapet" count 1
-                1 outOf
-                    23 weight
-                    "obj.trail_clue_hard_map001" count
-                    1 transformObj
-                    { player ->
-                        player.clueScrollTransformObj("obj.trail_clue_hard_map001")
-                    }
-                1 outOf
-                    95 weight
-                    "obj.trail_elite_emote_exp1" count
-                    1 transformObj
-                    { player ->
-                        player.clueScrollTransformObj("obj.trail_elite_emote_exp1")
-                    }
-            },
+        tertiaries = royalTitansTertiaryTable(),
     )
