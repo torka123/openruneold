@@ -2,6 +2,7 @@ plugins { id("base-conventions") }
 
 dependencies {
     implementation(libs.guice)
+    implementation(projects.api.bosses)
     implementation(project(":api:boss-hp-bar-plugin"))
     implementation(projects.api.combat.combatCommons)
     implementation(projects.api.combat.combatScripts)

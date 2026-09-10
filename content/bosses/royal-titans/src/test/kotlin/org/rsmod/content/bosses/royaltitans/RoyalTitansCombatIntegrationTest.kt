@@ -730,6 +730,20 @@ internal class RoyalTitansTestWorld(
             mock(org.rsmod.api.combat.formulas.MaxHitFormulae::class.java),
             world,
         )
+    val bossDeps =
+        org.rsmod.api.bosses.runtime.BossDeps(
+            random,
+            accuracy,
+            world,
+            npcs,
+            players,
+            clock,
+            org.rsmod.game.queue.WorldQueueList(),
+            collision,
+            org.rsmod.api.bosses.runtime.EncounterRegistry(random),
+            org.rsmod.api.bosses.runtime.BossExtensionRegistry(),
+            npcCombat,
+        )
     val manager =
         RoyalTitansEncounterManager(
             clock,
@@ -754,7 +768,6 @@ internal class RoyalTitansTestWorld(
             hud,
             modifier,
             statistics,
-            npcCombat,
         )
 
     private val nativeInteractions =
@@ -818,7 +831,7 @@ internal class RoyalTitansTestWorld(
         if (hudBeforeInstances == false) with(hud) { context.startup() }
         val death = NpcDeath(npcs, players, objects, emptySet(), emptySet())
         with(NpcDeathScript(death)) { context.startup() }
-        with(RoyalTitansCombat(manager, death, players)) { context.startup() }
+        with(RoyalTitansCombat(manager, death, players, bossDeps)) { context.startup() }
         with(RoyalTitansLifecycle(manager)) { context.startup() }
     }
 

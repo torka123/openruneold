@@ -18,10 +18,6 @@ import java.util.UUID
 import kotlin.math.abs
 import kotlin.math.max
 import org.rsmod.api.bossbar.plugin.BossHpBarScript
-import org.rsmod.api.combat.NpcAttackOverride
-import org.rsmod.api.combat.NvPCombat
-import org.rsmod.api.combat.commons.CombatAttack
-import org.rsmod.api.combat.commons.types.MeleeAttackType
 import org.rsmod.api.droptable.DropRollItem
 import org.rsmod.api.droptable.DropTableRegistry
 import org.rsmod.api.droptable.rollCount
@@ -91,7 +87,6 @@ constructor(
     private val bossHpBar: BossHpBarScript,
     private val npcHitModifier: StandardNpcHitModifier,
     private val statistics: RoyalTitansStatistics,
-    private val combat: NvPCombat,
 ) {
     private val log = InlineLogger()
     private val runs = mutableMapOf<InstanceId, Run>()
@@ -1205,25 +1200,10 @@ constructor(
         access.actionDelay = clock.cycle + 7
     }
 
-    fun attackElemental(access: org.rsmod.api.npc.access.StandardNpcAccess, target: Player) {
-        val run = npcRuns[access.npc] ?: return
-        val state = run.elementals[access.npc] ?: return
-        if (target.accountHash !in run.participants) return
-        combat.attack(
-            access,
-            target,
-            CombatAttack.NpcMelee(
-                if (state.element == RoyalElement.FIRE) MeleeAttackType.Slash
-                else MeleeAttackType.Stab
-            ),
-            NpcAttackOverride(
-                attackAnimation = anim(if (state.element == RoyalElement.FIRE) 11947 else 11950),
-                maxHit = 4,
-                attackRate = 4,
-                impactDelay = 1,
-            ),
-        )
-    }
+    fun canAttackElemental(npc: Npc, target: Player): Boolean =
+        npcRuns[npc]?.let { run ->
+            npc in run.elementals && target.accountHash in run.participants
+        } == true
 
     fun modifyNpcHit(player: Player?, npc: Npc, hit: HitBuilder) {
         val run = npcRuns[npc]

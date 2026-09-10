@@ -134,6 +134,57 @@ class RoyalTitansElementalCombatTest {
         return npc
     }
 
+    @Test
+    fun `native deletion retires the elemental DSL identity and pending hit`() {
+        val f = RoyalTitansTestWorld(random = MaximumRoll)
+        val player = f.enter()
+        val npc = adjacent(f, player, 14151)
+        `when`(f.accuracy.rollMeleeAccuracy(npc, player, MeleeAttackType.Stab, MaximumRoll))
+            .thenReturn(true)
+        f.attack(npc, player)
+        val hit = hits(player).single()
+        val encounter = assertNotNull(f.bossDeps.encounterRegistry.existing(npc))
+        assertEquals(1, encounter.phaseAbilityCount)
+        assertEquals("melee", encounter.lastAbilityName)
+        assertTrue(hit.isValidNow())
+        f.npcs.del(npc, Int.MAX_VALUE)
+        assertTrue(encounter.isEnded)
+        assertNull(f.bossDeps.encounterRegistry.existing(npc))
+        assertFalse(hit.isValidNow())
+        with(DamageOnlyPlayerHitProcessor(f.events, f.npcList, f.players)) { player.process(hit) }
+        assertEquals(99, player.hitpoints)
+    }
+
+    @Test
+    fun `instance teardown retires only that rooms elemental encounters`() {
+        val f = RoyalTitansTestWorld()
+        val first = f.enter()
+        val second = f.newPlayer(2)
+        assertTrue(f.manager.enter(second))
+        // Unlock both rooms on the same native frame, before their patrols diverge.
+        f.tick(6)
+        f.hit(first, f.npc(first, RoyalTitansAssets.BRANDA_ACTIVE), 100)
+        f.hit(second, f.npc(second, RoyalTitansAssets.BRANDA_ACTIVE), 100)
+        f.tick(9)
+        val firstNpc = f.npc(first, 14150)
+        val secondNpc = f.npc(second, 14151)
+        PathingEntityCommon.telejump(firstNpc, f.collision, first.coords.translate(0, -1))
+        PathingEntityCommon.telejump(secondNpc, f.collision, second.coords.translate(0, -1))
+        firstNpc.resetMovement()
+        secondNpc.resetMovement()
+        f.attack(firstNpc, first)
+        f.attack(secondNpc, second)
+        val firstEncounter = assertNotNull(f.bossDeps.encounterRegistry.existing(firstNpc))
+        val secondEncounter = assertNotNull(f.bossDeps.encounterRegistry.existing(secondNpc))
+        assertNotSame(firstEncounter, secondEncounter)
+        assertTrue(f.instances.terminate(assertNotNull(f.instances.sessionForPlayer(first))))
+        assertTrue(firstEncounter.isEnded)
+        assertFalse(secondEncounter.isEnded)
+        assertSame(secondEncounter, f.bossDeps.encounterRegistry.existing(secondNpc))
+        assertTrue(secondNpc.isSlotAssigned)
+        assertFalse(firstNpc.isSlotAssigned)
+    }
+
     private fun hits(player: Player): List<Hit> = hitQueues(player).map { it.args as Hit }
 
     private fun hitQueues(player: Player): List<org.rsmod.game.queue.PlayerQueueList.Queue> {

@@ -1378,3 +1378,35 @@ The test helper now enters native ApPlayer2 mode before dispatching its event; o
 initially caused four fixture failures because NvPCombat correctly refused idle NPC attacks.
 No production change was needed for the characterization. All102 module tests pass in
 `royal-titans-elemental-characterization-final-20260910.log` (48s/194tasks).
+
+First bounded production step: fire/ice elementals now have distinct registered BossSpecs using
+Effect.NpcAttack, native slash/stab accuracy, max4, animations11947/11950, impact+1 and four-tick
+recovery. A one-entry Rotation avoids introducing a new RNG draw. BossCombat receives the retained
+incoming spell/refund callbacks and ownership predicate; the direct onAiApPlayer2 registration
+and manager.attackElemental are removed. No ordinary elemental engine runs alongside the DSL.
+Deletion retires its native encounter and effect scope; custom dying presentation retains its
+already-launched melee hit until deletion, as characterized. No new shared API was added.
+
+`royal-titans-elemental-dsl-green-20260910.log`: all102 existing/characterization tests pass,
+1m16s/196tasks. Two additional native deletion/multi-room isolation tests raise the total to104.
+The first isolation fixture assumed six simultaneous helpers after allowing the second room's
+patrols to diverge; observed three. Synchronizing both rooms' test-only unlock frame corrected
+the fixture. `royal-titans-elemental-dsl-verified-20260910.log`:104 tests, zero failures/skips,
+scoped module check, api:bosses tests and3 cache audit cases pass,53s/204tasks (cache/API up-to-date).
+The earlier test-only compile errors/mode-setup and isolation failures are retained in logs;
+none were addressed by changing OSRS timing or shared combat formulas.
+
+Manager now1,997 lines versus2,017; its remaining paired lifecycle/rotation is still migration debt.
+Removed the obsolete boss-api-dependency waiver and reduced the direct-combat review budget3 ->2.
+Remaining two sites are elemental spell splash and arena tile damage, not ordinary helper melee.
+Patrols, wall casts/autocasts, Blast, body models, corpses, reward choice policy, PostgreSQL statistics
+and the cache remain unchanged. This is a source checkpoint, NOT a completed/deployed Royal Titans
+migration or a new OSRS parity claim. Native InstanceScript/session ownership and paired DSL phases
+are the next mapped steps; inherited reward/CA/evidence uncertainties remain in the existing ledger.
+
+Broader source verification passes: `royal-titans-elemental-broad-check-20260910.log`,30s/505tasks
+(4 executed,501 up-to-date): every applicable boss test task, api:bosses, api:instances,
+combat-scripts, combat-manager, engine:game, content:drops, server:app:classes and architecture
+enforcement. NO-SOURCE/up-to-date tasks are not represented as newly executed gameplay tests.
+git diff --check passes. Save this passing bounded stage on
+`backup/royal-titans-elemental-dsl-20260910` before proceeding; live remains the Cerberus checkpoint.

@@ -139,12 +139,6 @@
   },
   {
     "boss": "royal-titans",
-    "rule": "boss-api-dependency",
-    "maximum": 1,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "royal-titans",
     "rule": "global-runs-map",
     "maximum": 1,
     "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
@@ -158,8 +152,8 @@
   {
     "boss": "royal-titans",
     "rule": "direct-combat-review",
-    "maximum": 3,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+    "maximum": 2,
+    "reason": "Ordinary elemental melee now uses BossSpec/NvPCombat. Remaining sites are elemental spell splash and paired-arena tile damage; both remain under the Royal Titans migration mapping in DSL_MIGRATION.md."
   },
   {
     "boss": "royal-titans",

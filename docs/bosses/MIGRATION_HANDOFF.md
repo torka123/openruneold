@@ -42,6 +42,14 @@ Update this checkpoint after each completed boss and immediately before any auth
   Logs: `cerberus-deploy-doctor-restart{1,2}-20260910.log`,
   `cerberus-deploy-persistence-restart{1,2}-20260910.log`, and
   `cerberus-audit-20260907/restart-20260910{1,2}.stdout.log` under `logs/`.
+- Additional live checkpoint backup: `backup/cerberus-live-verified-20260910` at `d86baed87`,
+  ZIP `logs/cerberus-live-verified-20260910.zip`, SHA256
+  `9345A54A1B02464636E141AF45FEBF44E3485D5AC9C2AA5BAEB2B5D021E59EDB`.
+- Current source branch: `refactor/royal-titans-boss-dsl-20260910`. First bounded step converts
+  ordinary fire/ice elemental melee to BossSpec/NvPCombat and removes the manager's direct
+  elemental attack method. Characterization commit `f28c0f225` precedes production edits.
+  All104 module tests and3 cache tests pass; source-stage verification is recorded below.
+  This Royal Titans step is NOT deployed and does not complete the paired-boss migration.
 - Completed source migrations: Kraken, Vorkath, Corporeal Beast, Alchemical Hydra, Grotesque Guardians,
   Zulrah, Muspah and Cerberus. This means source/headless migration, not client or full OSRS parity certification.
 - Muspah verification: `logs/muspah-native-phase-dsl-regression.log`, all67 tests pass
@@ -122,7 +130,7 @@ successful. This includes affected shared suites and all applicable boss tests (
 where unchanged), scoped Cerberus check, app compilation and architecture enforcement.
 
 Cerberus backup and local deployment checkpoint are complete. Continue Royal Titans on its own
-branch; read-only inspection has begun, but no Royal Titans source change is part of this deployment.
+branch; the elemental DSL source step has begun, but no Royal Titans source change is part of this deployment.
 The pre-correction backup `c96d06528` is recoverable but was NOT deployed. No cache or PostgreSQL
 authority was changed. Native startup verification is not a rendered fight or packet comparison.
 
@@ -137,6 +145,19 @@ ordinary styles, Souls/prayer switching, lava movement, firewall crossing/reset,
 normal exit, external teleport and logout. `::cerbdebug` can force mechanics but makes the kill
 reward-ineligible; test actual loot/KC with a fresh natural kill. Natural public entrance remains
 an inherited access gap, not a newly invented location. Capture and visual parity remain open.
+
+Royal Titans source-stage result: `royal-titans-elemental-dsl-verified-20260910.log` passes all104
+module tests, scoped check, shared boss tests and3 revision-240 cache tests (53s/204tasks; cache/API
+tasks were up-to-date). Seven added elemental tests execute production registration, accuracy,
+max hit, launch prayer, cadence, custom-death lifetime, native deletion and separate-room cleanup.
+One multi-room fixture initially unlocked summons after its patrols had diverged; synchronizing
+only test setup fixed the assumption without changing production timing. InstanceScript conversion,
+private membership-map removal, paired Titan phases/cadence and specialized handler extraction
+are NEXT, not completed. Preserve existing rewards/statistics and explicitly documented mechanical
+uncertainties. Do not repeat or revert the characterized elemental conversion.
+Broader verification: `royal-titans-elemental-broad-check-20260910.log` passes in30s/505tasks,
+including applicable boss/shared suites, app compilation and architecture enforcement. Passing
+source checkpoint branch: `backup/royal-titans-elemental-dsl-20260910`. It is not a live deployment.
 
 1. Collect user client-test feedback. Backup, local deployment, two gameplay checkpoint restarts,
    persistent fingerprints and the corrected75-assertion live Vorkath audit are complete. Do not

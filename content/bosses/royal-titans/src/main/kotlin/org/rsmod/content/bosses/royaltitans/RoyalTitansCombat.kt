@@ -2,6 +2,8 @@ package org.rsmod.content.bosses.royaltitans
 
 import dev.openrune.ServerCacheManager
 import jakarta.inject.Inject
+import org.rsmod.api.bosses.runtime.BossCombat
+import org.rsmod.api.bosses.runtime.BossDeps
 import org.rsmod.api.death.NpcDeath
 import org.rsmod.api.script.onAiApPlayer2
 import org.rsmod.api.script.onModifyNpcHit
@@ -20,6 +22,7 @@ constructor(
     private val encounters: RoyalTitansEncounterManager,
     private val death: NpcDeath,
     private val players: PlayerList,
+    private val deps: BossDeps,
 ) : PluginScript() {
     override fun ScriptContext.startup() {
         for (id in listOf(RoyalTitansAssets.BRANDA_ACTIVE, RoyalTitansAssets.ELDRIC_ACTIVE)) {
@@ -53,14 +56,24 @@ constructor(
 
         for (id in listOf(RoyalTitansAssets.FIRE_ELEMENTAL, RoyalTitansAssets.ICE_ELEMENTAL)) {
             val type = requireNpc(id)
-            onAiApPlayer2(type) { encounters.attackElemental(this, it.target) }
-            onNpcHit(type) { encounters.npcHit(npc, hit) }
-            onModifyNpcHit(type) {
-                val player =
-                    if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players)
-                    else null
-                if (player == null) hit.damage = 0 else encounters.modifyNpcHit(player, npc, hit)
-            }
+            val element =
+                if (id == RoyalTitansAssets.FIRE_ELEMENTAL) RoyalElement.FIRE else RoyalElement.ICE
+            BossCombat.register(
+                this,
+                royalTitansElementalSpec(element),
+                deps,
+                ownerSlug = "royal-titans-${element.name.lowercase()}-elemental",
+                canTarget = encounters::canAttackElemental,
+                onImpactHit = { encounters.npcHit(npc, hit) },
+                onModifyHit = {
+                    // Preserve the existing elemental-only incoming-damage/spell policy.
+                    val player =
+                        if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players)
+                        else null
+                    if (player == null) hit.damage = 0
+                    else encounters.modifyNpcHit(player, npc, hit)
+                },
+            )
             onNpcQueue(type, "queue.death") { encounters.finishElementalDeath(npc) }
         }
 
