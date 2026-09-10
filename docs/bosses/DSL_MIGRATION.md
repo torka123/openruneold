@@ -1095,3 +1095,62 @@ No gameplay/shared API change. A native regression executes the same audit helpe
 hook and verifies room/effect cleanup without a save request. All111 Vorkath tests, instance tests,
 app classes and architecture check pass,41s/452tasks (`boss-migration-live-audit-disconnect-regression.log`).
 The corrected live audit must be rerun; the timeout must not be reported as a successful fight audit.
+
+The next audit passed disconnect but caught its immediate-logout assertion: native membership is
+removed immediately and NPC/map reclaim is intentionally deferred one tick. Publishing an account
+logout event for the synthetic account also attempted an activity-log insert, rejected by the
+account foreign key (no account row was created). The harness now invokes only InstanceManager's
+native logout workflow and waits for deferred reclaim; it does not emit account-level events.
+The added regression executes that path and verifies immediate hit cancellation, deferred NPC
+retirement and no account-save flags. `boss-migration-live-audit-reclaim-regression.log`: all112
+Vorkath tests plus instance tests/app classes/architecture pass,41s/452tasks. This is a diagnostic
+adaptation to the already-migrated native lifecycle, not another combat change.
+
+Final live audit at source `7784e155e`: **SUCCESS75 assertions**, saved as
+`logs/boss-migration-vorkath-live-audit-success.log` (started2026-09-10T03:40 UTC). Natural AI,
+all ten native projectile profiles, both specials, launch/impact timings, collision-based acid
+walking, Crumble Undead, resets, boss/player death, exit, external teleport, native disconnect and
+deferred instance logout cleanup passed. This uses the real server game loop/cache/packets, not a
+rendered client or an OSRS capture diff. It does not certify full account logout/save integration.
+Current JVM23164 is canonical; restart log `cerberus-audit-20260907/restart-2026090942.stdout.log`
+records custom marker23:40:08 and ready23:40:10. The earlier gameplay checkpoint already survived
+two controlled restarts. Subsequent changes were the diagnostic harness only. Do not restart the
+server again merely to repeat that checkpoint while the user is testing. Database fingerprint log
+`boss-migration-persistence-harness-rerun.log` still matched all three predeployment fingerprints
+before user testing began. Later legitimate player changes must not be mistaken for corruption.
+
+### Cerberus pre-edit strangler mapping
+
+Existing baseline:1,290-line CerberusEncounterManager;52 executable module tests. Evidence remains
+`docs/cerberus-rev240-evidence.md` and the September7 audit/dispatch/instance-guard follow-ups.
+Those documents explicitly distinguish Wiki/cache facts from donor-derived profiles and incomplete
+captures1702/3250. No complete normal OSRS fight or new audiovisual evidence is asserted here.
+The migration preserves the draft values; it must not turn its uncertainties into parity claims.
+
+Architecture reference: official upstream `61139e76a216592d66c2b20366ef26d48609875d`,
+BossCombat/BossEncounter/EffectInterpreter/Selector/Condition under `api/bosses`,
+`api/combat/combat-scripts/.../NvPCombat.kt`, `api/instances/.../InstanceScript.kt` and
+`.../InstanceManager.kt`, and `content/bosses/scurrius/.../Scurrius.kt` / `ScurriusInstance.kt`.
+The source-defined InstanceScript constructor, typed session state, native attack overrides,
+NpcAttack effect, ability-count condition, phase clock and scoped queues are already-tested **local
+extensions of those native workflows**, not claims of official upstream APIs. No new shared
+capability is planned for this step.
+
+| Existing behavior / confidence | Existing owner | Planned established workflow | Executable checks |
+|---|---|---|---|
+| Forms5863/5862/5866,5x5,600HP; cache-verified | Manager construction/transmog | Same immutable actor identity; BossCombat registers all forms; native definition stats retained | Real-cache dispatch, base/visible combinations and no generic fallback |
+| Six-tick normal, triple>Souls>lava priority; current draft characterized | Private selector/counter/actionDelay | BossSpec conditional modulo/HP selection, nested injected-RNG choices and SetAttackRate |35-turn rotation, HP boundaries400/200, skip RNG, blocked attempts and6/10/8 recovery |
+| Normal magic/ranged plus adjacent Stab; maximum23, launch-prayer snapshot | Manual formula/projectile/hit code | Effect.NpcAttack delegates native NvPCombat; named parameter resolver retains head geometry and equipment-reduced maximum distribution | Actual zone packets, native queued hits, max distribution and prayer switching |
+| Triple components0/2/4; draft timing, no complete OSRS capture | Three private launches/world queues | Declarative Sequence/Delay with native attacks; per-component launch snapshots, single ability commitment | Exact component ticks, opposite outer heads, melee impact, interruption and no duplicate ordinary shot |
+| Animation priority/defend lock and cast/impact presentation; draft values | Manager presentation helpers | Thin named presentation handlers using normal anim/spotanim/sound APIs; no independent attack scheduler | Pending sequences, spell/impact effects and defend suppression |
+| Souls below400, every7; permutation, fixed lanes,30/15/20/10 prayer drain,22 Elysian damage | Manager spawned NPCs/world timers | Focused Soul handler, native NPC/repository/path APIs, encounter-owned queues/hit scopes | Three different ghosts, west-east order, fixed facing, Ward/Spectral, retirement at every stage |
+| Lava below200, every5; three unique destinations, projectile-arrival activation, fixed damage policy | Manager lava lists/tick | Focused spatial handler; native projectile/collision/queues scoped to encounter | Actual destinations/arrival, no cross-instance hits, lifetime and cleanup |
+| Solo copied4883, entry(24,10), sitting(22,34), public exit; source-normalization tested | Private player/run map and create/leave/logout handlers | Source-defined InstanceScript, native keyed membership, typed InstanceSession state and configured actor | Concurrent clones, protected entry refusal, exit/teleport/logout/disconnect/death and fresh re-entry |
+| Standing4, walk-back/sit reset,15-tick respawn; draft lifecycle | Private state deadlines and respawn construction | BossEncounter phases/opt-in clock; focused arrival-sensitive route handler; native death/reveal same-actor respawn | Exact state/arrival ticks, repeated kills, no duplicate actor or stale hazards/tasks |
+| Native drops/KC, six achievement flags, debug reward suppression; existing behavior | Native death/drop plus local task policy | Keep native death/drop/Collection Log/vars; leave task eligibility as narrow event policy | Once-only completion, debug no rewards, persisted var definitions and native death destination |
+| Debug next/counter/skip controls, no gameplay rewards | Manager forced fields | Native diagnostic ability forcing/counter state; diagnostic-only overrides must not become production selection | Forced attacks/skip and clean next round |
+
+Migrate in independently tested internal steps: characterization, declarative combat, native
+instance/actor lifecycle, specialized-resource split, final removal/waiver review. Do not deploy
+an incomplete Cerberus wiring step. The current deployed checkpoint must remain usable while
+the source migration proceeds. Preserve existing scripts, captures, maps, drop tables and evidence.
