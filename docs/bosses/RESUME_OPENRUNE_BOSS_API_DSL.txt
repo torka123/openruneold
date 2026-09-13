@@ -27,7 +27,10 @@ KNOWN STARTING CHECKPOINT (RECHECK; DO NOT REPEAT COMPLETED WORK)
   and TWO ordinary controlled restarts20364->25096->23812 passed saves, actual exits/startup,
   doctor, canonical cache hashes and inventory/bank/realm fingerprints. Fresh offline PG/source
   backups verified; see Nex ledger top for receipts/hashes and marker limitation. Do not repeat
-  completed S10 work. Next approved slice is M21 prison ownership/cancellation mapping; no edits yet.
+  completed S10 work. M21 prison ownership/cancellation is complete in source:12 focused groups,
+  110 Nex cases,167 valid reused shared cases, architecture/scoped checks/app assemble pass.
+  Its four-file archive is byte-verified; not deployed. Next approved slice is M26 completed-kill
+  occupant handoff, mapped before edits with regression preparation complete. See current Nex ledger.
   The older source-only/hold entries below are historical, not the current runtime status.
 - Permanent Central dependency07b00480e and game-side producer source0f729d055 are tested/backed
   up;31 Central +12 new client/writer focused tests pass. Final checks contain1,061 boss and297

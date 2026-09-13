@@ -34,12 +34,96 @@ PostgreSQL/caches/credentials/generated output and is separate from the verified
 Build and behavioral verification passed before deployment:31 Central focused tests,12 new native
 client/writer tests,1,061 boss cases and297 shared/app cases, scoped checks/assemble/architecture.
 
-Next source deliverable: bounded approved M21 prison ownership/cancellation. Map the actual clicked
-native loc to its captured prison/target, prevent a removed/replaced prison from delivering its old
-expiry hit, and clean up owned locs. Mapping/regression review is in progress; no M21 source edits
-yet. Existing timing/damage/geometry constants remain characterized under E07. Full native public/
+Current source deliverable: bounded approved M21 prison ownership/cancellation is implemented.
+The actual clicked native loc retains its captured prison/target; rescued/replaced casts cannot
+deliver old expiry damage, and native loc ownership is cleaned up. All12 focused regression groups,
+110 Nex cases, required shared checks and application build pass. Existing timing/damage/geometry constants remain
+characterized under E07. Full native public/
 private sessions, other mechanics/rewards/evidence gaps below remain open; Nex is not complete.
 Existing order remains Nex ->Yama ->Doom ->DT2 ->separate Dagannoth Kings review ->ToA ->ToB ->CoX.
+
+## Current source increment: M21 prison ownership and cancellation
+
+The following mapping was recorded before implementation.
+
+No shared API change is required. Pinned upstream `61139e76a` CampfireEvents uses clicked
+BoundLocInfo, exact lookup and native loc deletion; ShootingStarManager retains its owned locs.
+Current LocRepository already provides Boolean add/del, exact lookup and timed despawn callbacks,
+including established local timer-replacement fixes. LocInfo/BoundLocInfo are values, so content
+must retain its own cast/segment identity before a protected arrival delay; no allocation-ID API
+exists in the inspected local/pinned source. This is mechanic state within the existing Run.
+
+| Responsibility | Existing route and bounded correction | Observable acceptance |
+|---|---|---|
+| Clicked icicle | Registered NexWorld Op1 -> LocInteractions -> ProtectedAccess; capture segment/cast/player identity before arriveDelay, validate the same owner afterward | Clicking a higher-UID target's42944 releases that target; stale delayed clicks cannot select a same-value replacement |
+| Native loc ownership | LocRepository.add(LocInfo,5) Boolean success, findExact, del(selected,Int.MAX_VALUE), existing timed onDespawn | Only a successful native deletion rescues; exactly one selected segment/collision is removed, remaining segments retain native expiry |
+| Damage expiry | Existing BossEncounter.schedule(5) and native queued hit(+1); require the captured unresolved cast, invalidate it on rescue/recast/departure; preserve exact target session at impact | Rescue cannot fall through absent-map default0; untouched cast emits once; old casts/UID reuse/retired rooms cannot hit replacements |
+| Cleanup | Existing encounter onCleanup and player departure, identity-checked segment ownership plus native repository timer cancellation | Old timers/cleanup cannot remove newer segments; natural segment expiry retires ownership without implying rescue |
+
+Retained C-GM808 t1941:L49885-93/t1945:L49928-34 and t1614:L41421/t1615:L41451/
+t1619:L41525-30 show selected-only deletion and later ring expiry;806 t364:L10126-31 rejects
+self-rescue. Current240 cache42944 has Attack;42943 has no Op1. Exercise actual42944 dispatch,
+and do not claim the draft mixed geometry represents OSRS. Keep five-tick loc/callback durations,
+one-tick queued hit, damage0..75, existing prayer/CA policy and geometry unchanged. Weapon restrictions,
+rescue success probability and full E07 mechanics remain missing evidence, not guessed checks.
+Tests will use a real LocRepository/registry/collision and EntityLifecycleProcess at post-tick,
+following the established Royal Titans fixture. The existing mocked Nex loc fixture alone is
+insufficient. Cover two targets, self/outsider/unowned clicks, native deletion failure, untouched
+expiry, recasts/overlaps, delay-time replacements, departure/UID reuse and room cleanup.
+Production owner: primary; a bounded test owner may edit only the Nex fixture/new M21 tests.
+
+M21 verification: `logs/nex-m21-prison-red-20260913.log` compiled and ran eight
+behavioral groups, five failing against the old implementation. After the mapped content changes,
+all eight pass (`logs/nex-m21-prison-green-20260913.log`,19s). All12 expanded groups pass in
+`logs/nex-m21-prison-boundaries-20260913.log` (19s), including native add/delete rejection,
+recast after emission, exact expiry-cycle rescue refusal and phase handoff before/after emission.
+Two independent reviews found no blocking production defect. Native timer callbacks only retire
+content ownership; manual deletion and same-tile/layer replacement explicitly retire superseded
+segments. The cast remains owned until accepted native impact, so a recast cancels already queued
+old damage. Unsupported42943 Op1 registration is removed; draft mixed spawn geometry is retained.
+Identical external LocInfo replacement remains indistinguishable at native allocation level;
+content-owned replacements are protected by captured cast/segment identity. No shared API changed.
+
+`logs/nex-m21-shared-checks-20260913.log` passes in9s/177 tasks (2 executed). Valid unchanged
+shared results were reused: player20, NPC18, instances34, bosses61, game-process16, death6 and
+registry12 (167 total; zero failures/errors/skips). Architecture detector/self-tests pass.
+`logs/nex-m21-final-checks2-20260913.log` passes Nex check/scoped formatting/app assemble in1m,
+470 tasks (15 executed): all110 Nex cases, zero failures/errors/skips. The first final-check
+invocation failed before task execution because PowerShell split an unquoted Gradle property;
+the corrected invocation quotes that property. This was command parsing, not a source/test defect.
+Changed source files: NexEncounterManager.kt, NexWorld.kt, NexMinionCombatCharacterizationTest.kt
+and new NexIcePrisonIntegrationTest.kt. Focused source archive
+`logs/nex-m21-prison-source-20260913.zip` contains these four entries, verified byte-for-byte;
+SHA256 `79A9F830AEC0F97074E8866B6C24E784D7EB795BE4D18C3D86FDD55826382A1F`.
+The existing complete source snapshot and offline PostgreSQL backup remain intact. Scoped diff
+whitespace check passes. This increment is source-only; JVM23812 continues the deployed checkpoint
+above. Next exact deliverable is the approved M26 completed-kill occupant handoff below.
+
+## Next approved increment: M26 completed-kill occupant handoff (pre-edit mapping)
+
+Retained capture3284 t549:L13987-14017 ->t587:L14100-07 ->t790 shows consecutive rounds without
+re-entry. This is Grid Master private-solo evidence for continuity, not public/private parity or
+normal respawn timing. Keep the characterized50-cycle completion reset and five-cycle opening.
+The current native-death test explicitly leaves for the bank and calls enter between rounds,
+masking the membership loss in reset ->cleanup ->spawnFresh.
+
+Existing upstream A06/A07/A10 and the inspected GeneralGraardor native respawn/bodyguard workflow
+establish native actor lifecycle. Current InstanceManager.resetNpcs retains membership for an
+allocated InstanceSession, but this fixed chamber has no such session; do not create a second
+instance API or fake a session. Reuse the already approved M26 EndCycle/MapClock room driver,
+PlayerUid.resolve, NPC/loc repositories and S03 EncounterRegistry cleanup. Full fixed/public/
+private InstanceScript conversion remains separate.
+
+| Responsibility | Existing route and bounded change | Observable acceptance |
+|---|---|---|
+| Completed round only | Native final death/reward completion ->existing RESETTING deadline ->reset | Abandonment/source-loss resets remain idle; no new timer or copied capture duration |
+| Surviving occupants | Snapshot exact PlayerUid and Player before cleanup, revalidate membership/session/room eligibility after native cleanup and spawn callbacks | Eligible survivors stay at unchanged coordinates; departed/dead/disconnected/reused slots are excluded |
+| Fresh round | Existing repositories create one Run/encounter and five actors; enrol valid survivors with fresh per-kill state, beginSpawn once | Two native kills without re-entry; no duplicate actors/rewards, old contribution/achievement/prison state not inherited |
+| Old work | Existing encounter-owned cleanup, native hit validity and loc timers | Old queued hits/callbacks cannot acquire the replacement round; existing empty-room regressions stay green |
+
+M01-M36/S01-S08 approval already includes M26. No new shared capability is required or proposed.
+Production integration remains owned by the primary. Implement after completing M21 verification;
+bounded M26 regression preparation may run independently in its own test files.
 
 ## Source verification history: M01/M02 protected access and S10
 

@@ -42,9 +42,17 @@ import org.rsmod.api.player.protect.ProtectedAccessContextFactory
 import org.rsmod.api.player.protect.ProtectedAccessLauncher
 import org.rsmod.api.player.vars.VarPlayerIntMapSetter
 import org.rsmod.api.random.GameRandom
+import org.rsmod.api.registry.loc.LocRegistry
+import org.rsmod.api.registry.loc.LocRegistryNormal
+import org.rsmod.api.registry.loc.LocRegistryRegion
 import org.rsmod.api.registry.npc.NpcRegistry
+import org.rsmod.api.registry.region.RegionRegistry
+import org.rsmod.api.registry.zone.ZoneUpdateMap
+import org.rsmod.api.repo.EntityLifecycleProcess
+import org.rsmod.api.repo.controller.ControllerRepository
 import org.rsmod.api.repo.loc.LocRepository
 import org.rsmod.api.repo.npc.NpcRepository
+import org.rsmod.api.repo.obj.ObjRepository
 import org.rsmod.api.repo.world.WorldRepository
 import org.rsmod.api.route.BoundValidator
 import org.rsmod.api.utils.logging.GameExceptionHandler
@@ -61,6 +69,7 @@ import org.rsmod.game.interact.InteractionOp
 import org.rsmod.game.loc.BoundLocInfo
 import org.rsmod.game.loc.LocEntity
 import org.rsmod.game.loc.LocInfo
+import org.rsmod.game.map.LocZoneStorage
 import org.rsmod.game.proj.ProjAnim
 import org.rsmod.game.queue.EngineQueueCache
 import org.rsmod.game.queue.WorldQueueList
@@ -162,6 +171,7 @@ internal class NexMinionTestWorld(
     duo: Boolean = false,
     nativeDeaths: Boolean = false,
     enterRoom: Boolean = true,
+    private val nativeLocs: Boolean = false,
 ) {
     val clock = MapClock().apply { cycle = 100 }
     val events = EventBus()
@@ -169,8 +179,49 @@ internal class NexMinionTestWorld(
     val players = PlayerList()
     val npcs = NpcList()
     val collision = CollisionFlagMap()
+    val locUpdates = ZoneUpdateMap()
+    private val locStorage = LocZoneStorage()
+    var rejectLocAddAt: CoordGrid? = null
+    var rejectLocDeleteAt: CoordGrid? = null
+    val locs =
+        if (nativeLocs)
+            mock(
+                LocRepository::class.java,
+                withSettings()
+                    .spiedInstance(
+                        LocRepository(
+                            clock,
+                            LocRegistry(
+                                locStorage,
+                                LocRegistryNormal(locUpdates, collision, locStorage),
+                                mock(LocRegistryRegion::class.java),
+                            ),
+                            mock(RegionRegistry::class.java),
+                        )
+                    )
+                    .defaultAnswer { call ->
+                        val loc = call.arguments.firstOrNull() as? LocInfo
+                        when {
+                            call.method.name == "add" &&
+                                loc?.coords == rejectLocAddAt &&
+                                loc != null -> false
+                            call.method.name == "del" &&
+                                loc?.coords == rejectLocDeleteAt &&
+                                loc != null -> false
+                            else -> call.callRealMethod()
+                        }
+                    },
+            )
+        else mock(LocRepository::class.java)
     private val registry = NpcRegistry(npcs, collision, events)
     val repository = NpcRepository(clock, registry, npcs)
+    private val entityLifecycle =
+        EntityLifecycleProcess(
+            repository,
+            locs,
+            mock(ObjRepository::class.java),
+            mock(ControllerRepository::class.java),
+        )
     private val postTick =
         NpcPostTickProcess(
             npcs,
@@ -227,7 +278,7 @@ internal class NexMinionTestWorld(
             clock,
             repository,
             players,
-            mock(LocRepository::class.java),
+            locs,
             AiPlayerInteractions(events, players),
             collision,
             random,
@@ -367,6 +418,29 @@ internal class NexMinionTestWorld(
         return playerLauncher.launch(target) { check(events.publish(this, trigger)) }
     }
 
+    /** Dispatch the real registered location handler, retaining the selected native loc value. */
+    fun clickIce(loc: LocInfo, target: Player = player): Boolean {
+        val type = requireNotNull(ServerCacheManager.getObject(loc.id))
+        val bound = BoundLocInfo(loc, type)
+        val trigger =
+            LocInteractions(BoundValidator(collision), events)
+                .opTrigger(target, bound, InteractionOp.Op1) ?: return false
+        return playerLauncher.launch(target) { check(events.publish(this, trigger)) }
+    }
+
+    /** Recast fault setup through the registered production handler, not a cadence assertion. */
+    fun registeredSpecial(target: Player = player) {
+        val boss = npc(11278)
+        launcher.launch(boss) {
+            deps.extensionRegistry.invoke(NEX_SPECIAL, this, boss, target, null)
+        }
+    }
+
+    fun processLocDurations() {
+        check(nativeLocs)
+        entityLifecycle.process()
+    }
+
     fun travelBank(target: Player = player): Boolean {
         var travelled = false
         playerLauncher.launch(target) { travelled = manager.teleportBank(this) }
@@ -454,6 +528,7 @@ internal class NexMinionTestWorld(
         repeat(count) {
             // Finish the preceding frame, including sequence priority/reset and arrival actions.
             postTick.process()
+            if (nativeLocs) entityLifecycle.process()
             WorldQueueListProcess(worldQueues).process()
             clock.tick()
             players.forEach {

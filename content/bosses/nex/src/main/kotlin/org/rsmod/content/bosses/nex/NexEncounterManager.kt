@@ -45,12 +45,15 @@ import org.rsmod.game.hit.HitBuilder
 import org.rsmod.game.hit.HitImpactHandler
 import org.rsmod.game.hit.HitType
 import org.rsmod.game.hit.HitValidity
+import org.rsmod.game.loc.BoundLocInfo
 import org.rsmod.game.loc.LocAngle
+import org.rsmod.game.loc.LocEntity
 import org.rsmod.game.loc.LocInfo
 import org.rsmod.game.loc.LocShape
 import org.rsmod.game.queue.WorldQueueList
 import org.rsmod.map.CoordGrid
 import org.rsmod.routefinder.collision.CollisionFlagMap
+import org.rsmod.routefinder.loc.LocLayerConstants
 
 @Singleton
 internal class NexEncounterManager
@@ -408,11 +411,37 @@ constructor(
 
     fun playerLoggedOut(player: Player) = leaveAll(player, reason = "logout or disconnect")
 
-    fun breakIce(player: Player): Boolean {
-        val current = run ?: return false
-        if (player.uid !in current.participants || current.phase != NexState.ICE) return false
-        val prisoner = current.prisonedUntil.keys.minByOrNull { it.packed } ?: return false
-        current.prisonedUntil.remove(prisoner)
+    /** Capture content identity before native arrival delay; loc values alone can be replaced. */
+    fun selectIce(player: Player, clicked: BoundLocInfo): IcePrisonSelection? {
+        val current = run ?: return null
+        val loc = LocInfo(clicked.layer, clicked.coords, clicked.entity)
+        val segment = current.prisonSegments[loc] ?: return null
+        return IcePrisonSelection(current, segment, player, player.uid)
+    }
+
+    fun breakIce(player: Player, selection: IcePrisonSelection?): Boolean {
+        if (selection == null || selection.helper !== player) return false
+        val current = selection.run
+        val segment = selection.segment
+        val prison = segment.prison
+        if (
+            !isActiveRun(current) ||
+                !bossEncounters.isAttached(current.boss, current.encounter) ||
+                current.phase != NexState.ICE ||
+                selection.helperUid != player.uid ||
+                selection.helperUid.resolve(players) !== player ||
+                player.uid !in current.participants ||
+                !activeParticipant(current, player) ||
+                prison.target === player ||
+                !ownsPrison(current, prison) ||
+                clock.cycle >= prison.deadline ||
+                current.prisonSegments[segment.loc] !== segment ||
+                locs.findExact(segment.loc.coords, segment.loc.shape) != segment.loc
+        )
+            return false
+        if (!locs.del(segment.loc, Int.MAX_VALUE)) return false
+        forgetPrisonSegment(current, segment)
+        current.prisons.remove(prison.uid)
         player.mes("You break the ice prison before it can shatter.")
         return true
     }
@@ -424,7 +453,9 @@ constructor(
             return
         }
         current.participants.removeIf { uid ->
-            uid.resolve(players)?.let { activeParticipant(current, it) } != true
+            val departed = uid.resolve(players)?.let { activeParticipant(current, it) } != true
+            if (departed) clearPrisons(current, uid)
+            departed
         }
         if (current.state == NexState.SPAWNING && clock.cycle >= current.stateReadyCycle)
             activateSmoke(current)
@@ -868,27 +899,74 @@ constructor(
             "<col=ff0000>Nex has trapped you in an ice prison. Allies can break the icicles.</col>"
         )
         val castGeneration = current.generation
+        clearPrisons(current, target.uid)
+        val prison = IcePrison(target, target.uid, clock.cycle + 5)
+        current.prisons[prison.uid] = prison
         adjacentTiles(target.coords).forEachIndexed { index, tile ->
-            spawnLoc(tile, if (index % 2 == 0) ICE_PRISON_LOC else ICE_PRISON_ALT_LOC, 5)?.let {
-                current.temporaryLocs += it
-            }
-        }
-        current.prisonedUntil[target.uid] = clock.cycle + 5
-        current.encounter.schedule(worldQueues, 5) {
-            if (!validDelayed(current, castGeneration, NexState.ICE, target)) return@schedule
-            if ((current.prisonedUntil[target.uid] ?: 0) <= clock.cycle) {
-                target.queueHit(
-                    source = current.boss,
-                    delay = 1,
-                    type = HitType.Typeless,
-                    damage = random.of(0..75),
-                    modifier = NpcBypassProtectionPrayerPlayerHitModifier,
-                    validity = roomHitValidity(current, target),
+            val id = if (index % 2 == 0) ICE_PRISON_LOC else ICE_PRISON_ALT_LOC
+            val shape = LocShape.CentrepieceStraight
+            val loc =
+                LocInfo(
+                    LocLayerConstants.of(shape.id),
+                    tile,
+                    LocEntity(id, shape.id, LocAngle.North.id),
                 )
-                current.flags[target.uid]?.iceSpecialHit = true
+            val segment = IcePrisonSegment(loc, prison)
+            if (locs.add(loc, 5) { forgetPrisonSegment(current, segment) }) {
+                // Native replacement cancels the old timer without invoking its callback.
+                current.prisonSegments.values
+                    .filter { it.loc.coords == loc.coords && it.loc.layer == loc.layer }
+                    .forEach { forgetPrisonSegment(current, it) }
+                current.prisonSegments[loc] = segment
             }
-            current.prisonedUntil.remove(target.uid)
         }
+        current.encounter.schedule(worldQueues, 5) {
+            if (!ownsPrison(current, prison)) return@schedule
+            if (!validDelayed(current, castGeneration, NexState.ICE, target)) {
+                current.prisons.remove(prison.uid)
+                return@schedule
+            }
+            if (clock.cycle < prison.deadline) return@schedule
+            val membership = roomHitValidity(current, target)
+            target.queueHit(
+                source = current.boss,
+                delay = 1,
+                type = HitType.Typeless,
+                damage = random.of(0..75),
+                modifier = NpcBypassProtectionPrayerPlayerHitModifier,
+                // Emitted hits retain native phase lifetime, but a recast cannot inherit them.
+                validity = HitValidity { ownsPrison(current, prison) && membership.isValid() },
+                impactHandler =
+                    HitImpactHandler {
+                        if (current.prisons[prison.uid] === prison)
+                            current.prisons.remove(prison.uid)
+                    },
+            )
+            current.flags[prison.uid]?.iceSpecialHit = true
+        }
+    }
+
+    private fun ownsPrison(current: Run, prison: IcePrison): Boolean =
+        current.prisons[prison.uid] === prison &&
+            prison.target.uid == prison.uid &&
+            prison.uid.resolve(players) === prison.target &&
+            prison.uid in current.participants &&
+            activeParticipant(current, prison.target)
+
+    /** Despawn callbacks run inside the repository iterator: mutate only content state here. */
+    private fun forgetPrisonSegment(current: Run, segment: IcePrisonSegment) {
+        if (current.prisonSegments[segment.loc] === segment)
+            current.prisonSegments.remove(segment.loc)
+    }
+
+    private fun clearPrisons(current: Run, uid: PlayerUid? = null) {
+        val segments = current.prisonSegments.values.filter { uid == null || it.prison.uid == uid }
+        for (segment in segments) {
+            if (locs.findExact(segment.loc.coords, segment.loc.shape) == segment.loc)
+                locs.del(segment.loc, Int.MAX_VALUE)
+            forgetPrisonSegment(current, segment)
+        }
+        if (uid == null) current.prisons.clear() else current.prisons.remove(uid)
     }
 
     private fun tickPlayerEffects(current: Run, player: Player) {
@@ -992,7 +1070,7 @@ constructor(
             it.apRangeOverride = 10
             it.apRequiresLineOfSight = true
         }
-        run =
+        val fresh =
             Run(
                 generation = generation++,
                 arena = NEX_CHAMBER_ARENA,
@@ -1000,6 +1078,8 @@ constructor(
                 bodyguards = bodyguards,
                 encounter = bossEncounters.of(boss),
             )
+        run = fresh
+        fresh.encounter.onCleanup { clearPrisons(fresh) }
         log.info { "[Nex] spawned generation=${run?.generation} state=IDLE" }
     }
 
@@ -1015,6 +1095,7 @@ constructor(
     }
 
     private fun cleanup(current: Run) {
+        clearPrisons(current)
         (listOf(current.boss) + current.bodyguards.values + current.reavers).forEach {
             if (it.isSlotAssigned) npcs.del(it, Int.MAX_VALUE)
         }
@@ -1029,7 +1110,7 @@ constructor(
     private fun leave(current: Run, player: Player, reason: String) {
         if (!current.participants.remove(player.uid)) return
         current.coughUntil.remove(player.uid)
-        current.prisonedUntil.remove(player.uid)
+        clearPrisons(current, player.uid)
         player.lootDropDuration = null
         prepare(player)
         setBarrierState(player)
@@ -1246,7 +1327,8 @@ constructor(
         val temporaryLocs: MutableList<LocInfo> = mutableListOf(),
         val calledGuardResolved: MutableSet<NexState> = linkedSetOf(),
         val coughUntil: MutableMap<PlayerUid, Int> = linkedMapOf(),
-        val prisonedUntil: MutableMap<PlayerUid, Int> = linkedMapOf(),
+        val prisons: MutableMap<PlayerUid, IcePrison> = linkedMapOf(),
+        val prisonSegments: MutableMap<LocInfo, IcePrisonSegment> = linkedMapOf(),
         val flags: MutableMap<PlayerUid, NexAchievementFlags> = linkedMapOf(),
         var callFloor: Int? = null,
         var calledGuard: NexState? = null,
@@ -1266,6 +1348,17 @@ constructor(
         val phase: NexState
             get() = NexState.valueOf(encounter.currentPhaseName)
     }
+
+    internal class IcePrison(val target: Player, val uid: PlayerUid, val deadline: Int)
+
+    internal class IcePrisonSegment(val loc: LocInfo, val prison: IcePrison)
+
+    internal class IcePrisonSelection(
+        val run: Run,
+        val segment: IcePrisonSegment,
+        val helper: Player,
+        val helperUid: PlayerUid,
+    )
 
     private data class MagicLaunch(
         val run: Run,

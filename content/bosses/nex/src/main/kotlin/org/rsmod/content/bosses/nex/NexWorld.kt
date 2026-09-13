@@ -49,14 +49,10 @@ constructor(
             else encounters.exit(this)
         }
 
-        onOpLoc1(requireLoc(ICE_PRISON_LOC)) {
-            arriveDelay()
-            if (!encounters.breakIce(player))
-                player.mes("That icicle is no longer trapping anyone.")
-        }
         onOpLoc1(requireLoc(ICE_PRISON_ALT_LOC)) {
+            val selection = encounters.selectIce(player, it.loc)
             arriveDelay()
-            if (!encounters.breakIce(player))
+            if (!encounters.breakIce(player, selection))
                 player.mes("That icicle is no longer trapping anyone.")
         }
 
@@ -81,7 +77,6 @@ constructor(
     private companion object {
         const val BARRIER_CONTROLLER = 42967
         const val ZAROS_ALTAR = 42965
-        const val ICE_PRISON_LOC = 42943
         const val ICE_PRISON_ALT_LOC = 42944
     }
 }

@@ -14,8 +14,11 @@ Revision240, SERVER/LIVE hashes and `.data/postgres` authority are unchanged. A 
 1,243-file PostgreSQL backup and4,393-file source archive were verified before replacement boot.
 Full evidence/receipts/hashes and build-marker limitation are in the current Nex ledger.
 
-Next: approved M21 clicked-prison ownership/cancellation mapping and focused implementation;
-preserve the unresolved E07 timing/damage/geometry evidence. Full Nex remains incomplete. Raid
+M21 clicked-prison ownership/cancellation is complete in source:12 focused groups/110 Nex cases,
+167 reused valid shared cases, architecture checks, scoped formatting and app assemble pass.
+Four source files are archived and byte-verified; see current Nex ledger for hash/test logs.
+Next: approved M26 completed-kill occupant handoff, with pre-edit mapping and prepared regressions.
+Preserve unresolved E07 timing/damage/geometry evidence. Full Nex remains incomplete. Raid
 bosses remain after Nex/Yama/Doom/DT2/separate Dagannoth Kings review, in ToA/ToB/CoX order.
 
 ## Prior source and crash-recovery checkpoint (historical)
