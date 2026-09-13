@@ -9,6 +9,7 @@ import dev.or2.central.worldlink.protocol.social.PmTraceLog
 import dev.or2.central.worldlink.protocol.social.SocialPackets
 import dev.or2.central.worldlink.protocol.social.SocialSyncSnapshot
 import jakarta.inject.Inject
+import jakarta.inject.Singleton
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
@@ -16,6 +17,7 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import net.rsprot.protocol.loginprot.outgoing.LoginResponse
 import org.rsmod.api.net.central.netty.WorldLinkNettyBlockingClient
 import org.rsmod.api.net.central.netty.WorldLinkNettyBlockingSession
@@ -29,6 +31,7 @@ import org.rsmod.api.server.config.ServerConfig
 import org.rsmod.game.GameUpdate
 import org.rsmod.game.GameUpdate.Companion.isUpdating
 
+@Singleton
 public class OpenRuneCentralWorldLink
 @Inject
 constructor(
@@ -69,6 +72,8 @@ constructor(
 
     private var inboundWatchThread: Thread? = null
 
+    private var shutdownResult: Result<Unit>? = null
+
     private val authExecutor =
         Executors.newSingleThreadExecutor { runnable ->
             Thread(runnable, "openrune-central-auth").apply { isDaemon = true }
@@ -102,16 +107,22 @@ constructor(
         }
         val passwordCopy = password.copyOf()
         val future =
-            CompletableFuture.supplyAsync(
-                {
-                    try {
-                        authenticate(loginUsername, passwordCopy, loginCharacterId)
-                    } finally {
-                        passwordCopy.fill('\u0000')
-                    }
-                },
-                authExecutor,
-            )
+            try {
+                CompletableFuture.supplyAsync(
+                    {
+                        try {
+                            authenticate(loginUsername, passwordCopy, loginCharacterId)
+                        } finally {
+                            passwordCopy.fill('\u0000')
+                        }
+                    },
+                    authExecutor,
+                )
+            } catch (failure: Throwable) {
+                // Rejected admission never runs the task's finally block.
+                passwordCopy.fill('\u0000')
+                throw failure
+            }
         return InflightCentralAuth(future)
     }
 
@@ -157,11 +168,14 @@ constructor(
         return CentralAuthResult.Denied(LoginResponse.LoginServerOffline)
     }
 
+    @Synchronized
     public fun startInboundWatch() {
         val cfg = settings ?: return
+        check(!authExecutor.isShutdown && shutdownResult == null) { "Central client is stopping" }
         if (!inboundWatchStop) {
             return
         }
+        check(inboundWatchThread == null) { "Previous Central watcher has not stopped" }
         inboundWatchStop = false
         inboundWatchThread =
             Thread({ runInboundWatchLoop(cfg) }, "openrune-central-worldlink-inbound").apply {
@@ -170,10 +184,61 @@ constructor(
             }
     }
 
-    public fun stopInboundWatch() {
+    public fun stopInboundWatch(): Unit = stopInboundWatch(SHUTDOWN_TIMEOUT_MS)
+
+    @Synchronized
+    internal fun stopInboundWatch(timeoutMillis: Long) {
+        require(timeoutMillis > 0)
         inboundWatchStop = true
-        inboundWatchThread?.interrupt()
+        val watcher = inboundWatchThread
+        try {
+            watcher?.join(timeoutMillis)
+        } catch (failure: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw failure
+        }
+        check(watcher == null || !watcher.isAlive) {
+            "Central inbound watcher has unfinished work; owner retained"
+        }
         inboundWatchThread = null
+    }
+
+    /**
+     * Called after native game/account producers stop, while Central and PostgreSQL remain live.
+     */
+    public fun shutdown(): Unit = shutdown(SHUTDOWN_TIMEOUT_MS)
+
+    @Synchronized
+    internal fun shutdown(timeoutMillis: Long) {
+        require(timeoutMillis > 0)
+        shutdownResult?.let {
+            return it.getOrThrow()
+        }
+        val completed = runCatching {
+            // The watcher only publishes inbound game queues; it never submits auth work. Close
+            // auth/heartbeat admission first, then observe both existing producers completing.
+            authExecutor.shutdown()
+            val failures = mutableListOf<Throwable>()
+            try {
+                stopInboundWatch(timeoutMillis)
+            } catch (failure: Throwable) {
+                failures += failure
+            }
+            try {
+                check(authExecutor.awaitTermination(timeoutMillis, TimeUnit.MILLISECONDS)) {
+                    "Central authentication has unfinished work; owner retained"
+                }
+            } catch (failure: Throwable) {
+                if (failure is InterruptedException) Thread.currentThread().interrupt()
+                failures += failure
+            }
+            if (failures.isNotEmpty()) {
+                throw IllegalStateException("Central client shutdown failed; Central retained")
+                    .apply { failures.forEach(::addSuppressed) }
+            }
+        }
+        shutdownResult = completed
+        completed.getOrThrow()
     }
 
     public fun pollPrivateMessage(): ServerPrivateMessagePayload? =
@@ -906,6 +971,8 @@ constructor(
         private const val INBOUND_RECONNECT_MS: Long = 1_500L
 
         private const val INBOUND_POLL_MS: Long = 1_000L
+
+        private const val SHUTDOWN_TIMEOUT_MS: Long = 15_000L
 
         private const val MAX_DEFERRED_PRIVATE_MESSAGES_PER_CHARACTER: Int = 64
 

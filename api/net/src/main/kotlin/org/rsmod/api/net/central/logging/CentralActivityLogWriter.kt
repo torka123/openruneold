@@ -8,7 +8,10 @@ import dev.or2.central.logs.CentralActivityLog
 import dev.or2.central.logs.CentralActivityLogRepository
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.TimeUnit
 import kotlin.math.min
 import org.rsmod.api.db.jdbc.EmbeddedSameInstancePostgres
@@ -17,54 +20,74 @@ import org.rsmod.game.entity.Player
 import org.rsmod.game.inv.InvObj
 
 @Singleton
-public class CentralActivityLogWriter @Inject constructor(private val config: ServerConfig) {
+public class CentralActivityLogWriter
+internal constructor(
+    private val config: ServerConfig,
+    private val executor: ExecutorService,
+    private val createResources: () -> Resources?,
+    private val shutdownTimeoutMillis: Long = 15_000,
+) {
+    @Inject
+    public constructor(
+        config: ServerConfig
+    ) : this(
+        config,
+        Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "central-activity-log-writer").apply { isDaemon = true }
+        },
+        { nativeResources(config) },
+    )
+
     private val logger = InlineLogger()
-    private val executor =
-        Executors.newSingleThreadExecutor { r ->
-            Thread(r, "central-activity-log-writer").apply { isDaemon = true }
-        }
+    private val failedWrites = ConcurrentLinkedQueue<FailedWrite>()
 
     @Volatile private var repository: CentralActivityLogRepository? = null
 
-    private var dataSource: HikariDataSource? = null
+    private var dataSource: AutoCloseable? = null
+    private var stopResult: Result<Unit>? = null
 
     public fun start() {
         synchronized(this) {
+            check(!executor.isShutdown) { "Stopped activity log writer cannot restart" }
             if (repository != null) {
                 return
             }
-            val (jdbc, user, password, poolSize) = resolveCentralJdbc(config) ?: return
-            val ds =
-                HikariDataSource(
-                    HikariConfig().apply {
-                        this.jdbcUrl = jdbc
-                        username = user
-                        this.password = password
-                        maximumPoolSize = min(4, poolSize)
-                        poolName = "openrune-central-activity-log"
-                    }
-                )
-            dataSource = ds
-            repository = CentralActivityLogRepository(ds)
-            logger.info { "Central activity log JDBC enabled ($jdbc)" }
+            val resources = createResources() ?: return
+            dataSource = resources.dataSource
+            repository = resources.repository
+            logger.info { "Central activity log JDBC enabled" }
         }
     }
 
+    @Synchronized
     public fun stop() {
-        executor.shutdown()
-        try {
-            if (!executor.awaitTermination(15, TimeUnit.SECONDS)) {
-                executor.shutdownNow()
-            }
-        } catch (_: InterruptedException) {
-            executor.shutdownNow()
-            Thread.currentThread().interrupt()
+        stopResult?.let {
+            return it.getOrThrow()
         }
-        synchronized(this) {
-            repository = null
+        val completed = runCatching {
+            executor.shutdown()
+            try {
+                check(executor.awaitTermination(shutdownTimeoutMillis, TimeUnit.MILLISECONDS)) {
+                    "Central activity logs have unfinished writes; datasource retained"
+                }
+            } catch (failure: InterruptedException) {
+                Thread.currentThread().interrupt()
+                throw failure
+            }
+            if (failedWrites.isNotEmpty()) {
+                val failure =
+                    IllegalStateException(
+                        "Central activity logs failed; records and datasource retained"
+                    )
+                failedWrites.forEach { failure.addSuppressed(it.cause) }
+                throw failure
+            }
             dataSource?.close()
+            repository = null
             dataSource = null
         }
+        stopResult = completed
+        completed.getOrThrow()
     }
 
     public fun logItemDrop(player: Player, type: ItemServerType, obj: InvObj) {
@@ -84,7 +107,6 @@ public class CentralActivityLogWriter @Inject constructor(private val config: Se
                     tileZ = z,
                 )
             },
-            failureLabel = "drop",
         )
     }
 
@@ -109,35 +131,27 @@ public class CentralActivityLogWriter @Inject constructor(private val config: Se
                     tileZ = z,
                 )
             },
-            failureLabel = "destroy",
         )
     }
 
     public fun logCommand(player: Player, command: String, args: List<String>) {
-        val repo = repository ?: return
+        val repo = repositoryForWrite() ?: return
         val worldId = config.world
         val charId = player.characterId
         val now = System.currentTimeMillis()
         val accountId = player.accountId.toLong()
         val argsCopy = args.toList()
-        executor.execute {
-            try {
-                repo.insert(
-                    CentralActivityLog.Command(
-                        worldId = worldId,
-                        occurredAtEpochMillis = now,
-                        characterId = charId,
-                        accountId = accountId,
-                        command = command,
-                        args = argsCopy,
-                    )
-                )
-            } catch (e: Exception) {
-                logger.warn(e) {
-                    "Central activity log command failed accountId=$accountId characterId=$charId cmd=$command"
-                }
-            }
-        }
+        submit(
+            repo,
+            CentralActivityLog.Command(
+                worldId = worldId,
+                occurredAtEpochMillis = now,
+                characterId = charId,
+                accountId = accountId,
+                command = command,
+                args = argsCopy,
+            ),
+        )
     }
 
     /**
@@ -145,27 +159,20 @@ public class CentralActivityLogWriter @Inject constructor(private val config: Se
      * [Player.accountId] set. (Central worlds-link no longer writes login logs.)
      */
     public fun logPlayerLogin(player: Player) {
-        val repo = repository ?: return
+        val repo = repositoryForWrite() ?: return
         val worldId = config.world
         val now = System.currentTimeMillis()
         val charId = player.characterId
         val accountId = player.accountId.toLong()
-        executor.execute {
-            try {
-                repo.insert(
-                    CentralActivityLog.Login(
-                        worldId = worldId,
-                        occurredAtEpochMillis = now,
-                        characterId = charId,
-                        accountId = accountId,
-                    )
-                )
-            } catch (e: Exception) {
-                logger.warn(e) {
-                    "Central activity log login failed accountId=$accountId characterId=$charId"
-                }
-            }
-        }
+        submit(
+            repo,
+            CentralActivityLog.Login(
+                worldId = worldId,
+                occurredAtEpochMillis = now,
+                characterId = charId,
+                accountId = accountId,
+            ),
+        )
     }
 
     /**
@@ -173,28 +180,21 @@ public class CentralActivityLogWriter @Inject constructor(private val config: Se
      * known).
      */
     public fun logPlayerLogout(player: Player, centralSessionId: Long? = null) {
-        val repo = repository ?: return
+        val repo = repositoryForWrite() ?: return
         val worldId = config.world
         val now = System.currentTimeMillis()
         val charId = player.characterId
         val accountId = player.accountId.toLong()
-        executor.execute {
-            try {
-                repo.insert(
-                    CentralActivityLog.Logout(
-                        worldId = worldId,
-                        occurredAtEpochMillis = now,
-                        characterId = charId,
-                        accountId = accountId,
-                        sessionId = centralSessionId,
-                    )
-                )
-            } catch (e: Exception) {
-                logger.warn(e) {
-                    "Central activity log logout failed accountId=$accountId characterId=$charId"
-                }
-            }
-        }
+        submit(
+            repo,
+            CentralActivityLog.Logout(
+                worldId = worldId,
+                occurredAtEpochMillis = now,
+                characterId = charId,
+                accountId = accountId,
+                sessionId = centralSessionId,
+            ),
+        )
     }
 
     private fun logItem(
@@ -212,27 +212,67 @@ public class CentralActivityLogWriter @Inject constructor(private val config: Se
                 x: Int,
                 z: Int,
             ) -> CentralActivityLog,
-        failureLabel: String,
     ) {
-        val repo = repository ?: return
+        val repo = repositoryForWrite() ?: return
         val worldId = config.world
         val charId = player.characterId
         val accountId = player.accountId.toLong()
         val now = System.currentTimeMillis()
         val x = player.x
         val z = player.z
+        submit(repo, log(worldId, now, charId, accountId, itemId, quantity, x, z))
+    }
+
+    private fun repositoryForWrite(): CentralActivityLogRepository? {
+        val current = repository
+        if (executor.isShutdown) {
+            throw RejectedExecutionException("Central activity log writer is stopped")
+        }
+        return current
+    }
+
+    private fun submit(repo: CentralActivityLogRepository, log: CentralActivityLog) {
+        // The single executor decides admission and preserves original record order. A shutdown
+        // cannot cancel accepted records or retry a failed record after later records committed.
         executor.execute {
             try {
-                repo.insert(log(worldId, now, charId, accountId, itemId, quantity, x, z))
-            } catch (e: Exception) {
-                logger.warn(e) {
-                    "Central activity log $failureLabel failed accountId=$accountId characterId=$charId itemId=$itemId qty=$quantity"
+                repo.insert(log)
+            } catch (failure: Throwable) {
+                failedWrites += FailedWrite(repo, log, failure)
+                logger.warn(failure) {
+                    "Central activity log ${log.type} failed; original record retained"
                 }
             }
         }
     }
 
+    internal data class Resources(
+        val repository: CentralActivityLogRepository,
+        val dataSource: AutoCloseable,
+    )
+
+    private data class FailedWrite(
+        val repository: CentralActivityLogRepository,
+        val log: CentralActivityLog,
+        val cause: Throwable,
+    )
+
     private companion object {
+        fun nativeResources(config: ServerConfig): Resources? {
+            val (jdbc, user, password, poolSize) = resolveCentralJdbc(config) ?: return null
+            val dataSource =
+                HikariDataSource(
+                    HikariConfig().apply {
+                        jdbcUrl = jdbc
+                        username = user
+                        this.password = password
+                        maximumPoolSize = min(4, poolSize)
+                        poolName = "openrune-central-activity-log"
+                    }
+                )
+            return Resources(CentralActivityLogRepository(dataSource), dataSource)
+        }
+
         fun resolveCentralJdbc(config: ServerConfig): JdbcParams? {
             val central = config.central ?: return null
             val pg = central.postgres ?: return null

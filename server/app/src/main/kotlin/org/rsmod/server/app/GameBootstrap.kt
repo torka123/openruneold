@@ -37,7 +37,10 @@ internal constructor(
                 openRuneCentral.startInboundWatch()
             }
 
-            override fun stopCentral() = centralEmbedded.stopIfRunning()
+            override fun stopCentral() {
+                openRuneCentral.shutdown()
+                centralEmbedded.stopIfRunning()
+            }
 
             override fun stopPostgres() = EmbeddedSameInstancePostgres.stop()
 
