@@ -15,9 +15,12 @@ import java.sql.Statement
 import java.sql.Timestamp
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
+import java.util.UUID
 import kotlin.math.roundToInt
 import org.rsmod.api.account.character.CharacterAccountLoginSegment
 import org.rsmod.api.account.character.CharacterMetadataList
+import org.rsmod.api.account.character.rewards.NpcRewardAllocation
+import org.rsmod.api.account.character.rewards.NpcRewardAllocationStore
 import org.rsmod.api.account.persistence.GamePersistenceRscmKeys
 import org.rsmod.api.db.DatabaseConnection
 import org.rsmod.api.db.util.getIntOrNull
@@ -34,6 +37,23 @@ constructor(
     private val applier: CharacterAccountApplier,
 ) {
     private val maxCharactersPerAccount: Int = 3
+
+    /**
+     * Records one complete immutable NPC-life allocation in the caller's native transaction.
+     * Prepare item keys and rolls beforehand. A return is durable only after the transaction owner
+     * commits; identical retries return the stored payload and conflicting retries fail. This does
+     * not project, claim or recover ground objects, nor mutate account snapshots.
+     */
+    public fun recordNpcRewardAllocation(
+        connection: DatabaseConnection,
+        allocation: NpcRewardAllocation,
+    ): NpcRewardAllocation = NpcRewardAllocationStore.record(connection, allocation)
+
+    /** Detached recorded outcome, including empty awards; null means the life was not recorded. */
+    public fun findNpcRewardAllocation(
+        connection: DatabaseConnection,
+        lifeId: UUID,
+    ): NpcRewardAllocation? = NpcRewardAllocationStore.find(connection, lifeId)
 
     public fun insertOrSelectAccountId(
         connection: DatabaseConnection,

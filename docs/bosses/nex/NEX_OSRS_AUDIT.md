@@ -64,8 +64,11 @@ native terrain blocking and ranged line-of-sight are preserved through initial a
 rosters; commit769ac739e. Three-file archive verified below. S04 opt-in concrete reward preparation
 now passes68 content/drop cases,155 Nex/1,118 boss cases and408 ToA;501 unchanged shared cases
 remain valid (2,095 total), scoped checks/architecture/app assemble. Three-file archive verified.
-Next: S04 immutable allocation journal in the existing account repository, before ground/pickup
-recovery and verified Nex allocation activation.
+S04 allocation journal now passes native Flyway/real PostgreSQL rollback, concurrency, save-lock
+ordering and two isolated database restarts;9 account cases,155 Nex/1,118 boss,503 shared/engine/
+weapons/app,68 content/drops and408 ToA (2,097 total), scoped checks/architecture/app assemble.
+Thirteen-file source archive verified. Next: native save receipt reconciliation and unresolved
+mutation ownership mapping; tracked ground quantities/lifecycle and restart policy remain gates.
 M04 cooldown/equipment, M20 general placement/clipping and normal timing evidence remain missing. All these
 changes remain SOURCE ONLY; current deployment is unchanged.
 Existing timing/damage/geometry constants remain characterized under E07. Full native public/private
@@ -962,6 +965,128 @@ delivered Nex loot. Next: record/lookup immutable per-life/character allocations
 CharacterAccountRepository and GameDatabase, using a tracked native Flyway migration and isolated
 PostgreSQL behavioral tests. Ground projection/pickup/recovery and E06 eligibility/distribution
 remain separate gates before this new reward route is enabled.
+
+Preparation commit6dc2a4dd0, backup `backup/nex-s04-reward-preparation-20260913`.
+
+## Completed source increment: S04 immutable allocation journal
+
+Reuse the preceding missing-route search and preparation result. The smallest native persistence
+owner is CharacterAccountRepository, which already accepts DatabaseConnection for character-scoped
+offline writes. Add recordNpcRewardAllocation(connection, allocation) and
+findNpcRewardAllocation(connection, lifeId), with internal SQL implementation and immutable values
+under api/account. Caller retains GameDatabase.withTransactionBlocking ownership; allocation-only
+rows do not mutate player/attribute/inventory state, so no online mirror or save-gate reentry is
+needed. Do not add a second database/reward/ground repository or change account save replacement.
+
+Native persistence uses character identity: CharacterAccountApplier15-19 builds accountHash from
+accountId and characterId, and one account may have three characters. Each allocation recipient
+therefore records both IDs and validates ownership against account_characters. Whole-life recipient
+membership is immutable; replay may not silently add/remove recipients. RoyalTitansStatistics62-139
+provides existing native PostgreSQL row locking, conflict validation and atomic event/participant
+inserts; its V42 migration is tracked game content, not an ignored Central patch.
+
+| Responsibility | Native mapping | Observable acceptance |
+|---|---|---|
+| Prepared request | NpcRewardAllocation: stable life UUID/source NPC key, sorted immutable recipients with account/character IDs, supplied CoordGrid/duration, ordered stable obj-key/count/packed-vars items | Constructor defensively detaches all lists; item-from-InvObj uses GamePersistenceRscmKeys before SQL; empty life and empty recipient outcomes differ from absence; duplicate items retain ordinal positions |
+| One party commit | Tracked api/account V43__npc_reward_allocations.sql, after rechecking V43 unused; life/recipient/item tables, native foreign keys and constraints | All recipients/items become visible together; rollback after partial work leaves no life or items; independent tables survive ordinary attribute replacement |
+| Serialization and conflict | Insert/lock life row; on first allocation lock account rows sorted, then character rows sorted and validate ownership; store ordered items | Simultaneous identical requests return recorded values; changed source, membership, ownership, destination, duration, item/order/vars fail without rewriting the original |
+| Detached lookup | One ordered native SQL LEFT JOIN loaded through OpenRuneSql.text; no cache/RNG/entity access in SQL callback | Lookup after reconnect/two isolated PG restarts returns the same explicit empty or concrete payload without the NPC or another roll |
+| Runtime/resource integration | Existing Central FlywayMigrator scans classpath:db/migration; api/net V27-41 and Royal Titans V42 already follow this route | New tracked resource is discoverable; no pinned Central patch edit or canonical DB migration during source verification |
+
+This bounded schema records personal-ground intent only, including selected location/duration;
+it does not project ground objects, decrement entitlements, claim inventory, publish notifications,
+enumerate pending claims on login or enable a new boss caller. Those require the later native pickup/
+account transaction and recovery mapping. A successful method call inside a transaction is not a
+commit receipt until its existing transaction owner returns successfully. No callbacks, RNG, cache
+conversion or player mutation belong inside retryable SQL work. No ledger table is an attribute
+mirror that autosave can erase. Recipient duration must be nonnegative (including native permanent
+Int.MAX_VALUE); prepared quantities remain positive. No roll distributions or game timings change.
+
+Root owns repository/model/store/migration/dependency edits and all builds. A bounded agent may
+write only the new account journal test. Reuse RoyalTitansStatisticsTest's separately owned fresh
+logs/<prefix>/data and binaries directories with EmbeddedPostgres, cleanDataDirectory=false and
+free port. Never call canonical GameConnection/EmbeddedSameInstancePostgres or use .data/postgres.
+Test native Flyway discovery on that fresh database where feasible, actual transactions/rollback,
+duplicate/conflicting concurrency, ownership for two characters on one account, missing recipients,
+ordered duplicate items/packed vars, invisible uncommitted writes and two database restarts.
+Focused account tests precede account/db/shared saver checks, all-boss/ToA/drop regressions,
+architecture and app assemble. Deployment holds and all unverified Nex E06/E07 mechanics remain.
+
+Pre-verification lock refinement: current CharacterAccountRepository.save227-279 updates the
+character row before inserting account attributes; tracked native V31 defines their account FK.
+The first journal draft used account FOR UPDATE before character FOR UPDATE, which could deadlock
+across connections with that native order (save holds character and needs parent FK key-share;
+journal holds parent exclusively and waits for character). Account locks only need existence/key
+stability. Refine them to FOR KEY SHARE, retaining sorted acquisition and exclusive character locks
+for account ownership validation. This preserves native saves without changing their order or gate.
+Add a deterministic cross-connection test for this actual native SQL ordering; the account-only test
+classpath lacks net V31, so its isolated fixture may execute that exact tracked DDL for the test.
+
+Verification: `logs/nex-s04-journal-focused-20260913.log` passes9 account groups in25s, including
+two new groups and all seven native saver shutdown groups. The new PG lifecycle group calls the
+actual Central FlywayMigrator on a fresh separately owned cluster before fixture DDL, verifies
+native versions1/4/26/43 plus V43 script/checksum, and checks repeated migrations and two restarts.
+Real transactions cover whole-party/explicit-empty outcomes, same-account different characters,
+ownership failures, whole-payload conflicts, trigger failure after a partial item insert, rollback
+after repository return, concurrent identical/conflicting requests and uncommitted invisibility.
+The save-order test proves blocking through pg_blocking_pids, then completes native account-attrs
+FK insertion while the journal waits for the character; both transactions commit without deadlock.
+It applies only the exact tracked V31 DDL to this isolated fixture; V31 is not claimed discovered
+on the standalone account test classpath. Native item-key conversion and deep list detachment pass.
+
+Final `logs/nex-s04-journal-checks-20260913.log`:4m27s,580 tasks/69 executed/3 cache/508 up-to-date;
+scoped account formatting/checks, all selected shared/engine/weapons/app, boss/drop/ToA regressions,
+architecture and app assemble PASS.9 account cases,155 Nex/1,118 total boss,503 shared/engine/
+weapons/app,68 content/drops and408 ToA =2,097 cases, zero failures/errors/skips; results in
+`logs/nex-s04-journal-test-results-20260913.json`. Final account fixture cluster is
+`logs/npc-reward-allocation-test-4092727301620310252/`; native controlled test closes/reopens only
+that directory. No canonical connector, PostgreSQL directory or live migration was used.
+
+Changed source: api/account build test dependency/settings; CharacterAccountRepository's two public
+delegates; new immutable NpcRewardAllocation and internal NpcRewardAllocationStore; tracked V43;
+seven native SQL resources under sql/game/npc_rewards; new NpcRewardAllocationTest. Existing save
+and attribute/inventory replacement code is unchanged. Independent review found no remaining defect.
+Archive `logs/nex-s04-journal-source-20260913.zip`:13 byte-verified files,
+SHA256 `F24EBB27AFB5E352BDCD7C5EE88FEF765D55668F584DC3BF46D6FDCDB3BC360E`.
+Build passed and allocation behavior verified; no ground grant/pickup/expiry recovery is enabled.
+SOURCE ONLY: JVM23812/c4fc9390f and its canonical DB remain unchanged.
+
+## S04 next boundaries: native claim/save and ground lifecycle (verified gaps)
+
+No existing tracked-ground route was found. ObjRepository27-45 receives native Merge/Split/Stack
+but convenience add returns the original Obj even when different references register; ObjRegistry
+merges by type/private receiver and splits non-stackable quantities (128 limit). Obj reference
+identity survives reveal, but vars is real provenance, observerUUID implements visibility/ironman
+ownership, and creationCycle is not a durable ID. The V43 life/character/ordinal key must not be
+hidden in those fields. A future opt-in native registry/repository handle must retain actual
+quantity fragments through native merge/split/reveal/removal, preserving ordinary defaults.
+ObjTakePlugin58-83 prepares native strict inventory/redirect transactions, deletes exact Obj,
+commits arrays and invokes redirect; it has no SQL/save gate. GroundItemHooks82-90 cannot add
+durability: preparation cannot mutate, and post-take receives only Player. Native firemaking and
+Arceuus reanimation also consume ground objects; pickup-only accounting would replay them.
+
+An AccountSavingService SQL-participant overload alone is insufficient. GameDatabase55-84 retries
+SQLException across Connection.commit, and a successful rollback does not resolve a lost commit
+acknowledgement. Existing commitPlayerMutationBlocking104-132 rolls memory back on every throw and
+then releases saveGate87-93. It never registers an outstanding/failed save; queued requests retain
+the mutable Player and can later overwrite committed inventory with the restored preimage. Failed
+queue entries only gate shutdown/dedupe that request; a fresh successful snapshot clears them.
+Autosave and failed-logout retention do not reconcile an ambiguous blocking mutation. Allocation-
+only V43 has no account mirror and is safe from this specific overwrite hazard.
+
+Next concrete deliverable: map a stable claim-attempt receipt and unresolved-operation handling
+into existing native transaction/save/lifecycle owners before implementing the claim participant.
+Acceptance must include commit success + lost acknowledgement + failed immediate reconciliation +
+an already queued autosave; the committed inventory must remain protected until receipt resolution.
+Do not move gameplay mutations into GameDatabase's retry callback, release a save-only guard while
+the character continues changing, or treat an ordinary fresh snapshot as outcome reconciliation.
+
+Ground activation also needs native attribution for merged lines, public/ironman picker policy,
+non-pickup consumption and restart expiry/reveal semantics. Timers are relative to MapClock; merge
+resets deadlines, and V43 intentionally has no chosen projection timestamp/reveal policy. The user
+has been asked asynchronously whether a restart/expiry policy was already approved; no answer is
+assumed. Normal Nex timing/Containment capture question is still pending. Continue independent
+native save-safety work; do not infer policy or activate unverified Nex rewards.
 
 ## Source verification history: M01/M02 protected access and S10
 

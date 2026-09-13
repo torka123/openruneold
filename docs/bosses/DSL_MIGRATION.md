@@ -30,8 +30,11 @@ M06 captured guard anchors now pass155 Nex cases, scoped checks/architecture/app
 native blocked terrain and ranged LOS are preserved through both rosters. Three-file archive
 verified; commit769ac739e, source-only. S04 concrete reward preparation now passes68 content/drops,
 155 Nex/1,118 boss and408 ToA cases, with501 unchanged shared cases valid (2,095 total), scoped
-checks/architecture/app assemble. Three-file archive verified. Next: S04 immutable allocation
-journal in the existing account repository, before ground/pickup recovery and Nex activation. M04 cooldown/equipment and
+checks/architecture/app assemble. Three-file archive verified; commit6dc2a4dd0. S04 allocation
+journal now passes native Flyway/PG rollback/concurrency/save-lock ordering/two isolated restarts,
+9 account/503 shared,155 Nex/1,118 boss,68 drops and408 ToA (2,097 total), scoped checks/architecture/
+app assemble. Thirteen-file archive verified; SOURCE ONLY. Next: native claim receipt and unresolved
+save/lifecycle handling; tracked ground quantities/recovery and restart policy remain gates. M04 cooldown/equipment and
 M20 placement/clipping remain evidence gaps. The Nex ledger records exact source files,
 searches, tests, failure limits, evidence gaps and next mapping.
 

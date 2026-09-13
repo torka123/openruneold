@@ -23,5 +23,11 @@ dependencies {
     implementation(projects.engine.module)
     implementation(projects.server.services)
     testImplementation(kotlin("test"))
+    testImplementation(libs.embedded.postgres)
     testImplementation("org.mockito:mockito-core:5.18.0")
+}
+
+tasks.test {
+    workingDir = rootProject.projectDir
+    systemProperty("junit.jupiter.execution.parallel.enabled", "false")
 }

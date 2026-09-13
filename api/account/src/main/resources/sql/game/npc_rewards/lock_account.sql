@@ -1,0 +1,1 @@
+SELECT id FROM accounts WHERE id = ? FOR KEY SHARE
