@@ -80,8 +80,11 @@ S04 native connection recovery now passes actual startup/frozen-authority/backen
 failure and monitor tests:13 DB cases/70 selected checks, with2,114 total valid results. Scoped
 checks/architecture/app assemble and three-file archive pass; commit8c858f737. Typed claim receipts,
 quantity consumption and unique-key settlement now pass11 account/72 selected checks, with2,116
-total valid results. Scoped checks/architecture/app assemble and13-file source archive pass.
-Next: map native ground lifetime/fragment ownership; receipt-aware snapshot composition is mapped
+total valid results. Scoped checks/architecture/app assemble and13-file source archive pass;
+commit26452a0cf. Typed allocation balance now passes13 account/40 selected checks and2,118 valid
+results, scoped checks/architecture/app assemble and5-file archive. Ground lifetime mapping has
+identified the separate durable non-pickup retirement gap. Next: map captured Fumus/Glacies
+projectile presentation through the existing DSL parameter route; receipt-aware snapshot composition is mapped
 but its unresolved-runtime policy remains unselected. Complete receipt/save reconciliation,
 complete unresolved-player handling, tracked ground quantities/lifecycle and restart policy remain gates.
 M04 cooldown/equipment, M20 general placement/clipping and normal timing evidence remain missing. All these
@@ -89,6 +92,76 @@ changes remain SOURCE ONLY; current deployment is unchanged.
 Existing timing/damage/geometry constants remain characterized under E07. Full native public/private
 sessions, other mechanics/rewards/evidence gaps below remain open; Nex is not complete.
 Existing order remains Nex ->Yama ->Doom ->DT2 ->separate Dagannoth Kings review ->ToA ->ToB ->CoX.
+
+## Completed source increment: S04 typed allocation quantity observation
+
+Pre-edit mapping, September13: claim checkpoint `26452a0cf` is committed and backed up at
+`backup/nex-s04-claim-receipts-20260913`. Ground lifetime mapping confirms that ObjRegistry owns
+native merge/split/reveal/delete. ObjRepository timer expiry calls registry.del directly; tracking
+only explicit pickup/repository deletes would miss it. A registry sidecar can preserve provenance
+without altering native vars/merge behavior, but merely discarding its removed fragments would
+permit incorrect restart projection. Durable non-pickup retirement/drain ownership is still absent;
+no unconsumed event queue or pickup activation is added before that mapping is complete.
+
+The existing CharacterAccountRepository.findNpcRewardAllocation returns original allocated counts;
+the claim journal consumes them but supplies no typed per-item quantity view. The missing read is a
+small native repository extension under the user's standing approval. No schema or combat change
+is needed. Map it as follows before editing:
+
+- `NpcRewardAllocationBalance` retains the complete original immutable allocation and a detached,
+  unmodifiable list of per-recipient/ordinal item balances. Each contains its original item key,
+  vars and allocated count plus claimed/unclaimed counts. Equal items retain separate ordinals;
+  zero-item recipients and empty allocations remain distinguishable from an absent life.
+- One native OpenRuneSql SELECT joins V43 allocation rows with aggregated V44 claim consumption.
+  It decodes both from the same statement snapshot, avoiding mixed-time per-item reads. Claimed
+  counts are read as Long and validated against the original native count before conversion.
+  ABORTED attempts consume nothing; another backend's uncommitted claim is invisible. Own staged
+  claims can be visible but remain provisional until the caller commits.
+- `findNpcRewardAllocationBalance` takes the caller's DatabaseConnection and an explicit positive
+  per-statement JDBC timeout. It observes the caller's SQL snapshot and takes no reservation or
+  write lock. Null/positive unclaimed counts do not prove absence/presence of a claim still in flight,
+  ground existence, eligibility, unexpired lifetime, or permission to project/grant anything.
+- Reuse the original allocation decoder for native identity/metadata and empty-recipient behavior;
+  keep the old allocation lookup's public contract, SQL and default timeout unchanged. Focused
+  tests cover exact metadata/ordinals, zero/partial/full claims, abort/retry, transaction visibility,
+  immutable values and invalid timeout. Follow with actual owner/shared checks and app assembly;
+  reuse unchanged schema/restart/combat results instead of adding redundant restart fixtures.
+
+The read explicitly measures allocation minus inventory-claim consumption only. It is not a
+replacement for the missing durable non-pickup retirement workflow, exact native ground tracking,
+receipt-aware full snapshot/memory reconciliation, or the unselected uncertainty/restart policies.
+The separate runtime-policy question is pending; no dependent activation is assumed authorized.
+
+Implemented five source files: new `NpcRewardAllocationBalance.kt` and
+`sql/game/npc_rewards/select_allocation_balance.sql`; the shared decoder in
+`NpcRewardAllocationStore.kt`; the public CharacterAccountRepository read delegate; and new
+`NpcRewardAllocationBalanceTest.kt`. Original lookup SQL/default timeout remain unchanged.
+The new SELECT uses correlated aggregates within one statement, not separate item queries.
+Focused tests pass2 groups in16s (`logs/nex-s04-balance-focused-20260913.log`): exact immutable keys,
+Long bounds, original keys/vars/ordinals/empty recipients, missing versus empty lives, zero/partial/
+full counts, overlapping claims, COMMITTED replay, ABORTED exclusion, writer-local provisional
+visibility, other-backend isolation, rollback, retained Repeatable Read versus fresh observations,
+and actual delegated JDBC single-statement/timeout use. Neither a read nor an abort grants items.
+Independent source/test review found no actionable defect.
+
+Required owner/shared format/checks, architecture and app assembly pass in1m1s,481 tasks (26
+executed,455 up-to-date), `logs/nex-s04-balance-checks-20260913.log`:13 account,12 registry,15 app,
+40 tests with0 failures/errors/skips. Reused valid results give2,118 total:1,120 boss including157
+Nex,522 engine/shared/weapons/app,68 drops and408 ToA. Schema and native two-restart fixtures are
+unchanged; the required full account check still exercises their existing tests. The new balance
+fixture does not duplicate them. Final new owned cluster:
+`logs/npc-reward-balance-test-17183662274489890712/`. No canonical database migration was applied.
+Result authorities: `logs/nex-s04-balance-test-results-20260913.json` and
+`logs/nex-s04-balance-valid-test-results-20260913.json`. Five-file source archive was reopened and
+byte-verified: `logs/nex-s04-balance-source-20260913.zip`, SHA256
+`6AE47190304F7B73BE60D7C17F8B9E27EBF3CEC1B1186AE0F3FE5DDFC0529BDC`.
+Full source selection: `logs/nex-s04-balance-source-files-20260913.txt`.
+
+Source-only. Next independent deliverable is the bounded Fumus/Glacies projectile presentation
+mapping: retained frames associate390/368 with the actors and existing magic_spell/magic_spell_low
+controllers. Do not infer Umbra/Cruor no-projectile behavior or Reaver launch geometry/hit delay.
+Ground retirement, exact fragment ownership, complete snapshot reconciliation and the pending
+runtime/restart policies remain gates; deployment stays `c4fc9390f`.
 
 ## Completed source increment: S04 typed claim receipts and quantity settlement
 

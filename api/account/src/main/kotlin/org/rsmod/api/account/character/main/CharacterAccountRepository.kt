@@ -20,6 +20,7 @@ import kotlin.math.roundToInt
 import org.rsmod.api.account.character.CharacterAccountLoginSegment
 import org.rsmod.api.account.character.CharacterMetadataList
 import org.rsmod.api.account.character.rewards.NpcRewardAllocation
+import org.rsmod.api.account.character.rewards.NpcRewardAllocationBalance
 import org.rsmod.api.account.character.rewards.NpcRewardAllocationStore
 import org.rsmod.api.account.character.rewards.NpcRewardClaim
 import org.rsmod.api.account.character.rewards.NpcRewardClaimReceipt
@@ -58,6 +59,21 @@ constructor(
         connection: DatabaseConnection,
         lifeId: UUID,
     ): NpcRewardAllocation? = NpcRewardAllocationStore.find(connection, lifeId)
+
+    /**
+     * Observes original allocation and inventory-claim quantities in one caller SQL snapshot.
+     * Preserves original item ordinals, keys and vars, including fully claimed items and empty
+     * recipients. Null means no allocation in this snapshot; unclaimed count is not a reservation,
+     * ground eligibility or expiry/restart decision. Other backends may still commit and own staged
+     * claims remain provisional. Requires a positive per-statement JDBC timeout; performs no
+     * writes.
+     */
+    public fun findNpcRewardAllocationBalance(
+        connection: DatabaseConnection,
+        lifeId: UUID,
+        statementTimeoutSeconds: Int,
+    ): NpcRewardAllocationBalance? =
+        NpcRewardAllocationStore.findBalance(connection, lifeId, statementTimeoutSeconds)
 
     /**
      * Stages exact source consumption in a caller-owned READ COMMITTED transaction. Only a Staged

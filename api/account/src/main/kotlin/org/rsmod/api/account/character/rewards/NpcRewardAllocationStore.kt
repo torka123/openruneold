@@ -1,6 +1,7 @@
 package org.rsmod.api.account.character.rewards
 
 import dev.or2.sql.OpenRuneSql
+import java.sql.ResultSet
 import java.util.UUID
 import org.rsmod.api.db.DatabaseConnection
 import org.rsmod.map.CoordGrid
@@ -84,7 +85,33 @@ internal object NpcRewardAllocationStore {
     }
 
     fun find(db: DatabaseConnection, lifeId: UUID): NpcRewardAllocation? =
-        db.prepareStatement(sql("select_allocation")).use { statement ->
+        read(db, lifeId, "select_allocation", null) { _, _, _ -> }
+
+    fun findBalance(
+        db: DatabaseConnection,
+        lifeId: UUID,
+        timeout: Int,
+    ): NpcRewardAllocationBalance? {
+        require(timeout > 0) { "NPC reward balance statement timeout must be positive" }
+        val claimed = mutableMapOf<Pair<Int, Int>, Long>()
+        val allocation =
+            read(db, lifeId, "select_allocation_balance", timeout) { rows, character, ordinal ->
+                check(claimed.put(character to ordinal, rows.getLong("claimed_count")) == null) {
+                    "Duplicate stored allocation balance ordinal"
+                }
+            } ?: return null
+        return NpcRewardAllocationBalance(allocation, claimed)
+    }
+
+    private fun read(
+        db: DatabaseConnection,
+        lifeId: UUID,
+        query: String,
+        timeout: Int?,
+        onItem: (ResultSet, Int, Int) -> Unit,
+    ): NpcRewardAllocation? =
+        db.prepareStatement(sql(query)).use { statement ->
+            if (timeout != null) statement.queryTimeout = timeout
             statement.setObject(1, lifeId)
             statement.executeQuery().use { rows ->
                 if (!rows.next()) return null
@@ -125,6 +152,7 @@ internal object NpcRewardAllocationStore {
                                 rows.getInt("count"),
                                 rows.getInt("vars"),
                             )
+                        onItem(rows, characterId, ordinal)
                     }
                 } while (rows.next())
                 finishRecipient()
