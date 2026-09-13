@@ -64,9 +64,13 @@ constructor(
                 requireNotNull(ServerCacheManager.getNpc(id)) { "Missing revision-240 Nex NPC $id" }
             onNpcQueue(type, "queue.death") {
                 val kind = encounters.handleDeath(npc)
-                // Main Nex stays registered for Wrath attribution, but must not auto-respawn
-                // independently of room reset. This preserves the existing native hide branch.
-                death.deathNoDrops(this, respawnDelay = Int.MAX_VALUE)
+                if (kind == NexEncounterManager.DeathKind.BODYGUARD) {
+                    death.deathWithDrops(this, respawnDelay = Int.MAX_VALUE)
+                } else {
+                    // Main Nex stays registered for Wrath attribution, but must not auto-respawn
+                    // independently of room reset. Reavers retain their existing no-drop route.
+                    death.deathNoDrops(this, respawnDelay = Int.MAX_VALUE)
+                }
                 encounters.finishDeath(npc, kind)
             }
         }

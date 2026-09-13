@@ -56,8 +56,11 @@ existing ToA regression cases, scoped checks, architecture and app assemble. Its
 is byte-verified below. Bounded M06 opening animation9203->captured9182 now passes148 Nex cases,
 scoped checks, architecture and app assemble; its two-file archive is byte-verified. Captured opening
 facing512/sound5303/overhead speech now pass150 Nex cases, scoped checks, architecture/app assemble;
-its three-file archive is byte-verified. Next: native bodyguard death/drop dispatch and explicit
-no-remains handling. M20 general placement/clipping and normal timing evidence remain missing. All these
+its three-file archive is byte-verified. Bounded M11 native bodyguard drops and exact no-remains
+handling now pass153 Nex/1,116 boss cases,501 engine/shared/weapons/app,62 drop-content and408
+existing ToA cases (2,087 total), scoped checks/architecture/app assemble; nine-file archive verified.
+Next: coordinate-only guard placement with retained capture anchors and canonical native map checks.
+M04 cooldown/equipment, M20 general placement/clipping and normal timing evidence remain missing. All these
 changes remain SOURCE ONLY; current deployment is unchanged.
 Existing timing/damage/geometry constants remain characterized under E07. Full native public/private
 sessions, other mechanics/rewards/evidence gaps below remain open; Nex is not complete.
@@ -744,6 +747,89 @@ Archive `logs/nex-m06-presentation-source-20260913.zip` contains exactly these t
 byte-for-byte; SHA256 `E12C9C1014702EF282BC521B017A7B708050E2E606AC71A3179490A32C477C32`.
 Source-only; JVM23812 remains c4fc9390f. Next: bounded M11 native bodyguard drop dispatch, after
 mapping the native explicit no-remains sentinel and preserving ordinary fallback/kill hooks.
+M06 presentation commit: `be131db42`; backup branch `backup/nex-opening-presentation-20260913`.
+
+## Completed source increment: bounded M11 bodyguard native drop dispatch
+
+This closes a delivery bypass, not the full S04 multi-recipient Nex reward contract. Current
+NexCombat.kt62-72 unconditionally calls deathNoDrops for all encounter NPCs. The four existing
+content/drops/resources tables fumus/umbra/cruor/glacies already register the correct guard aliases
+and five equal ceremonial pieces1/1000 plus995/1000 nothing. Retained W6/Fumus revision15221135,
+recorded in the evidence section below, cites Mod Ash26April2022 for the independent1/200 table.
+Do not reroll/rebalance or replace these tables. Native cache inspection35-38 shows all four guards
+11283-86 explicitly carry dropped_remains param46=-1 and have no killcount_varp65551. They must
+not invent bones or increase main Nex KC.
+
+Pinned upstream61139e76a NpcDeathScript already dispatches queue.death -> deathWithDrops;
+GeneralGraardor.kt20-32 manages guard respawn while leaving their deaths to that default workflow.
+Upstream NpcDeath shares the same sentinel bug: typed null coalesces to bones. Existing local
+NpcServerType.paramMap.primitiveMap and params.dropped_remains.id expose the exact raw sentinel.
+No missing API exists here; repair the shared interpretation in api/death, not the engine/cache.
+Checking only hasParam plus typed-null would also change malformed positive-reference fallback;
+use precisely raw==-1 so missing/valid/invalid-positive behavior remains as before.
+
+| Responsibility | Existing route and bounded correction | Acceptance |
+|---|---|---|
+| No remains | NpcDeath.spawnDeathDrops skips only its remains/drop-hook block for raw dropped_remains=-1; native kill hooks remain outside it | Explicit none produces no bones/drop hook; all kill hooks and event ID still run; missing/valid/invalid references, suppression, no hero and consuming hook behavior retained |
+| Owned guard death | NexCombat handleDeath BODYGUARD -> deathWithDrops with existing native animation/removal and respawnDelay; finishDeath unchanged | All four real native lethal queues reach one native kill context; duplicate queued lethal hits do not duplicate dispatch; removed actor/room cancels unfinished death |
+| Existing personal table | NpcDeath findHero -> NpcDropTableKillHook -> registered ceremonial table -> NpcRewardDeliveryService/ObjRepository | Correct guard table/native winning hero, death location, personal ownership, no remains or main Nex reward adapter; shared log/tracker/broadcast policy retained |
+| Other encounter deaths | Existing main Nex and Reaver deathNoDrops retained | Main Nex still owns delayed Wrath/current reward adapter; reavers do not acquire guard drops |
+
+Preserve current guard phase handoff before animation, native source lifecycle/hit validity and
+existing loot duration. Correct phase timing and durable main Nex multi-recipient completion remain
+separate approvals/evidence work; no exactly-once persistence claim follows from one in-memory hook.
+Root owns two production files, Nex fixture/integration, integration and builds. A bounded owner
+edits only new api/death NpcDeathRemainsTest.kt; another may review actual table registration/delivery.
+Focused behavioral tests first, then affected api/death/content-drops/shared checks, all-boss regression,
+architecture and app assemble. Preserve deployment hold and all existing PostgreSQL/source backups.
+
+Focused M11 results: the13-case Nex bodyguard/lifecycle selection passes in23s
+(`logs/nex-m11-guard-drops-focused-20260913.log`). Three new integration groups cover all four
+native lethal queues, unequal two-player contribution, duplicate queued lethals, post-animation
+removal/drop dispatch, exact death locations, native killcount hook, guard/session retirement and
+unchanged main Nex/Reaver no-drop paths. The fixture now accepts native death object/drop/kill
+dependencies; defaults remain unchanged. Guard drop dispatch does not call the main Nex adapter.
+Seven new native remains groups pass in16s (`logs/nex-m11-native-remains-focused2-20260913.log`).
+The first compile required a test-only engine.annotations dependency for real player UID setup;
+no production workaround. Missing/-1/valid/invalid-positive params, suppression, unavailable native
+winner, consuming-hook order and shared event IDs are exercised through actual spawnDrops.
+Two new content/drops groups pass in22s (`logs/nex-m11-guard-table-focused2-20260913.log`): one real
+registry/resolver loads the four existing tables; all20 piece outcomes and eight nothing-boundary
+deliveries traverse native table selection, NpcDropTableKillHook and NpcRewardDeliveryService.
+A test-only entropy spy supplies existing RollRandom.Context then calls the real method. Object
+registration, collection log and clan services are recording boundaries; typed native loot-tracker
+script7192 output is inspected. The initial compile needed explicit heterogeneous-list types in
+two assertions, corrected without changing expectations; test-only RSProt dependency was added.
+Two independent production reviews found no concrete defect.
+
+Final `logs/nex-m11-guard-drops-checks-20260913.log` passes in3m23s/579 tasks (55 executed,
+three from cache):153 Nex/1,116 boss cases,501 engine/shared/weapons/app,62 content/drops and408
+existing ToA cases, **2,087 total**, zero failures/errors/skips. Scoped formatting/checks,
+architecture/self-tests and app assemble pass. api/death-plugin, api/drop-table-plugin and generic
+killcount have NO-SOURCE tests; their compilation/checks are not additional passing cases.
+Selection and complete module results are retained under `logs/nex-m11-guard-drops-*20260913.*`.
+Changed files: api/death NpcDeath.kt/build.gradle.kts/new NpcDeathRemainsTest.kt; NexCombat.kt,
+Nex module build.gradle.kts, NexMinionCombatCharacterizationTest.kt fixture and new
+NexBodyguardDeathDropsIntegrationTest.kt; content/drops build.gradle.kts and new
+NexBodyguardDropPipelineTest.kt. Only the two mapped production files change runtime behavior.
+Archive `logs/nex-m11-guard-drops-source-20260913.zip` contains all nine files, byte-verified;
+SHA256 `9F75C9A5F670386EE4EF1D70E729ED36C9DEBE735055964EFC8D820E35E5E1B8`.
+Source-only; deployment remains JVM23812/c4fc9390f. Main Nex S04 reward durability/distributions
+remain open. Next exact deliverable: guard-coordinate mapping and native canonical map validation.
+
+### M04 focused evidence checkpoint (no implementation)
+
+Retrieved pinned [Altar15329763](https://oldschool.runescape.wiki/w/Special:PermanentLink/15329763)
+confirms42965,(2939,5202), Pray/Teleport, full Prayer plus1 per worn Zaros item; any qualifying item
+also restores HP/run/spec, every ten minutes. Existing native protected Op1/Op2 dispatch is suitable.
+No native GWD altar workflow exists locally or in pinned61139e76a to inherit. Available owners are
+worn inventory, statHeal/statBoost, native run energy and SpecialAttackEnergy.restoreFullSpecialEnergy,
+with persisted attributes for an evidence-defined cooldown. No new engine API is required.
+Still missing: exact qualifying equipment/variants, cooldown progression offline/shared-altars,
+whether full-stat uses consume cooldown, and Nex combat-use restriction. GWD15299834 describes
+out-of-combat use for the four generals' altars, not proof of that gate for Nex. Do not invent a
+transient Run/UID timer. Existing statHeal throws for current>base; future mapping must preserve
+boosts with an explicit current<base guard. This evidence gap does not block independent increments.
 
 ## Source verification history: M01/M02 protected access and S10
 

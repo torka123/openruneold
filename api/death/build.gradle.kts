@@ -28,6 +28,7 @@ dependencies {
     testImplementation(projects.api.registry)
     testImplementation(projects.api.random)
     testImplementation(projects.api.deathPlugin)
+    testImplementation(projects.engine.annotations)
     testImplementation(projects.engine.coroutine)
     testImplementation(projects.engine.plugin)
     testImplementation(projects.engine.routefinder)

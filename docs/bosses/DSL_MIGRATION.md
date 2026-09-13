@@ -23,8 +23,11 @@ and app assemble; commit1ab48e36d. M18 marking and owned tint/late-queue cleanup
 assemble; commite6bfba9f6. Bounded M06 opening animation9203->captured9182 also passes all148 Nex
 cases, scoped checks, architecture/app assemble; both source archives are byte-verified. Source-only;
 M06 captured facing512/sound5303/overhead speech also passes150 Nex cases, scoped checks/architecture/
-app assemble; three-file archive byte-verified. Next: native bodyguard death/drop dispatch and exact
-no-remains handling. M20 placement/clipping remains an evidence gap. The Nex ledger records exact source files,
+app assemble; three-file archive byte-verified, commitbe131db42. Bounded M11 native bodyguard drops/
+exact no-remains now pass153 Nex/1,116 boss,501 engine/shared/weapons/app,62 content/drops and408 ToA
+cases (2,087 total), scoped checks/architecture/app assemble; nine-file archive verified. Source-only.
+Next: captured guard coordinates with canonical native map validation. M04 cooldown/equipment and
+M20 placement/clipping remain evidence gaps. The Nex ledger records exact source files,
 searches, tests, failure limits, evidence gaps and next mapping.
 
 September13 continuation instructions are authoritative: recover the actual source/test/runtime

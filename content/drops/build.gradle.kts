@@ -30,4 +30,5 @@ dependencies {
     implementation(projects.engine.plugin)
     testImplementation(kotlin("test"))
     testImplementation("org.mockito:mockito-core:5.18.0")
+    testImplementation(libs.rsprot.api)
 }

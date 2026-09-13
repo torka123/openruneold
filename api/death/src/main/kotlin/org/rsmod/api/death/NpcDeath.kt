@@ -58,7 +58,10 @@ constructor(
             val duration = hero.lootDropDuration ?: constants.lootdrop_duration
             val lootTrackerEventId = nextLootTrackerEventId()
 
-            if (!suppressDrops) {
+            // Typed null also represents an absent or invalid item reference. Only the explicit
+            // cache sentinel suppresses remains; personal table and kill hooks still run below.
+            val noRemains = type.paramMap?.primitiveMap?.get(params.dropped_remains.id) == -1
+            if (!suppressDrops && !noRemains) {
                 val droppedRemains =
                     paramOrNull(params.dropped_remains)
                         ?: ServerCacheManager.getItem("obj.bones".asRSCM())

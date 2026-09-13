@@ -15,6 +15,8 @@ import org.rsmod.api.combat.NvPCombat
 import org.rsmod.api.combat.formulas.AccuracyFormulae
 import org.rsmod.api.combat.formulas.MaxHitFormulae
 import org.rsmod.api.death.NpcDeath
+import org.rsmod.api.death.NpcDeathDropHook
+import org.rsmod.api.death.NpcDeathKillHook
 import org.rsmod.api.game.process.GameLifecycle
 import org.rsmod.api.game.process.npc.NpcFaceSquareProcessor
 import org.rsmod.api.game.process.npc.NpcPostTickProcess
@@ -179,6 +181,9 @@ internal class NexMinionTestWorld(
     enterRoom: Boolean = true,
     private val nativeLocs: Boolean = false,
     nativeWorld: Boolean = false,
+    deathObjects: ObjRepository? = null,
+    deathDropHooks: Set<NpcDeathDropHook> = emptySet(),
+    deathKillHooks: Set<NpcDeathKillHook> = emptySet(),
 ) {
     val clock = MapClock().apply { cycle = 100 }
     val events = EventBus()
@@ -415,9 +420,9 @@ internal class NexMinionTestWorld(
                 NpcDeath(
                     repository,
                     players,
-                    mock(org.rsmod.api.repo.obj.ObjRepository::class.java),
-                    emptySet(),
-                    emptySet(),
+                    deathObjects ?: mock(ObjRepository::class.java),
+                    deathDropHooks,
+                    deathKillHooks,
                 )
             else mock(NpcDeath::class.java)
         with(NexCombat(manager, death, deps)) { context.startup() }

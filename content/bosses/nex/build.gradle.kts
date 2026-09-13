@@ -27,6 +27,7 @@ dependencies {
     testImplementation("org.mockito:mockito-core:5.18.0")
     testImplementation(projects.api.combat.combatFormulas)
     testImplementation(projects.api.registry)
+    testImplementation(projects.content.generic.killcount)
     testImplementation(libs.fastutil)
     testImplementation(libs.rsprot.api)
     testImplementation(projects.api.hitPlugin)
