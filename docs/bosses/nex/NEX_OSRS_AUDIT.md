@@ -36,11 +36,14 @@ client/writer tests,1,061 boss cases and297 shared/app cases, scoped checks/asse
 
 Current source: M21 prison ownership/cancellation is committed as `706e11330`; M26 completed-kill
 occupant handoff as `13719ba1c`; bounded M24 Wrath death-position snapshot as `30ef8129c`.
-M14/M27 Shadow Smash marker ownership is now verified: placement success controls ownership,
+M14/M27 Shadow Smash marker ownership is committed as `88d0abf0c`: placement success controls ownership,
 natural expiry releases it, and source cleanup preserves later replacements. All127 Nex cases,
 scoped checks, app assemble and architecture checks pass;167 unchanged shared results remain valid.
-These four increments are SOURCE ONLY. Next: complete the newly mapped fixed-public-session
-foundation design/tests in existing api/instances under the user's conditional missing-route approval.
+These four increments are SOURCE ONLY. The fixed-public-session foundation is also now verified:
+15 new native groups,49 total instance cases,1,090 boss cases and317 shared/app cases pass, with
+scoped formatting/checks, architecture and app assemble. Its23-file source archive is byte-verified;
+details and native failure limits are below. It is not deployed. Next: map the dynamic owned-spawn
+boundary, then adopt the existing fixed session route in Nex's public chamber.
 Existing timing/damage/geometry constants remain characterized under E07. Full native public/private
 sessions, other mechanics/rewards/evidence gaps below remain open; Nex is not complete.
 Existing order remains Nex ->Yama ->Doom ->DT2 ->separate Dagannoth Kings review ->ToA ->ToB ->CoX.
@@ -261,7 +264,11 @@ Changed source: NexEncounterManager.kt and new NexShadowMarkerIntegrationTest.kt
 SHA256 `2588966D7D526E576607BCB3EA2215CE3AA64251DBA8FA84E7FD992AE37B792D`.
 Scoped diff whitespace check passes. Source-only; deployed JVM23812 is unchanged.
 
-## Next native API foundation: fixed public instance sessions (mapping in progress)
+## Completed source foundation: fixed public instance sessions
+
+The mapping below was recorded before implementation. The foundation passes15 focused native
+behavioral groups and the final shared/all-boss/application checks. Nex adoption is still separate,
+and this shared source has not been deployed.
 
 Relevant full local/pinned61139e76a searches confirm no suitable existing route. createServerOwned
 always resolves a template, calls RegionRepository.add, registers/protects allocated regions,
@@ -273,8 +280,8 @@ Do not fake a Region, manually fabricate a session, or add a second room manager
 
 The user's latest approval for new API/DSL routes only when absent applies to this verified gap.
 This is a newly mapped shared instance extension under M01/M26/S03/A06, not the existing S08
-stat-drain-floor approval. No shared source edits have begun. Complete the following design and
-focused native manager acceptance before implementation; activation in Nex is a later increment.
+stat-drain-floor approval. The following design and native acceptance were established before
+shared edits; activation in Nex is a later increment.
 
 - Explicit fixed public area/placement: canonical level-aware bounds/entry/exit and existing NPC
   spawn descriptions. Reject private creation and overlapping live fixed ownership.
@@ -293,8 +300,87 @@ focused native manager acceptance before implementation; activation in Nex is a 
   native actor identity/reset/cleanup, level/bank/logout/raw-disappearance/identity replacement,
   unchanged canonical map/collision and default copied-instance allocation/recovery behavior.
 
+Final pre-edit mapping: add InstanceArea.Fixed with one canonical plane and half-open rectangular
+bounds; validate entry/spawn anchors inside it and exclude RegionRegistry working coordinates.
+InstancePlacement uses explicit Allocated/Fixed variants, sharing entry/exit/NPC descriptions.
+The fixed branch of createServerOwned reserves overlapping ownership in the existing manager,
+registers no region IDs and uses native NPC repositories. Private create rejects it before fees.
+Fixed creation starts/spawns immediately unless spawnOnFirstJoin; that option initializes once on
+the first successful physical finalizeEntry. Empty re-entry never resets actors or room state.
+Explicit resetNpcs remains the coordinated actor replacement route. Native callbacks must not
+resurrect a terminated session, and ownership stays reserved until teardown completes.
+
+Fixed membership binds account UUID to the captured Player and PlayerUid. Authoritative queries,
+timers, hunt validation and HP-bar recipients filter through that binding; reconciliation prunes
+raw missing/replaced occupants. Stale departure cannot clear a newly admitted replacement. Fixed
+finalizeEntry validates live identity, authoritative active session and physical in-bounds position.
+It changes only temporary membership: it neither writes the map var nor writes/clears an existing
+instance_exit_coord. Default fixed entry therefore retains flag0/no marker; copied/account state
+already present remains owned by its existing flow. Logout/disconnect saves the current public
+coordinate. Copied placement keeps its allocation,
+XY multi-floor bounds, empty-join respawn, client var and persisted recovery-exit behavior.
+Database coordinate application and the admin exit-coordinate switch gain exhaustive Fixed cases.
+
+Acceptance is ten native manager test groups: no region/map work, invalid/private/overlap rejection,
+physical entry, first-entry/empty-room continuity, paired reset, exact bounds, native departures,
+UID/object replacement, cleanup/reentrancy/failure, and copied allocation/logout controls. Retained
+C-GM room coordinates and M26 continuity evidence motivate the route; this foundation changes no
+OSRS timing, damage, entry eligibility, rewards or Nex logout/relogin admission policy. Account
+serialization remains its established pipeline; absence/presence of its recovery attribute is
+tested here, not claimed as a new live PostgreSQL persistence run. Nex adoption is separate.
+
 Primary owns shared implementation and builds. Independent agents may map native API/persistence
 paths and prepare/review disjoint tests. Runtime/deployment holds and save protections remain intact.
+
+Implementation follows that map with sealed Allocated/Fixed placements and no fabricated Region.
+InstanceSession retains identity tokens for each fixed admission (including same-object re-entry),
+while InstanceManager remains the only owner of indexes, actors and public-area reservations.
+Fixed entry is validated again after native callbacks. Existing InstanceScript entry finalizes in
+place; the legacy generic instance command directs fixed visitors to the room entrance instead
+of teleporting past content access. Timing, hunt, HP-bar and contributor fallback lookups use the
+authoritative native membership; attributed offline NPC damage retains its existing semantics.
+
+Native lifecycle review found synchronous callbacks inside NpcRegistry.add/del. Fixed actor work
+preclaims the candidate and defers requested teardown until the outer repository call returns.
+Exact NpcList identity prevents recursive deletion; a retirement record survives the native Delete
+listener's detach until collision/zone/UID retirement completes. Overlapping creation remains
+denied during that tail. Actor reset preserves newly attached helpers and rechecks each snapshot
+actor's current owner, so transferred actors survive their former owner's cleanup.
+
+Native failure limit: a throwing Delete listener can leave list removal complete but collision,
+zone or UID retirement incomplete; direct deletion inside Create/Spawn can leave an outer-add
+zone entry after UID retirement. No existing repository repair route was found. The foundation
+propagates these failures, attempts independent owned cleanup, and keeps the failed area reserved
+and unavailable. It does not clear engine failure state, retry partial deletion, or claim repair.
+These failure paths are exercised; engine repair is outside this increment. Ordinary content
+cleanup failures still run other cleanup and release successfully retired native ownership.
+
+Verification history: focused1 compiled production but failed test compilation because Spawn is
+a keyed event, not an unbound event. That test subscription was corrected. Focused2 then passed
+all13 groups in19s (`logs/fixed-public-foundation-focused2-20260913.log`). Broader checks1 passed
+in2m38s/563 tasks (113 executed):1,090 boss cases and315 shared/app cases, zero failures/errors/
+skips, scoped formatting/checks, architecture detector/self-tests and app assemble. Final review
+added candidate preclaim and native-loss-before-closure validation plus two regression groups.
+All15 pass in19s (`logs/fixed-public-foundation-boundaries-20260913.log`). Final checks2 passes in
+2m32s/563 tasks (111 executed):1,090 boss cases and317 shared/app cases, zero failures/errors/skips,
+including49 instance cases and127 Nex cases; scoped formatting/checks, architecture and app assemble
+pass. Logs: `logs/fixed-public-foundation-checks2-20260913.log`; per-module counts are retained in
+`logs/fixed-public-foundation-test-results-20260913.json`. The formerly reused167 shared results
+were invalidated by this API change; affected tests were rerun by Gradle in these broader checks.
+This is a new route, so no pre-existing API behavioral RED result is claimed.
+
+Changed Kotlin sources are listed explicitly in `logs/fixed-public-foundation-format-20260913.txt`
+(23 files):12 shared production files across api/instances and boss-hp-bar-plugin, the command
+exit switch, the new fixed native fixture, and nine existing constructor fixtures adjusted for
+the real NpcList injection/Allocated cast. Complete task selection is retained beside it.
+Source archive `logs/fixed-public-foundation-source-20260913.zip` contains exactly those23 files,
+verified byte-for-byte; SHA256 `0D4E2952D0200899D8CE457527889AC8D517D6BE64DC14CC63AD39051A06355B`.
+Existing complete source/PostgreSQL backups are preserved. No cache/data/credentials are included.
+Source-only: JVM23812 still serves the deployed checkpoint above; no restart was performed.
+Next deliverable: Nex public-session adoption, preserving existing protected access, exact member
+identity, delayed-hit/loc cleanup and completed-round handoff. Dynamic reaver creation must first
+be mapped to an owned native spawn route; post-add attachment alone is not atomic across Create
+callbacks. Full private Nex/rewards/OSRS evidence gaps remain in their existing ledger entries.
 
 ## Source verification history: M01/M02 protected access and S10
 

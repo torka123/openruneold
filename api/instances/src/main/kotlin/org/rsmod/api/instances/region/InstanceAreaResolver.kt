@@ -8,6 +8,7 @@ import org.rsmod.api.instances.InstanceArea
 class InstanceAreaResolver @Inject constructor() {
     fun resolve(area: InstanceArea): Result =
         when (area) {
+            is InstanceArea.Fixed -> Result.Ready(InstancePlacement.Fixed(area))
             is InstanceArea.Template -> Result.Ready(area.toPlacement())
             is InstanceArea.CopyRegions -> Result.Ready(area.toPlacement())
         }
@@ -20,7 +21,7 @@ class InstanceAreaResolver @Inject constructor() {
 }
 
 private fun InstanceArea.Template.toPlacement(): InstancePlacement =
-    InstancePlacement(
+    InstancePlacement.Allocated(
         enterCoord = enterCoord,
         exitCoord = exitCoord,
         regionTemplate = template,
@@ -32,7 +33,7 @@ private fun InstanceArea.Template.toPlacement(): InstancePlacement =
 private fun InstanceArea.CopyRegions.toPlacement(): InstancePlacement {
     val anchor = regionIds.minBy { it.regionMapSquareX() * 10000 + it.regionMapSquareZ() }
     val (zoneBaseX, zoneBaseZ) = anchor.regionZoneBase()
-    return InstancePlacement(
+    return InstancePlacement.Allocated(
         enterCoord = enterCoord,
         exitCoord = exitCoord,
         regionTemplate = buildRegionTemplate(regionIds, level, rotation, copyAllLevels),

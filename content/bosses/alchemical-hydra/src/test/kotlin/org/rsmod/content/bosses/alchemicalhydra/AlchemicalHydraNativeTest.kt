@@ -494,7 +494,16 @@ private class HydraFixture(ranged: Boolean = false, accuracyResults: List<Boolea
             }
         }
     val instances =
-        InstanceManager(regions, npcs, players, events, InstanceAreaResolver(), clock, collision)
+        InstanceManager(
+            regions,
+            npcs,
+            players,
+            events,
+            InstanceAreaResolver(),
+            clock,
+            collision,
+            npcList,
+        )
     var damageRolls = 0
     var accuracyRolls = 0
     val random =

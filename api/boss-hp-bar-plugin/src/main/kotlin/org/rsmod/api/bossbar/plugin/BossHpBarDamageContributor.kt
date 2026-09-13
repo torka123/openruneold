@@ -116,8 +116,8 @@ constructor(
     }
 
     internal fun playersInInstance(instanceId: InstanceId): List<Player> {
-        val occupants = instances.sessionForId(instanceId)?.occupants ?: return emptyList()
-        return playerList.filter { it.uuid in occupants }
+        val session = instances.sessionForId(instanceId) ?: return emptyList()
+        return instances.playersIn(session)
     }
 
     private fun npcBarMode(npc: Npc): BossHpBarMode =

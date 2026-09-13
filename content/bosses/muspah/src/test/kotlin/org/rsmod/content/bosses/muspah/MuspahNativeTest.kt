@@ -714,7 +714,16 @@ private class MuspahFixture(melee: Boolean = false, magic: Boolean = false) {
             }
         }
     val instances =
-        InstanceManager(regions, npcs, players, events, InstanceAreaResolver(), clock, collision)
+        InstanceManager(
+            regions,
+            npcs,
+            players,
+            events,
+            InstanceAreaResolver(),
+            clock,
+            collision,
+            npcList,
+        )
     val bounds = mutableListOf<Int>()
     var selectionRoll: Int? = null
     val random =

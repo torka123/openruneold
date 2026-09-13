@@ -49,5 +49,5 @@ internal object InstanceTiming {
     }
 
     fun playersIn(session: InstanceSession, playerList: PlayerList) =
-        session.occupants.mapNotNull { uuid -> playerList.firstOrNull { it.uuid == uuid } }
+        session.livePlayers(playerList)
 }

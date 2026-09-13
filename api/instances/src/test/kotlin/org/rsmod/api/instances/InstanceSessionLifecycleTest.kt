@@ -8,11 +8,13 @@ import org.junit.jupiter.api.BeforeAll
 import org.mockito.Mockito.*
 import org.rsmod.annotations.InternalApi
 import org.rsmod.api.instances.region.InstanceAreaResolver
+import org.rsmod.api.instances.region.InstancePlacement
 import org.rsmod.api.repo.npc.NpcRepository
 import org.rsmod.api.repo.region.RegionRepository
 import org.rsmod.events.EventBus
 import org.rsmod.game.MapClock
 import org.rsmod.game.entity.Npc
+import org.rsmod.game.entity.NpcList
 import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
 import org.rsmod.game.region.Region
@@ -198,6 +200,7 @@ class InstanceSessionLifecycleTest {
                 InstanceAreaResolver(),
                 MapClock(),
                 CollisionFlagMap(),
+                NpcList(),
             )
         val spec =
             InstanceSettings(destroyWhenEmpty = true)
@@ -247,9 +250,9 @@ class InstanceSessionLifecycleTest {
                 .`when`(regions)
                 .add(
                     any()
-                        ?: (InstanceAreaResolver().resolve(spec.area)
-                                as InstanceAreaResolver.Result.Ready)
-                            .placement
+                        ?: ((InstanceAreaResolver().resolve(spec.area)
+                                    as InstanceAreaResolver.Result.Ready)
+                                .placement as InstancePlacement.Allocated)
                             .regionTemplate
                 )
             `when`(regions.isValid(any() ?: Region(CoordGrid.ZERO, CoordGrid.ZERO, 0, 0)))

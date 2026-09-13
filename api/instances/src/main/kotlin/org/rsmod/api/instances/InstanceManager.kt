@@ -18,6 +18,7 @@ import org.rsmod.api.instances.events.InstancePlayerLeaveUnboundEvent
 import org.rsmod.api.instances.events.InstanceStartedEvent
 import org.rsmod.api.instances.events.InstanceTimeTickEvent
 import org.rsmod.api.instances.region.InstanceAreaResolver
+import org.rsmod.api.instances.region.InstancePlacement
 import org.rsmod.api.instances.region.enterCoord
 import org.rsmod.api.instances.region.localCoord
 import org.rsmod.api.instances.timer.InstanceKillTimer
@@ -33,6 +34,7 @@ import org.rsmod.events.KeyedEvent
 import org.rsmod.game.MapClock
 import org.rsmod.game.damage.DamageContributions
 import org.rsmod.game.entity.Npc
+import org.rsmod.game.entity.NpcList
 import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
 import org.rsmod.game.entity.npc.NpcUid
@@ -61,6 +63,7 @@ constructor(
     private val areaResolver: InstanceAreaResolver,
     private val worldClock: MapClock,
     private val collision: CollisionFlagMap,
+    private val npcList: NpcList,
 ) {
     private val nextId = AtomicLong(1)
 
@@ -74,6 +77,12 @@ constructor(
     // retirement, and cannot accidentally resolve a later NPC reusing the same slot.
     private val npcInstanceIndex = IdentityHashMap<Npc, InstanceId>()
     private val deferredLogoutReclaims = HashMap<InstanceId, Int>()
+    // Native add/delete callbacks are synchronous. Retire authority immediately, but wait for
+    // the outer repository operation before deleting actors or permitting overlapping ownership.
+    private val fixedActorOperations = mutableSetOf<InstanceId>()
+    private val closingFixedSessions = mutableSetOf<InstanceId>()
+    private val failedFixedTeardowns = mutableSetOf<InstanceId>()
+    private val retiringFixedNpcs = IdentityHashMap<Npc, InstanceId>()
 
     public sealed interface Result {
         public data class Created(val session: InstanceSession, val enter: CoordGrid) : Result
@@ -90,6 +99,9 @@ constructor(
         access: InstanceAccess,
         currentTick: Int,
     ): Result {
+        if (spec.area is InstanceArea.Fixed) {
+            return Result.Failed("Fixed public areas must be owned by the server.")
+        }
         val ownerId = owner.playerId()
 
         if (ownerIndex.containsKey(ownerId)) {
@@ -105,7 +117,7 @@ constructor(
                 is InstanceAreaResolver.Result.Ready -> resolved.placement
             }
 
-        val region = regionRepo.add(placement.regionTemplate)
+        val region = regionRepo.add((placement as InstancePlacement.Allocated).regionTemplate)
         if (region == null) {
             areaResolver.release(spec.area, placement)
             if (spec.fee > 0) owner.invAdd(owner.inv, "obj.coins", spec.fee)
@@ -150,8 +162,11 @@ constructor(
                 is InstanceAreaResolver.Result.Ready -> resolved.placement
             }
 
+        if (placement is InstancePlacement.Fixed) {
+            return createFixed(key, spec, access, placement, currentTick)
+        }
         val region =
-            regionRepo.add(placement.regionTemplate)
+            regionRepo.add((placement as InstancePlacement.Allocated).regionTemplate)
                 ?: run {
                     areaResolver.release(spec.area, placement)
                     return null
@@ -217,23 +232,35 @@ constructor(
         return player.displayName.ifBlank { player.username }.ifBlank { null }
     }
 
-    public fun firstSession(): InstanceSession? = sessions.values.firstOrNull()
+    public fun firstSession(): InstanceSession? = sessions.values.firstOrNull(::isLive)
 
     public fun sessionsForKey(key: String): Collection<InstanceSession> =
-        sessions.values.filter { it.key == key }
+        sessions.values.filter { it.key == key && isLive(it) }
 
     public fun sessionForPlayer(player: Player): InstanceSession? =
+        indexedSession(player)?.takeIf { session ->
+            isLive(session) &&
+                (!session.isFixed || fixedOccupant(session, player)?.resolve(playerList) === player)
+        }
+
+    private fun indexedSession(player: Player): InstanceSession? =
         player.currentInstanceId()?.let(sessions::get)
             ?: playerIndex[player.playerId()]?.let(sessions::get)
 
-    public fun sessionForId(id: InstanceId): InstanceSession? = sessions[id]
+    /** Live occupant objects; fixed areas never resolve an admission to a replacement login. */
+    public fun playersIn(session: InstanceSession): List<Player> =
+        if (isLive(session)) session.livePlayers(playerList) else emptyList()
+
+    public fun sessionForId(id: InstanceId): InstanceSession? = sessions[id]?.takeIf(::isLive)
 
     public fun sessionForRegion(regionId: Int): InstanceSession? =
         regionToInstance[regionId]?.let(sessions::get)
 
-    /** Resolves an original-map local coordinate into this session's allocated region. */
+    /** Resolves an original-map coordinate in this session's allocated or fixed placement. */
     public fun localCoord(session: InstanceSession, local: RegionLocal): CoordGrid? {
-        val region = regions[session.id] ?: return null
+        if (!isLive(session)) return null
+        val region = regions[session.id]
+        if (!session.isFixed && region == null) return null
         return session.localCoord(region, local)
     }
 
@@ -245,9 +272,11 @@ constructor(
     public fun npcsForInstance(id: InstanceId): List<Npc> = spawnedNpcs[id]?.toList() ?: emptyList()
 
     public fun attachNpc(instanceId: InstanceId, npc: Npc) {
+        val session = requireNotNull(sessionForId(instanceId)) { "Instance no longer exists" }
         require(npc.isSlotAssigned && npc.uid != NpcUid.NULL) {
             "Register the NPC before attaching it to an instance"
         }
+        if (session.isFixed) require(npc.uid.resolve(npcList) === npc)
         val previous = npcInstanceIndex[npc]
         require(previous == null || previous == instanceId) {
             "NPC already belongs to instance $previous"
@@ -259,13 +288,22 @@ constructor(
 
     /** Releases an encounter-owned helper without retaining it for the whole instance lifetime. */
     public fun detachNpc(instanceId: InstanceId, npc: Npc) {
+        if (
+            sessions[instanceId]?.isFixed == true &&
+                npc.isSlotAssigned &&
+                npc.uid.resolve(npcList) !== npc
+        ) {
+            // The lifecycle Delete listener runs before native collision/zone retirement.
+            retiringFixedNpcs[npc] = instanceId
+        } else if (!npc.isSlotAssigned) {
+            retiringFixedNpcs.remove(npc)
+        }
         spawnedNpcs[instanceId]?.removeAll { it === npc }
         if (npcInstanceIndex[npc] == instanceId) npcInstanceIndex.remove(npc)
     }
 
     public fun registerSessionNpc(player: Player, npc: Npc): Boolean {
-        val instanceId =
-            player.currentInstanceId() ?: playerIndex[player.playerId()] ?: return false
+        val instanceId = sessionForPlayer(player)?.id ?: return false
         attachNpc(instanceId, npc)
         sessionForId(instanceId)?.let { startBossKillTimer(it, npc, worldClock.cycle) }
         return true
@@ -283,6 +321,9 @@ constructor(
         code: String? = null,
         forceAccess: Boolean = false,
     ): Result {
+        if (!isLive(session)) return Result.Failed("That instance no longer exists.")
+        if (session.isFixed) reconcileFixedOccupants(session, currentTick)
+        if (!isLive(session)) return Result.Failed("That instance no longer exists.")
         val playerId = player.playerId()
         if (!forceAccess && !canJoin(playerId, session, code)) {
             return Result.Failed("You do not have access to that instance.")
@@ -293,15 +334,18 @@ constructor(
         if (!session.occupants.contains(playerId) && session.isFull()) {
             return Result.Failed("That instance is full.")
         }
-        val region = regions[session.id] ?: return Result.Failed("That instance no longer exists.")
-        if (!session.isServerOwned && !regionRepo.isValid(region)) {
+        val region = regions[session.id]
+        if (!session.isFixed && region == null)
+            return Result.Failed("That instance no longer exists.")
+        if (!session.isServerOwned && !regionRepo.isValid(checkNotNull(region))) {
             destroy(session)
             return Result.Failed(
                 "That instance is no longer available. Please create a new instance."
             )
         }
         abandonOwnedSessionIfEmpty(player, session, currentTick)
-        if (session.occupants.isEmpty() && !session.arenaExpired) {
+        if (!isLive(session)) return Result.Failed("That instance no longer exists.")
+        if (!session.isFixed && session.occupants.isEmpty() && !session.arenaExpired) {
             resetNpcs(session, region, currentTick)
             startSession(session, currentTick)
         }
@@ -310,6 +354,10 @@ constructor(
 
     /** Call after the player has telejumped into the instance (e.g. after an enter transition). */
     public fun finalizeEntry(player: Player, session: InstanceSession, currentTick: Int) {
+        if (session.isFixed) {
+            finalizeFixedEntry(player, session, currentTick)
+            return
+        }
         val playerId = player.playerId()
         rememberRecoveryExit(player, session.placement.exitCoord)
         if (playerId in session.occupants) {
@@ -358,25 +406,36 @@ constructor(
      * session content and the room lifetime are retained. Intended for coordinated group respawns.
      */
     public fun resetNpcs(session: InstanceSession, currentTick: Int): Boolean {
-        if (sessions[session.id] !== session || session.isEnded || session.arenaExpired)
-            return false
+        if (!isLive(session) || session.arenaExpired) return false
         if (session.state !is SessionState.Active) return false
+        if (session.isFixed) {
+            if (session.id in fixedActorOperations) return false
+            withFixedActorOperation(session) { resetNpcs(session, null, currentTick) }
+            return isLive(session)
+        }
         val region = regions[session.id] ?: return false
         if (!session.isServerOwned && !regionRepo.isValid(region)) return false
         resetNpcs(session, region, currentTick)
         return true
     }
 
-    private fun resetNpcs(session: InstanceSession, region: Region, currentTick: Int) {
-        spawnedNpcs.remove(session.id)?.forEach { untagAndDelete(it) }
-        val spawned = mutableListOf<Npc>()
+    private fun resetNpcs(session: InstanceSession, region: Region?, currentTick: Int) {
+        if (session.isFixed) deleteFixedActors(session)
+        else spawnedNpcs.remove(session.id)?.forEach { untagAndDelete(it) }
+        if (!isLive(session)) return
+        // A native Delete callback may attach a fresh helper to the surviving room. Retain the
+        // authoritative collector so that helper stays owned through the next reset/termination.
+        val spawned =
+            if (session.isFixed) spawnedNpcs.getOrPut(session.id) { mutableListOf() }
+            else mutableListOf()
+        if (session.isFixed) spawnedNpcs[session.id] = spawned
         spawnSessionNpcs(session, region, spawned, currentTick)
         spawnedNpcs[session.id] = spawned
     }
 
     private fun spawnSessionNpcs(
         session: InstanceSession,
-        region: Region,
+        region: Region?,
         out: MutableList<Npc>,
         currentTick: Int,
     ) {
@@ -385,12 +444,40 @@ constructor(
         }
         val placement = session.placement
         for (entry in placement.npcSpawns) {
-            val type = ServerCacheManager.getNpc(entry.npcType.asRSCM(RSCMType.NPC)) ?: continue
+            if (session.isFixed && !isLive(session)) return
+            val type = ServerCacheManager.getNpc(entry.npcType.asRSCM(RSCMType.NPC))
+            if (type == null) {
+                check(!session.isFixed) { "Missing fixed instance NPC: ${entry.npcType}" }
+                continue
+            }
             val npc = Npc(type, session.localCoord(region, entry.coord))
             npc.mode = type.defaultMode
-            npcRepo.add(npc, Int.MAX_VALUE)
+            if (session.isFixed) {
+                out += npc
+                npcInstanceIndex[npc] = session.id
+            }
+            try {
+                npcRepo.add(npc, Int.MAX_VALUE)
+            } catch (error: Throwable) {
+                if (session.isFixed && npc.uid.resolve(npcList) !== npc) {
+                    // The native call did not return a complete registration. It may have run
+                    // callbacks that retired the NPC before throwing; do not reopen these tiles.
+                    failedFixedTeardowns += session.id
+                }
+                throw error
+            }
+            if (session.isFixed) {
+                if (npc.uid.resolve(npcList) !== npc) {
+                    failedFixedTeardowns += session.id
+                    error("Fixed instance NPC lost during native creation; area remains closed")
+                }
+                if (!isLive(session)) return
+                check(out.any { it === npc } && npcInstanceIndex[npc] == session.id) {
+                    "Fixed instance NPC ownership changed during creation"
+                }
+            }
             indexNpc(session.id, npc)
-            out += npc
+            if (!session.isFixed) out += npc
             startBossKillTimer(session, npc, currentTick)
         }
     }
@@ -404,7 +491,7 @@ constructor(
 
     public fun leave(player: Player, session: InstanceSession, currentTick: Int): CoordGrid {
         removeOccupant(player, session, currentTick)
-        clearRecoveryExit(player)
+        if (!session.isFixed) clearRecoveryExit(player)
         return session.placement.exitCoord
     }
 
@@ -418,11 +505,10 @@ constructor(
         currentTick: Int,
     ): Boolean {
         val session = sessionForPlayer(player) ?: return false
-        val region = regions[session.id] ?: return false
-        val remainsInside = isWithinInstanceBounds(destination, region.southWest, region.northEast)
+        val remainsInside = contains(session, destination)
         if (remainsInside) return false
         removeOccupant(player, session, currentTick)
-        clearRecoveryExit(player)
+        if (!session.isFixed) clearRecoveryExit(player)
         eventBus.publish(
             InstancePlayerExternalTeleportEvent(player, session.key, session.id, session.owner)
         )
@@ -431,7 +517,7 @@ constructor(
 
     /** Immediately tears down a verified session and all of its instance-owned entities. */
     public fun terminate(session: InstanceSession): Boolean {
-        if (sessions[session.id] !== session) return false
+        if (!isLive(session)) return false
         destroy(session)
         return true
     }
@@ -444,8 +530,13 @@ constructor(
      * region regardless of event subscription order.
      */
     public fun leaveForLogout(player: Player, currentTick: Int): CoordGrid? {
-        val session = sessionForPlayer(player)
+        val session = sessionForDeparture(player)
         if (session != null) {
+            if (session.isFixed) {
+                val savedCoords = player.coords
+                removeOccupant(player, session, currentTick, reclaimWhenEmpty = false)
+                return savedCoords
+            }
             val exit = session.placement.exitCoord
             rememberRecoveryExit(player, exit)
             removeOccupant(player, session, currentTick, reclaimWhenEmpty = false)
@@ -471,10 +562,10 @@ constructor(
     }
 
     public fun handleDeath(player: Player, currentTick: Int) {
-        val session = sessionForPlayer(player) ?: return
+        val session = sessionForDeparture(player) ?: return
         if (RaidLogoutTabPolicy.retainsInstanceMembershipOnDeath(session.key)) return
         removeOccupant(player, session, currentTick)
-        clearRecoveryExit(player)
+        if (!session.isFixed) clearRecoveryExit(player)
     }
 
     public fun handleBossKill(npc: Npc, currentTick: Int) {
@@ -496,6 +587,12 @@ constructor(
     }
 
     public fun tickReclaim(currentTick: Int) {
+        retiringFixedNpcs.entries.removeIf { !it.key.isSlotAssigned }
+        for (id in closingFixedSessions.toList()) {
+            if (id !in fixedActorOperations && id !in failedFixedTeardowns) {
+                sessions[id]?.let(::destroyFixed)
+            }
+        }
         reclaimDeferredLogouts(currentTick)
         reconcileOccupants(currentTick)
         tickTimed(currentTick)
@@ -513,6 +610,11 @@ constructor(
 
     private fun reconcileOccupants(currentTick: Int) {
         for (session in sessions.values.toList()) {
+            if (!isLive(session)) continue
+            if (session.isFixed) {
+                reconcileFixedOccupants(session, currentTick)
+                continue
+            }
             val region = regions[session.id] ?: continue
             val leavers =
                 session.occupants.filter { occupant ->
@@ -529,6 +631,7 @@ constructor(
 
     private fun tickTimed(currentTick: Int) {
         for (session in sessions.values.toList()) {
+            if (!isLive(session) || (session.isFixed && !session.fixedInitialized)) continue
             when (val state = session.state) {
                 SessionState.Active -> tickActiveTimer(session, currentTick)
                 is SessionState.Grace -> tickGraceTimer(session, currentTick, state)
@@ -695,8 +798,14 @@ constructor(
 
     private fun expireGrace(session: InstanceSession, currentTick: Int) {
         val exit = session.placement.exitCoord
-        for (occupant in session.occupants.toList()) {
-            val player = playerList.firstOrNull { it.uuid == occupant } ?: continue
+        for (player in playersIn(session)) {
+            if (session.isFixed) {
+                val binding = fixedOccupant(session, player) ?: continue
+                if (!isLive(session) || binding.resolve(playerList) !== player) continue
+                player.coords = exit
+                removeFixedOccupant(session, binding, currentTick, publishEvent = true)
+                continue
+            }
             leave(player, session, currentTick)
             player.coords = exit
         }
@@ -710,6 +819,14 @@ constructor(
     }
 
     private fun resetServerOwned(session: InstanceSession, currentTick: Int) {
+        if (session.isFixed) {
+            if (!isLive(session) || session.id in fixedActorOperations) return
+            withFixedActorOperation(session) {
+                session.resetState()
+                if (isLive(session)) resetNpcs(session, null, currentTick)
+            }
+            return
+        }
         session.resetState()
         val region = regions[session.id] ?: return
         spawnedNpcs.remove(session.id)?.forEach { untagAndDelete(it) }
@@ -719,6 +836,12 @@ constructor(
     }
 
     private fun despawnSessionNpcs(session: InstanceSession) {
+        if (session.isFixed) {
+            if (session.id !in fixedActorOperations) {
+                withFixedActorOperation(session) { deleteFixedActors(session) }
+            }
+            return
+        }
         spawnedNpcs.remove(session.id)?.forEach { untagAndDelete(it) }
     }
 
@@ -733,6 +856,11 @@ constructor(
     }
 
     private fun destroy(session: InstanceSession) {
+        if (session.isFixed) {
+            closingFixedSessions += session.id
+            if (session.id !in fixedActorOperations) destroyFixed(session)
+            return
+        }
         if (sessions.remove(session.id) == null) return
         // A specialized cleanup failure must not retain native entities, indexes or occupants.
         val cleanupFailure = runCatching { session.markEnded() }.exceptionOrNull()
@@ -774,6 +902,12 @@ constructor(
         currentTick: Int,
         reclaimWhenEmpty: Boolean = true,
     ) {
+        if (session.isFixed) {
+            val occupant = fixedOccupant(session, player) ?: return
+            removeFixedOccupant(session, occupant, currentTick, publishEvent = true)
+            if (reclaimWhenEmpty && isLive(session)) reclaimEmptySession(session, currentTick)
+            return
+        }
         val playerId = player.playerId()
         session.removeOccupant(playerId, currentTick)
         clearOccupant(player)
@@ -837,6 +971,7 @@ constructor(
     }
 
     private fun publishPlayerJoin(player: Player, session: InstanceSession) {
+        val binding = if (session.isFixed) fixedOccupant(session, player) else null
         publish(
             InstancePlayerJoinEvent(
                 player = player,
@@ -845,6 +980,15 @@ constructor(
                 ownerId = session.owner,
             )
         )
+        if (
+            session.isFixed &&
+                (!isLive(session) ||
+                    binding == null ||
+                    session.fixedOccupants[binding.uuid] !== binding ||
+                    binding.resolve(playerList) !== player ||
+                    !contains(session, player.coords))
+        )
+            return
         eventBus.publish(
             InstancePlayerJoinUnboundEvent(
                 player = player,
@@ -901,6 +1045,8 @@ constructor(
     private fun Player.playerId(): Long = requireNotNull(uuid) { "Player has no uuid: $this" }
 
     private fun sessionMatchesMember(session: InstanceSession, name: String): Boolean {
+        if (!isLive(session)) return false
+        if (session.isFixed) return playersIn(session).any { playerNameMatches(it, name) }
         if (playerNameMatches(session.owner, name)) {
             return true
         }
@@ -915,6 +1061,216 @@ constructor(
     private fun playerNameMatches(player: Player, name: String): Boolean =
         player.displayName.equals(name, ignoreCase = true) ||
             player.username.equals(name, ignoreCase = true)
+
+    private val InstanceSession.isFixed: Boolean
+        get() = placement is InstancePlacement.Fixed
+
+    private fun isLive(session: InstanceSession): Boolean =
+        sessions[session.id] === session && !session.isEnded && session.id !in closingFixedSessions
+
+    private fun contains(session: InstanceSession, coords: CoordGrid): Boolean =
+        when (val placement = session.placement) {
+            is InstancePlacement.Fixed -> placement.area.contains(coords)
+            is InstancePlacement.Allocated ->
+                regions[session.id]?.let {
+                    isWithinInstanceBounds(coords, it.southWest, it.northEast)
+                } ?: false
+        }
+
+    private fun fixedOccupant(session: InstanceSession, player: Player): FixedInstanceOccupant? =
+        session.fixedOccupants[player.playerId()]?.takeIf { it.matches(player) }
+
+    private fun sessionForDeparture(player: Player): InstanceSession? =
+        indexedSession(player)?.takeIf {
+            isLive(it) && (!it.isFixed || fixedOccupant(it, player) != null)
+        }
+
+    private fun createFixed(
+        key: String,
+        spec: InstanceSpec,
+        access: InstanceAccess,
+        placement: InstancePlacement.Fixed,
+        currentTick: Int,
+    ): InstanceSession? {
+        // Includes retiring/failed ownership: old native cleanup must finish before replacement.
+        if (
+            sessions.values.any {
+                val other = it.placement as? InstancePlacement.Fixed
+                other != null && placement.area.overlaps(other.area)
+            }
+        )
+            return null
+        val session =
+            InstanceSession(
+                allocateId(),
+                mutableSetOf(),
+                SERVER_OWNER_ID,
+                key,
+                spec,
+                placement,
+                access,
+                isServerOwned = true,
+            )
+        sessions[session.id] = session
+        spawnedNpcs[session.id] = mutableListOf()
+        if (!spec.spawnOnFirstJoin) initializeFixed(session, currentTick)
+        return session.takeIf(::isLive)
+    }
+
+    private fun initializeFixed(session: InstanceSession, currentTick: Int) {
+        if (session.fixedInitialized || !isLive(session)) return
+        withFixedActorOperation(session) {
+            session.fixedInitialized = true
+            startSession(session, currentTick)
+            if (isLive(session)) {
+                spawnSessionNpcs(session, null, checkNotNull(spawnedNpcs[session.id]), currentTick)
+            }
+        }
+    }
+
+    private fun finalizeFixedEntry(player: Player, session: InstanceSession, currentTick: Int) {
+        if (!isLive(session) || session.state !is SessionState.Active || session.arenaExpired)
+            return
+        if (player.uid.resolve(playerList) !== player || !contains(session, player.coords)) return
+        reconcileFixedOccupants(session, currentTick)
+        if (!isLive(session) || session.state !is SessionState.Active || session.arenaExpired)
+            return
+        if (player.uid.resolve(playerList) !== player || !contains(session, player.coords)) return
+        val existing = sessionForPlayer(player)
+        if (existing != null) return
+        if (session.isFull()) return
+        val occupant = FixedInstanceOccupant(player)
+        session.fixedOccupants[occupant.uuid] = occupant
+        session.addOccupant(occupant.uuid)
+        player.attr[InstanceAttributes.CURRENT_INSTANCE_ID] = session.id.value
+        playerIndex[occupant.uuid] = session.id
+        initializeFixed(session, currentTick)
+        if (!isLive(session) || session.fixedOccupants[occupant.uuid] !== occupant) return
+        if (occupant.resolve(playerList) !== player || !contains(session, player.coords)) {
+            removeFixedOccupant(session, occupant, currentTick, publishEvent = false)
+            return
+        }
+        publishPlayerJoin(player, session)
+    }
+
+    private fun reconcileFixedOccupants(session: InstanceSession, currentTick: Int) {
+        for (occupant in session.fixedOccupants.values.toList()) {
+            if (!isLive(session)) return
+            val player = occupant.resolve(playerList)
+            if (player != null && contains(session, player.coords)) continue
+            removeFixedOccupant(session, occupant, currentTick, publishEvent = true)
+        }
+    }
+
+    private fun removeFixedOccupant(
+        session: InstanceSession,
+        occupant: FixedInstanceOccupant,
+        currentTick: Int,
+        publishEvent: Boolean,
+    ) {
+        if (session.fixedOccupants[occupant.uuid] !== occupant) return
+        session.fixedOccupants.remove(occupant.uuid)
+        session.removeOccupant(occupant.uuid, currentTick)
+        playerIndex.remove(occupant.uuid, session.id)
+        val player = occupant.player
+        if (occupant.matches(player) && player.currentInstanceId() == session.id) {
+            player.attr.remove(InstanceAttributes.CURRENT_INSTANCE_ID)
+        }
+        if (publishEvent) publishPlayerLeave(player, session)
+    }
+
+    private inline fun withFixedActorOperation(session: InstanceSession, action: () -> Unit) {
+        check(fixedActorOperations.add(session.id)) { "Nested fixed actor operation" }
+        var failure: Throwable? = null
+        try {
+            action()
+        } catch (error: Throwable) {
+            failure = error
+            closingFixedSessions += session.id
+        } finally {
+            fixedActorOperations.remove(session.id)
+            if (session.id in closingFixedSessions) {
+                try {
+                    destroyFixed(session)
+                } catch (error: Throwable) {
+                    if (failure == null) failure = error else failure.addSuppressed(error)
+                }
+            }
+        }
+        failure?.let { throw it }
+    }
+
+    private fun deleteFixedActors(session: InstanceSession) {
+        val actors = fixedActors(session)
+        var failure: Throwable? = null
+        for (npc in actors) {
+            if (
+                spawnedNpcs[session.id]?.none { it === npc } != false &&
+                    retiringFixedNpcs[npc] != session.id
+            )
+                continue
+            try {
+                // Delete events run after list removal, before UID retirement. Do not recursively
+                // call del on an externally deleting actor while its native tail is still active.
+                if (npc.uid.resolve(npcList) === npc) npcRepo.del(npc, Int.MAX_VALUE)
+                if (!npc.isSlotAssigned) detachNpc(session.id, npc)
+                else check(npc.uid.resolve(npcList) === npc) { "Incomplete native NPC deletion" }
+            } catch (error: Throwable) {
+                failedFixedTeardowns += session.id
+                if (failure == null) failure = error else failure.addSuppressed(error)
+            }
+        }
+        failure?.let { throw it }
+    }
+
+    private fun destroyFixed(session: InstanceSession) {
+        if (sessions[session.id] !== session || session.id in fixedActorOperations) return
+        if (session.id in failedFixedTeardowns && session.isEnded) return
+        val actors = fixedActors(session)
+        if (
+            session.id !in failedFixedTeardowns &&
+                actors.any { it.isSlotAssigned && it.uid.resolve(npcList) !== it }
+        )
+            return // An external Delete callback is still running; reconcile after its native tail.
+        closingFixedSessions += session.id
+        fixedActorOperations += session.id
+        var failure: Throwable? = null
+        fun attempt(action: () -> Unit) {
+            try {
+                action()
+            } catch (error: Throwable) {
+                if (failure == null) failure = error else failure!!.addSuppressed(error)
+            }
+        }
+        try {
+            attempt { session.markEnded() }
+            attempt {
+                publish(InstanceEndedEvent(session.key, session.id, session.owner, session.spec))
+            }
+            attempt { deleteFixedActors(session) }
+            for (occupant in session.fixedOccupants.values.toList()) {
+                removeFixedOccupant(session, occupant, worldClock.cycle, publishEvent = false)
+            }
+            session.occupants.clear()
+            deferredLogoutReclaims.remove(session.id)
+            if (session.id !in failedFixedTeardowns) {
+                spawnedNpcs.remove(session.id)
+                sessions.remove(session.id, session)
+                closingFixedSessions.remove(session.id)
+                areaResolver.release(session.spec.area, session.placement)
+            }
+            // Native Delete listener failure can strand engine collision/zone state. Keep this
+            // failed reservation closed and propagate the error; no existing retry can repair it.
+        } finally {
+            fixedActorOperations.remove(session.id)
+        }
+        failure?.let { throw it }
+    }
+
+    private fun fixedActors(session: InstanceSession): List<Npc> =
+        (spawnedNpcs[session.id].orEmpty() +
+                retiringFixedNpcs.entries.filter { it.value == session.id }.map { it.key })
+            .distinct()
 
     private companion object {
         private const val SERVER_OWNER_ID: Long = 0L

@@ -22,6 +22,7 @@ internal fun InstanceArea.withDbCoords(row: InstanceSettingsRow): InstanceArea {
     val enter =
         row.resolveEnterCoord(
             when (this) {
+                is InstanceArea.Fixed -> enterCoord
                 is InstanceArea.Template -> enterCoord
                 is InstanceArea.CopyRegions -> enterCoord
             }
@@ -30,12 +31,14 @@ internal fun InstanceArea.withDbCoords(row: InstanceSettingsRow): InstanceArea {
     val exit =
         row.resolveExitCoord(
             when (this) {
+                is InstanceArea.Fixed -> exitCoord
                 is InstanceArea.Template -> exitCoord
                 is InstanceArea.CopyRegions -> exitCoord
             }
         )
 
     return when (this) {
+        is InstanceArea.Fixed -> copy(enterCoord = enter, exitCoord = exit)
         is InstanceArea.Template -> copy(enterCoord = enter, exitCoord = exit)
         is InstanceArea.CopyRegions -> copy(enterCoord = enter, exitCoord = exit)
     }

@@ -254,6 +254,10 @@ constructor(
                 manager.finalizeEntry(player, result.session, worldClock.cycle)
             }
             is InstanceManager.Result.Joined -> {
+                if (result.session.spec.area is org.rsmod.api.instances.InstanceArea.Fixed) {
+                    mes("Use the public room entrance to join this encounter.")
+                    return
+                }
                 mes(success)
                 telejump(result.enter)
                 manager.finalizeEntry(player, result.session, worldClock.cycle)

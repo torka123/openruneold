@@ -139,6 +139,12 @@ public abstract class InstanceScript(private val registry: BossInstanceRegistry)
                     if (manager.sessionForId(session.id) !== session || session.isEnded)
                         return@enter
                     if (manager.sessionForPlayer(player) != null) return@enter
+                    if (session.spec.area is InstanceArea.Fixed) {
+                        // Fixed content owns its protected physical entry (for example a barrier).
+                        // The manager validates the current world position before admission.
+                        manager.finalizeEntry(player, session, worldClock.cycle)
+                        return@enter
+                    }
                     telejump(enterCoord)
                     if (coords == enterCoord) {
                         manager.finalizeEntry(player, session, worldClock.cycle)

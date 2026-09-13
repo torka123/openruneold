@@ -617,6 +617,7 @@ internal class RoyalTitansTestWorld(
             InstanceAreaResolver(),
             clock,
             collision,
+            npcList,
         )
     val objRegistry = ObjRegistry(updates)
     private val objects = ObjRepository(clock, objRegistry)

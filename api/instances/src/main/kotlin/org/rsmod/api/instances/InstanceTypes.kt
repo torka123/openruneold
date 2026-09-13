@@ -2,6 +2,7 @@ package org.rsmod.api.instances
 
 import dev.openrune.types.NpcServerType
 import org.rsmod.api.instances.region.regionIdsGrid
+import org.rsmod.api.registry.region.RegionRegistry
 import org.rsmod.api.repo.region.RegionStaticTemplate
 import org.rsmod.map.CoordGrid
 
@@ -48,6 +49,9 @@ public data class InstanceNpc(val npcType: String, val coord: RegionLocal) {
     )
 }
 
+internal fun RegionLocal.worldCoord(): CoordGrid =
+    CoordGrid(level, regionZoneX, regionZoneZ, localX, localZ)
+
 @Deprecated("Use InstanceArea.Template via InstanceArea.template")
 public data class InstanceTemplate(
     val template: RegionStaticTemplate,
@@ -66,6 +70,35 @@ public data class InstanceTemplate(
 
 public sealed class InstanceArea {
     public abstract val npcSpawns: List<InstanceNpc>
+
+    /** A server-owned session on canonical map tiles. The north-east corner is exclusive. */
+    public data class Fixed(
+        val southWest: CoordGrid,
+        val northEast: CoordGrid,
+        val enterCoord: RegionLocal,
+        val exitCoord: CoordGrid,
+        override val npcSpawns: List<InstanceNpc> = emptyList(),
+    ) : InstanceArea() {
+        init {
+            require(southWest.level == northEast.level)
+            require(southWest.x < northEast.x && southWest.z < northEast.z)
+            require(!RegionRegistry.inWorkingArea(northEast.translate(-1, -1)))
+            require(contains(enterCoord.worldCoord())) { "Fixed entry must be inside its area" }
+            require(npcSpawns.all { contains(it.coord.worldCoord()) }) {
+                "Fixed NPC spawn anchors must be inside their area"
+            }
+        }
+
+        public fun contains(coords: CoordGrid): Boolean =
+            coords.level == southWest.level && isWithinInstanceBounds(coords, southWest, northEast)
+
+        internal fun overlaps(other: Fixed): Boolean =
+            southWest.level == other.southWest.level &&
+                southWest.x < other.northEast.x &&
+                other.southWest.x < northEast.x &&
+                southWest.z < other.northEast.z &&
+                other.southWest.z < northEast.z
+    }
 
     public data class Template(
         val template: RegionStaticTemplate,
@@ -87,6 +120,27 @@ public sealed class InstanceArea {
     public companion object {
 
         private val EMPTY_ENTER = RegionLocal(0, 0, 0, 0, 0)
+
+        public fun fixed(
+            southWest: CoordGrid,
+            northEast: CoordGrid,
+            enterCoord: CoordGrid,
+            exitCoord: CoordGrid,
+            npcSpawns: List<InstanceNpc> = emptyList(),
+        ): Fixed =
+            Fixed(
+                southWest,
+                northEast,
+                RegionLocal(
+                    enterCoord.level,
+                    enterCoord.mx,
+                    enterCoord.mz,
+                    enterCoord.lx,
+                    enterCoord.lz,
+                ),
+                exitCoord,
+                npcSpawns,
+            )
 
         public fun template(
             template: RegionStaticTemplate,

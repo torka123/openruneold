@@ -43,6 +43,7 @@ import org.rsmod.events.EventBus
 import org.rsmod.game.MapClock
 import org.rsmod.game.cheat.CheatCommandMap
 import org.rsmod.game.entity.Npc
+import org.rsmod.game.entity.NpcList
 import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
 import org.rsmod.game.entity.npc.NpcStateEvents
@@ -339,6 +340,7 @@ class KrakenEncounterCharacterizationTest {
                 InstanceAreaResolver(),
                 clock,
                 collision,
+                NpcList(),
             )
         val random =
             object : GameRandom {

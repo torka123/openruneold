@@ -589,7 +589,16 @@ private class GuardiansFixture(accurate: Boolean = true) {
             }
         }
     val instances =
-        InstanceManager(regions, npcs, players, events, InstanceAreaResolver(), clock, collision)
+        InstanceManager(
+            regions,
+            npcs,
+            players,
+            events,
+            InstanceAreaResolver(),
+            clock,
+            collision,
+            npcList,
+        )
     val rolls = mutableListOf<Int>()
     private var arenaDraw = 0
     val random =

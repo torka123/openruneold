@@ -619,7 +619,16 @@ private class ZulrahFixture(accurate: Boolean = true) {
             }
         }
     val instances =
-        InstanceManager(regions, npcs, players, events, InstanceAreaResolver(), clock, collision)
+        InstanceManager(
+            regions,
+            npcs,
+            players,
+            events,
+            InstanceAreaResolver(),
+            clock,
+            collision,
+            npcList,
+        )
     val random =
         object : GameRandom {
             override fun of(maxExclusive: Int) = maxExclusive - 1

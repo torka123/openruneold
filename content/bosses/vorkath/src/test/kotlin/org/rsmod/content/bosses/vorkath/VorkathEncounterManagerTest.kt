@@ -750,7 +750,16 @@ private class VorkathFixture {
             }
         }
     val instances =
-        InstanceManager(regions, npcs, players, events, InstanceAreaResolver(), clock, collision)
+        InstanceManager(
+            regions,
+            npcs,
+            players,
+            events,
+            InstanceAreaResolver(),
+            clock,
+            collision,
+            npcList,
+        )
     val bars = mock(BossHpBarScript::class.java)
     val projectileTicks = mutableListOf<Pair<Int, ProjAnim>>()
     val world =

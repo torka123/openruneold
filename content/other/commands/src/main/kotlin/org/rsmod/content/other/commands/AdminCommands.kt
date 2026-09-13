@@ -1344,6 +1344,7 @@ constructor(
 
     private fun InstanceArea.exitCoord(): CoordGrid? =
         when (this) {
+            is InstanceArea.Fixed -> exitCoord
             is InstanceArea.Template -> exitCoord
             is InstanceArea.CopyRegions -> exitCoord
         }

@@ -2,11 +2,25 @@ package org.rsmod.api.instances
 
 import org.rsmod.api.instances.region.InstancePlacement
 import org.rsmod.game.damage.DamageContributions
+import org.rsmod.game.entity.Player
+import org.rsmod.game.entity.PlayerList
+import org.rsmod.game.entity.player.PlayerUid
 
 /**
  * Identity-based typed key: two scripts cannot collide merely by choosing the same display name.
  */
 public class InstanceStateKey<T : Any>(public val name: String)
+
+/** The object itself is the token for one admission, including same-player re-entry. */
+internal class FixedInstanceOccupant(val player: Player) {
+    val uuid: Long = requireNotNull(player.uuid)
+    val uid: PlayerUid = player.uid
+
+    fun matches(candidate: Player): Boolean =
+        candidate === player && candidate.uuid == uuid && candidate.uid == uid
+
+    fun resolve(players: PlayerList): Player? = uid.resolve(players)?.takeIf { matches(it) }
+}
 
 class InstanceSession(
     val id: InstanceId,
@@ -66,6 +80,13 @@ class InstanceSession(
     val damageContributions = DamageContributions()
 
     val occupants = mutableSetOf<Long>()
+    internal val fixedOccupants = mutableMapOf<Long, FixedInstanceOccupant>()
+    internal var fixedInitialized = false
+
+    internal fun livePlayers(players: PlayerList): List<Player> =
+        if (placement is InstancePlacement.Fixed)
+            fixedOccupants.values.mapNotNull { it.resolve(players) }
+        else occupants.mapNotNull { uuid -> players.firstOrNull { it.uuid == uuid } }
 
     val timeWarningsSent = mutableSetOf<Int>()
     val graceWarningsSent = mutableSetOf<Int>()

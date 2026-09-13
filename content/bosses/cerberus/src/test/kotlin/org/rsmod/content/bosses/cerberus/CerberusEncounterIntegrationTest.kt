@@ -438,6 +438,7 @@ internal class CerberusTestWorld {
             InstanceAreaResolver(),
             clock,
             collision,
+            npcList,
         )
     val arena = CerberusArena(regions, instances)
     private val random = DefaultGameRandom(42L)

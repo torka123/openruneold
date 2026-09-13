@@ -3,7 +3,6 @@ package org.rsmod.api.instances.hook
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import org.rsmod.api.instances.InstanceManager
-import org.rsmod.api.instances.currentInstanceId
 import org.rsmod.api.npc.hit.NpcDamageContributor
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
@@ -23,7 +22,8 @@ constructor(private val instances: InstanceManager) : NpcDamageContributor {
         damage: Int,
         attribution: HitAttribution,
     ) {
-        val instanceId = instances.instanceForNpc(npc) ?: source?.currentInstanceId() ?: return
+        val instanceId =
+            instances.instanceForNpc(npc) ?: source?.let(instances::sessionForPlayer)?.id ?: return
         val owner = attribution.ownerUuid ?: source?.uuid ?: return
         instances.contributionsFor(instanceId)?.recordPlayer(owner, damage, attribution.origin)
     }
