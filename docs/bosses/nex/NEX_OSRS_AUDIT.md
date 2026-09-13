@@ -35,11 +35,12 @@ Build and behavioral verification passed before deployment:31 Central focused te
 client/writer tests,1,061 boss cases and297 shared/app cases, scoped checks/assemble/architecture.
 
 Current source: M21 prison ownership/cancellation is committed as `706e11330`; M26 completed-kill
-occupant handoff as `13719ba1c`. The bounded M24 Wrath death-position snapshot is now verified:
-accepted death coordinates remain stable through native death and delayed impact. All122 Nex
-cases, scoped checks, app assemble and architecture checks pass;167 unchanged shared results
-remain valid. These three increments are SOURCE ONLY. Next: finish the bounded M14 Shadow Smash
-native loc-ownership mapping/review before editing; it can reuse existing LocRepository workflows.
+occupant handoff as `13719ba1c`; bounded M24 Wrath death-position snapshot as `30ef8129c`.
+M14/M27 Shadow Smash marker ownership is now verified: placement success controls ownership,
+natural expiry releases it, and source cleanup preserves later replacements. All127 Nex cases,
+scoped checks, app assemble and architecture checks pass;167 unchanged shared results remain valid.
+These four increments are SOURCE ONLY. Next: complete the newly mapped fixed-public-session
+foundation design/tests in existing api/instances under the user's conditional missing-route approval.
 Existing timing/damage/geometry constants remain characterized under E07. Full native public/private
 sessions, other mechanics/rewards/evidence gaps below remain open; Nex is not complete.
 Existing order remains Nex ->Yama ->Doom ->DT2 ->separate Dagannoth Kings review ->ToA ->ToB ->CoX.
@@ -166,7 +167,7 @@ Scoped whitespace check passes. Source-only, not deployed. Next exact step: M24 
 snapshot RED regression, then the mapped coordinate-only correction below.
 M26 commit: `13719ba1c`; backup branch `backup/nex-round-handoff-20260913`.
 
-## Current source increment: bounded M24 Wrath death-position snapshot
+## Completed source increment: bounded M24 Wrath death-position snapshot
 
 The following mapping was recorded before implementation.
 
@@ -211,6 +212,89 @@ SHA256 `311B76A7F43590AEF50394BE5759228D8C084C7C372056921A9FC169B7A1379F`.
 Scoped diff whitespace check passes. Source-only; JVM23812 remains online on deployedc4fc9390f.
 Next exact step: complete the bounded M14 Shadow Smash native loc-ownership mapping and regression
 review, reusing the already verified repository/timer pipeline; no M14 edits have begun.
+M24 commit: `30ef8129c`; backup branch `backup/nex-wrath-origin-20260913`.
+
+## Current source increment: bounded M14/M27 Shadow Smash marker ownership
+
+The mapping below was recorded before implementation.
+
+Retained `rsprox-808.txt` L5128-30 records animation9186 and separate42942 markers at both
+players' captured tiles; L5611-12 records their native removal. This supports temporary target-tile
+locs, not normal duration/damage proof. Keep the characterized three-cycle loc/callback duration,
+one-cycle hit queue, damage0..50, prayer, target-tile snapshot, validity and achievement policy.
+
+Shadow Smash is the sole remaining producer of temporaryLocs and caller of spawnLoc. The current
+type overload returns LocInfo even on failed placement; the accumulating list also retains values
+after natural expiry. Later room cleanup can therefore delete an identical replacement, while
+immediate encounter/source teardown currently only clears prison locs.
+
+Reuse already inspected official CampfireEvents clicked/timed loc workflow and current
+LocRepository Boolean add(LocInfo,duration,onDespawn), findExact and del, plus approved local S03
+encounter.onCleanup. No shared API is missing. A current-owned Set<LocInfo> suffices because native
+same-tile/layer replacement cancels the old timer and no Smash interaction retains a delayed click.
+
+| Responsibility | Existing route and correction | Acceptance |
+|---|---|---|
+| Placement ownership | Construct LocInfo; add to the owned set only after native Boolean add succeeds | Failed placement cannot acquire or later delete a pre-existing identical loc |
+| Natural expiry | Native timed onDespawn removes content ownership only | After expiry, retiring the room preserves a subsequently added identical loc |
+| Immediate source cleanup | Existing encounter.onCleanup clears still-owned Smash locs as well as prisons | Source deletion removes live markers immediately; later room cleanup/timers cannot delete replacements |
+| Safe native deletion | Compare complete findExact result before del, clear owned state on cleanup | Different current locs survive old cleanup; repeated same-tile casts use the latest native timer |
+| Existing combat | Keep marker placement and hit scheduling independent | Native marker/impact timing and all existing Shadow special regressions remain unchanged |
+
+Do not call repository mutation from its timed-despawn callback. Arbitrary external identical
+replacement before observed retirement remains indistinguishable at native allocation level,
+as recorded for M21; a local token would not repair that native value-identity limitation.
+Use the existing nativeLocs fixture/rejection controls/EntityLifecycleProcess; no fixture expansion
+is needed. Production integration stays with the primary; a bounded new test file may be delegated.
+
+M14 result: replaced the accumulating marker list with current native-owned values, used Boolean
+placement success, released ownership from natural expiry, and added separate encounter cleanup
+alongside prisons. Exact native deletion and idempotent ownership cleanup preserve replacements.
+`logs/nex-m14-shadow-marker-red-20260913.log` compiled5 groups:3 ownership failures,2 native
+baseline passes. `logs/nex-m14-shadow-marker-green-20260913.log` passes all5 plus existing special
+and prison regressions in21s. Independent production review found no blocking defect.
+`logs/nex-m14-final-checks-20260913.log` passes in58s/472 tasks (15 executed): all127 Nex cases,
+zero failures/errors/skips, scoped formatting/Nex check/app assemble and architecture/self-tests.
+Unchanged shared167-case results remain valid; no shared source was edited.
+Changed source: NexEncounterManager.kt and new NexShadowMarkerIntegrationTest.kt. Archive
+`logs/nex-m14-shadow-source-20260913.zip` contains both files, verified byte-for-byte;
+SHA256 `2588966D7D526E576607BCB3EA2215CE3AA64251DBA8FA84E7FD992AE37B792D`.
+Scoped diff whitespace check passes. Source-only; deployed JVM23812 is unchanged.
+
+## Next native API foundation: fixed public instance sessions (mapping in progress)
+
+Relevant full local/pinned61139e76a searches confirm no suitable existing route. createServerOwned
+always resolves a template, calls RegionRepository.add, registers/protects allocated regions,
+then joins through Region.normal coordinate translation. InstanceManager join/localCoord/resetNpcs/
+departure/reconciliation require its private region map. Public InstanceSession construction,
+finalizeEntry and attachNpc do not register authoritative session ownership. Official Scurrius,
+Graardor and KBD public rooms use copied regions; local fixed Scurrius uses telejump without a session.
+Do not fake a Region, manually fabricate a session, or add a second room manager.
+
+The user's latest approval for new API/DSL routes only when absent applies to this verified gap.
+This is a newly mapped shared instance extension under M01/M26/S03/A06, not the existing S08
+stat-drain-floor approval. No shared source edits have begun. Complete the following design and
+focused native manager acceptance before implementation; activation in Nex is a later increment.
+
+- Explicit fixed public area/placement: canonical level-aware bounds/entry/exit and existing NPC
+  spawn descriptions. Reject private creation and overlapping live fixed ownership.
+- Existing createServerOwned/session indexes own the room without region allocation/build/protect
+  or fabricated region IDs. Coordinate resolution/reset/teardown become placement-aware.
+- Existing finalizeEntry follows tested physical movement. Fixed joining must preserve already
+  attached actors rather than implicitly respawning them whenever occupancy was empty.
+- Preserve current fixed-public logout/save/client-state behavior: existing finalizeEntry persists
+  instance_exit_coord, leaveForLogout moves to the exit, AccountLoadResponseHook applies that exit,
+  and assignInstance sets player_in_instance=1. These allocated-map assumptions need explicit fixed
+  handling; existing copied-instance behavior must remain unchanged.
+- Extend or retain exact live Player/UID binding at the existing membership boundary. Current
+  UUID-only occupant/index lookup can alias a replacement Player; reconciliation skips raw missing
+  players. The M26/M27 identity protections must remain through staged Nex activation.
+- Test no allocation/copy/movement, duplicate/overlap/private rejection without leaked indexes,
+  native actor identity/reset/cleanup, level/bank/logout/raw-disappearance/identity replacement,
+  unchanged canonical map/collision and default copied-instance allocation/recovery behavior.
+
+Primary owns shared implementation and builds. Independent agents may map native API/persistence
+paths and prepare/review disjoint tests. Runtime/deployment holds and save protections remain intact.
 
 ## Source verification history: M01/M02 protected access and S10
 

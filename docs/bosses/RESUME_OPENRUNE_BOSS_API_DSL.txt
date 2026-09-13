@@ -28,10 +28,12 @@ KNOWN STARTING CHECKPOINT (RECHECK; DO NOT REPEAT COMPLETED WORK)
   doctor, canonical cache hashes and inventory/bank/realm fingerprints. Fresh offline PG/source
   backups verified; see Nex ledger top for receipts/hashes and marker limitation. Do not repeat
   completed S10 work. M21 prison ownership/cancellation706e11330 and M26 completed-kill occupant
-  handoff13719ba1c and bounded M24 Wrath death-position snapshot are complete in source:122 Nex
-  cases,167 valid reused shared cases, architecture/scoped checks/app assemble pass. Each source
-  archive is byte-verified; these increments are not deployed. Next: finish bounded M14 Shadow
-  Smash native loc-ownership mapping/review before edits. See current Nex ledger.
+  handoff13719ba1c, bounded M24 Wrath death-position snapshot30ef8129c and M14 Shadow marker
+  ownership are complete in source:127 Nex cases,167 valid reused shared cases,
+  architecture/scoped checks/app assemble pass. Each source
+  archive is byte-verified; these increments are not deployed. Next: complete fixed-public-session
+  foundation design/tests before shared api/instances edits; no existing region-free session route
+  was found locally or pinned upstream, so the latest conditional approval applies. See Nex ledger.
   The older source-only/hold entries below are historical, not the current runtime status.
 - Permanent Central dependency07b00480e and game-side producer source0f729d055 are tested/backed
   up;31 Central +12 new client/writer focused tests pass. Final checks contain1,061 boss and297

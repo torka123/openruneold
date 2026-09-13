@@ -14,12 +14,14 @@ Revision240, SERVER/LIVE hashes and `.data/postgres` authority are unchanged. A 
 1,243-file PostgreSQL backup and4,393-file source archive were verified before replacement boot.
 Full evidence/receipts/hashes and build-marker limitation are in the current Nex ledger.
 
-M21 clicked-prison ownership/cancellation706e11330, M26 completed-kill occupant handoff13719ba1c
-and bounded M24 Wrath death-position snapshot are complete in source: all122 Nex cases,
-architecture checks, scoped formatting and app assemble pass;167 unchanged shared results remain
+M21 clicked-prison ownership/cancellation706e11330, M26 completed-kill occupant handoff13719ba1c,
+bounded M24 Wrath death-position snapshot30ef8129c and M14 Shadow marker ownership are complete
+in source: all127 Nex cases, architecture checks, scoped formatting and app assemble pass;
+167 unchanged shared results remain
 valid. Each increment has its own verified source archive; see current Nex ledger for hashes/logs.
-These increments are not deployed. Next: finish bounded M14 Shadow Smash native loc-ownership
-mapping/review before implementation, reusing existing repository/timer workflows.
+These increments are not deployed. Next: complete the fixed-public-session foundation design and
+focused native manager tests before shared edits. Full local/pinned searches found no existing
+region-free session route; the latest conditional missing-route approval applies. See Nex ledger.
 Preserve unresolved E07 timing/damage/geometry evidence. Full Nex remains incomplete. Raid
 bosses remain after Nex/Yama/Doom/DT2/separate Dagannoth Kings review, in ToA/ToB/CoX order.
 

@@ -7,11 +7,13 @@ and two verified ordinary restarts. M01/M02 Nex access444a39eb3 and permanent Ce
 fixes07b00480e/0f729d055 are deployed. Final checks contain1,061 boss and297 shared/app cases;
 doctor, canonical caches and inventory/bank/realm persistence checks pass after both restarts.
 The [Nex ledger](nex/NEX_OSRS_AUDIT.md) is the current increment/evidence authority and records
-backups, receipts and remaining limitations. M21 ownership/cancellation706e11330 and M26 completed-
-kill occupant handoff13719ba1c and bounded M24 Wrath death-position snapshot are source-verified:
-122 Nex tests,167 valid reused shared cases, architecture/scoped checks and app assemble pass.
-All three focused archives are byte-verified; these increments are not deployed. Next: bounded
-M14 Shadow Smash native loc-ownership mapping/review before edits, using existing repository APIs.
+backups, receipts and remaining limitations. M21 ownership/cancellation706e11330, M26 completed-
+kill occupant handoff13719ba1c, bounded M24 Wrath death-position snapshot30ef8129c and M14 Shadow
+marker ownership are source-verified:127 Nex tests,167 valid reused shared cases,
+architecture/scoped checks and app assemble pass. All four focused archives are byte-verified;
+these increments are not deployed. Next: complete newly mapped fixed-public-session foundation
+design/tests inside api/instances. The latest conditional missing-route approval applies after
+full local/pinned searches found no existing region-free session route; details are in the Nex ledger.
 
 September13 continuation instructions are authoritative: recover the actual source/test/runtime
 checkpoint, reuse verified findings and existing approvals, implement small complete increments,

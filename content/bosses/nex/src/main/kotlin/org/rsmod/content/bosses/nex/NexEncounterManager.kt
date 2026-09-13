@@ -812,7 +812,7 @@ constructor(
         val castGeneration = current.generation
         participants(current).forEach { player ->
             val tile = player.coords
-            spawnLoc(tile, SHADOW_SMASH_LOC, 3)?.let { current.temporaryLocs += it }
+            spawnShadowSmashLoc(current, tile)
             current.encounter.schedule(worldQueues, 3) {
                 if (
                     !validDelayed(current, castGeneration, NexState.SHADOW, player) ||
@@ -1115,6 +1115,7 @@ constructor(
             )
         run = fresh
         fresh.encounter.onCleanup { clearPrisons(fresh) }
+        fresh.encounter.onCleanup { clearShadowSmashLocs(fresh) }
         log.info { "[Nex] spawned generation=${run?.generation} state=IDLE" }
         return fresh
     }
@@ -1137,12 +1138,11 @@ constructor(
         (listOf(current.boss) + current.bodyguards.values + current.reavers).forEach {
             if (it.isSlotAssigned) npcs.del(it, Int.MAX_VALUE)
         }
-        current.temporaryLocs.forEach { locs.del(it, Int.MAX_VALUE) }
+        clearShadowSmashLocs(current)
         occupants.forEach { (uid, player) ->
             if (player.uid == uid && uid.resolve(players) === player) player.lootDropDuration = null
         }
         current.reavers.clear()
-        current.temporaryLocs.clear()
     }
 
     private fun leave(current: Run, player: Player, reason: String) {
@@ -1240,9 +1240,23 @@ constructor(
             (player == null ||
                 (player.uid in current.participants && activeParticipant(current, player)))
 
-    private fun spawnLoc(tile: CoordGrid, id: Int, duration: Int): LocInfo? {
-        val type = ServerCacheManager.getObject(id) ?: return null
-        return locs.add(tile, type, duration, LocAngle.North, LocShape.CentrepieceStraight)
+    private fun spawnShadowSmashLoc(current: Run, tile: CoordGrid) {
+        val shape = LocShape.CentrepieceStraight
+        val loc =
+            LocInfo(
+                LocLayerConstants.of(shape.id),
+                tile,
+                LocEntity(SHADOW_SMASH_LOC, shape.id, LocAngle.North.id),
+            )
+        // Native replacement cancels the previous timer. Despawn only releases content ownership.
+        if (locs.add(loc, 3) { current.shadowSmashLocs.remove(loc) }) current.shadowSmashLocs += loc
+    }
+
+    private fun clearShadowSmashLocs(current: Run) {
+        current.shadowSmashLocs.forEach { loc ->
+            if (locs.findExact(loc.coords, loc.shape) == loc) locs.del(loc, Int.MAX_VALUE)
+        }
+        current.shadowSmashLocs.clear()
     }
 
     private fun adjacentTiles(tile: CoordGrid): List<CoordGrid> =
@@ -1362,7 +1376,7 @@ constructor(
         val contributions: MutableMap<PlayerUid, NexContribution> = linkedMapOf(),
         val rewarded: MutableSet<PlayerUid> = linkedSetOf(),
         val reavers: MutableSet<Npc> = linkedSetOf(),
-        val temporaryLocs: MutableList<LocInfo> = mutableListOf(),
+        val shadowSmashLocs: MutableSet<LocInfo> = linkedSetOf(),
         val calledGuardResolved: MutableSet<NexState> = linkedSetOf(),
         val coughUntil: MutableMap<PlayerUid, Int> = linkedMapOf(),
         val prisons: MutableMap<PlayerUid, IcePrison> = linkedMapOf(),
