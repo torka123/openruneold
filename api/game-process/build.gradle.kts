@@ -36,4 +36,6 @@ dependencies {
     implementation(projects.engine.map)
     implementation(projects.engine.plugin)
     implementation(projects.engine.routefinder)
+    testImplementation("org.mockito:mockito-core:5.18.0")
+    testImplementation(projects.server.services)
 }
