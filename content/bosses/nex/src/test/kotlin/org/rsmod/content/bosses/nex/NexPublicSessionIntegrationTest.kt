@@ -83,6 +83,8 @@ class NexPublicSessionIntegrationTest {
             assertEquals(listOf(f.player), f.instances.playersIn(session))
             assertEquals(NEX_DROP_DURATION, f.player.lootDropDuration)
             assertNull(f.player.attr[InstanceAttributes.LOGIN_EXIT_COORD])
+            assertEquals(11279, f.npc(11278).visType.id)
+            assertEquals(9182, f.npc(11278).pendingSequence.id)
             framework().clearInlineMocks()
         }
 
@@ -239,10 +241,18 @@ class NexPublicSessionIntegrationTest {
             assertEquals(positions, listOf(f.player.coords, partner.coords))
             assertTrue(oldActors.none { it.isSlotAssigned })
             assertTrue(oldEncounter.isEnded)
-            assertNotSame(oldBoss, f.npc(11278))
+            val freshBoss = f.npc(11278)
+            val freshUid = freshBoss.uid
+            assertNotSame(oldBoss, freshBoss)
+            assertEquals(11279, freshBoss.visType.id)
+            assertEquals(9182, freshBoss.pendingSequence.id)
             assertRoster(f, session)
             assertEquals("SPAWNING", f.encounters.of(f.npc(11278)).currentPhaseName)
             f.tick(5)
+            assertSame(freshBoss, f.npc(11278))
+            assertEquals(freshUid, freshBoss.uid)
+            assertEquals(11278, freshBoss.visType.id)
+            assertEquals("SMOKE", f.encounters.of(freshBoss).currentPhaseName)
         }
         assertEquals(10, creations)
         assertNoRegionWork(f)

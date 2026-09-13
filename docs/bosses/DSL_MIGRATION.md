@@ -20,8 +20,9 @@ cleanup (commit219fa193a). Bounded S08 native defence minimum and Nex250 source 
 pass142 Nex cases,1,105 boss cases and484 engine/shared/weapons/app cases, scoped checks, architecture
 and app assemble; commit1ab48e36d. M18 marking and owned tint/late-queue cleanup now pass148 Nex,
 1,111 boss,494 engine/shared/weapons/app and408 existing ToA cases, scoped checks/architecture/app
-assemble. Its ten-file archive is byte-verified. Source-only; next is bounded M06 opening animation
-9203->captured9182. M20 placement/clipping remains an evidence gap. The Nex ledger records exact source files,
+assemble; commite6bfba9f6. Bounded M06 opening animation9203->captured9182 also passes all148 Nex
+cases, scoped checks, architecture/app assemble; both source archives are byte-verified. Source-only;
+next is captured opening facing512 and sound5303 through existing native APIs. M20 placement/clipping remains an evidence gap. The Nex ledger records exact source files,
 searches, tests, failure limits, evidence gaps and next mapping.
 
 September13 continuation instructions are authoritative: recover the actual source/test/runtime

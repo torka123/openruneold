@@ -53,8 +53,9 @@ architecture/app assemble and a byte-verified ten-file archive. Boosted-floor me
 S08 commit1ab48e36d is backed up. M18 captured Blood Sacrifice marking and native owned-tint/late-
 queue cleanup now pass148 Nex cases,1,111 boss cases,494 engine/shared/weapons/app cases and408
 existing ToA regression cases, scoped checks, architecture and app assemble. Its ten-file archive
-is byte-verified below. Next: bounded M06 opening animation9203->captured9182 using existing native
-animation. M20 general placement/clipping and normal timing evidence remain missing. All these
+is byte-verified below. Bounded M06 opening animation9203->captured9182 now passes148 Nex cases,
+scoped checks, architecture and app assemble; its two-file archive is byte-verified. Next: captured
+opening facing512 and sound5303 through existing native APIs. M20 general placement/clipping and normal timing evidence remain missing. All these
 changes remain SOURCE ONLY; current deployment is unchanged.
 Existing timing/damage/geometry constants remain characterized under E07. Full native public/private
 sessions, other mechanics/rewards/evidence gaps below remain open; Nex is not complete.
@@ -656,6 +657,41 @@ SHA256 `4EB2CF69C85E9692F5E7F5689D17D2658890DF651C8907954417FBAFD11C56E6`.
 Existing complete source/PostgreSQL backups are preserved. No cache/data edit or deployment.
 JVM23812 remains on c4fc9390f. Next exact deliverable: bounded M06 opening animation correction;
 retained first and consecutive openings both show9182, independently of the unresolved duration.
+M18 commit: `e6bfba9f6`; backup branch `backup/nex-sacrifice-presentation-20260913`.
+
+## Completed source increment: bounded M06 opening animation
+
+Capture3284 t353 L8654-58 shows spawning form11279 at(2924,5202), index58283, AT LAST! and
+sequence9182; t587 L14103-07 repeats9182 on the next opening's fresh index59712. At t374 L8800-04,
+the first actor retains its index while transforming11279->11278. These prove the visual identity
+and actor continuity; decoded field order does not prove server call order, and the Grid Master
+interval does not certify the existing five-tick readiness timer.
+
+Mapping: replace only beginSpawn's anim(9203) with anim(9182), through the existing resolver and
+Npc.anim -> PathingEntityCommon.anim -> pending sequence/native protocol path.9182 is already
+validated (NexAssets.BLAST). No new API/config/cache edit. The selected asset's native priority10
+replaces9203's5; both report tickDuration3, and their full cache durations/skeletal sounds belong
+to their respective assets. Npc.anim does not await them or schedule opening readiness. Keep the
+existing explicit clock+5 readiness, movement lock, native session/actor and Smoke transform.
+Sound5303, facing, staged guards and full opening parity remain separate work.
+
+Acceptance: add assertions to the existing actual protected-barrier and consecutive-native-kill
+integration groups for form11279/sequence9182, same actor/UID through five-cycle Smoke activation
+and fresh owned boss on the next round. Focused groups then Nex check/scoped formatting/app assemble/
+architecture; reuse M18's still-valid shared/ToA and other-boss results. Root owns the two source/
+test edits; independent mapping review already established the native duration boundary above.
+
+Only the sequence ID changed in production. Existing registered protected-barrier and two-round
+native-kill tests now assert9182/form11279, a fresh next-round actor, and the same actor/UID through
+the unchanged five-cycle11278/Smoke activation. Focused12 public-session groups pass in20s.
+`logs/nex-m06-opening-checks-20260913.log` passes in58s/472 tasks (12 executed): all148 Nex
+cases, zero failures/errors/skips, scoped formatting/check, app assemble and architecture/self-tests.
+M18's unchanged963 other-boss,494 engine/shared/weapons/app and408 ToA results remain valid.
+This verifies the tested native sequence selection/actor continuity, not normal OSRS opening timing
+or live-client appearance. Changed files: NexEncounterManager.kt and NexPublicSessionIntegrationTest.kt.
+`logs/nex-m06-opening-source-20260913.zip` contains exactly these two source files, verified byte-for-byte;
+SHA256 `64C4C3E0B795CB4E40BDE041A23DCA3214CB255B30898B01AB4E35558FE7AE4B`.
+Source-only; JVM23812 remains deployed c4fc9390f. Next: captured opening facing and sound.
 
 ## Source verification history: M01/M02 protected access and S10
 

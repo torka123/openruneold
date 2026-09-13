@@ -529,7 +529,7 @@ constructor(
         current.startingTeamSize = current.participants.size
         current.stateReadyCycle = clock.cycle + 5
         current.boss.transmog(requireNpc(NEX_SPAWNING_ID), Int.MAX_VALUE)
-        current.boss.anim(anim(9203))
+        current.boss.anim(anim(9182))
         current.boss.movementLocked = true
         announce(current, "AT LAST!")
     }
