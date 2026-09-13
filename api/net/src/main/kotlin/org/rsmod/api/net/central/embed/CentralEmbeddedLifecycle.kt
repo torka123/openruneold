@@ -69,12 +69,20 @@ constructor(
             )
         )
 
+        check(server == null) { "Existing Central lifecycle must finish before another start" }
         val centralServer = OpenRuneCentralEmbeddedServer(c.httpPort, runtime)
+        server = centralServer
         try {
             centralServer.start()
-            server = centralServer
         } catch (t: Throwable) {
-            runCatching { centralServer.stop() }
+            try {
+                centralServer.stop()
+                server = null
+            } catch (cleanup: Throwable) {
+                // Keep the only owner of unfinished Central work. Bootstrap's next stop observes
+                // the same failure and retains PostgreSQL instead of discarding this instance.
+                if (cleanup !== t) t.addSuppressed(cleanup)
+            }
             if (!usesEmbeddedJdbc) {
                 throw t
             }

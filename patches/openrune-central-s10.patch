@@ -1,0 +1,1693 @@
+diff --git a/central-app/build.gradle.kts b/central-app/build.gradle.kts
+index a856a525459f2e0e53572dc946ddb8dbad2f4590..ace64f8b258e9c7f172fb787587c05cfb042c41e 100644
+--- a/central-app/build.gradle.kts
++++ b/central-app/build.gradle.kts
+@@ -59,6 +59,7 @@ dependencies {
+ 
+     testImplementation(kotlin("test"))
+     testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
++    testImplementation("org.mockito:mockito-core:5.18.0")
+     testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.11.4")
+ }
+ 
+diff --git a/central-app/src/main/kotlin/dev/or2/central/CentralApplication.kt b/central-app/src/main/kotlin/dev/or2/central/CentralApplication.kt
+index 49a3a2d494fe5f477c3e03d9070fd852e993f00e..459afecc43b0fd0d44819395dce367e4669c99ee 100644
+--- a/central-app/src/main/kotlin/dev/or2/central/CentralApplication.kt
++++ b/central-app/src/main/kotlin/dev/or2/central/CentralApplication.kt
+@@ -68,7 +68,6 @@ import io.ktor.server.plugins.forwardedheaders.XForwardedHeaders
+ import io.ktor.server.routing.routing
+ import java.util.concurrent.Executors
+ import java.util.concurrent.TimeUnit
+-import java.util.concurrent.atomic.AtomicBoolean
+ import javax.sql.DataSource
+ import kotlinx.serialization.json.Json
+ import org.koin.dsl.module
+@@ -81,6 +80,11 @@ object CentralApplication {
+         AccountNameAuthPolicy.preloadWorldLinkDeceptiveFragments()
+ 
+         val dataSource = DataSourceFactory.create(config)
++        val shutdown = CentralShutdown {
++            dataSource.close()
++            check(dataSource.isClosed) { "Central datasource did not close" }
++        }
++        CentralShutdown.install(application, shutdown)
+         FlywayMigrator.migrate(dataSource)
+         DevWorldSeeder.seedIfEnabled(config, dataSource)
+ 
+@@ -104,26 +108,26 @@ object CentralApplication {
+             centralHttpRoutes(worldListCache, javConfigCache)
+         }
+ 
+-        val shutdownOnce = AtomicBoolean(false)
+-        val shutdown: () -> Unit = {
+-            if (shutdownOnce.compareAndSet(false, true)) {
+-                runCatching { koin.get<SocialGraphPersistence>().flush() }
+-                runCatching { koin.get<DiscordRuntime.Components>().botService.stop() }
+-                koin.get<PgNotifyService>().stop()
+-                koin.get<WorldLinkServer>().stop()
+-                koin.get<java.util.concurrent.ScheduledExecutorService>().shutdown()
+-                (koin.get<DataSource>() as HikariDataSource).close()
+-            }
+-        }
++        // Capture each owner while Koin is open. Its ApplicationStopping hook destroys the
++        // registry before ApplicationStopped, so shutdown must never resolve through Koin.
++        val persistence = koin.get<SocialGraphPersistence>()
++        shutdown.persistence(persistence::flush)
++        val worldLink = koin.get<WorldLinkServer>()
++        shutdown.producer(worldLink::stop)
++        val notify = koin.get<PgNotifyService>()
++        shutdown.producer(notify::stop)
++        val scheduler = koin.get<java.util.concurrent.ScheduledExecutorService>()
++        shutdown.producer { scheduler.finishShutdown() }
++        val bot = koin.get<DiscordRuntime.Components>().botService
++        shutdown.producer(bot::stop)
+ 
+         application.monitor.subscribe(ApplicationStarted) {
+             koin.get<SessionReaper>().start()
+-            koin.get<WorldLinkServer>().start()
+-            koin.get<PgNotifyService>().start()
+-            runCatching { koin.get<DiscordRuntime.Components>().botService.start() }
++            worldLink.start()
++            notify.start()
++            runCatching { bot.start() }
+             runCatching { worldListCache.rebuild() }
+             runCatching { javConfigCache.refresh() }
+-            val scheduler = koin.get<java.util.concurrent.ScheduledExecutorService>()
+             val sampleSec = config.analytics.onlineSampleIntervalSeconds.toLong().coerceAtLeast(30)
+             scheduler.scheduleAtFixedRate(
+                 { runCatching { koin.get<OnlineSampler>().sampleNow() } },
+@@ -160,7 +164,7 @@ object CentralApplication {
+         }
+ 
+         application.monitor.subscribe(ApplicationStopped) {
+-            shutdown()
++            shutdown.stop()
+         }
+     }
+ 
+diff --git a/central-app/src/main/kotlin/dev/or2/central/CentralShutdown.kt b/central-app/src/main/kotlin/dev/or2/central/CentralShutdown.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..1a29fe84dc8f68c49cd50237c38ff7771276557c
+--- /dev/null
++++ b/central-app/src/main/kotlin/dev/or2/central/CentralShutdown.kt
+@@ -0,0 +1,79 @@
++package dev.or2.central
++
++import io.ktor.server.application.Application
++import io.ktor.util.AttributeKey
++import java.util.concurrent.ExecutorService
++import java.util.concurrent.TimeUnit
++
++/** Owns the already-created services even after Koin disposes its instance registry. */
++internal class CentralShutdown(private val closeDataSource: () -> Unit) {
++    private val producers = mutableListOf<() -> Unit>()
++    private var persistence: (() -> Unit)? = null
++    private var result: Result<Unit>? = null
++
++    @Synchronized
++    fun producer(stop: () -> Unit) {
++        check(result == null) { "Central shutdown already completed" }
++        producers += stop
++    }
++
++    @Synchronized
++    fun persistence(flush: () -> Unit) {
++        check(result == null && persistence == null)
++        persistence = flush
++    }
++
++    /** Repeated/concurrent callers observe the same completed result, including failure. */
++    @Synchronized
++    fun stop() {
++        result?.let { return it.getOrThrow() }
++        val completed = runCatching {
++            val failures = mutableListOf<Throwable>()
++            for (stop in producers) {
++                try {
++                    stop()
++                } catch (failure: Throwable) {
++                    failures += failure
++                }
++            }
++            if (failures.isNotEmpty()) {
++                val failure = IllegalStateException(
++                    "Central producers did not stop; persistence and datasource retained",
++                )
++                failures.forEach(failure::addSuppressed)
++                throw failure
++            }
++            persistence?.invoke()
++            closeDataSource()
++        }
++        result = completed
++        completed.getOrThrow()
++    }
++
++    companion object {
++        private val key = AttributeKey<CentralShutdown>("OpenRuneCentralShutdown")
++
++        fun install(application: Application, shutdown: CentralShutdown) {
++            application.attributes.put(key, shutdown)
++        }
++
++        fun stop(application: Application) {
++            owner(application)?.stop()
++        }
++
++        fun owner(application: Application): CentralShutdown? = application.attributes.getOrNull(key)
++    }
++}
++
++/** Bounded observation only: a timeout must not interrupt/discard accepted work. */
++internal fun ExecutorService.finishShutdown(timeoutMillis: Long = 15_000) {
++    shutdown()
++    try {
++        check(awaitTermination(timeoutMillis, TimeUnit.MILLISECONDS)) {
++            "Central executor has unfinished work; datasource retained"
++        }
++    } catch (failure: InterruptedException) {
++        Thread.currentThread().interrupt()
++        throw failure
++    }
++}
+diff --git a/central-app/src/main/kotlin/dev/or2/central/discord/DiscordBotService.kt b/central-app/src/main/kotlin/dev/or2/central/discord/DiscordBotService.kt
+index fc23ad6bcdfc18f909fe53bce55654529e82746d..2953588e0da7c2842b6803845bcbcc4e580cf781 100644
+--- a/central-app/src/main/kotlin/dev/or2/central/discord/DiscordBotService.kt
++++ b/central-app/src/main/kotlin/dev/or2/central/discord/DiscordBotService.kt
+@@ -1,6 +1,7 @@
+ package dev.or2.central.discord
+ 
+ import dev.or2.central.config.DiscordRuntimeConfig
++import dev.or2.central.finishShutdown
+ import dev.or2.central.db.repositories.SessionRepository
+ import java.util.concurrent.Executors
+ import java.util.concurrent.TimeUnit
+@@ -21,20 +22,25 @@ class DiscordBotService(
+     private val linkMessenger: DiscordLinkMessenger,
+ ) {
+     private val log = LoggerFactory.getLogger(DiscordBotService::class.java)
+-    private var jda: JDA? = null
++    private val lifecycle = Any()
++    @Volatile private var jda: JDA? = null
++    private var startupThread: Thread? = null
++    private var stopRequested = false
+     private val statusExecutor =
+         Executors.newSingleThreadScheduledExecutor { runnable ->
+             Thread(runnable, "discord-bot-status").apply { isDaemon = true }
+         }
+ 
+-    fun start() {
++    fun start() = synchronized(lifecycle) {
++        check(!stopRequested) { "Discord service is stopping" }
+         if (!config.enabled) {
+             log.info("Discord bot disabled (no bot token configured)")
+-            return
++            return@synchronized
+         }
+ 
+         log.info("Starting Discord bot for guild {}...", config.guildId)
+-        Thread(
++        check(startupThread == null) { "Discord service already started" }
++        startupThread = Thread(
+             {
+                 runCatching { startBotBlocking() }
+                     .onFailure { error -> log.warn("Discord bot failed to start: {}", error.message, error) }
+@@ -59,12 +65,19 @@ class DiscordBotService(
+                 .setMemberCachePolicy(MemberCachePolicy.ONLINE)
+                 .addEventListeners(interactionListener, guildMembers)
+                 .build()
++        synchronized(lifecycle) {
++            // Capture before awaitReady: stop must also own a bot whose login is still pending.
++            jda = bot
++            if (stopRequested) {
++                bot.shutdown()
++                return
++            }
++        }
+         bot.awaitReady()
+         guildMembers.bind(bot)
+         guildMembers.seedCachedMembers(bot)
+         guildMembers.preloadAllMembersAsync(bot)
+         linkMessenger.bind(bot)
+-        jda = bot
+         updatePresence(bot)
+         statusExecutor.scheduleAtFixedRate(
+             { runCatching { updatePresence(bot) } },
+@@ -76,11 +89,33 @@ class DiscordBotService(
+     }
+ 
+     fun stop() {
+-        statusExecutor.shutdownNow()
+-        val bot = jda ?: return
+-        log.info("Shutting down Discord bot...")
+-        bot.shutdown()
+-        jda = null
++        val (bot, starter) = synchronized(lifecycle) {
++            stopRequested = true
++            jda to startupThread
++        }
++        bot?.shutdown()
++        try {
++            starter?.join(15_000)
++            check(starter == null || !starter.isAlive) {
++                "Discord startup has not stopped; datasource retained"
++            }
++            val finalBot = jda
++            if (finalBot != null) {
++                log.info("Shutting down Discord bot...")
++                finalBot.shutdown()
++                check(finalBot.awaitShutdown(15, TimeUnit.SECONDS)) {
++                    "Discord callbacks have not stopped; datasource retained"
++                }
++            }
++            statusExecutor.finishShutdown()
++        } catch (failure: InterruptedException) {
++            Thread.currentThread().interrupt()
++            throw failure
++        }
++        synchronized(lifecycle) {
++            jda = null
++            startupThread = null
++        }
+     }
+ 
+     private fun updatePresence(bot: JDA) {
+diff --git a/central-app/src/main/kotlin/dev/or2/central/embed/CentralEmbeddedServer.kt b/central-app/src/main/kotlin/dev/or2/central/embed/CentralEmbeddedServer.kt
+index dce1ceed371835448f16eda7d4668a93426b5226..cb1f2013e61404a99aab1a36cd5138291982d26e 100644
+--- a/central-app/src/main/kotlin/dev/or2/central/embed/CentralEmbeddedServer.kt
++++ b/central-app/src/main/kotlin/dev/or2/central/embed/CentralEmbeddedServer.kt
+@@ -1,38 +1,83 @@
+ package dev.or2.central.embed
+ 
+ import dev.or2.central.CentralApplication
++import dev.or2.central.CentralShutdown
+ import dev.or2.central.config.CentralConfig
++import io.ktor.server.application.Application
+ import io.ktor.server.engine.EmbeddedServer
+ import io.ktor.server.engine.embeddedServer
+ import io.ktor.server.netty.Netty
+ import io.ktor.server.netty.NettyApplicationEngine
+ 
+-class CentralEmbeddedServer(
++class CentralEmbeddedServer internal constructor(
+     private val config: CentralConfig,
++    private val resolveConfig: (CentralConfig) -> Pair<CentralConfig, Boolean>,
++    private val configureApplication: (Application, CentralConfig) -> Unit,
++    private val stopPostgres: () -> Unit,
+ ) {
++    constructor(config: CentralConfig) : this(
++        config,
++        EmbeddedPostgres::resolveConfig,
++        CentralApplication::configure,
++        EmbeddedPostgres::stop,
++    )
++
+     @Volatile
+     private var server: EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration>? = null
+ 
+     private var stopEmbeddedPostgresOnStop = false
+     private lateinit var effectiveConfig: CentralConfig
++    @Volatile private var shutdown: CentralShutdown? = null
++    private var stopResult: Result<Unit>? = null
+ 
++    @Synchronized
+     fun start() {
+         check(server == null) { "Server already started" }
+-        val (resolved, startedEmbedded) = EmbeddedPostgres.resolveConfig(config)
++        check(stopResult == null) { "Stopped Central instance cannot restart" }
++        val (resolved, startedEmbedded) = resolveConfig(config)
+         effectiveConfig = resolved
+         stopEmbeddedPostgresOnStop = startedEmbedded
+         server =
+             embeddedServer(Netty, port = effectiveConfig.http.port, host = "0.0.0.0") {
+-                CentralApplication.configure(this, effectiveConfig)
+-            }.also { it.start(wait = false) }
++                try {
++                    configureApplication(this, effectiveConfig)
++                } finally {
++                    // Retain directly as well as in Application attributes: Ktor disposal may
++                    // release its own attribute/plugin ownership even after a subscriber failed.
++                    shutdown = CentralShutdown.owner(this)
++                }
++            }
++        // Retain the engine and application even when configuration/start fails part-way through.
++        checkNotNull(server).start(wait = false)
+     }
+ 
++    @Synchronized
+     fun stop() {
+-        server?.stop(gracePeriodMillis = 1_000, timeoutMillis = 5_000)
+-        server = null
+-        if (stopEmbeddedPostgresOnStop) {
+-            EmbeddedPostgres.stop()
+-            stopEmbeddedPostgresOnStop = false
++        stopResult?.let { return it.getOrThrow() }
++        val completed = runCatching {
++            var engineFailure: Throwable? = null
++            try {
++                server?.stop(gracePeriodMillis = 1_000, timeoutMillis = 5_000)
++            } catch (failure: Throwable) {
++                engineFailure = failure
++            }
++            // Ktor logs/swallow failures raised by event subscribers. Explicitly observe the same
++            // native result so an unsuccessful cleanup cannot authorize PostgreSQL closure.
++            try {
++                shutdown?.stop()
++            } catch (failure: Throwable) {
++                engineFailure?.takeUnless { it === failure }?.let(failure::addSuppressed)
++                throw failure
++            }
++            engineFailure?.let { throw it }
++            if (stopEmbeddedPostgresOnStop) {
++                stopPostgres()
++                stopEmbeddedPostgresOnStop = false
++            }
++            server = null
++            shutdown = null
+         }
++        stopResult = completed
++        completed.getOrThrow()
+     }
+ }
+diff --git a/central-app/src/main/kotlin/dev/or2/central/notify/PgNotifyService.kt b/central-app/src/main/kotlin/dev/or2/central/notify/PgNotifyService.kt
+index dd47163f28c4dd8a91f2d87c75eaead4b402ac27..f43ec86dc07717e715c12e5867da921c279b40fb 100644
+--- a/central-app/src/main/kotlin/dev/or2/central/notify/PgNotifyService.kt
++++ b/central-app/src/main/kotlin/dev/or2/central/notify/PgNotifyService.kt
+@@ -15,6 +15,7 @@ class PgNotifyService(
+     @Volatile private var listenConnection: Connection? = null
+     private var thread: Thread? = null
+ 
++    @Synchronized
+     fun start() {
+         if (!stopped) return
+         stopped = false
+@@ -32,10 +33,29 @@ class PgNotifyService(
+         thread!!.start()
+     }
+ 
++    @Synchronized
+     fun stop() {
+         stopped = true
+-        thread?.interrupt()
+-        runCatching { listenConnection?.close() }
++        val worker = thread
++        // Stop LISTEN admission without cancelling a handler that already accepted work.
++        // Closing its dedicated connection wakes polling; join only observes completion.
++        var closeFailure: Throwable? = null
++        try {
++            listenConnection?.close()
++        } catch (failure: Throwable) {
++            closeFailure = failure
++        }
++        try {
++            worker?.join(15_000)
++        } catch (failure: InterruptedException) {
++            Thread.currentThread().interrupt()
++            closeFailure?.let(failure::addSuppressed)
++            throw failure
++        }
++        check(worker == null || !worker.isAlive) {
++            "PostgreSQL notifier has unfinished callbacks; datasource retained"
++        }
++        closeFailure?.let { throw it }
+         listenConnection = null
+         thread = null
+     }
+@@ -53,23 +73,30 @@ class PgNotifyService(
+     }
+ 
+     private fun listenOnce() {
+-        val conn = dataSource.connection.also { listenConnection = it }
+-        conn.autoCommit = true
+-        val pg = conn.unwrap(PGConnection::class.java)
+-        conn.createStatement().use { st ->
+-            for (channel in handlers.keys) {
+-                st.addBatch("LISTEN $channel")
+-            }
+-            st.executeBatch()
+-        }
+-        log.info("Listening for PostgreSQL NOTIFY on {} channel(s)", handlers.size)
+-        conn.createStatement().use { ping ->
+-            while (!stopped && !Thread.currentThread().isInterrupted) {
+-                ping.execute("SELECT 1")
+-                pg.notifications?.forEach { n ->
+-                    handlers[n.name]?.handle(n.parameter)
++        dataSource.connection.use { conn ->
++            listenConnection = conn
++            try {
++                if (stopped) return
++                conn.autoCommit = true
++                val pg = conn.unwrap(PGConnection::class.java)
++                conn.createStatement().use { st ->
++                    for (channel in handlers.keys) {
++                        st.addBatch("LISTEN $channel")
++                    }
++                    st.executeBatch()
++                }
++                log.info("Listening for PostgreSQL NOTIFY on {} channel(s)", handlers.size)
++                conn.createStatement().use { ping ->
++                    while (!stopped && !Thread.currentThread().isInterrupted) {
++                        ping.execute("SELECT 1")
++                        pg.notifications?.forEach { n ->
++                            handlers[n.name]?.handle(n.parameter)
++                        }
++                        Thread.sleep(200)
++                    }
+                 }
+-                Thread.sleep(200)
++            } finally {
++                listenConnection = null
+             }
+         }
+     }
+diff --git a/central-app/src/main/kotlin/dev/or2/central/social/SocialGraphPersistence.kt b/central-app/src/main/kotlin/dev/or2/central/social/SocialGraphPersistence.kt
+index 0d7bb0a84d25cc2782da7baa9cbe47634aa91bdf..fab00c97d4db810f6803351e5eb5eec47d459dc6 100644
+--- a/central-app/src/main/kotlin/dev/or2/central/social/SocialGraphPersistence.kt
++++ b/central-app/src/main/kotlin/dev/or2/central/social/SocialGraphPersistence.kt
+@@ -2,7 +2,9 @@ package dev.or2.central.social
+ 
+ import org.slf4j.LoggerFactory
+ import java.util.concurrent.Executors
+-import java.util.concurrent.TimeUnit
++import dev.or2.central.finishShutdown
++import java.util.concurrent.ConcurrentLinkedQueue
++import java.util.concurrent.ExecutorService
+ 
+ class SocialGraphLoader(
+     private val repository: CentralSocialRepository,
+@@ -24,109 +26,64 @@ class SocialGraphLoader(
+     }
+ }
+ 
+-class SocialGraphPersistence(
++class SocialGraphPersistence internal constructor(
+     private val repository: CentralSocialRepository,
++    private val executor: ExecutorService,
++    private val flushTimeoutMillis: Long = 15_000,
+ ) {
++    constructor(repository: CentralSocialRepository) : this(
++        repository,
++        Executors.newSingleThreadExecutor { runnable ->
++            Thread(runnable, "central-social-graph-persist").apply { isDaemon = true }
++        },
++    )
++
+     private val log = LoggerFactory.getLogger(SocialGraphPersistence::class.java)
+-    private val executor =
+-        Executors.newSingleThreadExecutor { r ->
+-            Thread(r, "central-social-graph-persist").apply { isDaemon = true }
+-        }
++    private val failed = ConcurrentLinkedQueue<FailedWrite>()
+ 
+-    fun enqueueFriendAdd(
+-        ownerCharacterId: Int,
+-        friendCharacterId: Int,
+-    ) {
+-        executor.execute {
+-            runCatching {
+-                repository.persistFriendAdd(ownerCharacterId, friendCharacterId)
+-            }.onFailure {
+-                log.warn(
+-                    "Social persist friend add failed owner={} friend={}",
+-                    ownerCharacterId,
+-                    friendCharacterId,
+-                    it,
+-                )
+-            }
+-        }
++    fun enqueueFriendAdd(ownerCharacterId: Int, friendCharacterId: Int) {
++        submit { repository.persistFriendAdd(ownerCharacterId, friendCharacterId) }
+     }
+ 
+-    fun enqueueFriendDelete(
+-        ownerCharacterId: Int,
+-        friendCharacterId: Int,
+-    ) {
+-        executor.execute {
+-            runCatching {
+-                repository.persistFriendDelete(ownerCharacterId, friendCharacterId)
+-            }.onFailure {
+-                log.warn(
+-                    "Social persist friend delete failed owner={} friend={}",
+-                    ownerCharacterId,
+-                    friendCharacterId,
+-                    it,
+-                )
+-            }
+-        }
++    fun enqueueFriendDelete(ownerCharacterId: Int, friendCharacterId: Int) {
++        submit { repository.persistFriendDelete(ownerCharacterId, friendCharacterId) }
+     }
+ 
+-    fun enqueueIgnoreAdd(
+-        ownerCharacterId: Int,
+-        ignoredCharacterId: Int,
+-    ) {
+-        executor.execute {
+-            runCatching {
+-                repository.persistIgnoreAdd(ownerCharacterId, ignoredCharacterId)
+-            }.onFailure {
+-                log.warn(
+-                    "Social persist ignore add failed owner={} ignored={}",
+-                    ownerCharacterId,
+-                    ignoredCharacterId,
+-                    it,
+-                )
+-            }
+-        }
++    fun enqueueIgnoreAdd(ownerCharacterId: Int, ignoredCharacterId: Int) {
++        submit { repository.persistIgnoreAdd(ownerCharacterId, ignoredCharacterId) }
+     }
+ 
+-    fun enqueueIgnoreDelete(
+-        ownerCharacterId: Int,
+-        ignoredCharacterId: Int,
+-    ) {
+-        executor.execute {
+-            runCatching {
+-                repository.persistIgnoreDelete(ownerCharacterId, ignoredCharacterId)
+-            }.onFailure {
+-                log.warn(
+-                    "Social persist ignore delete failed owner={} ignored={}",
+-                    ownerCharacterId,
+-                    ignoredCharacterId,
+-                    it,
+-                )
+-            }
+-        }
++    fun enqueueIgnoreDelete(ownerCharacterId: Int, ignoredCharacterId: Int) {
++        submit { repository.persistIgnoreDelete(ownerCharacterId, ignoredCharacterId) }
+     }
+ 
+-    fun enqueuePrivateChatFilter(
+-        characterId: Int,
+-        privateChat: Int,
+-    ) {
++    fun enqueuePrivateChatFilter(characterId: Int, privateChat: Int) {
++        submit { repository.persistPrivateChatFilter(characterId, privateChat) }
++    }
++
++    private fun submit(write: () -> Unit) {
++        // The executor remains the single admission/order authority. Rejected work is reported to
++        // its caller; accepted work is never removed by a shutdown timeout or automatic retry.
+         executor.execute {
+-            runCatching {
+-                repository.persistPrivateChatFilter(characterId, privateChat)
+-            }.onFailure {
+-                log.warn("Social persist private chat filter failed characterId={}", characterId, it)
++            try {
++                write()
++            } catch (failure: Throwable) {
++                failed += FailedWrite(write, failure)
++                log.warn("Social persistence failed; operation retained for recovery", failure)
+             }
+         }
+     }
+ 
+     fun flush() {
+-        executor.shutdown()
+-        try {
+-            if (!executor.awaitTermination(15, TimeUnit.SECONDS)) {
+-                executor.shutdownNow()
+-            }
+-        } catch (_: InterruptedException) {
+-            executor.shutdownNow()
+-            Thread.currentThread().interrupt()
++        executor.finishShutdown(flushTimeoutMillis)
++        if (failed.isNotEmpty()) {
++            val failure = IllegalStateException("Social writes failed; operations and datasource retained")
++            failed.forEach { failure.addSuppressed(it.cause) }
++            throw failure
+         }
+     }
++
++    // Retain the original operation/arguments. Replaying failed changes could reorder later writes,
++    // so recovery is explicit; a failure never becomes a successful drain merely with elapsed time.
++    private data class FailedWrite(val operation: () -> Unit, val cause: Throwable)
+ }
+diff --git a/central-app/src/main/kotlin/dev/or2/central/worldlink/net/WorldLinkServer.kt b/central-app/src/main/kotlin/dev/or2/central/worldlink/net/WorldLinkServer.kt
+index eaf579ef3e61030fea66ccab7028748f42bb69c5..3ed83bda41c51dee36c077381469d019be85eecd 100644
+--- a/central-app/src/main/kotlin/dev/or2/central/worldlink/net/WorldLinkServer.kt
++++ b/central-app/src/main/kotlin/dev/or2/central/worldlink/net/WorldLinkServer.kt
+@@ -20,6 +20,7 @@ import io.netty.handler.codec.LengthFieldBasedFrameDecoder
+ import io.netty.handler.codec.LengthFieldPrepender
+ import io.netty.handler.timeout.ReadTimeoutHandler
+ import java.util.concurrent.TimeUnit
++import java.util.concurrent.ConcurrentLinkedQueue
+ import java.util.concurrent.atomic.AtomicInteger
+ 
+ class WorldLinkServer(
+@@ -30,6 +31,7 @@ class WorldLinkServer(
+     private val bossGroup = NioEventLoopGroup(1, threadFactory("worldlink-boss", true))
+     private val workerGroup = NioEventLoopGroup(0, threadFactory("worldlink-io", true))
+     private var serverChannel: Channel? = null
++    private val failedCloses = ConcurrentLinkedQueue<FailedClose>()
+ 
+     fun start() {
+         val backlog = config.soBacklog.coerceIn(64, 16_384)
+@@ -59,7 +61,9 @@ class WorldLinkServer(
+                                 ),
+                             )
+                             pipeline.addLast(LengthFieldPrepender(4))
+-                            pipeline.addLast(WorldLinkChannelHandler(handler, connection))
++                            pipeline.addLast(WorldLinkChannelHandler(handler, connection) { failed, cause ->
++                                failedCloses += FailedClose(failed, cause)
++                            })
+                         }
+                     },
+                 )
+@@ -68,14 +72,37 @@ class WorldLinkServer(
+ 
+     fun stop() {
+         try {
+-            serverChannel?.close()?.sync()
+-        } catch (_: InterruptedException) {
++            serverChannel?.let { listener ->
++                // A repeated stop must observe the completed native close, rather than submit
++                // another close operation to an event loop that has already terminated.
++                val close = if (listener.isOpen) listener.close() else listener.closeFuture()
++                check(close.await(15, TimeUnit.SECONDS) && close.isSuccess) {
++                    "World-link listener did not close; datasource retained"
++                }
++            }
++            // Netty's shutdown timeout can discard queued callbacks. Use its native graceful
++            // drain without a practical forced deadline; bound only this caller's observation.
++            val boss = bossGroup.shutdownGracefully(0, Long.MAX_VALUE, TimeUnit.NANOSECONDS)
++            val workers = workerGroup.shutdownGracefully(0, Long.MAX_VALUE, TimeUnit.NANOSECONDS)
++            check(boss.await(15, TimeUnit.SECONDS) && boss.isSuccess) {
++                "World-link acceptor did not stop; datasource retained"
++            }
++            check(workers.await(15, TimeUnit.SECONDS) && workers.isSuccess) {
++                "World-link workers did not stop; datasource retained"
++            }
++            if (failedCloses.isNotEmpty()) {
++                val failure = IllegalStateException("World-link finalization failed; connections and datasource retained")
++                failedCloses.forEach { failure.addSuppressed(it.cause) }
++                throw failure
++            }
++        } catch (failure: InterruptedException) {
+             Thread.currentThread().interrupt()
++            throw failure
+         }
+-        bossGroup.shutdownGracefully()
+-        workerGroup.shutdownGracefully()
+     }
+ 
++    private data class FailedClose(val connection: WorldConnection, val cause: Throwable)
++
+     private companion object {
+         val CONNECTION_KEY =
+             io.netty.util.AttributeKey.valueOf<WorldConnection>("worldConnection")
+@@ -94,6 +121,7 @@ class WorldLinkServer(
+ private class WorldLinkChannelHandler(
+     private val handler: WorldLinkHandler,
+     private val connection: WorldConnection,
++    private val failedClose: (WorldConnection, Throwable) -> Unit,
+ ) : ChannelInboundHandlerAdapter() {
+     override fun channelRead(ctx: ChannelHandlerContext, msg: Any) {
+         val buf = msg as ByteBuf
+@@ -120,7 +148,13 @@ private class WorldLinkChannelHandler(
+     }
+ 
+     override fun channelInactive(ctx: ChannelHandlerContext) {
+-        handler.onChannelClosed(connection)
++        try {
++            handler.onChannelClosed(connection)
++        } catch (failure: Throwable) {
++            // Native disconnection finalization can persist world presence. Netty normally only
++            // logs pipeline exceptions; retain this failure for the explicit stop result.
++            failedClose(connection, failure)
++        }
+         super.channelInactive(ctx)
+     }
+ 
+diff --git a/central-app/src/test/kotlin/dev/or2/central/CentralProducerShutdownTest.kt b/central-app/src/test/kotlin/dev/or2/central/CentralProducerShutdownTest.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..d140eab790434111f5f3f620c44af5d5a9556b42
+--- /dev/null
++++ b/central-app/src/test/kotlin/dev/or2/central/CentralProducerShutdownTest.kt
+@@ -0,0 +1,355 @@
++package dev.or2.central
++
++import dev.or2.central.config.WorldLinkConfig
++import dev.or2.central.notify.PgNotifyHandler
++import dev.or2.central.notify.PgNotifyService
++import dev.or2.central.worldlink.WorldConnectionRegistry
++import dev.or2.central.worldlink.WorldLinkHandler
++import dev.or2.central.worldlink.net.WorldLinkServer
++import io.netty.channel.Channel
++import io.netty.channel.nio.NioEventLoopGroup
++import java.lang.reflect.Proxy
++import java.net.InetSocketAddress
++import java.net.Socket
++import java.sql.Connection
++import java.sql.Statement
++import java.util.concurrent.CopyOnWriteArrayList
++import java.util.concurrent.CountDownLatch
++import java.util.concurrent.TimeUnit
++import java.util.concurrent.atomic.AtomicBoolean
++import java.util.concurrent.atomic.AtomicInteger
++import java.util.concurrent.atomic.AtomicReference
++import javax.sql.DataSource
++import kotlin.test.Test
++import kotlin.test.assertEquals
++import kotlin.test.assertFails
++import kotlin.test.assertFalse
++import kotlin.test.assertIs
++import kotlin.test.assertSame
++import kotlin.test.assertTrue
++import org.mockito.Mockito.mock
++import org.mockito.Answers
++import org.postgresql.PGConnection
++import org.postgresql.PGNotification
++
++class CentralProducerShutdownTest {
++    @Test
++    fun worldLinkStopRetainsNativeChannelFinalizationFailureWithoutRetryingIt() {
++        val finalizationFailure = IllegalStateException("world presence write failed")
++        val finalized = CountDownLatch(1)
++        val finalizationAttempts = AtomicInteger()
++        val handler = mock(WorldLinkHandler::class.java) { invocation ->
++            if (invocation.method.name == "onChannelClosed") {
++                finalizationAttempts.incrementAndGet()
++                finalized.countDown()
++                throw finalizationFailure
++            }
++            Answers.RETURNS_DEFAULTS.answer(invocation)
++        }
++        val server = WorldLinkServer(WorldLinkConfig(port = 0), handler, WorldConnectionRegistry())
++
++        try {
++            server.start()
++            val listener = field<Channel>(server, "serverChannel")
++            val port = (listener.localAddress() as InetSocketAddress).port
++            Socket().use { client ->
++                client.connect(InetSocketAddress("127.0.0.1", port), 5_000)
++            }
++            assertTrue(finalized.await(5, TimeUnit.SECONDS))
++            val failure = assertFails { server.stop() }
++            assertEquals(listOf(finalizationFailure), failure.suppressed.toList())
++            assertTrue(field<NioEventLoopGroup>(server, "bossGroup").isTerminated)
++            assertTrue(field<NioEventLoopGroup>(server, "workerGroup").isTerminated)
++            val repeated = assertFails { server.stop() }
++            assertEquals(listOf(finalizationFailure), repeated.suppressed.toList())
++            assertEquals(1, finalizationAttempts.get())
++        } finally {
++            runCatching { server.stop() }
++        }
++    }
++
++    @Test
++    fun worldLinkStopWaitsForNativeWorkerCallbacksAndTerminatesBothGroups() {
++        val server = WorldLinkServer(
++            WorldLinkConfig(port = 0),
++            mock(WorldLinkHandler::class.java),
++            WorldConnectionRegistry(),
++        )
++        val boss = field<NioEventLoopGroup>(server, "bossGroup")
++        val workers = field<NioEventLoopGroup>(server, "workerGroup")
++        val callbackEntered = CountDownLatch(1)
++        val releaseCallback = CountDownLatch(1)
++        val stopped = CountDownLatch(1)
++        val stopFailure = AtomicReference<Throwable?>()
++        val events = CopyOnWriteArrayList<String>()
++        val stopper = Thread {
++            try {
++                server.stop()
++                events.add("stopped")
++            } catch (failure: Throwable) {
++                stopFailure.set(failure)
++            } finally {
++                stopped.countDown()
++            }
++        }
++
++        try {
++            server.start()
++            val listener = field<Channel>(server, "serverChannel")
++            assertTrue((listener.localAddress() as InetSocketAddress).port > 0)
++            val worker = workers.next()
++            worker.execute {
++                callbackEntered.countDown()
++                check(releaseCallback.await(10, TimeUnit.SECONDS))
++                events.add("active-callback")
++            }
++            assertTrue(callbackEntered.await(5, TimeUnit.SECONDS))
++            worker.execute { events.add("queued-callback") }
++            stopper.start()
++            assertTrue(listener.closeFuture().await(5, TimeUnit.SECONDS))
++            assertTrue(boss.terminationFuture().await(5, TimeUnit.SECONDS))
++            assertFalse(workers.isTerminated)
++            assertEquals(1L, stopped.count, "World-link stop returned with an active native callback")
++            releaseCallback.countDown()
++            assertTrue(stopped.await(10, TimeUnit.SECONDS))
++            assertEquals(null, stopFailure.get())
++            assertFalse(listener.isOpen)
++            assertTrue(boss.isTerminated)
++            assertTrue(workers.isTerminated)
++            assertEquals(listOf("active-callback", "queued-callback", "stopped"), events.toList())
++        } finally {
++            releaseCallback.countDown()
++            stopper.join(20_000)
++            server.stop()
++        }
++    }
++
++    @Test
++    fun notifierStopWaitsForActiveCallbackAndClosesItsConnection() {
++        val callbackEntered = CountDownLatch(1)
++        val releaseCallback = CountDownLatch(1)
++        val stopped = CountDownLatch(1)
++        val events = CopyOnWriteArrayList<String>()
++        val stopFailure = AtomicReference<Throwable?>()
++        val jdbc = NotifyJdbc()
++        val service = PgNotifyService(
++            jdbc.dataSource,
++            mapOf("shutdown_test" to PgNotifyHandler {
++                assertEquals("payload", it)
++                callbackEntered.countDown()
++                awaitCallbackRelease(releaseCallback)
++                events.add("callback-complete")
++            }),
++        )
++        val stopper = Thread {
++            try {
++                service.stop()
++                events.add("stopped")
++            } catch (failure: Throwable) {
++                stopFailure.set(failure)
++            } finally {
++                stopped.countDown()
++            }
++        }
++
++        try {
++            service.start()
++            assertTrue(callbackEntered.await(5, TimeUnit.SECONDS))
++            val worker = field<Thread>(service, "thread")
++            stopper.start()
++            assertTrue(jdbc.connectionClosed.await(5, TimeUnit.SECONDS))
++            assertTrue(worker.isAlive)
++            assertEquals(1L, stopped.count, "Notifier stop returned before its callback completed")
++            releaseCallback.countDown()
++            assertTrue(stopped.await(5, TimeUnit.SECONDS))
++            assertEquals(null, stopFailure.get())
++            assertFalse(worker.isAlive)
++            assertEquals(listOf("callback-complete", "stopped"), events.toList())
++            assertEquals(null, field<Thread?>(service, "thread"))
++        } finally {
++            releaseCallback.countDown()
++            stopper.join(20_000)
++            service.stop()
++        }
++    }
++
++    @Test
++    fun notifierStopLetsAnInterruptibleAcceptedCallbackFinishNaturally() {
++        val callbackEntered = CountDownLatch(1)
++        val releaseCallback = CountDownLatch(1)
++        val callbackCompleted = AtomicBoolean()
++        val callbackInterrupted = AtomicBoolean()
++        val stopped = CountDownLatch(1)
++        val stopFailure = AtomicReference<Throwable?>()
++        val jdbc = NotifyJdbc()
++        val service = PgNotifyService(
++            jdbc.dataSource,
++            mapOf("shutdown_test" to PgNotifyHandler {
++                callbackEntered.countDown()
++                try {
++                    check(releaseCallback.await(10, TimeUnit.SECONDS))
++                    callbackCompleted.set(true)
++                } catch (failure: InterruptedException) {
++                    callbackInterrupted.set(true)
++                    throw failure
++                }
++            }),
++        )
++        val stopper = Thread {
++            try {
++                service.stop()
++            } catch (failure: Throwable) {
++                stopFailure.set(failure)
++            } finally {
++                stopped.countDown()
++            }
++        }
++
++        try {
++            service.start()
++            assertTrue(callbackEntered.await(5, TimeUnit.SECONDS))
++            val worker = field<Thread>(service, "thread")
++            stopper.start()
++            assertTrue(jdbc.connectionClosed.await(5, TimeUnit.SECONDS))
++            assertTrue(worker.isAlive)
++            assertEquals(1L, stopped.count, "Stop must wait for the accepted callback")
++            assertFalse(callbackInterrupted.get(), "Stop must not interrupt accepted callback work")
++            releaseCallback.countDown()
++            assertTrue(stopped.await(5, TimeUnit.SECONDS))
++            assertEquals(null, stopFailure.get())
++            assertTrue(callbackCompleted.get())
++            assertFalse(callbackInterrupted.get())
++            assertFalse(worker.isAlive)
++        } finally {
++            releaseCallback.countDown()
++            stopper.join(20_000)
++            service.stop()
++        }
++    }
++
++    @Test
++    fun interruptedNotifierStopReportsFailureAndRetainsLiveWorkerUntilItCompletes() {
++        val callbackEntered = CountDownLatch(1)
++        val releaseCallback = CountDownLatch(1)
++        val callbackCompleted = AtomicBoolean()
++        val callerInterrupted = AtomicBoolean()
++        val stopFailure = AtomicReference<Throwable?>()
++        val jdbc = NotifyJdbc()
++        val service = PgNotifyService(
++            jdbc.dataSource,
++            mapOf("shutdown_test" to PgNotifyHandler {
++                callbackEntered.countDown()
++                awaitCallbackRelease(releaseCallback)
++                callbackCompleted.set(true)
++            }),
++        )
++        val stopper = Thread {
++            Thread.currentThread().interrupt()
++            try {
++                service.stop()
++            } catch (failure: Throwable) {
++                stopFailure.set(failure)
++            } finally {
++                callerInterrupted.set(Thread.currentThread().isInterrupted)
++            }
++        }
++
++        try {
++            service.start()
++            assertTrue(callbackEntered.await(5, TimeUnit.SECONDS))
++            val worker = field<Thread>(service, "thread")
++            stopper.start()
++            stopper.join(5_000)
++            assertFalse(stopper.isAlive)
++            assertIs<InterruptedException>(stopFailure.get())
++            assertTrue(callerInterrupted.get())
++            assertEquals(0L, jdbc.connectionClosed.count)
++            assertTrue(worker.isAlive)
++            assertSame(worker, field<Thread>(service, "thread"))
++            assertFalse(callbackCompleted.get())
++            releaseCallback.countDown()
++            service.stop()
++            assertTrue(callbackCompleted.get())
++            assertFalse(worker.isAlive)
++            assertEquals(null, field<Thread?>(service, "thread"))
++        } finally {
++            releaseCallback.countDown()
++            stopper.join(20_000)
++            service.stop()
++        }
++    }
++
++    /** Model a callback already completing work that cannot be cancelled by the notifier's interrupt. */
++    private fun awaitCallbackRelease(release: CountDownLatch) {
++        var interrupted = false
++        try {
++            while (true) {
++                try {
++                    check(release.await(10, TimeUnit.SECONDS)) { "Test callback was not released" }
++                    return
++                } catch (_: InterruptedException) {
++                    interrupted = true
++                }
++            }
++        } finally {
++            if (interrupted) Thread.currentThread().interrupt()
++        }
++    }
++
++    @Suppress("UNCHECKED_CAST")
++    private fun <T> field(owner: Any, name: String): T =
++        owner.javaClass.getDeclaredField(name).apply { isAccessible = true }.get(owner) as T
++
++    private class NotifyJdbc {
++        val connectionClosed = CountDownLatch(1)
++        private val delivered = AtomicBoolean()
++        private val notification = proxy(PGNotification::class.java) { name, _ ->
++            when (name) {
++                "getName" -> "shutdown_test"
++                "getParameter" -> "payload"
++                "getPID" -> 1
++                else -> error("Unexpected PGNotification.$name")
++            }
++        }
++        private val pgConnection = proxy(PGConnection::class.java) { name, _ ->
++            when (name) {
++                "getNotifications" -> if (delivered.compareAndSet(false, true)) arrayOf(notification) else null
++                else -> error("Unexpected PGConnection.$name")
++            }
++        }
++        private val connection = proxy(Connection::class.java) { name, _ ->
++            when (name) {
++                "setAutoCommit" -> null
++                "unwrap" -> pgConnection
++                "createStatement" -> statement()
++                "close" -> {
++                    connectionClosed.countDown()
++                    null
++                }
++                else -> error("Unexpected Connection.$name")
++            }
++        }
++        val dataSource: DataSource = proxy(DataSource::class.java) { name, _ ->
++            when (name) {
++                "getConnection" -> connection
++                else -> error("Unexpected DataSource.$name")
++            }
++        }
++
++        private fun statement(): Statement = proxy(Statement::class.java) { name, _ ->
++            when (name) {
++                "addBatch", "close" -> null
++                "executeBatch" -> intArrayOf(0)
++                "execute" -> true
++                else -> error("Unexpected Statement.$name")
++            }
++        }
++
++        private fun <T : Any> proxy(type: Class<T>, call: (String, Array<out Any?>) -> Any?): T =
++            type.cast(
++                Proxy.newProxyInstance(type.classLoader, arrayOf(type)) { _, method, arguments ->
++                    call(method.name, arguments ?: emptyArray())
++                },
++            )
++    }
++}
+diff --git a/central-app/src/test/kotlin/dev/or2/central/CentralShutdownTest.kt b/central-app/src/test/kotlin/dev/or2/central/CentralShutdownTest.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..8c65481280af02244c31f494c873d6bf7d72cbfe
+--- /dev/null
++++ b/central-app/src/test/kotlin/dev/or2/central/CentralShutdownTest.kt
+@@ -0,0 +1,114 @@
++package dev.or2.central
++
++import java.util.concurrent.CopyOnWriteArrayList
++import java.util.concurrent.CountDownLatch
++import java.util.concurrent.TimeUnit
++import java.util.concurrent.atomic.AtomicInteger
++import kotlin.test.Test
++import kotlin.test.assertEquals
++import kotlin.test.assertFails
++import kotlin.test.assertSame
++import kotlin.test.assertTrue
++
++class CentralShutdownTest {
++    @Test
++    fun concurrentStopsWaitForProducersAndPersistenceThenCloseDataSourceOnce() {
++        val producerEntered = CountDownLatch(1)
++        val releaseProducer = CountDownLatch(1)
++        val persistenceEntered = CountDownLatch(1)
++        val releasePersistence = CountDownLatch(1)
++        val secondCallerEntered = CountDownLatch(1)
++        val events = CopyOnWriteArrayList<String>()
++        val failures = CopyOnWriteArrayList<Throwable>()
++        val completed = AtomicInteger()
++        val shutdown = CentralShutdown { events.add("datasource") }
++        shutdown.producer {
++            producerEntered.countDown()
++            check(releaseProducer.await(5, TimeUnit.SECONDS))
++            events.add("producer")
++        }
++        shutdown.persistence {
++            persistenceEntered.countDown()
++            check(releasePersistence.await(5, TimeUnit.SECONDS))
++            events.add("persistence")
++        }
++        fun stop() {
++            try {
++                shutdown.stop()
++                completed.incrementAndGet()
++            } catch (failure: Throwable) {
++                failures.add(failure)
++            }
++        }
++        val first = Thread { stop() }
++        val second = Thread {
++            secondCallerEntered.countDown()
++            stop()
++        }
++
++        try {
++            first.start()
++            assertTrue(producerEntered.await(5, TimeUnit.SECONDS))
++            second.start()
++            assertTrue(secondCallerEntered.await(5, TimeUnit.SECONDS))
++            assertTrue(events.isEmpty())
++            assertEquals(0, completed.get())
++            releaseProducer.countDown()
++            assertTrue(persistenceEntered.await(5, TimeUnit.SECONDS))
++            assertEquals(listOf("producer"), events.toList())
++            assertEquals(0, completed.get())
++            releasePersistence.countDown()
++            first.join(5_000)
++            second.join(5_000)
++            assertTrue(failures.isEmpty(), "Unexpected stop failures: $failures")
++            assertEquals(2, completed.get())
++            shutdown.stop()
++            assertEquals(listOf("producer", "persistence", "datasource"), events.toList())
++        } finally {
++            releaseProducer.countDown()
++            releasePersistence.countDown()
++            first.join(5_000)
++            second.join(5_000)
++        }
++    }
++
++    @Test
++    fun producerFailuresAttemptEveryProducerButRetainPersistenceAndDataSource() {
++        val firstFailure = IllegalStateException("listener still active")
++        val lastFailure = IllegalStateException("notifier still active")
++        val events = mutableListOf<String>()
++        val shutdown = CentralShutdown { events.add("datasource") }
++        shutdown.producer {
++            events.add("first")
++            throw firstFailure
++        }
++        shutdown.producer { events.add("second") }
++        shutdown.producer {
++            events.add("third")
++            throw lastFailure
++        }
++        shutdown.persistence { events.add("persistence") }
++
++        val failure = assertFails { shutdown.stop() }
++        assertEquals(listOf("first", "second", "third"), events)
++        assertEquals(listOf(firstFailure, lastFailure), failure.suppressed.toList())
++        assertSame(failure, assertFails { shutdown.stop() })
++        assertEquals(listOf("first", "second", "third"), events, "Repeated stop must not rerun native cleanup")
++    }
++
++    @Test
++    fun persistenceFailureRetainsDataSourceAndTheSameTerminalFailure() {
++        val writeFailure = IllegalStateException("accepted write did not commit")
++        val events = mutableListOf<String>()
++        val shutdown = CentralShutdown { events.add("datasource") }
++        shutdown.producer { events.add("producer") }
++        shutdown.persistence {
++            events.add("persistence")
++            throw writeFailure
++        }
++
++        assertSame(writeFailure, assertFails { shutdown.stop() })
++        assertSame(writeFailure, assertFails { shutdown.stop() })
++        assertEquals(listOf("producer", "persistence"), events)
++    }
++}
+diff --git a/central-app/src/test/kotlin/dev/or2/central/embed/CentralEmbeddedShutdownTest.kt b/central-app/src/test/kotlin/dev/or2/central/embed/CentralEmbeddedShutdownTest.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..cafd4aa8d037923678613940464cf448899f89b6
+--- /dev/null
++++ b/central-app/src/test/kotlin/dev/or2/central/embed/CentralEmbeddedShutdownTest.kt
+@@ -0,0 +1,164 @@
++package dev.or2.central.embed
++
++import dev.or2.central.CentralShutdown
++import dev.or2.central.config.CentralConfig
++import dev.or2.central.config.HttpConfig
++import io.ktor.server.application.Application
++import io.ktor.server.application.ApplicationStopped
++import io.ktor.server.application.install
++import java.util.concurrent.CopyOnWriteArrayList
++import java.util.concurrent.CountDownLatch
++import java.util.concurrent.TimeUnit
++import java.util.concurrent.atomic.AtomicInteger
++import kotlin.test.Test
++import kotlin.test.assertEquals
++import kotlin.test.assertFails
++import kotlin.test.assertFalse
++import kotlin.test.assertSame
++import kotlin.test.assertTrue
++import org.koin.dsl.module
++import org.koin.ktor.ext.getKoin
++import org.koin.ktor.plugin.Koin
++
++class CentralEmbeddedShutdownTest {
++    @Test
++    fun capturedOwnerStopsAfterRealKoinTeardownAndPostgresClosesLast() {
++        val events = CopyOnWriteArrayList<String>()
++        lateinit var capturedKoin: org.koin.core.Koin
++        val server = server(
++            configure = { application ->
++                application.install(Koin) {
++                    modules(module { single { OwnedProducer { events.add("producer") } } })
++                }
++                capturedKoin = application.getKoin()
++                val owner = capturedKoin.get<OwnedProducer>()
++                val shutdown = CentralShutdown { events.add("datasource") }
++                CentralShutdown.install(application, shutdown)
++                shutdown.producer {
++                    assertFails { capturedKoin.get<OwnedProducer>() }
++                    events.add("koin-closed")
++                    owner.stop()
++                }
++                shutdown.persistence { events.add("persistence") }
++                application.monitor.subscribe(ApplicationStopped) { stopped ->
++                    events.add("application-stopped")
++                    CentralShutdown.stop(stopped)
++                }
++            },
++            stopPostgres = { events.add("postgres") },
++        )
++
++        try {
++            server.start()
++            capturedKoin.get<OwnedProducer>()
++            server.stop()
++            server.stop()
++            assertFails { capturedKoin.get<OwnedProducer>() }
++            assertEquals(
++                listOf("application-stopped", "koin-closed", "producer", "persistence", "datasource", "postgres"),
++                events.toList(),
++            )
++        } finally {
++            runCatching { server.stop() }
++        }
++    }
++
++    @Test
++    fun eventSubscriberFailureEscapesEveryConcurrentAndRepeatedStopWithoutClosingPostgres() {
++        val writeFailure = IllegalStateException("social write did not commit")
++        val events = CopyOnWriteArrayList<String>()
++        val stoppedEvents = AtomicInteger()
++        val failures = CopyOnWriteArrayList<Throwable>()
++        val callersReady = CountDownLatch(2)
++        val releaseCallers = CountDownLatch(1)
++        val server = server(
++            configure = { application ->
++                val shutdown = CentralShutdown { events.add("datasource") }
++                CentralShutdown.install(application, shutdown)
++                shutdown.producer { events.add("producer") }
++                shutdown.persistence {
++                    events.add("persistence")
++                    throw writeFailure
++                }
++                application.monitor.subscribe(ApplicationStopped) { stopped ->
++                    stoppedEvents.incrementAndGet()
++                    CentralShutdown.stop(stopped)
++                }
++            },
++            stopPostgres = { events.add("postgres") },
++        )
++        val callers = List(2) {
++            Thread {
++                callersReady.countDown()
++                check(releaseCallers.await(5, TimeUnit.SECONDS))
++                try {
++                    server.stop()
++                } catch (failure: Throwable) {
++                    failures.add(failure)
++                }
++            }
++        }
++
++        try {
++            server.start()
++            callers.forEach(Thread::start)
++            assertTrue(callersReady.await(5, TimeUnit.SECONDS))
++            releaseCallers.countDown()
++            callers.forEach { it.join(10_000) }
++            assertTrue(callers.none(Thread::isAlive))
++            assertEquals(2, failures.size, "Ktor must not swallow the cleanup result observed by embedded stop")
++            failures.forEach { assertSame(writeFailure, it) }
++            assertSame(writeFailure, assertFails { server.stop() })
++            assertEquals(1, stoppedEvents.get(), "The actual Ktor stopped event must have run")
++            assertEquals(listOf("producer", "persistence"), events.toList())
++        } finally {
++            releaseCallers.countDown()
++            callers.forEach { it.join(10_000) }
++            runCatching { server.stop() }
++        }
++    }
++
++    @Test
++    fun partialConfigurationFailureRetainsCreatedOwnersForExplicitStop() {
++        val startupFailure = IllegalStateException("configuration failed after owner creation")
++        val events = CopyOnWriteArrayList<String>()
++        val server = server(
++            configure = { application ->
++                val shutdown = CentralShutdown { events.add("datasource") }
++                CentralShutdown.install(application, shutdown)
++                shutdown.producer { events.add("created-producer") }
++                // No stopped subscriber is installed before this partial configuration failure.
++                throw startupFailure
++            },
++            stopPostgres = { events.add("postgres") },
++        )
++
++        try {
++            val failure = assertFails { server.start() }
++            assertTrue(failure.containsFailure(startupFailure))
++            assertFalse(events.contains("postgres"))
++            server.stop()
++            server.stop()
++            assertEquals(listOf("created-producer", "datasource", "postgres"), events.toList())
++        } finally {
++            runCatching { server.stop() }
++        }
++    }
++
++    private fun server(
++        configure: (Application) -> Unit,
++        stopPostgres: () -> Unit,
++    ): CentralEmbeddedServer = CentralEmbeddedServer(
++        config = CentralConfig(http = HttpConfig(port = 0)),
++        resolveConfig = { it to true },
++        configureApplication = { application, _ -> configure(application) },
++        stopPostgres = stopPostgres,
++    )
++
++    private fun Throwable.containsFailure(expected: Throwable): Boolean =
++        this === expected || cause?.containsFailure(expected) == true || suppressed.any { it.containsFailure(expected) }
++
++    private class OwnedProducer(private val stopAction: () -> Unit) {
++        fun stop() = stopAction()
++    }
++}
+diff --git a/central-app/src/test/kotlin/dev/or2/central/social/SocialGraphPersistenceShutdownTest.kt b/central-app/src/test/kotlin/dev/or2/central/social/SocialGraphPersistenceShutdownTest.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..782c76a663871c184a69885367181f5a65374cac
+--- /dev/null
++++ b/central-app/src/test/kotlin/dev/or2/central/social/SocialGraphPersistenceShutdownTest.kt
+@@ -0,0 +1,313 @@
++package dev.or2.central.social
++
++import java.lang.reflect.Proxy
++import java.sql.Connection
++import java.sql.PreparedStatement
++import java.sql.SQLException
++import java.util.concurrent.CopyOnWriteArrayList
++import java.util.concurrent.CountDownLatch
++import java.util.concurrent.LinkedBlockingQueue
++import java.util.concurrent.RejectedExecutionException
++import java.util.concurrent.ThreadPoolExecutor
++import java.util.concurrent.TimeUnit
++import java.util.concurrent.atomic.AtomicBoolean
++import java.util.concurrent.atomic.AtomicReference
++import javax.sql.DataSource
++import kotlin.test.Test
++import kotlin.test.assertEquals
++import kotlin.test.assertFails
++import kotlin.test.assertFailsWith
++import kotlin.test.assertFalse
++import kotlin.test.assertTrue
++
++class SocialGraphPersistenceShutdownTest {
++    @Test
++    fun flushWaitsForAcceptedWriteToCommit() {
++        val entered = CountDownLatch(1)
++        val release = CountDownLatch(1)
++        val jdbc = RecordingJdbc {
++            entered.countDown()
++            check(release.await(5, TimeUnit.SECONDS)) { "Test did not release JDBC write" }
++        }
++        val executor = TrackingExecutor()
++        val persistence = SocialGraphPersistence(CentralSocialRepository(jdbc.dataSource), executor, 5_000)
++        val flushFailure = AtomicReference<Throwable?>()
++        val flushed = CountDownLatch(1)
++        val stopper = Thread {
++            try {
++                persistence.flush()
++            } catch (failure: Throwable) {
++                flushFailure.set(failure)
++            } finally {
++                flushed.countDown()
++            }
++        }
++
++        try {
++            persistence.enqueueFriendAdd(11, 22)
++            assertTrue(entered.await(5, TimeUnit.SECONDS))
++            stopper.start()
++            assertTrue(executor.awaitEntered.await(5, TimeUnit.SECONDS))
++            assertEquals(1L, flushed.count, "Flush returned while the accepted write was still active")
++            assertTrue(jdbc.committed.isEmpty())
++            release.countDown()
++            assertTrue(flushed.await(5, TimeUnit.SECONDS))
++            assertEquals(null, flushFailure.get())
++            assertEquals(listOf(Write("friend-add", listOf(11, 22))), jdbc.committed.toList())
++            assertTrue(executor.isTerminated)
++        } finally {
++            release.countDown()
++            stopExecutor(executor)
++            stopper.join(5_000)
++        }
++    }
++
++    @Test
++    fun databaseFailureRemainsVisibleAcrossFlushCallsWithoutRetry() {
++        val databaseFailure = SQLException("deliberate database write failure")
++        val attempted = CopyOnWriteArrayList<Write>()
++        val jdbc = RecordingJdbc { write ->
++            attempted.add(write)
++            throw databaseFailure
++        }
++        val executor = TrackingExecutor()
++        val persistence = SocialGraphPersistence(CentralSocialRepository(jdbc.dataSource), executor, 5_000)
++
++        try {
++            persistence.enqueueFriendAdd(11, 22)
++            val first = assertFails { persistence.flush() }
++            val second = assertFails { persistence.flush() }
++            assertTrue(first.containsFailure(databaseFailure), "Flush must expose the original database failure")
++            assertTrue(second.containsFailure(databaseFailure), "A repeated flush must retain the failure")
++            assertEquals(listOf(Write("friend-add", listOf(11, 22))), attempted.toList())
++            assertTrue(jdbc.committed.isEmpty())
++            assertEquals(0, executor.forcedShutdowns)
++        } finally {
++            stopExecutor(executor)
++        }
++    }
++
++    @Test
++    fun timeoutPreservesActiveAndQueuedWritesUntilTheyCanComplete() {
++        val entered = CountDownLatch(1)
++        val release = CountDownLatch(1)
++        val interrupted = AtomicBoolean()
++        val jdbc = blockedJdbc(entered, release, interrupted)
++        val executor = TrackingExecutor()
++        val persistence = SocialGraphPersistence(CentralSocialRepository(jdbc.dataSource), executor, 1)
++
++        try {
++            persistence.enqueueFriendAdd(11, 22)
++            assertTrue(entered.await(5, TimeUnit.SECONDS))
++            persistence.enqueueFriendDelete(11, 22)
++            assertFails { persistence.flush() }
++            assertEquals(0, executor.forcedShutdowns)
++            assertFalse(interrupted.get())
++            assertFalse(executor.isTerminated)
++            assertEquals(1, executor.queue.size, "The accepted queued write must remain in the executor")
++            release.countDown()
++            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
++            assertEquals(
++                listOf(Write("friend-add", listOf(11, 22)), Write("friend-delete", listOf(11, 22))),
++                jdbc.committed.toList(),
++            )
++        } finally {
++            release.countDown()
++            stopExecutor(executor)
++        }
++    }
++
++    @Test
++    fun interruptedFlushPreservesInterruptAndAcceptedWrites() {
++        val entered = CountDownLatch(1)
++        val release = CountDownLatch(1)
++        val workerInterrupted = AtomicBoolean()
++        val jdbc = blockedJdbc(entered, release, workerInterrupted)
++        val executor = TrackingExecutor()
++        val persistence = SocialGraphPersistence(CentralSocialRepository(jdbc.dataSource), executor, 5_000)
++        val flushFailure = AtomicReference<Throwable?>()
++        val interruptPreserved = AtomicBoolean()
++        val stopper = Thread {
++            Thread.currentThread().interrupt()
++            try {
++                persistence.flush()
++            } catch (failure: Throwable) {
++                flushFailure.set(failure)
++            } finally {
++                interruptPreserved.set(Thread.currentThread().isInterrupted)
++            }
++        }
++
++        try {
++            persistence.enqueueFriendAdd(11, 22)
++            assertTrue(entered.await(5, TimeUnit.SECONDS))
++            persistence.enqueueIgnoreAdd(11, 33)
++            stopper.start()
++            stopper.join(5_000)
++            assertFalse(stopper.isAlive)
++            assertTrue(flushFailure.get() != null, "Interrupted drain must fail visibly")
++            assertTrue(interruptPreserved.get())
++            assertEquals(0, executor.forcedShutdowns)
++            assertFalse(workerInterrupted.get())
++            assertEquals(1, executor.queue.size)
++            release.countDown()
++            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
++            assertEquals(
++                listOf(Write("friend-add", listOf(11, 22)), Write("ignore-add", listOf(11, 33))),
++                jdbc.committed.toList(),
++            )
++        } finally {
++            release.countDown()
++            stopExecutor(executor)
++            stopper.join(5_000)
++        }
++    }
++
++    @Test
++    fun enqueueAfterShutdownFailsWithoutAcceptingWrite() {
++        val jdbc = RecordingJdbc()
++        val executor = TrackingExecutor()
++        val persistence = SocialGraphPersistence(CentralSocialRepository(jdbc.dataSource), executor, 5_000)
++
++        try {
++            persistence.flush()
++            assertFailsWith<RejectedExecutionException> { persistence.enqueueFriendAdd(11, 22) }
++            assertTrue(jdbc.committed.isEmpty())
++            assertTrue(executor.queue.isEmpty())
++        } finally {
++            stopExecutor(executor)
++        }
++    }
++
++    @Test
++    fun everyOperationPersistsInSubmissionOrderWithItsOriginalArguments() {
++        val jdbc = RecordingJdbc()
++        val executor = TrackingExecutor()
++        val persistence = SocialGraphPersistence(CentralSocialRepository(jdbc.dataSource), executor, 5_000)
++
++        try {
++            persistence.enqueueFriendAdd(11, 22)
++            persistence.enqueueFriendDelete(11, 22)
++            persistence.enqueueIgnoreAdd(11, 33)
++            persistence.enqueueIgnoreDelete(11, 33)
++            persistence.enqueuePrivateChatFilter(11, 2)
++            persistence.flush()
++            assertEquals(
++                listOf(
++                    Write("friend-add", listOf(11, 22)),
++                    Write("friend-delete", listOf(11, 22)),
++                    Write("ignore-add", listOf(11, 33)),
++                    Write("ignore-delete", listOf(11, 33)),
++                    Write("private-chat", listOf(11, 2)),
++                ),
++                jdbc.committed.toList(),
++            )
++            assertEquals(0, executor.forcedShutdowns)
++        } finally {
++            stopExecutor(executor)
++        }
++    }
++
++    private fun blockedJdbc(
++        entered: CountDownLatch,
++        release: CountDownLatch,
++        interrupted: AtomicBoolean,
++    ): RecordingJdbc = RecordingJdbc { write ->
++        if (write.operation == "friend-add") {
++            entered.countDown()
++            try {
++                check(release.await(5, TimeUnit.SECONDS)) { "Test did not release JDBC write" }
++            } catch (failure: InterruptedException) {
++                interrupted.set(true)
++                throw failure
++            }
++        }
++    }
++
++    private fun stopExecutor(executor: TrackingExecutor) {
++        executor.shutdown()
++        assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS), "Test executor did not terminate")
++    }
++
++    private fun Throwable.containsFailure(expected: Throwable): Boolean =
++        this === expected || cause?.containsFailure(expected) == true || suppressed.any { it.containsFailure(expected) }
++
++    private data class Write(val operation: String, val arguments: List<Int>)
++
++    /** Returning from executeUpdate represents the repository's auto-committed JDBC write. */
++    private class RecordingJdbc(private val beforeCommit: (Write) -> Unit = {}) {
++        val committed = CopyOnWriteArrayList<Write>()
++        val dataSource: DataSource = proxy(DataSource::class.java) { name, _ ->
++            when (name) {
++                "getConnection" -> connection()
++                else -> error("Unexpected DataSource.$name")
++            }
++        }
++
++        private fun connection(): Connection = proxy(Connection::class.java) { name, arguments ->
++            when (name) {
++                "prepareStatement" -> statement(arguments[0] as String)
++                "close" -> null
++                else -> error("Unexpected Connection.$name")
++            }
++        }
++
++        private fun statement(sql: String): PreparedStatement {
++            val parameters = sortedMapOf<Int, Int>()
++            val operation = when {
++                sql.startsWith("INSERT INTO character_friends") -> "friend-add"
++                sql.startsWith("DELETE FROM character_friends") -> "friend-delete"
++                sql.startsWith("INSERT INTO character_ignores") -> "ignore-add"
++                sql.startsWith("DELETE FROM character_ignores") -> "ignore-delete"
++                sql.startsWith("INSERT INTO character_chat_filters") -> "private-chat"
++                else -> error("Unexpected write SQL: $sql")
++            }
++            return proxy(PreparedStatement::class.java) { name, arguments ->
++                when (name) {
++                    "setInt" -> {
++                        parameters[arguments[0] as Int] = arguments[1] as Int
++                        null
++                    }
++                    "executeUpdate" -> {
++                        val write = Write(operation, parameters.values.toList())
++                        beforeCommit(write)
++                        committed.add(write)
++                        1
++                    }
++                    "close" -> null
++                    else -> error("Unexpected PreparedStatement.$name")
++                }
++            }
++        }
++
++        private fun <T : Any> proxy(type: Class<T>, call: (String, Array<out Any?>) -> Any?): T =
++            type.cast(
++                Proxy.newProxyInstance(type.classLoader, arrayOf(type)) { _, method, arguments ->
++                    call(method.name, arguments ?: emptyArray())
++                },
++            )
++    }
++
++    private class TrackingExecutor : ThreadPoolExecutor(
++        1,
++        1,
++        0,
++        TimeUnit.MILLISECONDS,
++        LinkedBlockingQueue(),
++        { task -> Thread(task, "social-persistence-test").apply { isDaemon = true } },
++    ) {
++        val awaitEntered = CountDownLatch(1)
++        var forcedShutdowns = 0
++            private set
++
++        override fun awaitTermination(timeout: Long, unit: TimeUnit): Boolean {
++            awaitEntered.countDown()
++            return super.awaitTermination(timeout, unit)
++        }
++
++        override fun shutdownNow(): MutableList<Runnable> {
++            forcedShutdowns++
++            return super.shutdownNow()
++        }
++    }
++}
