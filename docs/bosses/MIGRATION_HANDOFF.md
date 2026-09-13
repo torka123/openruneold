@@ -4,7 +4,21 @@ This is a resumable handoff, not a project-completion or full OSRS-parity claim.
 mechanic mappings, uncertainties, commands and results remain in [DSL_MIGRATION.md](DSL_MIGRATION.md).
 Update this checkpoint after each completed boss and immediately before any authorized deployment.
 
-## Current runtime checkpoint: September13 crash recovery
+## Current runtime checkpoint: September13, two verified restarts complete
+
+JVM23812 is ONLINE from04:40 EDT on43594/8080/9091, canonical checkpoint `c4fc9390f`.
+Nex protected access `444a39eb3`, Central dependency `07b00480e` and client/activity shutdown
+`0f729d055` are deployed. Both ordinary restarts20364 ->25096 ->23812 passed native save/closure,
+actual process exit, replacement startup, doctor and inventory/bank/realm persistence checks.
+Revision240, SERVER/LIVE hashes and `.data/postgres` authority are unchanged. A fresh offline
+1,243-file PostgreSQL backup and4,393-file source archive were verified before replacement boot.
+Full evidence/receipts/hashes and build-marker limitation are in the current Nex ledger.
+
+Next: approved M21 clicked-prison ownership/cancellation mapping and focused implementation;
+preserve the unresolved E07 timing/damage/geometry evidence. Full Nex remains incomplete. Raid
+bosses remain after Nex/Yama/Doom/DT2/separate Dagannoth Kings review, in ToA/ToB/CoX order.
+
+## Prior source and crash-recovery checkpoint (historical)
 
 Latest boss source checkpoint **444a39eb3** (`backup/nex-protected-access-20260913`): M01/M02
 barrier, altar and `::nex` native protected movement is implemented and verified by98 Nex and155

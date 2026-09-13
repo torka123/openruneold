@@ -1,6 +1,50 @@
 # Nex revision-240 evidence ledger and approval mapping
 
-## Current source increment: M01/M02 protected access and travel
+## Current deployed checkpoint: September13, 04:40 EDT
+
+JVM23812 is ONLINE on game43594/HTTP8080/WorldLink9091, canonical source checkpoint `c4fc9390f`.
+This includes Nex protected-access source `444a39eb3`, native save/empty-world fixes, permanent
+Central dependency `07b00480e` and game-side client/activity shutdown `0f729d055`.
+Both required ordinary controlled restarts completed: JVM20364 ->25096 ->23812, with fresh native
+receipts `39ab6a15-7209-49fd-989c-1fab320f1042` and `823c8563-4eac-4a2e-b763-66f890d4d654`.
+Each old process exited naturally and each replacement reached ready with all three listeners.
+Native preflight reported committed0/players0/pending0 for these empty-world restart checks.
+This does not claim a new client login/combat/visual acceptance test.
+
+The preceding legacy JVM1856 handover completed natively at04:33:18, after committed5877,
+players0/pending0. Fresh receipt `7f7aca82-7aad-453f-9577-3e314f048609` preceded normal exit.
+No hard kill, failed-save discard, failure-state reset or System.exit was used. Before replacement
+boot, `.data/postgres` was copied offline to `postgres-before-central-deploy` in the recovery dir;
+all1,243 files were verified byte-for-byte. The original pre-crash-recovery backup remains intact.
+
+Evidence directory: `logs/crash-recovery-20260913-025956/`. Both `doctor-central-s10-restart*.log`
+complete with canonical user.dir, unchanged SERVER/LIVE dat2 hashes and revision240. Both
+`persistence-central-s10-restart*.log` match the before-handover23 containers,1,153 inventory/bank
+rows and1 realm fingerprint. Final classpath audit verifies one patched Central jar from the pinned
+checkout, no old Maven Central jar, and canonical app/net/Nex paths. The custom build marker is
+present; its legacy Git branch/commit fields say unavailable, so it is not used alone as artifact
+identity proof. Startup/checkpoint/classpath evidence establishes the deployed source selection.
+Startup logs for the two ordinary restarts are under `logs/cerberus-audit-20260907/` with numbers
+202609131 and202609132. The original historical10576 failed restart remains recorded as failed.
+
+Complete source snapshot `logs/central-s10-ready-source-20260913.zip`:4,393 verified source files,
+zero excluded paths; SHA256 `0557EAEED5ADEA6E858BB8799E9D390DFDFEF7B1131B62BBC9EA4D047B3D3028`.
+Backup branch `backup/central-s10-ready-20260913` points to `c4fc9390f`. This archive excludes
+PostgreSQL/caches/credentials/generated output and is separate from the verified offline DB backup.
+Build and behavioral verification passed before deployment:31 Central focused tests,12 new native
+client/writer tests,1,061 boss cases and297 shared/app cases, scoped checks/assemble/architecture.
+
+Next source deliverable: bounded approved M21 prison ownership/cancellation. Map the actual clicked
+native loc to its captured prison/target, prevent a removed/replaced prison from delivering its old
+expiry hit, and clean up owned locs. Mapping/regression review is in progress; no M21 source edits
+yet. Existing timing/damage/geometry constants remain characterized under E07. Full native public/
+private sessions, other mechanics/rewards/evidence gaps below remain open; Nex is not complete.
+Existing order remains Nex ->Yama ->Doom ->DT2 ->separate Dagannoth Kings review ->ToA ->ToB ->CoX.
+
+## Source verification history: M01/M02 protected access and S10
+
+The source-only/runtime-hold statements in this historical section describe pre-deployment checks;
+the current deployed status and next deliverable are recorded above.
 
 Completed source checkpoint **444a39eb3**, backup branch `backup/nex-protected-access-20260913`.
 Source-only archive `logs/nex-protected-access-source-20260913.zip` contains4,387 files and

@@ -2,11 +2,12 @@
 
 ## Authority and preservation
 
-Current September13 checkpoint: server restored online as JVM1856 on source9e592b389 after gated
-native crash/shutdown recovery. M01/M02 Nex access source444a39eb3 is backed up and verified
-(Nex98/shared155; build/checks pass), not deployed. The [Nex ledger](nex/NEX_OSRS_AUDIT.md) is the
-current increment authority; [handoff](MIGRATION_HANDOFF.md) records runtime status. Permanent
-Central native shutdown correction and two verified restarts remain the deployment hold.
+Current September13 checkpoint: JVM23812 is online on sourcec4fc9390f after native legacy handover
+and two verified ordinary restarts. M01/M02 Nex access444a39eb3 and permanent Central/client shutdown
+fixes07b00480e/0f729d055 are deployed. Final checks contain1,061 boss and297 shared/app cases;
+doctor, canonical caches and inventory/bank/realm persistence checks pass after both restarts.
+The [Nex ledger](nex/NEX_OSRS_AUDIT.md) is the current increment/evidence authority and records
+backups, receipts, remaining limitations and next approved M21 ownership/cancellation mapping.
 
 September13 continuation instructions are authoritative: recover the actual source/test/runtime
 checkpoint, reuse verified findings and existing approvals, implement small complete increments,
