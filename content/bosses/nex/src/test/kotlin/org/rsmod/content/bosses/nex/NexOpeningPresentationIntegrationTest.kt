@@ -96,9 +96,15 @@ class NexOpeningPresentationIntegrationTest {
                     replacementOutput = record(f, npc)
                 } else {
                     assertEquals(
-                        npc.type.respawnDir,
+                        when (npc.type.id) {
+                            11283 -> Direction.SouthEast
+                            11284 -> Direction.SouthWest
+                            11285 -> Direction.NorthWest
+                            11286 -> Direction.NorthEast
+                            else -> error("Unexpected bodyguard: ${npc.type.id}")
+                        },
                         npc.respawnDir,
-                        "Guard directions remain unchanged",
+                        "Native Create sees the captured inward guard direction",
                     )
                 }
             }

@@ -72,7 +72,9 @@ passes real lost-ack/unsent-commit tests,8 DB/507 shared,155 Nex/1,118 boss,68 d
 (2,101 total), scoped checks/architecture/app assemble; four-file archive verified. Native ground
 registration results now pass six new groups and86 selected repo/registry/drop cases; unchanged
 results remain valid for2,107 total. Scoped checks/architecture/app assemble and three-file archive
-pass. Next: captured inward-facing bodyguard presentation through native Create/post-tick.
+pass; commit802cdf96e. Captured inward-facing bodyguards now pass157 Nex cases, scoped checks/
+architecture/app assemble, with2,109 total valid results. Next: captured helper attack animations
+through the existing native DSL.
 Receipt reconciliation,
 complete unresolved-player handling, tracked ground quantities/lifecycle and restart policy remain gates.
 M04 cooldown/equipment, M20 general placement/clipping and normal timing evidence remain missing. All these
@@ -1217,6 +1219,50 @@ Build passed; native references/timers/rejections and Boolean parity verified. N
 durable ground projection is enabled. SOURCE ONLY; JVM23812/c4fc9390f remains deployed.
 Next independent ready increment: M06 captured inward guard facing using prepared native spawn
 direction and post-tick face angle. S04 receipt/save/lifecycle and restart policy gates remain open.
+
+Ground-result commit802cdf96e, backup `backup/nex-s04-ground-result-20260913`.
+
+## Completed source increment: M06 bodyguard inward facing
+
+Retained3284 add/face pairs L8686-87,8716-17,8745-46,8774-75 and corroborating808
+L3586-87,3615-16,3645-46,3676-77 agree: Fumus11283 SouthEast/1792, Umbra11284
+SouthWest/256, Cruor11285 NorthWest/768, Glacies11286 NorthEast/1280. All four native
+type defaults are South, so current spawnNpc leaves the captured directions unimplemented.
+This is a direction-only correction under the approved M06 mapping, independent of S04.
+
+Use the same existing prepared InstanceManager.spawnFixedNpc and native facing workflow used
+by the completed Nex opening correction. Before spawnFixedNpc, set guard respawnDir and its
+matching pendingFaceAngle=EntityFaceAngle(direction.angle). NetworkScript283-294 allocates the
+native avatar with respawnDir during Create; NpcPostTickProcess155-168 emits/consumes pending
+face angle. Existing main NexWest and Reaver defaults remain separate. No shared API/cache edit.
+
+Acceptance: initial and native completed-round replacement rosters have all four captured
+directions at their existing anchors. Replacement Create callbacks observe exact direction/angle
+and already assigned native session ownership. Actual NPC post-tick emits each angle once and
+consumes it, without changing actor count, HP, collision, readiness or eager guard creation.
+Update the obsolete OpeningPresentationIntegrationTest assertion that guards retain type-default
+directions. Characterize unchanged opening timing; Grid Master captures do not establish normal
+spawn intervals, staged casting effects or full presentation parity. Root owns production/builds;
+one bounded test agent owns only a new guard-facing test and that old assertion. Focused tests
+first, then Nex check/scoped formatting/architecture/app assemble; reuse unaffected shared/boss/ToA.
+
+Verification: `logs/nex-m06-guard-facing-focused-20260913.log` passes six facing/opening/placement
+groups in23s. Two new groups exercise all four initial directions and completed native death/round
+replacement, session ownership at Create, exact angle output once, consumption and unchanged
+readiness. Independent native Create/Spawn/post-tick review found no facing reset or other defect.
+Final `logs/nex-m06-guard-facing-checks-20260913.log` passes in59s,473 tasks/15 executed/458 up-to-date:
+all157 Nex cases, zero failures/errors/skips; scoped formatting/checks, architecture and app assemble.
+Unchanged963 other boss,513 shared,68 drops and408 ToA cases remain valid:2,109 total. Fresh/combined
+manifests are logs/nex-m06-guard-facing-test-results-20260913.json and
+logs/nex-m06-guard-facing-valid-test-results-20260913.json; no full-suite rerun is claimed.
+
+Changed files: NexEncounterManager.kt, new NexBodyguardFacingIntegrationTest.kt and the obsolete
+guard-direction assertion in NexOpeningPresentationIntegrationTest.kt. Build passed and native
+facing behavior verified; encoded add-header bytes and live client visuals are not verified.
+Archive `logs/nex-m06-guard-facing-source-20260913.zip`:three byte-verified files,
+SHA256 `640206FC4BFADEF3724E53CB02774E598352F8F515C2359F8932579DEAF1F8B7`.
+SOURCE ONLY; JVM23812/c4fc9390f remains deployed. Next: independently captured1979/9194 helper attack
+animations through Effect.NpcAttack; all damage/projectile/prayer/normal timing gaps stay recorded.
 
 ## Source verification history: M01/M02 protected access and S10
 

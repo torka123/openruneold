@@ -46,7 +46,9 @@ outcome API now passes actual lost-ack/unsent-commit tests,8 DB/507 shared,155 N
 and408 ToA (2,101 total), scoped checks/architecture/app assemble; four-file archive verified.
 Native ground registration results now pass6 new groups/86 selected tests, with2,107 total valid
 results including reused suites; scoped checks/architecture/app assemble and3-file archive pass.
-Next: M06 captured inward guard facing through native Create/post-tick. Receipt/save/
+M06 captured inward guard facing now passes157 Nex tests and2,109 total valid results; scoped
+checks/architecture/app assemble and3-file archive pass. Next: captured1979/9194 helper attack
+animations through the existing DSL. Receipt/save/
 lifecycle composition, tracked quantities and restart policy remain gates; SOURCE ONLY. M04 cooldown/equipment and
 M20 general placement/clipping remain evidence gaps. Boosted-floor evidence remains
 separate. Full local/pinned searches verified the missing fixed

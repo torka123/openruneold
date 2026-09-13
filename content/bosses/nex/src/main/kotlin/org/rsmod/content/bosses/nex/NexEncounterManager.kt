@@ -1284,6 +1284,19 @@ constructor(
             npc.defenceDrainMinimum = NEX_DEFENCE_DRAIN_MINIMUM
             npc.respawnDir = Direction.West
         }
+        val guardDirection =
+            when (id) {
+                FUMUS_ID -> Direction.SouthEast
+                UMBRA_ID -> Direction.SouthWest
+                CRUOR_ID -> Direction.NorthWest
+                GLACIES_ID -> Direction.NorthEast
+                else -> null
+            }
+        if (guardDirection != null) {
+            // Prepare both native add-header direction and the captured explicit face update.
+            npc.respawnDir = guardDirection
+            npc.pendingFaceAngle = EntityFaceAngle(guardDirection.angle)
+        }
         if (!instances.spawnFixedNpc(session, npc)) return null
         // Retain Nex's source identity through native death and Wrath. NexCombat disables her
         // automatic reveal; the room owns replacement. Minions retire through native deletion.
