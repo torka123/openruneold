@@ -71,7 +71,7 @@ class NexMinionLifecycleIntegrationTest {
                 { it.player.pendingLogout = true },
                 { it.player.clientDisconnected.set(true) },
                 { it.player.loggingOut = true },
-                { it.manager.exit(it.player) },
+                { it.exit() },
                 { it.manager.playerLoggedOut(it.player) },
                 { it.player.statMap.setCurrentLevel("stat.hitpoints", 0) },
             )

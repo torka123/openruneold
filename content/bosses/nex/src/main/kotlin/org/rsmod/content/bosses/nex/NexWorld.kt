@@ -4,21 +4,26 @@ import dev.openrune.ServerCacheManager
 import jakarta.inject.Inject
 import org.rsmod.api.player.events.interact.LocCoordEvents
 import org.rsmod.api.player.output.mes
+import org.rsmod.api.player.protect.ProtectedAccessLauncher
 import org.rsmod.api.script.onCommand
 import org.rsmod.api.script.onOpLoc1
 import org.rsmod.api.script.onProtectedEvent
 import org.rsmod.plugin.scripts.PluginScript
 import org.rsmod.plugin.scripts.ScriptContext
 
-internal class NexWorld @Inject constructor(private val encounters: NexEncounterManager) :
-    PluginScript() {
+internal class NexWorld
+@Inject
+constructor(
+    private val encounters: NexEncounterManager,
+    private val protectedAccess: ProtectedAccessLauncher,
+) : PluginScript() {
     override fun ScriptContext.startup() {
         encounters.startup()
 
         val passKey = LocCoordEvents.key(BARRIER_CONTROLLER, NEX_BARRIER)
         onProtectedEvent<LocCoordEvents.Op1>(passKey) {
             arriveDelay()
-            encounters.enter(player)
+            encounters.enter(this)
         }
         val peekKey = LocCoordEvents.key(BARRIER_CONTROLLER, NEX_BARRIER)
         onProtectedEvent<LocCoordEvents.Op3>(peekKey) {
@@ -40,7 +45,8 @@ internal class NexWorld @Inject constructor(private val encounters: NexEncounter
         val altarExitKey = LocCoordEvents.key(ZAROS_ALTAR, NEX_ALTAR)
         onProtectedEvent<LocCoordEvents.Op2>(altarExitKey) {
             arriveDelay()
-            if (!encounters.exit(player)) player.mes("You are not inside Nex's chamber.")
+            if (!encounters.isParticipant(player)) player.mes("You are not inside Nex's chamber.")
+            else encounters.exit(this)
         }
 
         onOpLoc1(requireLoc(ICE_PRISON_LOC)) {
@@ -57,7 +63,15 @@ internal class NexWorld @Inject constructor(private val encounters: NexEncounter
         onCommand("nex") {
             desc = "Teleport to the safe Ancient Prison bank room"
             invalidArgs = "Use as ::nex"
-            cheat { if (args.isEmpty()) encounters.teleportBank(player) }
+            cheat {
+                if (args.isEmpty())
+                    protectedAccess.launch(
+                        player,
+                        "Finish what you are doing before travelling to the Ancient Prison.",
+                    ) {
+                        encounters.teleportBank(this)
+                    }
+            }
         }
     }
 

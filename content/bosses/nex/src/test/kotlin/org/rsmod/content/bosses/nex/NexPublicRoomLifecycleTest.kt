@@ -86,7 +86,7 @@ class NexPublicRoomLifecycleTest {
         val f = NexMinionTestWorld(enterRoom = false)
         val boss = f.npc(11278)
         val encounter = f.encounters.of(boss)
-        assertTrue(f.manager.enter(f.player))
+        assertTrue(f.enter())
         val start = f.clock.cycle
         f.tick(4)
         assertEquals("SPAWNING", encounter.currentPhaseName)
@@ -125,7 +125,8 @@ class NexPublicRoomLifecycleTest {
         val f = NexMinionTestWorld(enterRoom = false)
         repeat(3) {
             f.players[f.player.slotId] = f.player
-            assertTrue(f.manager.enter(f.player))
+            f.player.coords = NEX_BANK_RETURN
+            assertTrue(f.enter())
             val old = f.npc(11278)
             val encounter = f.encounters.of(old)
             f.manager.playerLoggedOut(f.player)

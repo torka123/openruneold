@@ -280,7 +280,8 @@ class NexMainNativeCombatTest {
             assertEquals(5, f.npcs.count(), "Old actors leaked across reset")
             assertEquals(0, f.encounters.of(fresh).phaseAbilityCount)
             // Public auto-reentry remains separately mapped lifecycle debt; exercise normal entry.
-            assertTrue(f.manager.enter(f.player))
+            f.player.coords = NEX_BANK_RETURN
+            assertTrue(f.enter())
             f.tick(5)
         }
     }

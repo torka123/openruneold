@@ -23,7 +23,9 @@ import org.rsmod.api.player.hit.modifier.NpcBypassProtectionPrayerPlayerHitModif
 import org.rsmod.api.player.hit.modifier.NpcCalculatedProtectionPrayerPlayerHitModifier
 import org.rsmod.api.player.hit.modifier.NpcPartialProtectionPrayerPlayerHitModifier
 import org.rsmod.api.player.hit.queueHit
+import org.rsmod.api.player.hook.TeleportType
 import org.rsmod.api.player.output.mes
+import org.rsmod.api.player.protect.ProtectedAccess
 import org.rsmod.api.player.stat.hitpoints
 import org.rsmod.api.player.stat.statHeal
 import org.rsmod.api.player.stat.statSub
@@ -76,22 +78,33 @@ constructor(
         worldQueues.add(1) { if (run == null) spawnFresh() }
     }
 
-    fun teleportBank(player: Player): Boolean {
-        if (player.hitpoints <= 0 || player.isAccessProtected) {
+    fun teleportBank(access: ProtectedAccess): Boolean {
+        val player = access.player
+        val uid = player.uid
+        if (player.hitpoints <= 0) {
             player.mes("Finish what you are doing before travelling to the Ancient Prison.")
             return false
         }
+        if (player.coords == NEX_BANK_TELEPORT) return false
+        access.telejump(NEX_BANK_TELEPORT, TeleportType.Exempt)
+        if (
+            player.coords != NEX_BANK_TELEPORT ||
+                uid.resolve(players) !== player ||
+                player.uid != uid
+        )
+            return false
         leaveAll(player, reason = "travelled to the bank room")
         prepare(player)
-        PathingEntityCommon.telejump(player, collision, NEX_BANK_TELEPORT)
         setBarrierState(player)
         player.mes("You arrive in the safe Ancient Prison bank room.")
         return true
     }
 
-    fun enter(player: Player): Boolean {
+    fun enter(access: ProtectedAccess): Boolean {
+        val player = access.player
+        val uid = player.uid
         val current = run ?: return false
-        if (player.hitpoints <= 0 || player.isAccessProtected) {
+        if (player.hitpoints <= 0) {
             player.mes("Finish what you are doing before passing the barrier.")
             return false
         }
@@ -99,8 +112,21 @@ constructor(
             player.mes("The barrier is sealed while Nex is being fought.")
             return false
         }
+        // The native movement API returns Unit. A same-tile request cannot establish arrival.
+        if (player.coords == NEX_ARENA_ENTRY) return false
+        access.telejump(NEX_ARENA_ENTRY, TeleportType.Exempt)
+        // Native hooks may retire the room before movement commits. Never attach to that old run.
+        if (
+            player.coords != NEX_ARENA_ENTRY ||
+                uid.resolve(players) !== player ||
+                player.uid != uid ||
+                player.hitpoints <= 0 ||
+                !isActiveRun(current) ||
+                !bossEncounters.isAttached(current.boss, current.encounter) ||
+                current.state !in setOf(NexState.IDLE, NexState.SPAWNING)
+        )
+            return false
         prepare(player)
-        PathingEntityCommon.telejump(player, collision, NEX_ARENA_ENTRY)
         current.participants += player.uid
         current.flags.putIfAbsent(player.uid, NexAchievementFlags())
         player.lootDropDuration = NEX_DROP_DURATION
@@ -110,10 +136,21 @@ constructor(
         return true
     }
 
-    fun exit(player: Player): Boolean {
+    fun exit(access: ProtectedAccess): Boolean {
+        val player = access.player
+        val uid = player.uid
         val current = run ?: return false
         if (player.uid !in current.participants) return false
-        leave(current, player, teleport = true, reason = "used the Zaros altar exit")
+        if (player.coords == NEX_BANK_RETURN) return false
+        access.telejump(NEX_BANK_RETURN, TeleportType.Standard)
+        if (
+            player.coords != NEX_BANK_RETURN ||
+                uid.resolve(players) !== player ||
+                player.uid != uid ||
+                !isActiveRun(current)
+        )
+            return false
+        leave(current, player, reason = "used the Zaros altar exit")
         player.mes("You return to the Ancient Prison bank room.")
         return true
     }
@@ -146,7 +183,7 @@ constructor(
                 !bossEncounters.isAttached(chamber.boss, chamber.encounter) ||
                     !activeParticipant(chamber, player)
             )
-                leave(chamber, player, teleport = false, reason = "left the chamber")
+                leave(chamber, player, reason = "left the chamber")
             else tickPlayerEffects(chamber, player)
         }
         setBarrierState(player)
@@ -365,7 +402,7 @@ constructor(
             .filter { player.uid in it.participants }
             .forEach { current ->
                 current.flags[player.uid]?.playerDeath = true
-                leave(current, player, teleport = false, reason = "player death")
+                leave(current, player, reason = "player death")
             }
     }
 
@@ -989,14 +1026,12 @@ constructor(
         current.temporaryLocs.clear()
     }
 
-    private fun leave(current: Run, player: Player, teleport: Boolean, reason: String) {
+    private fun leave(current: Run, player: Player, reason: String) {
         if (!current.participants.remove(player.uid)) return
         current.coughUntil.remove(player.uid)
         current.prisonedUntil.remove(player.uid)
         player.lootDropDuration = null
         prepare(player)
-        if (teleport && player.isSlotAssigned)
-            PathingEntityCommon.telejump(player, collision, NEX_BANK_RETURN)
         setBarrierState(player)
         log.info {
             "[Nex:${current.arena.name}] player=${player.displayName} " +
@@ -1007,7 +1042,7 @@ constructor(
     private fun leaveAll(player: Player, reason: String) {
         activeRuns()
             .filter { player.uid in it.participants }
-            .forEach { leave(it, player, teleport = false, reason = reason) }
+            .forEach { leave(it, player, reason = reason) }
     }
 
     private fun keepAggressive(current: Run) {

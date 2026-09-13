@@ -7,6 +7,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeAll
 import org.mockito.Mockito.*
 import org.rsmod.annotations.InternalApi
+import org.rsmod.api.area.checker.AreaChecker
 import org.rsmod.api.bosses.runtime.BossDeps
 import org.rsmod.api.bosses.runtime.BossExtensionRegistry
 import org.rsmod.api.bosses.runtime.EncounterRegistry
@@ -30,6 +31,12 @@ import org.rsmod.api.npc.hit.processor.StandardNpcHitProcessor
 import org.rsmod.api.npc.hit.queueHit
 import org.rsmod.api.npc.interact.AiPlayerInteractions
 import org.rsmod.api.player.hit.DeferredPlayerHit
+import org.rsmod.api.player.hook.PlayerTeleportHook
+import org.rsmod.api.player.hook.PlayerTeleportHooks
+import org.rsmod.api.player.hook.PlayerTeleportValidateHook
+import org.rsmod.api.player.hook.PlayerTeleportValidator
+import org.rsmod.api.player.hook.TeleportType
+import org.rsmod.api.player.interact.LocInteractions
 import org.rsmod.api.player.protect.ProtectedAccessContext
 import org.rsmod.api.player.protect.ProtectedAccessContextFactory
 import org.rsmod.api.player.protect.ProtectedAccessLauncher
@@ -39,6 +46,7 @@ import org.rsmod.api.registry.npc.NpcRegistry
 import org.rsmod.api.repo.loc.LocRepository
 import org.rsmod.api.repo.npc.NpcRepository
 import org.rsmod.api.repo.world.WorldRepository
+import org.rsmod.api.route.BoundValidator
 import org.rsmod.api.utils.logging.GameExceptionHandler
 import org.rsmod.events.EventBus
 import org.rsmod.game.MapClock
@@ -49,9 +57,14 @@ import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
 import org.rsmod.game.hit.Hit
 import org.rsmod.game.hit.HitType
+import org.rsmod.game.interact.InteractionOp
+import org.rsmod.game.loc.BoundLocInfo
+import org.rsmod.game.loc.LocEntity
+import org.rsmod.game.loc.LocInfo
 import org.rsmod.game.proj.ProjAnim
 import org.rsmod.game.queue.EngineQueueCache
 import org.rsmod.game.queue.WorldQueueList
+import org.rsmod.map.CoordGrid
 import org.rsmod.plugin.scripts.ScriptContext
 import org.rsmod.routefinder.collision.CollisionFlagMap
 
@@ -152,6 +165,7 @@ internal class NexMinionTestWorld(
 ) {
     val clock = MapClock().apply { cycle = 100 }
     val events = EventBus()
+    val commands = CheatCommandMap()
     val players = PlayerList()
     val npcs = NpcList()
     val collision = CollisionFlagMap()
@@ -277,6 +291,23 @@ internal class NexMinionTestWorld(
             )
         )
     private val queues = NpcQueueProcessor(events, launcher)
+    var beforeTeleport: (Player, CoordGrid, TeleportType) -> Unit = { _, _, _ -> }
+    var teleportDenial: String? = null
+    val validatedTeleports = mutableListOf<TeleportType>()
+    private val teleportValidator =
+        PlayerTeleportValidator(
+            setOf(
+                PlayerTeleportValidateHook { _, type, _ ->
+                    validatedTeleports += type
+                    teleportDenial
+                }
+            )
+        )
+    private val areaChecker = mock(AreaChecker::class.java)
+    private val teleportHooks =
+        PlayerTeleportHooks(
+            setOf(PlayerTeleportHook { target, dest, type -> beforeTeleport(target, dest, type) })
+        )
     private val playerContext =
         mock(ProtectedAccessContext::class.java) { call ->
             when (call.method.name) {
@@ -285,21 +316,20 @@ internal class NexMinionTestWorld(
                 "getNpcList" -> npcs
                 "getPlayerList" -> players
                 "getCollision" -> collision
+                "getTeleportHooks" -> teleportHooks
+                "getTeleportValidator" -> teleportValidator
+                "getAreaChecker" -> areaChecker
                 else -> RETURNS_DEFAULTS.answer(call)
             }
         }
-    private val playerQueues =
-        PlayerQueueProcessor(
-            events,
-            ProtectedAccessLauncher(
-                mock(ProtectedAccessContextFactory::class.java) { playerContext }
-            ),
-        )
+    val playerLauncher =
+        ProtectedAccessLauncher(mock(ProtectedAccessContextFactory::class.java) { playerContext })
+    private val playerQueues = PlayerQueueProcessor(events, playerLauncher)
 
     init {
         players[1] = player
         for (x in 360..368) for (z in 647..653) collision.allocateIfAbsent(x * 8, z * 8, 0)
-        val context = ScriptContext(events, CheatCommandMap(), EngineQueueCache())
+        val context = ScriptContext(events, commands, EngineQueueCache())
         with(NpcHitScript()) { context.startup() }
         with(PlayerHitScript()) { context.startup() }
         val death =
@@ -314,19 +344,57 @@ internal class NexMinionTestWorld(
             else mock(NpcDeath::class.java)
         with(NexCombat(manager, death, deps)) { context.startup() }
         with(lifecycle) { context.startup() }
-        manager.startup()
+        with(NexWorld(manager, playerLauncher)) { context.startup() }
         tick()
         if (enterRoom) {
-            assertTrue(manager.enter(player))
+            assertTrue(enter(player))
             partner?.let {
                 players[2] = it
-                assertTrue(manager.enter(it))
+                assertTrue(enter(it))
             }
             tick(5)
         }
     }
 
     fun npc(id: Int): Npc = npcs.first { it.type.id == id }
+
+    fun passBarrier(target: Player = player, coords: CoordGrid = NEX_BARRIER): Boolean {
+        val type = requireNotNull(ServerCacheManager.getObject(42967))
+        val loc = BoundLocInfo(LocInfo(1, coords, LocEntity(42967, 10, 0)), type)
+        val trigger =
+            LocInteractions(BoundValidator(collision), events)
+                .opTrigger(target, loc, InteractionOp.Op1) ?: return false
+        return playerLauncher.launch(target) { check(events.publish(this, trigger)) }
+    }
+
+    fun travelBank(target: Player = player): Boolean {
+        var travelled = false
+        playerLauncher.launch(target) { travelled = manager.teleportBank(this) }
+        return travelled
+    }
+
+    fun enter(target: Player = player): Boolean {
+        var entered = false
+        playerLauncher.launch(target) { entered = manager.enter(this) }
+        return entered
+    }
+
+    fun exit(target: Player = player): Boolean {
+        var exited = false
+        playerLauncher.launch(target) { exited = manager.exit(this) }
+        return exited
+    }
+
+    fun altarExit(target: Player = player): Boolean {
+        val type = requireNotNull(ServerCacheManager.getObject(42965))
+        val loc = BoundLocInfo(LocInfo(1, NEX_ALTAR, LocEntity(42965, 10, 0)), type)
+        val trigger =
+            requireNotNull(
+                LocInteractions(BoundValidator(collision), events)
+                    .opTrigger(target, loc, InteractionOp.Op2)
+            )
+        return playerLauncher.launch(target) { check(events.publish(this, trigger)) }
+    }
 
     fun protectMagic(enabled: Boolean) =
         VarPlayerIntMapSetter.set(player, "varbit.prayer_protectfrommagic", if (enabled) 1 else 0)
@@ -388,8 +456,11 @@ internal class NexMinionTestWorld(
             postTick.process()
             WorldQueueListProcess(worldQueues).process()
             clock.tick()
-            player.currentMapClock = clock.cycle
-            player.processedMapClock = clock.cycle
+            players.forEach {
+                it.currentMapClock = clock.cycle
+                it.processedMapClock = clock.cycle
+                if (it.isNotDelayed) it.advanceActiveCoroutine()
+            }
             npcs.toList().forEach {
                 it.currentMapClock = clock.cycle
                 it.processedMapClock = clock.cycle
