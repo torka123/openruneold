@@ -51,13 +51,30 @@ constructor(
                 11283 to minionProjectile(390, "projanim.magic_spell"),
                 11286 to minionProjectile(368, "projanim.magic_spell_low"),
             )
+        val minionSounds =
+            mapOf(11283 to 183, 11284 to 178, 11285 to 106, 11286 to 171).mapValues { (_, id) ->
+                requireNotNull(RSCM.getReverseMapping(RSCMType.SYNTH, id))
+            }
         deps.extensionRegistry.registerAttackParameters(NEX_MINION_TARGET_PARAMETERS) {
             npc,
             target,
             _ ->
+            val castSound = minionSounds[npc.id]
             NpcAttackOverride(
                 projectile = minionProjectiles[npc.id],
                 hitValidity = encounters.minionHitValidity(npc, target),
+                onAttack =
+                    if (castSound == null) null
+                    else
+                        { _ ->
+                            deps.worldRepo.soundArea(
+                                npc.coords,
+                                castSound,
+                                delay = 0,
+                                loops = 1,
+                                radius = 12,
+                            )
+                        },
             )
         }
         for (reaver in listOf(false, true)) {

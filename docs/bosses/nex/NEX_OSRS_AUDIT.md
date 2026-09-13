@@ -85,8 +85,10 @@ commit26452a0cf. Typed allocation balance now passes13 account/40 selected check
 results, scoped checks/architecture/app assemble and5-file archive; commitff86491af. Ground lifetime
 mapping identified the separate durable non-pickup retirement gap. Captured Fumus/Glacies projectile
 presentation now passes158 Nex cases and2,119 valid results, scoped checks/architecture/app assemble
-and4-file archive. Next: map captured guard cast sounds after verifying existing native output
-defaults and duplicate prevention; receipt-aware snapshot composition is mapped
+and4-file archive; commit195d6f60a. Captured guard cast sounds now pass160 Nex cases and2,121 valid
+results, scoped checks/architecture/app assemble and2-file archive. Next: map durable non-pickup
+retirement through the account owner, including shared claim/retirement quantity exclusion;
+receipt-aware snapshot composition is mapped
 but its unresolved-runtime policy remains unselected. Complete receipt/save reconciliation,
 complete unresolved-player handling, tracked ground quantities/lifecycle and restart policy remain gates.
 M04 cooldown/equipment, M20 general placement/clipping and normal timing evidence remain missing. All these
@@ -94,6 +96,65 @@ changes remain SOURCE ONLY; current deployment is unchanged.
 Existing timing/damage/geometry constants remain characterized under E07. Full native public/private
 sessions, other mechanics/rewards/evidence gaps below remain open; Nex is not complete.
 Existing order remains Nex ->Yama ->Doom ->DT2 ->separate Dagannoth Kings review ->ToA ->ToB ->CoX.
+
+## Completed source increment: M11 captured bodyguard cast sounds
+
+Pre-edit mapping, September13: projectile source `195d6f60a` is committed/backed up at
+`backup/nex-guard-projectiles-20260913`. No new API is required. Pinned native `61139e76a`
+Cow.kt:35–38 emits a named synth through WorldRepository.soundArea at NPC coordinates. The current
+coordinate overload:44–53, ZoneUpdateMap:87–97 and ZoneUpdateTransformer:145–154 produce native
+SoundArea output. Effect.Sound uses the same route; the existing approved NpcAttackOverride.onAttack
+callback adds the native acceptance gate that a separate unconditional DSL sound effect lacks.
+NvPCombat:202–204 runs it only after beginAttack and normal animation/default FX, before accuracy.
+
+| Guard | Same-frame cast evidence | Native mapping |
+| --- | --- | --- |
+| Fumus11283 |3284 frame406 lines9773–9780, area183 at2913,5215 | `synth.smoke_cast` /183 |
+| Umbra11284 |808 frame216 lines6376–6386, area178 at2937,5215 | `synth.shadow_cast` /178 |
+| Cruor11285 |808 frame256 lines7617–7638, area106 at2937,5191 | `synth.blood_cast` /106 |
+| Glacies11286 |808 frame349 lines9837–9856, area171 at2913,5191 | `synth.ice_cast` /171 |
+
+Each recorded area sound has loops1/range12 at the guard's cast position. Prepare the four named
+RSCM sounds at NexCombat startup and supply an onAttack callback through the same minion parameter
+resolver: WorldRepository.soundArea(npc.coords, sound, delay0, loops1, radius12), keeping native
+coordinate-overload size0. Preserve playAttackFx so1979 still emits. A rejected/inactive/outsider/
+cooldown attempt produces no cast sound; an accepted miss still casts, and the next accepted attack
+adds exactly one. No delayed target/impact synth, sound5304 from Nex's different coordinate, Reaver
+sound, damage, prayer, projectile or timing change is part of this increment.
+
+Duplicate prevention is grounded in retained native cache evidence, not an assumed default:
+`logs/nex-audit-20260909/native-cache-inspection.log:35–38` contains the four full guard paramsRaw
+maps without65504. `.data/gamevals/param.rscm:289` maps attack_sound to65504; raw server/param.toml:
+660–663 provides no default. Thus NvPCombat's normal attack_sound branch currently sends no guard
+synth. Focused tests must reassert that loaded native parameter absence. Existing unchanged
+NexR240CacheAuditTest already checks actual LIVE sound bytes183/178/106/171.
+
+Acceptance uses real WorldRepository/ZoneUpdateMap and transformed SoundArea payloads for all four
+guards: ID, source zone/tile, delay0, loops1, range12/dropOff0, one per accepted hit/miss, no rejected
+or cooldown replay and one fresh next cast. Reuse NexMinionTestWorld(nativeWorld=true) without
+changing the shared fixture. Then run full Nex checks, architecture and app assembly; preserve the
+remaining evidence/ground/persistence gates and source-only deployment hold.
+
+Completed source: `NexCombat.kt` prepares the four sounds and uses the existing accepted-attack
+callback. New `NexMinionCastSoundIntegrationTest.kt` has two native groups covering all mapped
+fields/gates, accepted misses and two accepted Reaver attacks without an inherited area sound.
+It inspects all transformed area sounds, so unexpected additional area output fails. The loaded
+attack_sound absence is asserted for every guard; shared fixture and existing characterization
+are unchanged. Independent production/test reviews are green. Native payload behavior is verified;
+this is not live client audio acceptance or a general timing/damage/impact-sound certification.
+
+Focused log `logs/nex-m11-guard-sound-focused-20260913.log`:2 groups pass,18s. Full scoped formatter,
+Nex check, app assembly and architecture pass in `logs/nex-m11-guard-sound-checks-20260913.log`:
+56s,473 tasks/15 executed/458 up-to-date. XML measurement reports160 Nex tests,zero failures/errors/
+skips. `logs/nex-m11-guard-sound-valid-test-results-20260913.json` combines1,123 boss cases (160 Nex),
+522 unchanged engine/shared/weapons/app,68 drops and408 ToA:2,121 valid cases. No unchanged suites
+were rerun without an invalidating change. Manifest `logs/nex-m11-guard-sound-source-files-20260913.txt`
+contains the two changed source/test files. Byte-verified archive
+`logs/nex-m11-guard-sound-source-20260913.zip` SHA256
+`BFD8F42484D35CFE1F2D93D8ED87CC150E3E5E4A80A16829D4DD43074AEF0EB0`.
+Build passed; bounded behavior verified; SOURCE ONLY. JVM23812 remains deployedc4fc9390f.
+Next: missing-route/pre-edit mapping for durable non-pickup retirement. Runtime uncertain-save
+policy and downtime-expiry policy questions remain pending; neither is selected by this work.
 
 ## Completed source increment: M11 captured Fumus/Glacies projectile presentation
 

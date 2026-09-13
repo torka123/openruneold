@@ -50,7 +50,10 @@ Claim commit26452a0cf is backed up. Typed balance reads now pass13 account/40 sc
 2,118 valid results, scoped checks/architecture/app assemble and5-file archive.
 Balance commitff86491af is backed up. Captured Fumus/Glacies projectiles now pass158 Nex tests,
 2,119 valid results, scoped checks/architecture/app assemble and4-file archive.
-Next: guard cast-sound/native-output mapping. Ground retirement/receipt-aware snapshot/runtime/
+Projectile commit195d6f60a is backed up. Captured guard cast sounds now pass160 Nex tests,
+2,121 valid results, scoped checks/architecture/app assemble and2-file archive. Native accepted
+hit/miss output, rejection and duplicate prevention are verified; no live audio acceptance claimed.
+Next: durable non-pickup retirement mapping with shared quantity exclusion. Receipt-aware snapshot/runtime/
 lifecycle composition, tracked quantities and restart policy remain gates; SOURCE ONLY. M04 cooldown/equipment and
 M20 placement/clipping remain evidence gaps. The Nex ledger records exact source files,
 searches, tests, failure limits, evidence gaps and next mapping.
