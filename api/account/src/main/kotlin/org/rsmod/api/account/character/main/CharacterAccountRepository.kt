@@ -21,6 +21,10 @@ import org.rsmod.api.account.character.CharacterAccountLoginSegment
 import org.rsmod.api.account.character.CharacterMetadataList
 import org.rsmod.api.account.character.rewards.NpcRewardAllocation
 import org.rsmod.api.account.character.rewards.NpcRewardAllocationStore
+import org.rsmod.api.account.character.rewards.NpcRewardClaim
+import org.rsmod.api.account.character.rewards.NpcRewardClaimReceipt
+import org.rsmod.api.account.character.rewards.NpcRewardClaimStore
+import org.rsmod.api.account.character.rewards.NpcRewardClaimWrite
 import org.rsmod.api.account.persistence.GamePersistenceRscmKeys
 import org.rsmod.api.db.DatabaseConnection
 import org.rsmod.api.db.util.getIntOrNull
@@ -54,6 +58,44 @@ constructor(
         connection: DatabaseConnection,
         lifeId: UUID,
     ): NpcRewardAllocation? = NpcRewardAllocationStore.find(connection, lifeId)
+
+    /**
+     * Stages exact source consumption in a caller-owned READ COMMITTED transaction. Only a Staged
+     * COMMITTED proposal may accompany a new native account snapshot in that same transaction;
+     * Existing must not replay any mutation/save. No inventory, ground object or snapshot is
+     * changed here. On any error roll back the entire transaction. A return is provisional until
+     * commit. The positive timeout bounds each SQL statement, not the total operation or commit.
+     */
+    public fun stageNpcRewardClaim(
+        connection: DatabaseConnection,
+        claim: NpcRewardClaim,
+        statementTimeoutSeconds: Int,
+    ): NpcRewardClaimWrite = NpcRewardClaimStore.stage(connection, claim, statementTimeoutSeconds)
+
+    /**
+     * Proposes ABORTED at the original unique attempt key, waiting for a competing original to
+     * finish. Existing returns its exact outcome; Staged abort requires caller commit before it is
+     * authoritative. Timeout/exception remains unresolved and requires rollback, never a grant or
+     * assumed abort. Retry settlement with the same immutable request after an uncertain commit.
+     * Requires READ COMMITTED and an explicit positive per-statement timeout; no live parents
+     * needed.
+     */
+    public fun settleNpcRewardClaim(
+        connection: DatabaseConnection,
+        claim: NpcRewardClaim,
+        statementTimeoutSeconds: Int,
+    ): NpcRewardClaimWrite = NpcRewardClaimStore.settle(connection, claim, statementTimeoutSeconds)
+
+    /**
+     * Detached observation in the caller's READ COMMITTED transaction. Null means unknown, never
+     * proof of abort: another backend can still commit. Own uncommitted rows remain provisional.
+     */
+    public fun findNpcRewardClaim(
+        connection: DatabaseConnection,
+        attemptId: UUID,
+        statementTimeoutSeconds: Int,
+    ): NpcRewardClaimReceipt? =
+        NpcRewardClaimStore.find(connection, attemptId, statementTimeoutSeconds)
 
     public fun insertOrSelectAccountId(
         connection: DatabaseConnection,

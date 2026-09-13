@@ -78,15 +78,102 @@ animations1979/9194 now pass the same157 Nex cases with native emission/cooldown
 scoped checks/architecture/app assemble and a byte-verified three-file archive; commit2a1dd7b76.
 S04 native connection recovery now passes actual startup/frozen-authority/backend replacement,
 failure and monitor tests:13 DB cases/70 selected checks, with2,114 total valid results. Scoped
-checks/architecture/app assemble and three-file archive pass. Next: map typed native claim receipts,
-quantity consumption and unique-key settlement before enabling any pickup/save integration.
-Receipt reconciliation,
+checks/architecture/app assemble and three-file archive pass; commit8c858f737. Typed claim receipts,
+quantity consumption and unique-key settlement now pass11 account/72 selected checks, with2,116
+total valid results. Scoped checks/architecture/app assemble and13-file source archive pass.
+Next: map native ground lifetime/fragment ownership; receipt-aware snapshot composition is mapped
+but its unresolved-runtime policy remains unselected. Complete receipt/save reconciliation,
 complete unresolved-player handling, tracked ground quantities/lifecycle and restart policy remain gates.
 M04 cooldown/equipment, M20 general placement/clipping and normal timing evidence remain missing. All these
 changes remain SOURCE ONLY; current deployment is unchanged.
 Existing timing/damage/geometry constants remain characterized under E07. Full native public/private
 sessions, other mechanics/rewards/evidence gaps below remain open; Nex is not complete.
 Existing order remains Nex ->Yama ->Doom ->DT2 ->separate Dagannoth Kings review ->ToA ->ToB ->CoX.
+
+## Completed source increment: S04 typed claim receipts and quantity settlement
+
+Pre-edit mapping, September13: source checkpoint `8c858f737` is committed and backed up.
+The inspected native CharacterAccountRepository/DatabaseConnection/OpenRuneSql/Flyway route and
+V43 allocation journal provide caller-owned SQL transactions, immutable item ordinals and native
+account locks. They do not provide claim receipts, consumption accounting or an uncertain-commit
+settlement barrier. The user's standing approval for a missing shared API applies to this bounded
+extension. Existing ToA/Royal Titans rewards are not a substitute for this absent durable protocol.
+
+| Required behavior | Native mapping and observable acceptance |
+| --- | --- |
+| Exact immutable attempt identity | NpcRewardClaim carries attempt UUID, actual picker account/character and a defensively copied, canonical list of allocation life/recipient/item ordinal/quantity fragments. Equal item lines retain their V43 ordinals. Positive quantities/IDs, nonempty unique keys, and a Long sum bounded by native Int quantity reject malformed requests before SQL. |
+| Retry without a second grant | CharacterAccountRepository.stageNpcRewardClaim reserves the unique attempt first. A Staged result distinguishes newly written SQL from an Existing exact receipt. Future account integration may write its snapshot only for a newly staged claim. Every return remains provisional until the caller commits. No gameplay callbacks are replayed here. |
+| Exact payload and durable abort independent of live parents | V44 stores a typed attempt header plus typed request fragments, with no live-player/allocation foreign keys on an ABORTED tombstone. Version1 and inventory destination are explicit. Reusing an attempt with any changed request fails. Separate consumption rows reference the exact request quantities, original V43 items and a COMMITTED header. |
+| Remaining quantity without a mutable balance mirror | New claims validate actual picker ownership using the existing account KEY SHARE then character FOR UPDATE order. They lock every V43 item row in canonical UUID-text/recipient/ordinal order, then use a separate statement to sum prior committed consumption with Long arithmetic. Competing requests cannot overconsume. Recipient and picker may differ after public reveal; this SQL layer does not decide eligibility or transform items. |
+| Resolve uncertain COMMIT without interpreting absence as abort | settleNpcRewardClaim proposes ABORTED using the same nondeferrable unique attempt key before any live-parent lock. PostgreSQL waits for the original insertion to commit/rollback. A losing insert reads the winner in a separate statement; a new abort becomes authoritative only after caller commit. A late original that loses to ABORTED does no consumption. Lost settlement acknowledgement requires repeating the same settlement. |
+| Bounded attempts, no invented failure outcome | Both write operations require an explicit positive per-statement timeout and a caller-owned READ COMMITTED transaction; lookup uses the same bounded transaction contract. Timeout/SQL error throws and requires caller rollback, never an invented ABORTED result. A null lookup means unknown. Neither a default whole-world stall nor a per-player hold is chosen. |
+
+Database evidence: [PostgreSQL14 unique checks](https://www.postgresql.org/docs/14/index-unique-checks.html)
+establish the conflict wait; [PostgreSQL14 Read Committed](https://www.postgresql.org/docs/14/transaction-iso.html)
+establishes fresh per-statement visibility and the invisible competing ON CONFLICT winner. Therefore
+insertion/winner lookup and source-row locking/consumption aggregation remain separate statements.
+All writers must use this protocol and roll back the entire caller transaction on a repository error.
+The allocation and receipt tables are immutable through the public repository, not an authorization
+boundary against arbitrary privileged SQL writers.
+
+Focused acceptance uses native Flyway on isolated PostgreSQL only: detached values and exact retry
+conflicts; actual ownership and rollback; committed/rolled-back contender settlement proven with
+pg_blocking_pids; abort-before-original fencing including unavailable parents; quantity contention
+after a row-lock wait; timeout remains unresolved; isolation/autocommit rejection; migration and two
+isolated database restarts. Existing valid behavioral checks are reused, followed by changed-owner
+checks, architecture and app assembly. No combat timing is changed or newly certified by this work.
+
+This increment does not call AccountSavingService, save an inventory, project/pick up a ground item,
+choose transformed pickup output, resolve ground Merge/Split/removal ownership, or activate Nex
+rewards. Complete snapshot atomicity, unresolved-operation lifetime/drain ownership and restart
+expiry/reveal policy remain separate gates. No live migration, restart or deployment is authorized
+by passing these SQL tests; current deployment remains `c4fc9390f`.
+
+Implementation and verification: `NpcRewardClaim` owns the immutable sorted request;
+`NpcRewardClaimReceipt`/`NpcRewardClaimWrite` distinguish outcomes and Staged/Existing invocations;
+`NpcRewardClaimStore` owns bounded SQL operations. CharacterAccountRepository exposes the three
+opt-in delegates only. V44 creates attempt/request/consumption tables, including exact-count,
+COMMITTED-header and original-item foreign keys. No production caller invokes the new delegates.
+The native account KEY SHARE/character FOR UPDATE resources and V43 items remain unchanged.
+New SQL resources under `sql/game/npc_rewards`: `claim_transaction_isolation`, `insert_claim_attempt`,
+`insert_claim_fragment`, `select_claim`, `lock_claim_item`, `select_claim_consumed`, and
+`insert_claim_consumption` (all `.sql`). The complete13-file source list is
+`logs/nex-s04-claim-source-files-20260913.txt`; the new focused fixture is `NpcRewardClaimTest.kt`.
+
+Two focused JUnit groups cover detached UUID-text ordering, duplicate keys/count overflow, exact
+retry conflicts including aborted requests, public picker/recipient distinction, native ownership,
+partial/caller rollback, all three isolated consumption FKs, autocommit/isolation/timeout guards,
+unique-key waits for commit and rollback, SELECT-miss uncertainty, abort-first fencing, row-lock
+contention followed by fresh quantity aggregation, and physical commits followed by injected
+acknowledgement failures for both COMMITTED and ABORTED. Same-key settlement never reconsumes.
+The native GameDatabase once-path classification remains covered by its unchanged prior tests;
+these new fixtures do not claim packet-level fault injection or complete inventory-save atomicity.
+Actual Flyway discovers V43/V44 before fixture DDL, preserves complete migration history and all
+committed receipts/counts through two isolated PostgreSQL restarts. Final owned test cluster:
+`logs/npc-reward-claim-test-14691389240721082937/`. Canonical `.data/postgres` was not migrated.
+
+Independent review found no production defect; its missing direct V43-FK regression was added.
+Initial focus:2 groups/23s (`logs/nex-s04-claim-focused-20260913.log`); final focus with that FK
+assertion:2 groups/20s (`logs/nex-s04-claim-focused2-20260913.log`). Required scoped format/checks,
+architecture and app assembly pass in1m4s,489 tasks (28 executed,1 cached,460 up-to-date):
+`logs/nex-s04-claim-checks-20260913.log`. Results JSON records11 account,13 DB,12 registry,21 game-
+process and15 app cases:72 tests,0 failures/errors/skips. Reused unchanged results give2,116 total:
+1,120 boss (including157 Nex),520 engine/shared/weapons/app,68 drops and408 existing ToA. This is
+valid result reuse, not a claim those unchanged suites were rerun for this SQL-only increment.
+Results: `logs/nex-s04-claim-test-results-20260913.json` and combined authority
+`logs/nex-s04-claim-valid-test-results-20260913.json`. Byte-verified13-file source archive:
+`logs/nex-s04-claim-source-20260913.zip`, SHA256
+`1BBB61D37813754EDDB1DE321841C63E6C780877F198301DAE87951F86FFC280`.
+
+The next snapshot composition must distinguish THIS invocation's Staged disposition from an
+Existing receipt: Existing COMMITTED must undo any newly attempted duplicate memory mutation,
+while a locally Staged uncertain claim retains its tentative state only after confirmed COMMITTED.
+Use the native once transaction, full repository/pipeline snapshot and existing saveGate; register
+unresolved ownership separately from ordinary failed saves so later saves cannot clear it and
+shutdown cannot falsely drain. Returning with just the gate retained permits unsafe gameplay;
+retaining the original game-thread call would pause the world. That runtime choice remains open,
+alongside ground Merge/Split/removal ownership and restart expiry/reveal policy. Next independent
+deliverable is the bounded native ground lifetime/fragment ownership mapping, not pickup activation.
 
 ## Completed source increment: M21 prison ownership and cancellation
 

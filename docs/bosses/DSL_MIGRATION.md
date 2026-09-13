@@ -44,7 +44,9 @@ animations now pass157 Nex tests with native output/cooldown/delay checks, scope
 architecture/app assemble and3-file archive. S04 native connection
 recovery now passes13 DB/70 selected checks and2,114 total valid results; frozen startup authority,
 native failure/monitor behavior, scoped checks/architecture/app assemble and3-file archive verified.
-Next: typed claim receipt/quantity-consumption and unique-key settlement mapping. Receipt/save/
+Typed claims/quantity settlement now pass11 account/72 scoped checks and2,116 valid results;
+scoped checks/architecture/app assemble and13-file archive pass. Recovery commit8c858f737.
+Next: native ground lifetime/fragment ownership mapping. Receipt-aware snapshot/runtime/
 lifecycle composition, tracked quantities and restart policy remain gates; SOURCE ONLY. M04 cooldown/equipment and
 M20 placement/clipping remain evidence gaps. The Nex ledger records exact source files,
 searches, tests, failure limits, evidence gaps and next mapping.
