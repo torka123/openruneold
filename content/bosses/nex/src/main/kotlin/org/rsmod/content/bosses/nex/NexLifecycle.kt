@@ -11,7 +11,9 @@ import org.rsmod.api.death.PlayerDeathDrops.Companion.standardKeepCount
 import org.rsmod.api.death.PlayerDeathHandling
 import org.rsmod.api.death.PlayerDeathHook
 import org.rsmod.api.death.UntradeableHandling
+import org.rsmod.api.game.process.GameLifecycle
 import org.rsmod.api.player.hook.PlayerPostTickHook
+import org.rsmod.api.script.onEvent
 import org.rsmod.api.script.onPlayerLogout
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
@@ -56,6 +58,7 @@ internal class NexLifecycle @Inject constructor(private val encounters: NexEncou
     PluginScript(), PlayerPostTickHook {
     override fun ScriptContext.startup() {
         onPlayerLogout { encounters.playerLoggedOut(player) }
+        onEvent<GameLifecycle.EndCycle> { encounters.tickWorld() }
     }
 
     override fun onPostTick(player: Player) = encounters.tick(player)

@@ -14,6 +14,7 @@ import org.rsmod.api.combat.NvPCombat
 import org.rsmod.api.combat.formulas.AccuracyFormulae
 import org.rsmod.api.combat.formulas.MaxHitFormulae
 import org.rsmod.api.death.NpcDeath
+import org.rsmod.api.game.process.GameLifecycle
 import org.rsmod.api.game.process.npc.NpcFaceSquareProcessor
 import org.rsmod.api.game.process.npc.NpcPostTickProcess
 import org.rsmod.api.game.process.npc.NpcQueueProcessor
@@ -144,7 +145,11 @@ class NexMinionCombatCharacterizationTest {
 }
 
 @OptIn(InternalApi::class)
-internal class NexMinionTestWorld(duo: Boolean = false, nativeDeaths: Boolean = false) {
+internal class NexMinionTestWorld(
+    duo: Boolean = false,
+    nativeDeaths: Boolean = false,
+    enterRoom: Boolean = true,
+) {
     val clock = MapClock().apply { cycle = 100 }
     val events = EventBus()
     val players = PlayerList()
@@ -202,6 +207,7 @@ internal class NexMinionTestWorld(duo: Boolean = false, nativeDeaths: Boolean = 
             BossExtensionRegistry(),
             combat,
         )
+    val rewardService = mock(NexRewardService::class.java)
     val manager =
         NexEncounterManager(
             clock,
@@ -214,8 +220,9 @@ internal class NexMinionTestWorld(duo: Boolean = false, nativeDeaths: Boolean = 
             encounters,
             worldQueues,
             world,
-            mock(NexRewardService::class.java),
+            rewardService,
         )
+    val lifecycle = NexLifecycle(manager)
     val player =
         Player().apply {
             slotId = 1
@@ -306,14 +313,17 @@ internal class NexMinionTestWorld(duo: Boolean = false, nativeDeaths: Boolean = 
                 )
             else mock(NpcDeath::class.java)
         with(NexCombat(manager, death, players, deps)) { context.startup() }
+        with(lifecycle) { context.startup() }
         manager.startup()
         tick()
-        assertTrue(manager.enter(player))
-        partner?.let {
-            players[2] = it
-            assertTrue(manager.enter(it))
+        if (enterRoom) {
+            assertTrue(manager.enter(player))
+            partner?.let {
+                players[2] = it
+                assertTrue(manager.enter(it))
+            }
+            tick(5)
         }
-        tick(5)
     }
 
     fun npc(id: Int): Npc = npcs.first { it.type.id == id }
@@ -326,7 +336,8 @@ internal class NexMinionTestWorld(duo: Boolean = false, nativeDeaths: Boolean = 
         launcher.launch(npc) { events.publish(this, AiPlayerEvents.Ap2(target, npc)) }
     }
 
-    fun damage(npc: Npc, amount: Int) = npc.queueHit(player, 1, HitType.Magic, amount, modifier)
+    fun damage(npc: Npc, amount: Int, type: HitType = HitType.Magic) =
+        npc.queueHit(player, 1, type, amount, modifier)
 
     fun reachGuard(id: Int) {
         val thresholds = listOf(2720, 2040, 1360, 680)
@@ -385,7 +396,8 @@ internal class NexMinionTestWorld(duo: Boolean = false, nativeDeaths: Boolean = 
                 it.advanceActiveCoroutine()
                 if (it.isSlotAssigned) queues.process(it)
             }
-            manager.tick(player)
+            players.forEach(lifecycle::onPostTick)
+            events.publish(GameLifecycle.EndCycle)
         }
 
     fun projectiles(): List<ProjAnim> =

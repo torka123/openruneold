@@ -39,6 +39,15 @@ KNOWN STARTING CHECKPOINT (RECHECK; DO NOT REPEAT COMPLETED WORK)
   for subsequent guard-call/death corrections, final tests and actual deployment.
   Public-room/session lifecycle, group/environmental effects, reward and evidence
   gaps remain; this is not a completed Nex or 1:1 claim.
+  September13 continuation moves public-room maintenance to official EndCycle and
+  specialized delayed callbacks/hits to existing encounter-owned scheduling/validity.
+  Read the latest ledger for tests and source backup before repeating any work.
+  DEPLOYMENT HOLD: the prior main-Nex restart closed PostgreSQL before final saves
+  completed. JVM42364 started source0372044fc, but two successful persistence-verified
+  restarts are NOT complete. Stored fingerprints matching is not proof of final save.
+  New S10 shutdown/save-ordering mapping requires its own AGENTS checkpoint; it is
+  not folded into approved S01-S09. Do not invoke the old System.exit restart helper
+  as a substitute for verified native pre-drain. No hard kill or unsaved-data discard.
   Then continue Yama, Doom of Mokhaiotl and DT2. Review Dagannoth Kings separately.
   Preserve remaining Royal Titans evidence/reward gaps; do not repeat its completed
   native-delivery work or mistake that pass for full reward/persistence parity.

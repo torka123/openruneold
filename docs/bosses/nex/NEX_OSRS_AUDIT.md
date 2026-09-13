@@ -1,5 +1,169 @@
 # Nex revision-240 evidence ledger and approval mapping
 
+## September 13 continuation: runtime safety and approved M26 world lifecycle
+
+Current source checkpoint: `0372044fc`, recovery branch
+`backup/nex-main-native-verified-20260912`. Source-only archive
+`logs/nex-main-native-verified-20260912.zip` has 4,399 file entries, no excluded-path
+violations, SHA-256 `7C56E647730A44479C48AF26763048138D398DEC4734CD7F5739DE273AB88492`.
+It is not a database backup. The previous archive counted directory entries as well.
+All 27 non-diagnostic boss module test tasks and unscoped Nex check passed:
+`logs/nex-all-boss-regression-20260912.log`, 2m18s, 309 tasks; 1,017 tests, zero failures/errors.
+Modules with NO-SOURCE are not claimed to have test coverage.
+
+**Deployment is not persistence-verified.** The first replacement JVM is 42364, running the
+main/guard-call checkpoint, not the older minion-only source. Startup marker 23:37:50 EDT on
+September 12, ready/Nex IDLE room at 23:37:53; log
+`logs/cerberus-audit-20260907/restart-2026091201.stdout.log`. The main NexBossSpecKt class is
+loaded. `logs/nex-main-doctor-restart1-20260912.log` and the September 13 doctor confirm the
+canonical directory and unchanged revision-240 SERVER/LIVE/PostgreSQL authorities.
+
+The preceding shutdown FAILED to finish account saves safely. In
+`logs/cerberus-audit-20260907/restart-2026091008.stdout.log`, connections close at 23:36:33
+(L3444 onward), account saving starts at 23:36:44 (L3541), saves fail (L3542/L3583/L3624),
+retries exhaust (L3665-L3666), yet L3708 incorrectly reports four saved requests. The existing
+restart helper called System.exit and native hooks; no hard kill was performed. A second
+restart is held. Do not reuse that shutdown path without verified save draining/ordering.
+
+Read-only stored inventory/container/realm fingerprints match before and after startup in
+`logs/nex-main-persistence-before-20260912.log` and `...restart1-20260912.log`.
+**Matching stored data does not prove the failed final in-memory save was preserved.**
+No rendered-client Nex fight or OSRS/OpenRune packet diff was completed.
+Shared shutdown ownership/save-ordering is a newly discovered gap outside S01-S09; it needs
+its own explicit mapping/checkpoint. No bootstrap/database/service change is included below.
+
+### M26 bounded implementation mapping (existing approval; no shared API addition)
+
+| Behavior / confidence | Existing implementation | Established workflow / classification | Planned change and executable evidence |
+|---|---|---|---|
+| A public room must progress with zero online players; architecture/lifecycle requirement, not a client-capture timing claim | First PlayerPostTickHook callback drives tickWorld, guarded by lastWorldTick | **Official upstream** GameLifecycle.EndCycle, GameCycle and ScriptContext.onEvent at pinned commit 61139e76a216592d66c2b20366ef26d48609875d | Register one world-cycle subscriber, remove the private per-player dedup timer; prove empty-world reset through production registration and native GameCycle publication |
+| Preserve inherited five-cycle opening readiness, one-cycle abandoned-room reset and 50-cycle completion reset; these constants remain characterization, not normal-OSRS proof | Run deadlines read MapClock; cleanup uses NpcRepository/LocRepository | **Official upstream** MapClock/world lifecycle/repositories; **existing local** BossCombat deletion closes scoped encounters | Preserve deadlines/geometry and native NPC deletion; tests cover no observers, remaining partner, repeated resets and fresh encounter identity |
+| Per-player Choke/Darkness/cleanup is not a world clock | PlayerPostTickHook updates effects, membership and barrier | PlayerPostTickHook is an **existing local/fork** workflow, not an upstream claim | Retain only player-specific processing there; test unrelated/multiple player callbacks cannot advance the room |
+
+Exact upstream references inspected before edits:
+[GameLifecycle](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/api/game-process/src/main/kotlin/org/rsmod/api/game/process/GameLifecycle.kt),
+[GameCycle](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/api/game-process/src/main/kotlin/org/rsmod/api/game/process/GameCycle.kt),
+[onEvent](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/api/script/src/main/kotlin/org/rsmod/api/script/ScriptEventExtensions.kt),
+[ScurriusInstance](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/content/bosses/scurrius/src/main/kotlin/org/rsmod/content/bosses/scurrius/ScurriusInstance.kt).
+Search also found local Vorkath/DT2 StartCycle and Grand Exchange EndCycle consumers; these are
+local examples, not upstream proof. EndCycle is after the same MapClock increment and NPC
+post-tick as the old callback, but after all player flushes. This removes player-order dependence;
+chat/barrier output at transitions may flush on the following cycle. Client packet comparison
+is still required. This bounded change does not finish public/private InstanceScript migration,
+automatic consecutive-kill participation, hazard ownership or death/reclaim integration.
+
+M26 result: all five new `NexPublicRoomLifecycleTest` cases failed against the prior clock driver
+(`logs/nex-world-lifecycle-red-20260913.log`, 47s). After the production event migration all 59
+Nex tests passed (`logs/nex-world-lifecycle-green-20260913.log`, 54s, 162 tasks).
+The room returns immediately after replacement instead of continuing to mutate the retired NPC.
+
+### M27 / S03 bounded delayed-work mapping (existing approval)
+
+| Required behavior | Existing defect / confidence | Native owner and classification | Implementation and tests |
+|---|---|---|---|
+| Retire pending special/death work when its encounter is destroyed | Eight encounter-owned raw world-queue sites retain callbacks until their deadline; source inspection | **Official** world queues/BossEncounter; **existing approved local** BossEncounter.schedule and cancellable queue extension | Use schedule with identical countdowns and retain existing phase guards. Native NPC deletion must remove pending callbacks immediately; initial pre-encounter startup stays world-owned |
+| Departure/replaced target/retired encounter must invalidate hits at actual impact | Special callbacks check membership before queuing, but emitted hits omit validity; unlike existing ordinary/secondary attacks | **Official** native player hit queue/processor; **existing approved local** HitValidity and EncounterRegistry.isAttached | Reuse the existing secondary-hit attachment + captured player/room validity pattern for specialized damage and Deflect reflection. Exercise real hit processing, not just Hit.isValidNow |
+| Wrath may resolve after HP reaches zero while its original source is retained | Existing native hidden-source tests passed | isAttached (not isCurrent), same registered NPC identity | Keep the positive native-death/Wrath tests; never introduce a blanket positive-source-HP restriction |
+
+This does not change the special rotation, damage maxima, geometry, prayer policy or phase-at-impact
+rules. Those remain separately evidenced/characterized work. Additional tests will force specials
+through the registered DSL and compare countdown/impact behavior, player departure after the
+callback, source and encounter replacement, and surviving duo ownership. It does not certify the
+inherited Ice Prison escape/expiry logic, premature achievement flags, or private movement code.
+Exact local extension owners inspected: `api/bosses/.../runtime/BossEncounter.kt` schedule,
+`EncounterRegistry.kt` isAttached, `engine/game/.../queue/WorldQueueList.kt` addCancellable,
+and `engine/game/.../hit/HitValidity.kt`. Official native workflow remains A01/A03/A04;
+the extra cancellation/validity signatures are not represented as official upstream.
+
+M27 regression sequence: the initial test build failed because the test lacked the existing
+InternalApi opt-in (`logs/nex-special-lifetime-red-20260913.log`); no gameplay ran in that
+invocation. The corrected six tests ran: the positive countdown/damage case passed and five
+lifetime cases failed (`...red2-20260913.log`, 43s). With owned callbacks/impact validity,
+64 of 65 Nex tests passed (`...green-20260913.log`, 50s). The remaining failure showed Choke
+still draining prayer after the registered source had been deleted. M26/M27 correction mapping:
+use the existing isAttached check before player effects and at room maintenance; retire and
+replace a destroyed room through the existing cleanup/reset path. Add an explicit native
+deletion regression, including no old-effect processing and no mutation of the retired actor.
+
+M26/M27 final source verification: 13 new executable cases (six public-room lifecycle, seven
+special-lifetime), 67 Nex tests total. The special suite forces six reachable specials through
+BossCombat/Effect.External, preserves callback countdowns and native one-tick impacts, exercises
+seven departure/identity conditions, NPC deletion/encounter replacement, duo isolation and
+Deflect reflection. An additional native-death regression deletes hidden Nex BEFORE the pending
+Wrath/reward callback and proves immediate cancellation/no reward invocation. Existing native
+Wrath positive tests still pass. Drag remains unreachable in the current selector; its validity
+wiring is not represented as a positive gameplay test. Prison-break semantics, CA attribution
+and successful automatic consecutive-kill membership remain open.
+
+`logs/nex-special-lifetime-green2-20260913.log`: 66 tests passed, 49s/162 tasks before the last
+death-callback test. Initial broader invocation (`logs/nex-lifecycle-checkpoint-20260913.log`)
+failed task parsing because PowerShell split the unquoted manifest property; no tests ran there.
+The quoted rerun passed: `logs/nex-lifecycle-checkpoint2-20260913.log`, 1m25s/480 tasks
+(17 executed, 463 up-to-date). Command:
+
+```powershell
+.\gradlew.bat -I scripts/format-selected.init.gradle '-PopenruneFormatManifest=logs/nex-lifecycle-format-20260913.txt' :content:bosses:nex:spotlessApply :content:bosses:nex:check :or-cache:test --tests dev.openrune.NexR240CacheAuditTest :api:bosses:test :api:game-process:test :api:player:test :api:combat:combat-scripts:test :api:npc:test :api:instances:test :api:death:test :server:app:assemble bossArchitectureCheck --no-daemon --console=plain
+```
+
+Result XML: Nex 67, boss API 61, game-process 11, player 20, combat-scripts 8, NPC 12,
+instances 34, death 6, cache audit 4 = **223**, zero failures/errors. The shell's redirected
+JVM warning appeared as a PowerShell NativeCommandError; Gradle's terminal result is BUILD
+SUCCESSFUL. The subsequent broader invocation explicitly propagates Gradle's own exit code.
+Formatting is scoped to five changed Kotlin files; no shared engine source was changed.
+Manager lines are now 1,254 (1,236 before this slice; original inventory 1,321). The additional
+validity/teardown checks are not disguised as a larger architecture reduction.
+
+Broader verification also passed, explicitly propagated Gradle exit 0:
+`logs/nex-lifecycle-all-boss-regression-20260913.log`, 24s, 309 tasks (2 executed, 307
+up-to-date). All 27 non-diagnostic boss test tasks plus unscoped Nex check were selected;
+their result XML contains 1,030 tests with zero failures/errors. Cached unchanged results and
+NO-SOURCE modules are not fresh gameplay execution or missing test coverage filled in.
+Exact task selection:
+
+```powershell
+$nexBossTasks = @(Get-ChildItem -LiteralPath content/bosses -Directory | Where-Object { $_.Name -ne 'diagnostics' -and (Test-Path -LiteralPath (Join-Path $_.FullName 'build.gradle.kts')) } | Sort-Object Name | ForEach-Object { ':content:bosses:' + $_.Name + ':test' })
+& .\gradlew.bat @nexBossTasks :content:bosses:nex:check --no-daemon --console=plain
+```
+
+No September13 deployment/restart or rendered-client/packet verification was performed. The
+unchanged live checkpoint and failed previous shutdown remain as recorded above. M26/M27 source
+is ready for a focused checkpoint, not full encounter acceptance; S10 blocks safe deployment.
+
+### S10 proposed shared shutdown/save ordering (NOT approved or implemented)
+
+This is a deployment/persistence prerequisite, not a Nex combat mechanic. The observed failed
+shutdown above demonstrates the requirement: finish committed native account saves before closing
+their database, and never report attempted saves as committed saves. The existing restart helper's
+process-exit observation is insufficient. Standing deployment authorization does not waive the
+on-disk AGENTS checkpoint for a newly discovered shared-engine capability.
+
+Searches covered the complete local service/bootstrap/account lifecycle, pinned upstream
+`61139e76a`, native slowreboot/GameUpdate -> PlayerLogoutProcess -> AccountRegistry workflow,
+Service/ListenerService/ScheduledListenerService, and existing database concurrency tests. There
+is no service dependency/complete-drain barrier in those interfaces. The current database builders
+leave Zonky's independent shutdown hook enabled; its concurrent JVM hook is a source-supported
+likely cause of the observed premature database close, not a directly logged hook execution.
+Separate latent races are also present: a second awaitShutdown caller returns AlreadyShutDown
+while the first still works, and shutdownServices launches database/saver shutdown concurrently.
+
+| Native owner / explicit source scope | Smallest proposed reusable correction | Regression requirements |
+|---|---|---|
+| `api/db/.../jdbc/EmbeddedSameInstancePostgres.kt`, `server/app/.../GameBootstrap.kt` | One bootstrap-owned PostgreSQL shutdown; disable the independent library hook in both builders. Preserve startup-failure cleanup and never stop reused PostgreSQL. Do not hard-halt/discard unsaved work as a success path | Controlled owned/reused database fixtures; failed/partial startup; PostgreSQL remains available until save commit; no forced-stop path for unfinished native saves |
+| `server/services/.../ServiceManager.kt` | Concurrent shutdown callers wait for one completed terminal result, including errors | Latch-controlled concurrent callers cannot return early; cleanup once; both observe failure |
+| `server/services/.../Service.kt`, ServiceManager, native GameService/AccountSavingService/GameDatabaseService declarations | Optional dependency ordering inside the existing service manager: producer/game finalization, saver drain, database close. This is a **proposed new shared API**, not a second framework | Dependency ordering, cycle detection, failed predecessor propagation, default behavior for unrelated services |
+| `api/account/.../saver/AccountSavingService.kt` | Drain partial batches and queued requests, count actual commits, propagate terminal failure | Interrupted batch loses no request; callbacks once; four failed attempts produce zero committed saves and failed shutdown |
+| `api/registry/.../account/AccountRegistry.kt` | Failed save cannot be treated as persisted logout; retain recoverable in-memory state and surface deployment-blocking failure, without adding a flat-file authority | Successful save permits removal; failed save does not falsely declare drain complete or discard the only pending state |
+| Existing controlled restart helper / native pre-drain workflow | Verify committed logout/drain before requesting JVM shutdown, then require successful shutdown before starting a replacement. Do not use System.exit as the save-drain gate | Failed save or unsuccessful exit blocks restart; canonical identity retained; no live data used for failure-injection tests |
+
+Official source references:
+[GameBootstrap](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/server/app/src/main/kotlin/org/rsmod/server/app/GameBootstrap.kt),
+[ServiceManager](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/server/services/src/main/kotlin/org/rsmod/server/services/ServiceManager.kt),
+[Service](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/server/services/src/main/kotlin/org/rsmod/server/services/Service.kt).
+Existing local account save-gate/autosave and embedded PostgreSQL authority must be preserved;
+they are not all upstream APIs. Tests belong in server/services, server/app, api/db, api/account,
+api/registry plus Nex/relevant shared regressions. Two controlled restarts remain blocked until
+the checkpoint is approved, the repair passes tests, and native pre-drain can be verified.
+
 ## September 12 bodyguard-call and native death correction
 
 The main DSL checkpoint is committed as `8f0a6928c`, with source recovery branch
@@ -131,7 +295,8 @@ build was deployed. Deployment results follow only after actual controlled resta
 
 ## September 10 deployed checkpoint and next main-loop boundary
 
-**Live production source: `41fd77bff`, minion DSL migration only. Main Nex is not yet converted.**
+**Historical September 10 production source: `41fd77bff`, minion DSL migration only.**
+The September 13 continuation above supersedes this deployment status.
 Preceding commit `6bf7424fa` only formats three existing NexRewards expressions. Both are on
 `refactor/nex-native-minions-20260910`; no remote push, merge or PR was made.
 

@@ -67,7 +67,6 @@ constructor(
     private val log = InlineLogger()
     private var generation = 1L
     private var run: Run? = null
-    private var lastWorldTick = Int.MIN_VALUE
 
     fun startup() {
         validateAssets()
@@ -141,16 +140,18 @@ constructor(
     fun tick(player: Player) {
         val chamber = run
         if (chamber != null && player.uid in chamber.participants) {
-            if (!activeParticipant(chamber, player))
+            if (
+                !bossEncounters.isAttached(chamber.boss, chamber.encounter) ||
+                    !activeParticipant(chamber, player)
+            )
                 leave(chamber, player, teleport = false, reason = "left the chamber")
             else tickPlayerEffects(chamber, player)
         }
         setBarrierState(player)
-        if (lastWorldTick != clock.cycle) {
-            lastWorldTick = clock.cycle
-            activeRuns().forEach(::tickWorld)
-        }
     }
+
+    /** Public-room maintenance follows the world clock, including when no player is online. */
+    fun tickWorld() = activeRuns().forEach(::tickWorld)
 
     fun canAttackNex(npc: Npc, target: Player): Boolean {
         val current = encounterFor(npc) ?: return false
@@ -184,6 +185,14 @@ constructor(
                 targetUid.resolve(players) === target &&
                 targetUid in current.participants &&
                 activeParticipant(current, target)
+        }
+    }
+
+    /** Already-emitted room damage survives source death, but never a retired encounter/member. */
+    private fun roomHitValidity(current: Run, target: Player): HitValidity {
+        val membership = minionHitValidity(current.boss, target)
+        return HitValidity {
+            bossEncounters.isAttached(current.boss, current.encounter) && membership.isValid()
         }
     }
 
@@ -233,8 +242,8 @@ constructor(
         if (kind != DeathKind.NEX || current.boss !== npc || current.rewardFinished) return
         current.rewardFinished = true
         val generationAtDeath = current.generation
-        worldQueues.add(3) {
-            if (!isActiveRun(current) || current.generation != generationAtDeath) return@add
+        current.encounter.schedule(worldQueues, 3) {
+            if (!isActiveRun(current) || current.generation != generationAtDeath) return@schedule
             wrath(current)
             rewards.reward(
                 current.contributions.filterKeys { it in current.participants },
@@ -301,12 +310,19 @@ constructor(
 
     private fun tickWorld(current: Run) {
         if (!isActiveRun(current)) return
+        if (!bossEncounters.isAttached(current.boss, current.encounter)) {
+            reset(current)
+            return
+        }
         current.participants.removeIf { uid ->
             uid.resolve(players)?.let { activeParticipant(current, it) } != true
         }
         if (current.state == NexState.SPAWNING && clock.cycle >= current.stateReadyCycle)
             activateSmoke(current)
-        if (current.state == NexState.RESETTING && clock.cycle >= current.resetCycle) reset(current)
+        if (current.state == NexState.RESETTING && clock.cycle >= current.resetCycle) {
+            reset(current)
+            return
+        }
         if (current.state in activeStates && current.participants.isEmpty()) {
             transition(current, NexState.RESETTING)
             current.resetCycle = clock.cycle + 1
@@ -424,7 +440,6 @@ constructor(
         participants(current)
             .filter { it !== primary && distance(it.coords, primary.coords) <= 1 }
             .forEach { secondary ->
-                val participantValidity = minionHitValidity(current.boss, secondary)
                 val protectedAtLaunch = secondary.vars["varbit.prayer_protectfrommagic"] == 1
                 val modifier =
                     if (stateAtLaunch == NexState.ZAROS)
@@ -434,11 +449,7 @@ constructor(
                     source = current.boss,
                     delay = 3,
                     type = type,
-                    validity =
-                        HitValidity {
-                            bossEncounters.isAttached(current.boss, current.encounter) &&
-                                participantValidity.isValid()
-                        },
+                    validity = roomHitValidity(current, secondary),
                     damage = random.of(0..maxHit),
                     modifier = modifier,
                     impactHandler =
@@ -522,6 +533,7 @@ constructor(
                     type = HitType.Typeless,
                     damage = accepted,
                     modifier = NpcBypassProtectionPrayerPlayerHitModifier,
+                    validity = roomHitValidity(current, player),
                 )
             }
         }
@@ -626,8 +638,8 @@ constructor(
         announce(current, "There is... NO ESCAPE!")
         current.boss.anim(anim(9182))
         val castGeneration = current.generation
-        worldQueues.add(2) {
-            if (!validDelayed(current, castGeneration, NexState.SMOKE, target)) return@add
+        current.encounter.schedule(worldQueues, 2) {
+            if (!validDelayed(current, castGeneration, NexState.SMOKE, target)) return@schedule
             PathingEntityCommon.telejump(target, collision, current.boss.coords.translateX(-1))
             clearProtectionPrayers(target)
             target.queueHit(
@@ -636,6 +648,7 @@ constructor(
                 type = HitType.Typeless,
                 damage = random.of(0..30),
                 modifier = NpcBypassProtectionPrayerPlayerHitModifier,
+                validity = roomHitValidity(current, target),
             )
         }
     }
@@ -664,8 +677,8 @@ constructor(
             clearProtectionPrayers(player)
             player.mes("Nex drags you towards the centre of the chamber!")
         }
-        worldQueues.add(2) {
-            if (!validDelayed(current, castGeneration, NexState.SMOKE)) return@add
+        current.encounter.schedule(worldQueues, 2) {
+            if (!validDelayed(current, castGeneration, NexState.SMOKE)) return@schedule
             current.boss.teleport(collision, destination)
             participants(current).forEach { player ->
                 if (player.coords.x == destination.x || player.coords.z == destination.z) {
@@ -675,12 +688,13 @@ constructor(
                         type = HitType.Typeless,
                         damage = random.of(0..50),
                         modifier = NpcBypassProtectionPrayerPlayerHitModifier,
+                        validity = roomHitValidity(current, player),
                     )
                     current.flags[player.uid]?.smokeDashHit = true
                 }
             }
         }
-        worldQueues.add(4) {
+        current.encounter.schedule(worldQueues, 4) {
             if (validDelayed(current, castGeneration, NexState.SMOKE))
                 current.boss.teleport(collision, current.arena.spawn)
         }
@@ -693,18 +707,19 @@ constructor(
         participants(current).forEach { player ->
             val tile = player.coords
             spawnLoc(tile, SHADOW_SMASH_LOC, 3)?.let { current.temporaryLocs += it }
-            worldQueues.add(3) {
+            current.encounter.schedule(worldQueues, 3) {
                 if (
                     !validDelayed(current, castGeneration, NexState.SHADOW, player) ||
                         player.coords != tile
                 )
-                    return@add
+                    return@schedule
                 player.queueHit(
                     source = current.boss,
                     delay = 1,
                     type = HitType.Typeless,
                     damage = random.of(0..50),
                     modifier = NpcBypassProtectionPrayerPlayerHitModifier,
+                    validity = roomHitValidity(current, player),
                 )
                 current.flags[player.uid]?.shadowSmashHit = true
             }
@@ -739,8 +754,8 @@ constructor(
         announce(current, "I demand a blood sacrifice!")
         target.mes("<col=ff0000>Nex has marked you for a blood sacrifice. Run away!</col>")
         val castGeneration = current.generation
-        worldQueues.add(8) {
-            if (!validDelayed(current, castGeneration, NexState.BLOOD, target)) return@add
+        current.encounter.schedule(worldQueues, 8) {
+            if (!validDelayed(current, castGeneration, NexState.BLOOD, target)) return@schedule
             if (distance(current.boss.coords, target.coords) < 7) {
                 target.queueHit(
                     source = current.boss,
@@ -748,6 +763,7 @@ constructor(
                     type = HitType.Typeless,
                     damage = random.of(0..80),
                     modifier = NpcBypassProtectionPrayerPlayerHitModifier,
+                    validity = roomHitValidity(current, target),
                     impactHandler = HitImpactHandler { impact -> current.boss.heal(impact.damage) },
                 )
                 target.statSub("stat.prayer", constant = 10, percent = 0)
@@ -759,8 +775,8 @@ constructor(
         announce(current, "Contain this!")
         current.boss.anim(anim(9186))
         val castGeneration = current.generation
-        worldQueues.add(3) {
-            if (!validDelayed(current, castGeneration, NexState.ICE)) return@add
+        current.encounter.schedule(worldQueues, 3) {
+            if (!validDelayed(current, castGeneration, NexState.ICE)) return@schedule
             participants(current).forEach { player ->
                 if (distance(current.boss.coords, player.coords) <= 2) {
                     clearProtectionPrayers(player)
@@ -770,6 +786,7 @@ constructor(
                         type = HitType.Typeless,
                         damage = random.of(0..60),
                         modifier = NpcBypassProtectionPrayerPlayerHitModifier,
+                        validity = roomHitValidity(current, player),
                     )
                     current.flags[player.uid]?.iceSpecialHit = true
                 }
@@ -789,8 +806,8 @@ constructor(
             }
         }
         current.prisonedUntil[target.uid] = clock.cycle + 5
-        worldQueues.add(5) {
-            if (!validDelayed(current, castGeneration, NexState.ICE, target)) return@add
+        current.encounter.schedule(worldQueues, 5) {
+            if (!validDelayed(current, castGeneration, NexState.ICE, target)) return@schedule
             if ((current.prisonedUntil[target.uid] ?: 0) <= clock.cycle) {
                 target.queueHit(
                     source = current.boss,
@@ -798,6 +815,7 @@ constructor(
                     type = HitType.Typeless,
                     damage = random.of(0..75),
                     modifier = NpcBypassProtectionPrayerPlayerHitModifier,
+                    validity = roomHitValidity(current, target),
                 )
                 current.flags[target.uid]?.iceSpecialHit = true
             }
@@ -829,6 +847,7 @@ constructor(
                 type = HitType.Typeless,
                 damage = random.of(0..8),
                 modifier = NpcBypassProtectionPrayerPlayerHitModifier,
+                validity = roomHitValidity(current, player),
             )
         }
     }
@@ -861,14 +880,13 @@ constructor(
         announce(current, "Taste my wrath!")
         participants(current).forEach { player ->
             if (distance(current.arena.spawn, player.coords) <= 5) {
-                val membership = minionHitValidity(current.boss, player)
                 player.queueHit(
                     source = current.boss,
                     delay = 1,
                     type = HitType.Typeless,
                     damage = random.of(0..55),
                     modifier = NpcBypassProtectionPrayerPlayerHitModifier,
-                    validity = HitValidity { current.boss.isSlotAssigned && membership.isValid() },
+                    validity = roomHitValidity(current, player),
                 )
             }
         }

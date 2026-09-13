@@ -4,7 +4,36 @@ This is a resumable handoff, not a project-completion or full OSRS-parity claim.
 mechanic mappings, uncertainties, commands and results remain in [DSL_MIGRATION.md](DSL_MIGRATION.md).
 Update this checkpoint after each completed boss and immediately before any authorized deployment.
 
-## Current continuation: Nex main combat DSL (September12)
+## Current continuation: Nex lifecycle and delayed effects (September13)
+
+Source work now builds on `0372044fc` on `refactor/nex-main-native-combat-20260910`.
+Nex public-room maintenance uses the official GameLifecycle.EndCycle instead of the first
+online player's post-tick. The former lastWorldTick dedup clock is removed. Deleted room actors
+are retired without continuing their effects or stat repair. Eight delayed encounter callbacks
+now use existing approved BossEncounter.schedule ownership; special/reflection hits reuse native
+impact validity, including stable participant identity. Damage/rotation/geometry constants have
+not been changed. This is still a bounded Nex migration, not full OSRS parity.
+
+**Deployment hold: native account saving failed during the previous restart.** The live JVM
+42364 started from `0372044fc` at 23:37:50 EDT September12. It is not running this September13
+source slice. The preceding PostgreSQL shutdown occurred before the save queue finished.
+Matching stored inventory/bank/realm fingerprints do not prove the failed final in-memory save
+was preserved. Do not repeat the current System.exit restart helper as a save-drain workflow.
+The required second successful restart has NOT been completed for this Nex main checkpoint.
+
+S10 is a new, explicitly mapped shared shutdown/save-ordering prerequisite in
+[NEX_OSRS_AUDIT.md](nex/NEX_OSRS_AUDIT.md). It is NOT approved or implemented. It covers one
+database shutdown owner, completion-aware shutdown waiters, ordered native save/database closure,
+honest save results and a verified pre-drain restart gate. The on-disk AGENTS checkpoint applies;
+do not request already approved M01-M36/S01-S09 again or silently widen S10.
+
+Existing source recovery: `backup/nex-main-native-verified-20260912` at `0372044fc` and
+`logs/nex-main-native-verified-20260912.zip`; full hash and verification are in the Nex ledger.
+The prior all-boss regression passed 1,017 tests across 27 task selections. Latest slice tests,
+new recovery checkpoint and actual deployment status must be read from the ledger, not inferred
+from that historical count. No new rendered-client fight or packet comparison was completed.
+
+## Previous source continuation: Nex main combat DSL (September12)
 
 Branch `refactor/nex-main-native-combat-20260910` contains approved S09 target-bound continuation
 (`8b08bb84a`), optional S01 late prayer (`e2c28eb33`), and main Nex DSL (`8f0a6928c`).
