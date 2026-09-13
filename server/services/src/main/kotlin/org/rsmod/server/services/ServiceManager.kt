@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.asCoroutineDispatcher
@@ -19,6 +20,7 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.supervisorScope
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.rsmod.server.services.concurrent.ScheduledListenerService
 import org.rsmod.server.services.concurrent.ScheduledService
@@ -60,6 +62,8 @@ private constructor(
     private val shutdownLatch = CountDownLatch(1)
     private val shutdownRequest = AtomicBoolean(false)
     private val shutdownInProgress = AtomicBoolean(false)
+    private val shutdownCompleted = CountDownLatch(1)
+    @Volatile private var shutdownResult: ShutdownResult? = null
 
     /**
      * Starts all registered [Service] and [ScheduledService] instances.
@@ -84,73 +88,49 @@ private constructor(
         val started = ConcurrentLinkedQueue<Service>()
 
         suspend fun safeShutdownResult(t: Throwable): StartResult.Error {
-            val startedCopy = started.toList()
-            val shutdownJobs = supervisorScope { startedCopy.map { stopService(it, started) } }
-            val shutdownResult =
+            // A cancelled startup must still clean partially initialized services once, in order.
+            shutdownInProgress.set(true)
+            withContext(NonCancellable) {
                 try {
-                    shutdownJobs.awaitAll()
-                    StartResult.Error.Clean(t)
-                } catch (shutdownEx: Throwable) {
-                    StartResult.Error.Lingering(t, shutdownEx, started)
+                    cleanupThreads(30_000L)
+                    if (activeExecutors.all(ExecutorService::isTerminated)) {
+                        shutdownServices(30_000L, started.toList(), started)
+                    } else {
+                        scheduledErrors +=
+                            IllegalStateException("Startup cleanup left active service executors")
+                    }
+                } catch (failure: Throwable) {
+                    scheduledErrors += failure
+                } finally {
+                    publishShutdownResult()
+                    shutdown()
                 }
-            return shutdownResult
+            }
+            val errors = scheduledErrors.toList()
+            return if (errors.isEmpty()) StartResult.Error.Clean(t)
+            else StartResult.Error.Lingering(t, errors.first(), started.toList())
         }
 
-        // Start all core services.
-        val startupJobs = supervisorScope { services.map { startService(it, started) } }
+        // Scope construction/awaiting can itself be cancelled before returning a Deferred list.
         try {
+            val startupJobs = supervisorScope { services.map { startService(it, started) } }
             startupJobs.awaitAll()
-        } catch (t: Throwable) {
-            val shutdownResult = safeShutdownResult(t)
-            return shutdownResult
-        }
-
-        // Send the startup signal to all standard listener services.
-        val listenerSignals = supervisorScope { listeners.map { signalStartup(it) } }
-        try {
+            val listenerSignals = supervisorScope { listeners.map { signalStartup(it) } }
             listenerSignals.awaitAll()
-        } catch (t: Throwable) {
-            val shutdownResult = safeShutdownResult(t)
-            return shutdownResult
-        }
-
-        // Create and cache executor services and coroutine scopes for scheduled services.
-        val tmpExecutors = mutableListOf<ExecutorService>()
-        try {
             for (service in scheduled) {
                 val executor = service.createExecutor()
-                tmpExecutors += executor
+                activeExecutors += executor
                 cacheCoroutineScope(service, executor)
             }
-            activeExecutors += tmpExecutors
-        } catch (t: Throwable) {
-            tmpExecutors.forEach(::safeShutdown)
-            val shutdownResult = safeShutdownResult(t)
-            return shutdownResult
-        }
-
-        // Send the startup signal to all scheduled listener services.
-        val scheduledSignals = supervisorScope { scheduledListeners.map { signalStartup(it) } }
-        try {
+            val scheduledSignals = supervisorScope { scheduledListeners.map { signalStartup(it) } }
             scheduledSignals.awaitAll()
-        } catch (t: Throwable) {
-            activeExecutors.forEach(::safeShutdown)
-            val shutdownResult = safeShutdownResult(t)
-            return shutdownResult
-        }
-
-        // Finally, schedule the main `run` loops for scheduled services.
-        try {
             for (service in scheduled) {
                 scheduleService(service)
             }
+            return StartResult.Healthy
         } catch (t: Throwable) {
-            activeExecutors.forEach(::safeShutdown)
-            val shutdownResult = safeShutdownResult(t)
-            return shutdownResult
+            return safeShutdownResult(t)
         }
-
-        return StartResult.Healthy
     }
 
     /**
@@ -160,13 +140,13 @@ private constructor(
      * - Cancel all active [ScheduledService] coroutine jobs.
      * - Shut down all [ScheduledService] executors.
      * - Send the shutdown signal to [ScheduledListenerService] and [ListenerService].
-     * - Call [Service.shutdown] on all registered services concurrently.
+     * - Call [Service.shutdown] concurrently within each ordered shutdown stage.
      *
      * If any service throws an exception during its shutdown calls, the error will be captured and
      * returned as part of the resulting [ShutdownResult.Report].
      *
-     * _This method may only be executed once. Subsequent calls will return
-     * [ShutdownResult.AlreadyShutDown]._
+     * Concurrent and subsequent callers wait for the same completed terminal result. Entering
+     * shutdown is not evidence that resources are safe to close.
      *
      * @param signalTimeoutSecs the maximum time to wait for active listener services to acknowledge
      *   a shutdown signal. This phase allows services to perform immediate preparations (e.g., a
@@ -187,24 +167,34 @@ private constructor(
 
         val canShutdown = shutdownInProgress.compareAndSet(false, true)
         if (!canShutdown) {
-            return ShutdownResult.AlreadyShutDown
+            shutdownCompleted.await()
+            return checkNotNull(shutdownResult)
         }
-
-        val signalTimeout = signalTimeoutSecs * 1000L
-        signalShutdown(signalTimeout)
-
-        val cleanupTimeout = cleanupTimeoutSecs * 1000L
-        cleanupThreads(cleanupTimeout)
-
-        val shutdownTimeout = shutdownTimeoutSecs * 1000L
-        shutdownServices(shutdownTimeout)
-
-        val errors = scheduledErrors
-        return if (errors.isNotEmpty()) {
-            ShutdownResult.Report(errors)
-        } else {
-            ShutdownResult.Clean
+        try {
+            signalShutdown(signalTimeoutSecs * 1000L)
+            cleanupThreads(cleanupTimeoutSecs * 1000L)
+            // Never drain a writer's mutable batch concurrently with a lingering writer thread.
+            if (activeExecutors.all(ExecutorService::isTerminated)) {
+                runBlocking { shutdownServices(shutdownTimeoutSecs * 1000L) }
+            } else {
+                scheduledErrors +=
+                    IllegalStateException(
+                        "Service executors have not terminated; resources retained"
+                    )
+            }
+        } catch (t: Throwable) {
+            scheduledErrors += t
+        } finally {
+            publishShutdownResult()
         }
+        return checkNotNull(shutdownResult)
+    }
+
+    private fun publishShutdownResult() {
+        val errors = scheduledErrors.toList()
+        shutdownResult =
+            if (errors.isEmpty()) ShutdownResult.Clean else ShutdownResult.Report(errors)
+        shutdownCompleted.countDown()
     }
 
     /**
@@ -230,11 +220,6 @@ private constructor(
     private fun CoroutineScope.startService(service: Service, started: Queue<Service>) = async {
         started.add(service)
         service.startup()
-    }
-
-    private fun CoroutineScope.stopService(service: Service, started: Queue<Service>) = async {
-        service.shutdown()
-        started.remove(service)
     }
 
     private fun CoroutineScope.signalStartup(service: ListenerService) = async {
@@ -305,7 +290,7 @@ private constructor(
 
     private fun cleanupThreads(timeoutMillis: Long) = runBlocking {
         val activeScopes = activeScopes.values
-        val activeJobs = activeScopes.mapNotNull { it.coroutineContext[Job] }.filter(Job::isActive)
+        val activeJobs = activeScopes.mapNotNull { it.coroutineContext[Job] }
         activeJobs.forEach(::safeCancel)
         val executorCount = activeExecutors.size.coerceAtLeast(1)
         val perExecutorSecs = (timeoutMillis / 1000L / executorCount).coerceAtLeast(1L)
@@ -317,15 +302,30 @@ private constructor(
         }
     }
 
-    private fun shutdownServices(timeoutMillis: Long) = runBlocking {
+    private suspend fun shutdownServices(
+        timeoutMillis: Long,
+        selected: List<Service> = services,
+        pending: Queue<Service>? = null,
+    ) {
         try {
             withTimeout(timeoutMillis) {
-                supervisorScope {
-                    try {
-                        val shutdownJobs = services.map { service -> async { service.shutdown() } }
-                        shutdownJobs.awaitAll()
-                    } catch (t: Throwable) {
-                        scheduledErrors += t
+                for (stage in Service.ShutdownStage.entries) {
+                    if (stage == Service.ShutdownStage.Resource && scheduledErrors.isNotEmpty())
+                        break
+                    supervisorScope {
+                        selected
+                            .filter { it.shutdownStage == stage }
+                            .map { service ->
+                                async {
+                                    try {
+                                        service.shutdown()
+                                        pending?.remove(service)
+                                    } catch (t: Throwable) {
+                                        scheduledErrors += t
+                                    }
+                                }
+                            }
+                            .awaitAll()
                     }
                 }
             }
@@ -360,8 +360,6 @@ private constructor(
 
     public sealed class ShutdownResult {
         public data object Clean : ShutdownResult()
-
-        public data object AlreadyShutDown : ShutdownResult()
 
         public data class Report(val errors: Collection<Throwable>) : ShutdownResult()
     }

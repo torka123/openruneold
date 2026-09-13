@@ -14,7 +14,7 @@ $agentJar = Join-Path $helperDir 'shutdown-agent.jar'
 & (Join-Path $javaBin 'jar.exe') --create --file $agentJar --manifest $manifest -C $helperDir 'CerberusAuditShutdown.class'
 if ($LASTEXITCODE -ne 0) { throw 'Shutdown helper packaging failed' }
 & (Join-Path $javaBin 'java.exe') --add-modules jdk.attach -cp $helperDir CerberusAuditShutdown $ServerProcessId $projectRoot $agentJar
-if ($LASTEXITCODE -ne 0) { throw 'Normal shutdown request failed; server was not force-killed' }
+if ($LASTEXITCODE -ne 0) { throw 'Native save/shutdown verification failed. No replacement will start; do not force-kill the server.' }
 $deadline = [DateTime]::UtcNow.AddSeconds(55)
 while (Get-Process -Id $ServerProcessId -ErrorAction SilentlyContinue) {
     if ([DateTime]::UtcNow -ge $deadline) { throw 'Server has not completed normal shutdown' }

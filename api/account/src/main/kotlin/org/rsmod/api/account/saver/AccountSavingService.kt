@@ -2,15 +2,22 @@ package org.rsmod.api.account.saver
 
 import com.github.michaelbull.logging.InlineLogger
 import jakarta.inject.Inject
+import java.util.IdentityHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.Semaphore
 import java.util.concurrent.ThreadFactory
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.min
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import org.rsmod.api.account.character.CharacterDataStage
 import org.rsmod.api.account.character.main.CharacterAccountRepository
@@ -19,6 +26,7 @@ import org.rsmod.api.account.saver.request.AccountSaveResponse
 import org.rsmod.api.db.DatabaseConnection
 import org.rsmod.api.db.jdbc.GameDatabase
 import org.rsmod.api.server.config.ServerConfig
+import org.rsmod.server.services.Service
 import org.rsmod.server.services.concurrent.ScheduledService
 
 // Serialized account saves: one writer at a time avoids overlapping transactions on the game DB.
@@ -38,6 +46,38 @@ constructor(
     private val pendingBatch = ArrayList<AccountSaveRequest>(REQUESTS_PER_BATCH)
     private var consecutiveFailureCount = AtomicInteger(0)
     private val saveGate = Semaphore(1, true)
+    private val batchGate = Mutex()
+    private val requestMonitor = Any()
+    private val outstanding = IdentityHashMap<AccountSaveRequest, Unit>()
+    private val failed = IdentityHashMap<AccountSaveRequest, Throwable>()
+    private val callbackFailures = ConcurrentLinkedQueue<Throwable>()
+    private val committed = AtomicLong()
+    private var acceptingRequests = true
+
+    override val shutdownStage: Service.ShutdownStage = Service.ShutdownStage.Persistence
+
+    /** Includes prefetched, queued and in-flight saves until their callback has returned. */
+    public fun drainStatus(): DrainStatus =
+        synchronized(requestMonitor) {
+            DrainStatus(
+                outstanding.size,
+                failed.size,
+                callbackFailures.size,
+                committed.get(),
+                acceptingRequests,
+            )
+        }
+
+    public data class DrainStatus(
+        val pending: Int,
+        val failed: Int,
+        val callbackFailures: Int,
+        val committed: Long,
+        val acceptingRequests: Boolean,
+    ) {
+        public val isDrained: Boolean
+            get() = pending == 0 && failed == 0 && callbackFailures == 0
+    }
 
     /**
      * Runs a game-thread mutation without allowing an account save to observe only half of it.
@@ -106,15 +146,22 @@ constructor(
     }
 
     public fun queue(request: AccountSaveRequest) {
-        pendingRequests.add(request)
+        synchronized(requestMonitor) {
+            check(acceptingRequests) { "Account saver is closed to new requests" }
+            if (outstanding.containsKey(request) || failed.containsKey(request)) return
+            outstanding[request] = Unit
+            pendingRequests.add(request)
+        }
     }
 
     override suspend fun run() {
         val failureBackoffEnabled = consecutiveFailureCount.get() >= MAX_CONSECUTIVE_FAILURES
         val batchPollCount = if (failureBackoffEnabled) 1 else REQUESTS_PER_BATCH
 
-        batchPendingRequests(batchPollCount)
-        handlePendingBatch()
+        batchGate.withLock {
+            batchPendingRequests(batchPollCount)
+            handlePendingBatch()
+        }
 
         if (!failureBackoffEnabled) {
             val backlog = pendingRequests.isNotEmpty()
@@ -135,30 +182,46 @@ constructor(
     }
 
     private suspend fun handlePendingBatch() {
-        for (request in pendingBatch) {
+        while (pendingBatch.isNotEmpty()) {
+            currentCoroutineContext().ensureActive()
+            val request = pendingBatch.first()
             handleRequestWithTimeout(request, REQUEST_TIMEOUT_MS)
+            // Remove only the completed/requeued prefix. Cancellation retains the unread suffix.
+            pendingBatch.removeAt(0)
         }
-        pendingBatch.clear()
     }
 
     private suspend fun handleRequestWithTimeout(request: AccountSaveRequest, timeoutMillis: Long) {
-        val result = withTimeoutOrNull(timeoutMillis) { handleRequest(request) }
-        if (result == null) {
-            logger.warn { "Account save timed out for: ${request.player}" }
-            incrementSaveAttempts(request)
-            incrementConsecutiveFailures()
-        }
-    }
-
-    private suspend fun handleRequest(request: AccountSaveRequest) {
+        var didCommit = false
+        var failure: Exception? = null
         try {
-            saveSegments(request)
+            val result =
+                withTimeoutOrNull(timeoutMillis) {
+                    saveSegments(request)
+                    didCommit = true
+                }
+            if (result == null && !didCommit)
+                failure = IllegalStateException("Account save timed out")
+        } catch (cancelled: CancellationException) {
+            // Ordinary service cancellation is neither a failed attempt nor a terminal response.
+            if (!didCommit) throw cancelled
+        } catch (cause: Exception) {
+            failure = cause
+        }
+        if (didCommit) {
+            committed.incrementAndGet()
+            synchronized(requestMonitor) {
+                // A later full snapshot for the same retained player supersedes failed snapshots.
+                failed.keys.removeIf { it.player === request.player }
+            }
             invokeSaveCallback(request)
+            synchronized(requestMonitor) { outstanding.remove(request) }
             resetConsecutiveFailures()
-        } catch (e: Exception) {
-            incrementSaveAttempts(request)
+        } else {
+            val cause = checkNotNull(failure)
+            incrementSaveAttempts(request, cause)
             incrementConsecutiveFailures()
-            logger.warn(e) { "Could not save player account: ${request.player}" }
+            logger.warn(cause) { "Could not save player account: ${request.player}" }
         }
     }
 
@@ -203,68 +266,42 @@ constructor(
 
     override suspend fun shutdown() {
         logger.info { "Attempting to shutdown account saving service." }
+        synchronized(requestMonitor) { acceptingRequests = false }
+        val before = committed.get()
         try {
-            handleShutdownRequests()
-            pendingBatch.clear()
-            logger.info { "Account saving service successfully shut down." }
-        } catch (t: Throwable) {
-            logger.error(t) { "Account saving service failed to shut down." }
-        }
-    }
-
-    private suspend fun handleShutdownRequests() {
-        var saveCount = 0
-        val result =
-            withTimeoutOrNull(SHUTDOWN_TIMEOUT_MS) {
-                while (isActive) {
-                    val request = pendingRequests.poll() ?: break
-                    handleRequestWithTimeout(request, SHUTDOWN_REQUEST_TIMEOUT_MS)
-                    saveCount++
+            withTimeout(SHUTDOWN_TIMEOUT_MS) {
+                batchGate.withLock {
+                    // A cancelled run can leave a partially processed batch outside the queue.
+                    handlePendingBatch()
+                    while (pendingRequests.isNotEmpty()) {
+                        batchPendingRequests(REQUESTS_PER_BATCH)
+                        handlePendingBatch()
+                    }
                 }
             }
-
-        if (saveCount > 0) {
-            logger.info { "Saved $saveCount pending requests before shut down." }
-        }
-
-        // If `result` did not time out, we can return early. If it failed due to a timeout,
-        // we switch to an "emergency mode" where we inform the remaining callbacks about
-        // the internal server error so they can handle it appropriately.
-        if (result != null) {
-            return
-        }
-
-        logger.error { "Force-save failed due to timeout. Rejecting all pending requests..." }
-
-        val leftover = pendingRequests.size
-        val emergencyRejection =
-            withTimeoutOrNull(SHUTDOWN_EMERGENCY_TIMEOUT_MS) { rejectPendingRequests() }
-
-        if (emergencyRejection != null) {
-            logger.info { "Sent out $leftover pending request max-retry responses." }
-            return
-        }
-
-        val usernames = pendingRequests.take(100).joinToString(",") { it.player.displayName }
-        logger.error {
-            "Emergency shutdown measure timed out! " +
-                "(${pendingRequests.size} pending requests, usernames=$usernames)"
+            val status = drainStatus()
+            check(status.isDrained) { "Account saves are not durably drained: $status" }
+            logger.info {
+                "Committed ${committed.get() - before} pending account saves before shutdown."
+            }
+            logger.info { "Account saving service successfully shut down." }
+        } catch (t: Throwable) {
+            logger.error(t) {
+                "Account saving service failed to shut down; pending state retained: ${drainStatus()}"
+            }
+            throw t
         }
     }
 
-    /** Rejects the remaining [pendingRequests], sending an internal server error response. */
-    private fun rejectPendingRequests() {
-        while (true) {
-            val request = pendingRequests.poll() ?: break
-            val response = AccountSaveResponse.InternalShutdownError(request.player)
-            safeInvokeCallback(request, response)
-        }
-    }
-
-    private fun incrementSaveAttempts(request: AccountSaveRequest) {
+    private fun incrementSaveAttempts(request: AccountSaveRequest, cause: Throwable) {
         if (request.attempts++ < REQUEST_RETRIES_BEFORE_FAILURE) {
-            queue(request)
+            // Existing requests may retry during drain, after admission of new work is closed.
+            pendingRequests.add(request)
             return
+        }
+        synchronized(requestMonitor) {
+            failed[request] = cause
+            outstanding.remove(request)
         }
         safeInvokeCallback(request, AccountSaveResponse.ExcessiveRetries(request.player))
         logger.error { "Reached max retry attempts for player: ${request.player}" }
@@ -276,7 +313,8 @@ constructor(
     private fun safeInvokeCallback(request: AccountSaveRequest, response: AccountSaveResponse) {
         try {
             request.callback(response)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
+            callbackFailures.add(e)
             val message = "Error handling save request callback for: $request (response=$response)"
             logger.error(e) { message }
         }
@@ -326,12 +364,6 @@ constructor(
         private const val REQUEST_TIMEOUT_MS = 5000L
 
         /**
-         * Similar to [REQUEST_TIMEOUT_MS], but used during the [shutdown] process when attempting
-         * to hastily process the pending requests.
-         */
-        private const val SHUTDOWN_REQUEST_TIMEOUT_MS = 2000L
-
-        /**
          * The delay duration (in ms) when backing off due to consecutive failures. Gives external
          * systems time to recover (e.g. Database under load).
          */
@@ -355,14 +387,5 @@ constructor(
          * not hang in case something goes wrong.
          */
         private const val SHUTDOWN_TIMEOUT_MS = 30_000L
-
-        /**
-         * A secondary safeguard timeout used after [SHUTDOWN_TIMEOUT_MS] during service shutdown.
-         *
-         * If any requests remain after the initial timeout, this ensures they forcibly invoke their
-         * [AccountSaveResponse.InternalShutdownError] callback. This allows any external backup or
-         * recovery strategies to proceed.
-         */
-        private const val SHUTDOWN_EMERGENCY_TIMEOUT_MS = 30_000L
     }
 }

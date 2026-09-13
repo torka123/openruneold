@@ -151,7 +151,14 @@ No September13 deployment/restart or rendered-client/packet verification was per
 unchanged live checkpoint and failed previous shutdown remain as recorded above. M26/M27 source
 is ready for a focused checkpoint, not full encounter acceptance; S10 blocks safe deployment.
 
-### S10 proposed shared shutdown/save ordering (NOT approved or implemented)
+### S10 shared shutdown/save ordering (approved September 13; implementation in progress)
+
+The user's subsequent `approve` explicitly covers this mapping. Source recovery branch
+`backup/before-s10-shutdown-20260913` preserves `38fe43cc1`; work is isolated on
+`fix/native-shutdown-order-20260913`. No deployment has occurred for this repair.
+The smallest ordering API uses fixed Producer/Persistence/Resource stages instead of an arbitrary
+dependency graph: cycles are unrepresentable, and unrelated services retain concurrent producer
+shutdown. This implements the approved ordering scope without adding a separate framework.
 
 This is a deployment/persistence prerequisite, not a Nex combat mechanic. The observed failed
 shutdown above demonstrates the requirement: finish committed native account saves before closing
@@ -177,14 +184,95 @@ while the first still works, and shutdownServices launches database/saver shutdo
 | `api/registry/.../account/AccountRegistry.kt` | Failed save cannot be treated as persisted logout; retain recoverable in-memory state and surface deployment-blocking failure, without adding a flat-file authority | Successful save permits removal; failed save does not falsely declare drain complete or discard the only pending state |
 | Existing controlled restart helper / native pre-drain workflow | Verify committed logout/drain before requesting JVM shutdown, then require successful shutdown before starting a replacement. Do not use System.exit as the save-drain gate | Failed save or unsuccessful exit blocks restart; canonical identity retained; no live data used for failure-injection tests |
 
+September13 implementation checkpoint (source only; no live shutdown requested):
+
+- `Service.ShutdownStage` adds Producer/Persistence/Resource ordering to the existing manager;
+  concurrency remains within each stage. Failed producers/saves retain resources. Concurrent
+  shutdown callers join the same completed result, including interrupted/partial startup cleanup.
+- Native account saving retains unfinished batches, separates ordinary cancellation from failed
+  attempts, counts committed transactions, and refuses new admission after final drain begins.
+  Failed snapshots retain player references; a later successful full snapshot can supersede them.
+  Callback failures block deployment and are never automatically retried as database writes.
+- Native AccountRegistry deletes only after Success and successful native player removal. Failed
+  logout saves can be explicitly retried on the game thread after the underlying fault is repaired.
+- GameBootstrap owns database shutdown once, after service completion; independent Zonky hooks,
+  bootstrap hard-halt/watchdog, and forced PostgreSQL-stop fallback are removed. The owned process
+  must actually exit, because Zonky can log a failed close without throwing. Reused PG is untouched.
+  `GameServer.startupGame` now joins that same cleanup for late script-load failure; this is call-site
+  wiring of the approved startup-failure requirement, not another lifecycle or persistence API.
+  A failed cleanup retains the bootstrap/service heap on one non-daemon recovery thread, rather than
+  allowing main-thread return to discard the only failed snapshots. This cannot cancel an already
+  initiated external System.exit; it is a retention guard, not a successful save or automatic repair.
+- `GameService.prepareShutdown` routes through native GameUpdate/logout/save on the game executor.
+  Admission must be Updating; all players (including loggingOut), native logout responses and native
+  saves must drain before it quiesces normal game-cycle producers and acknowledges the preflight.
+- The existing restart helper now requires that native future and successful bootstrap cleanup;
+  it writes a fresh PID/root/nonce receipt only afterward. It does not call System.exit or halt.
+  A non-daemon receipt worker prevents natural main-thread exit from racing receipt creation;
+  worker errors propagate and no receipt is created after failed cleanup.
+  **The currently loaded legacy JVM lacks this entry point and is deliberately refused.** The
+  one-time old-JVM handover is still to be implemented/verified; do not substitute process exit or
+  stored database fingerprints for native save acknowledgements.
+
+New capability classification: shutdown stages, completed-result barrier, native drain-status and
+preflight entry points are approved **local shared extensions**, not claimed upstream APIs. Existing
+ServiceManager/GameUpdate/AccountRegistry/account transactions remain the owners; no boss-local
+replacement was added. Bootstrap Resources is a test seam for its existing resource owners.
+
+Tests: 33 new executable JUnit cases (services6, account7, registry4, database3, bootstrap/game13).
+The five affected module suites total44 cases, zero failures/errors. Six additional standalone
+`NativeShutdownGateTest` cases verify success, failed/cancelled drain, cleanup/worker failure and
+non-daemon receipt ownership without
+attaching to a live JVM. Database ownership tests use mocked process/library handles, not live
+PostgreSQL failure injection. Native future tests drive GameService with a mocked GameProcess;
+the native logout integration additionally executes real PlayerLogoutProcess/Processor, AccountRegistry,
+AccountManager, AccountSavingService and PlayerRegistry against a deterministic JDBC proxy. It proves
+Logout-hook snapshot -> commit -> deferred callback removal, identity/zone/collision cleanup, exactly
+once removal, failed-save retention and explicit repaired retry. A throwing native Delete hook still
+blocks drain; its existing partial-removal recovery limitation is characterized, not redesigned.
+Two isolated child-JVM tests use fake resources and prove failure survives main return with exactly
+one retention guard, while success exits naturally. None certifies rendered-client behavior or PG
+durability. This distinction is intentional.
+
+Commands/results:
+
+- `:server:services:test`: two initial red concurrency regressions, then passing after repair;
+  `logs/nex-s10-services-red-20260913.log` (24s).
+- `:api:account:test :server:services:test`: three account regressions red, then green;
+  `logs/nex-s10-account-red-20260913.log` (33s), `nex-s10-save-services-green-20260913.log` (25s).
+- Five core module test runs: initial fixture failures (null Mockito matcher and concurrent global
+  PostgreSQL test state) corrected in tests; `nex-s10-core-tests2/3/4-20260913.log` pass.
+- Focused formatting rejects `.kts` paths by design; the first checkpoint invocation failed before
+  edits/build, then the manifest was corrected to `.kt` only. `nex-s10-checkpoint2-20260913.log`:
+  497 tasks,76 executed,1 cached,420 up-to-date,1m56s; scoped affected checks, Nex/shared tests,
+  revision240 Nex cache audit, architecture check and app assemble pass.
+- `nex-s10-final-core-20260913.log`: five affected test modules plus app assemble,1m28s,
+  471 tasks,18 executed,453 up-to-date; includes final GameServer wiring and all39 core cases.
+- `javac --add-modules jdk.attach -d logs/s10-shutdown-helper-tests scripts/CerberusAuditShutdown.java scripts/NativeShutdownGateTest.java`,
+  then `java --add-modules jdk.attach -cp logs/s10-shutdown-helper-tests NativeShutdownGateTest`:6 pass.
+- `nex-s10-process-tests-20260913.log`: isolated child-JVM regressions and app assemble pass,
+  1m34s,461 tasks,14 executed. `nex-s10-native-logout-tests-20260913.log` caught an invalid generic
+  runTest call in the new test fixture; corrected without gameplay changes. Follow-up
+  `nex-s10-native-logout-tests2-20260913.log`: all44 core cases pass,36s,460 tasks,6 executed.
+- `nex-s10-all-boss-regression-20260913.log`: all27 non-diagnostic boss test task selections,
+  unscoped Nex check and architecture check pass,1m46s;1,030 result cases,zero failures/errors/skips.
+  Unchanged cached results are not new client or gameplay coverage.
+- Read-only doctor `nex-s10-doctor-resumed-20260913.log` confirms canonical JVM42364 and revision240.
+
+Remaining S10 acceptance: old-JVM save-first handover; native live logout/admission/acknowledgement
+exercise; successful build marker and doctor; two persistence-verified controlled restarts. No live
+failure injection, deployed S10, or completed S10 acceptance is claimed here. API/mechanics/tests
+review agents remain read-only; the primary agent integrated every source edit.
+
 Official source references:
+
 [GameBootstrap](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/server/app/src/main/kotlin/org/rsmod/server/app/GameBootstrap.kt),
 [ServiceManager](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/server/services/src/main/kotlin/org/rsmod/server/services/ServiceManager.kt),
 [Service](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/server/services/src/main/kotlin/org/rsmod/server/services/Service.kt).
 Existing local account save-gate/autosave and embedded PostgreSQL authority must be preserved;
 they are not all upstream APIs. Tests belong in server/services, server/app, api/db, api/account,
 api/registry plus Nex/relevant shared regressions. Two controlled restarts remain blocked until
-the checkpoint is approved, the repair passes tests, and native pre-drain can be verified.
+the repair passes tests and native pre-drain can be verified. Approval is no longer a blocker.
 
 ## September 12 bodyguard-call and native death correction
 

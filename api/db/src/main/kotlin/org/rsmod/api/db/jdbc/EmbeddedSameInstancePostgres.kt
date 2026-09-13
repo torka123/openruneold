@@ -6,8 +6,6 @@ import java.net.BindException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 import org.rsmod.api.server.config.CentralPostgresYaml
 import org.rsmod.api.server.config.ServerConfig
 
@@ -17,9 +15,7 @@ public object EmbeddedSameInstancePostgres {
     @Volatile private var reused: EmbeddedPostgresSupport.Session? = null
 
     @Volatile private var activeDataDir: Path? = null
-
-    /** Survives mid-stop clearing of [activeDataDir] so a hung close can still be force-killed. */
-    @Volatile private var lastKnownOwnedDataDir: Path? = null
+    @Volatile private var ownedProcess: ProcessHandle? = null
 
     /**
      * Starts embedded PostgreSQL when same-instance Central is enabled and no JDBC URL is set.
@@ -43,13 +39,20 @@ public object EmbeddedSameInstancePostgres {
             activeDataDir = dataDir
             when (val plan = EmbeddedPostgresSupport.planStart(dataDir)) {
                 is EmbeddedPostgresSupport.StartPlan.Reuse -> {
-                    lastKnownOwnedDataDir = null
                     reused = plan.session
                 }
                 EmbeddedPostgresSupport.StartPlan.StartNew -> {
                     val instance = startNewEmbedded(dataDir)
                     embedded = instance
-                    lastKnownOwnedDataDir = dataDir
+                    val pid =
+                        Files.readAllLines(dataDir.resolve("postmaster.pid"))
+                            .first()
+                            .trim()
+                            .toLong()
+                    ownedProcess =
+                        ProcessHandle.of(pid).orElseThrow {
+                            IllegalStateException("Owned PostgreSQL exited during startup")
+                        }
                 }
             }
         }
@@ -67,67 +70,30 @@ public object EmbeddedSameInstancePostgres {
     }
 
     /**
-     * Stops the owned embedded instance (if any) and ensures the postmaster for [activeDataDir] is
-     * down. Caps wait at [timeoutMs]; on timeout, force-kills the postmaster so IntelliJ Stop
-     * cannot hang indefinitely on `EmbeddedPostgres.close()`.
+     * Called only after native services have committed their saves and closed their connections.
      */
-    public fun stop(timeoutMs: Long = DEFAULT_STOP_TIMEOUT_MS) {
-        val owned: EmbeddedPostgres?
-        val dataDir: Path?
+    public fun stop() {
         synchronized(this) {
-            owned = embedded
+            // Keep ownership until close actually succeeds. Never stop a reused postmaster.
+            embedded?.let { owned ->
+                val process =
+                    checkNotNull(ownedProcess) { "Cannot verify owned PostgreSQL process" }
+                owned.close()
+                // Zonky logs some pg_ctl failures and returns normally. Verify the owned process,
+                // not just close() returning, before releasing canonical process authority.
+                check(!process.isAlive) { "Owned PostgreSQL did not exit; ownership retained" }
+            }
             embedded = null
+            ownedProcess = null
             reused = null
-            dataDir = activeDataDir
             activeDataDir = null
-        }
-        if (owned == null && dataDir == null) {
-            return
-        }
-        if (owned == null) {
-            // A reused postmaster belongs to another process. Never stop a database we do not own.
-            return
-        }
-        val done = CountDownLatch(1)
-        Thread(
-                {
-                    try {
-                        runCatching { owned.close() }
-                        if (dataDir != null) {
-                            EmbeddedPostgresSupport.ensureStopped(dataDir)
-                        }
-                    } finally {
-                        done.countDown()
-                    }
-                },
-                "embedded-pg-stop",
-            )
-            .apply {
-                isDaemon = true
-                start()
-            }
-        if (!done.await(timeoutMs, TimeUnit.MILLISECONDS) && dataDir != null) {
-            runCatching { EmbeddedPostgresSupport.forceStop(dataDir) }
-        }
-    }
-
-    /** Best-effort kill of any postmaster still bound to the last known data dir. */
-    public fun forceStopNow() {
-        val dataDir =
-            synchronized(this) {
-                embedded = null
-                reused = null
-                activeDataDir = null
-                lastKnownOwnedDataDir
-            }
-        if (dataDir != null) {
-            runCatching { EmbeddedPostgresSupport.forceStop(dataDir) }
         }
     }
 
     private fun startNewEmbedded(dataDir: Path): EmbeddedPostgres {
         try {
             return EmbeddedPostgres.builder()
+                .setRegisterShutdownHook(false)
                 .setDataDirectory(dataDir.toFile())
                 .setCleanDataDirectory(false)
                 .setPGStartupWait(Duration.ofSeconds(30))
@@ -136,8 +102,9 @@ public object EmbeddedSameInstancePostgres {
             if (!isBindException(t)) {
                 throw t
             }
-            EmbeddedPostgresSupport.forceStop(dataDir)
+            // A bind race is not authority to terminate another process using this data directory.
             return EmbeddedPostgres.builder()
+                .setRegisterShutdownHook(false)
                 .setDataDirectory(dataDir.toFile())
                 .setCleanDataDirectory(false)
                 .setPGStartupWait(Duration.ofSeconds(30))
@@ -161,6 +128,4 @@ public object EmbeddedSameInstancePostgres {
         val pathStr = if (raw.isEmpty()) ".data/postgres" else raw
         return Path.of(pathStr).toAbsolutePath().normalize()
     }
-
-    private const val DEFAULT_STOP_TIMEOUT_MS = 5_000L
 }

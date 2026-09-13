@@ -19,6 +19,20 @@ package org.rsmod.server.services
  */
 public interface Service {
     /**
+     * Producers finish before persistence drains; resources close only after both succeed. Stages
+     * are deliberately fixed, so shutdown dependencies cannot form cycles. Services within a stage
+     * still stop concurrently. Ordinary services retain the default producer stage.
+     */
+    public val shutdownStage: ShutdownStage
+        get() = ShutdownStage.Producer
+
+    public enum class ShutdownStage {
+        Producer,
+        Persistence,
+        Resource,
+    }
+
+    /**
      * Initializes any resources required for the service.
      *
      * This method is executed in a coroutine launched by the **main application thread** during
@@ -37,7 +51,8 @@ public interface Service {
      * will always be invoked if [startup] was called, regardless of whether it succeeded.
      *
      * _Exceptions thrown during shutdown will be collected and reported by the [ServiceManager],
-     * but will not prevent other services from shutting down._
+     * but will not prevent other producers/persistence services from shutting down. Resource
+     * closure is withheld after a failure, so unfinished saves retain their database._
      */
     public suspend fun shutdown()
 }

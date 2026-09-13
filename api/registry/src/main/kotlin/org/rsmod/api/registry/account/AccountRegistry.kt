@@ -1,6 +1,7 @@
 package org.rsmod.api.registry.account
 
 import jakarta.inject.Inject
+import java.util.IdentityHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import org.rsmod.api.account.AccountManager
 import org.rsmod.api.account.loader.request.AccountLoadResponse
@@ -18,6 +19,18 @@ constructor(
 ) {
     private val pendingLogins = ConcurrentLinkedQueue<QueuedLogin>()
     private val pendingLogouts = ConcurrentLinkedQueue<QueuedLogout>()
+    private val logoutStates = IdentityHashMap<Player, LogoutState>()
+
+    /** Failed logout saves remain attached and block controlled deployment. */
+    public fun logoutStatus(): LogoutStatus =
+        synchronized(logoutStates) {
+            LogoutStatus(logoutStates.size, logoutStates.values.count { it == LogoutState.Failed })
+        }
+
+    public data class LogoutStatus(val pending: Int, val failed: Int) {
+        public val isDrained: Boolean
+            get() = pending == 0
+    }
 
     public fun queueLogin(
         player: Player,
@@ -29,7 +42,28 @@ constructor(
     }
 
     public fun queueLogout(player: Player) {
-        accountManager.save(player, ::queueSaveResponse)
+        synchronized(logoutStates) {
+            if (logoutStates.containsKey(player)) return
+            logoutStates[player] = LogoutState.AwaitingSave
+        }
+        try {
+            accountManager.save(player, ::queueSaveResponse)
+        } catch (t: Throwable) {
+            synchronized(logoutStates) { logoutStates[player] = LogoutState.Failed }
+            throw t
+        }
+    }
+
+    /** Game-thread recovery after the underlying save failure has been repaired. */
+    public fun retryFailedLogouts() {
+        val retry =
+            synchronized(logoutStates) {
+                logoutStates.filterValues { it == LogoutState.Failed }.keys.toList()
+            }
+        retry.forEach { player ->
+            synchronized(logoutStates) { logoutStates.remove(player) }
+            queueLogout(player)
+        }
     }
 
     public fun handleLogins(count: Int = DEFAULT_LOGINS_PER_CYCLE) {
@@ -51,22 +85,34 @@ constructor(
     }
 
     private fun queueSaveResponse(response: AccountSaveResponse) {
-        val queued = QueuedLogout(response.player, ::handleLogout)
-        pendingLogouts.add(queued)
-        when (response) {
-            is AccountSaveResponse.Success -> {}
-            is AccountSaveResponse.ExcessiveRetries -> saveEmergencyBackup(response.player)
-            is AccountSaveResponse.InternalShutdownError -> saveEmergencyBackup(response.player)
+        synchronized(logoutStates) {
+            if (logoutStates[response.player] != LogoutState.AwaitingSave) return
+            when (response) {
+                is AccountSaveResponse.Success -> {
+                    logoutStates[response.player] = LogoutState.Saved
+                    pendingLogouts.add(QueuedLogout(response.player, ::handleLogout))
+                }
+                is AccountSaveResponse.ExcessiveRetries,
+                is AccountSaveResponse.InternalShutdownError -> {
+                    // Do not delete the only recoverable in-memory snapshot on a failed save.
+                    logoutStates[response.player] = LogoutState.Failed
+                }
+            }
         }
     }
 
     private fun handleLogout(player: Player) {
-        playerRegistry.del(player)
+        val result = playerRegistry.del(player)
+        check(result == org.rsmod.api.registry.player.PlayerRegistryResult.Delete.Success) {
+            "Saved logout could not detach player: $result"
+        }
+        synchronized(logoutStates) { logoutStates.remove(player) }
     }
 
-    private fun saveEmergencyBackup(player: Player) {
-        // TODO: Save an emergency backup file of player when the player save service is unable to
-        //  do so.
+    private enum class LogoutState {
+        AwaitingSave,
+        Saved,
+        Failed,
     }
 
     private data class QueuedLogin(

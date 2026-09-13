@@ -17,6 +17,8 @@ constructor(
 
     private var databaseConnected = false
 
+    override val shutdownStage: Service.ShutdownStage = Service.ShutdownStage.Resource
+
     override suspend fun startup() {
         connectDataSource()
     }
@@ -35,6 +37,7 @@ constructor(
             logger.info { "Game database service successfully shut down." }
         } catch (t: Throwable) {
             logger.error(t) { "Game database service failed to shut down." }
+            throw t
         }
     }
 }

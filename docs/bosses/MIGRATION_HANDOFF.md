@@ -4,7 +4,31 @@ This is a resumable handoff, not a project-completion or full OSRS-parity claim.
 mechanic mappings, uncertainties, commands and results remain in [DSL_MIGRATION.md](DSL_MIGRATION.md).
 Update this checkpoint after each completed boss and immediately before any authorized deployment.
 
-## Current continuation: Nex lifecycle and delayed effects (September13)
+## Current continuation: approved S10 native save/shutdown repair (September13)
+
+Working branch: `fix/native-shutdown-order-20260913`; pre-work recovery:
+`backup/before-s10-shutdown-20260913` at `38fe43cc1`. S10 is approved, not a new approval request.
+Ordered native service shutdown, completed-result waiters, retained interrupted account batches,
+honest commit/failure accounting, safe logout removal, bootstrap-owned PostgreSQL closure and a
+native save-first restart gate are implemented in source. Five core modules pass44 tests (33 new);
+standalone operational gate tests pass6. The Nex ledger records scoped checks/build and limitations.
+Real native logout/save/callback/player-removal integration now executes in tests, including failed
+save recovery and fail-closed deletion hooks. Two isolated child-JVM tests prove failed cleanup keeps
+the process alive and successful cleanup exits naturally. These fixtures do not use live PostgreSQL.
+
+Live JVM42364 still runs source0372044fc. No S10 restart/attachment/deployment has occurred.
+The updated helper deliberately refuses old JVMs without native prepareShutdown. The one-time
+legacy save-first handover remains next; do not deploy by calling an old System.exit helper.
+Complete two verified restarts before claiming deployed acceptance. Further approved source migration
+can continue while that operational acceptance remains explicitly held.
+
+Overall migration status estimate: approximately60-65%, not a measured completion percentage.
+Nine boss architecture checkpoints have been migrated/backed up/deployed; Nex is partial; Yama,
+Doom and the four DT2 encounters remain. That is seven individual encounters including Nex,
+plus separate Dagannoth Kings review. Earlier bosses retain documented client/evidence acceptance
+and Royal Titans integration gaps; they are not all certified full OSRS implementations.
+
+## Previous continuation: Nex lifecycle and delayed effects (September13)
 
 Source work now builds on `0372044fc` on `refactor/nex-main-native-combat-20260910`.
 Current completed source slice: `55efb8fa3`, recovery branch
@@ -27,10 +51,12 @@ was preserved. Do not repeat the current System.exit restart helper as a save-dr
 The required second successful restart has NOT been completed for this Nex main checkpoint.
 
 S10 is a new, explicitly mapped shared shutdown/save-ordering prerequisite in
-[NEX_OSRS_AUDIT.md](nex/NEX_OSRS_AUDIT.md). It is NOT approved or implemented. It covers one
+[NEX_OSRS_AUDIT.md](nex/NEX_OSRS_AUDIT.md). It was approved September13 and source implementation
+is in progress on `fix/native-shutdown-order-20260913` (baseline recovery branch
+`backup/before-s10-shutdown-20260913`). It covers one
 database shutdown owner, completion-aware shutdown waiters, ordered native save/database closure,
 honest save results and a verified pre-drain restart gate. The on-disk AGENTS checkpoint applies;
-do not request already approved M01-M36/S01-S09 again or silently widen S10.
+do not request already approved M01-M36/S01-S10 again or silently widen S10.
 
 Existing source recovery: `backup/nex-main-native-verified-20260912` at `0372044fc` and
 `logs/nex-main-native-verified-20260912.zip`; full hash and verification are in the Nex ledger.

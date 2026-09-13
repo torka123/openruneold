@@ -45,8 +45,9 @@ KNOWN STARTING CHECKPOINT (RECHECK; DO NOT REPEAT COMPLETED WORK)
   DEPLOYMENT HOLD: the prior main-Nex restart closed PostgreSQL before final saves
   completed. JVM42364 started source0372044fc, but two successful persistence-verified
   restarts are NOT complete. Stored fingerprints matching is not proof of final save.
-  New S10 shutdown/save-ordering mapping requires its own AGENTS checkpoint; it is
-  not folded into approved S01-S09. Do not invoke the old System.exit restart helper
+  S10 shutdown/save-ordering mapping was explicitly approved September13; implementation
+  is on fix/native-shutdown-order-20260913. Do not repeat that approval. Read the ledger
+  for tested source versus deployed runtime. Do not invoke an old System.exit restart helper
   as a substitute for verified native pre-drain. No hard kill or unsaved-data discard.
   Then continue Yama, Doom of Mokhaiotl and DT2. Review Dagannoth Kings separately.
   Preserve remaining Royal Titans evidence/reward gaps; do not repeat its completed

@@ -41,6 +41,8 @@ dependencies {
     implementation(projects.server.services)
     implementation(projects.server.shared)
     testImplementation(kotlin("test"))
+    testImplementation("org.mockito:mockito-core:5.18.0")
+    testImplementation(libs.kotlin.coroutines.test)
 }
 
 tasks.named<JavaExec>("run") {

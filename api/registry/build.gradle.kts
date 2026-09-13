@@ -18,4 +18,5 @@ dependencies {
     implementation(projects.engine.map)
     implementation(projects.engine.routefinder)
     testImplementation(kotlin("test"))
+    testImplementation("org.mockito:mockito-core:5.18.0")
 }

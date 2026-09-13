@@ -8,4 +8,5 @@ kotlin {
 
 dependencies {
     implementation(libs.kotlin.coroutines.core)
+    testImplementation(kotlin("test"))
 }

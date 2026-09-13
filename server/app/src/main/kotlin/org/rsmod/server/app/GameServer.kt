@@ -205,14 +205,26 @@ class GameServer(private val skipTypeVerificationOverride: Boolean? = null) :
         }
 
         lateinit var shutdownHook: Thread
-        runBlocking {
-            val scriptsDeferred = async(Dispatchers.Default) {
-                timedPhase(phases, "scripts") { loadScripts(injector) }
+        try {
+            runBlocking {
+                val scriptsDeferred =
+                    async(Dispatchers.Default) {
+                        timedPhase(phases, "scripts") { loadScripts(injector) }
+                    }
+                timedPhase(phases, "services-start") {
+                    shutdownHook = bootstrap.startupUntilReady()
+                }
+                scriptsDeferred.await()
             }
-            timedPhase(phases, "services-start") {
-                shutdownHook = bootstrap.startupUntilReady()
+        } catch (failure: Throwable) {
+            // Script loading can fail after services became healthy. Join the same native cleanup
+            // owner used for partial bootstrap failure; never leave its database/services orphaned.
+            try {
+                bootstrap.shutdown()
+            } catch (cleanup: Throwable) {
+                if (cleanup !== failure) failure.addSuppressed(cleanup)
             }
-            scriptsDeferred.await()
+            throw failure
         }
 
         val total = bootMark.elapsedNow()
