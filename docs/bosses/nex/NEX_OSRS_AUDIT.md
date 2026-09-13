@@ -3,6 +3,10 @@
 ## Current source increment: M01/M02 protected access and travel
 
 Completed source checkpoint **444a39eb3**, backup branch `backup/nex-protected-access-20260913`.
+Source-only archive `logs/nex-protected-access-source-20260913.zip` contains4,387 files and
+zero excluded-path violations; required new source/tests/handoff entries were checked. SHA256:
+`138FFECD8768FB79BB3582B4F1721896A79B6931A93DAA8C4B111DB5DEF03BF4`.
+This archive excludes PostgreSQL/caches/credentials/generated output and is not a database backup.
 Seven changed files: NexEncounterManager, NexWorld, new NexAccessIntegrationTest and existing
 NexMinionCombatCharacterizationTest fixture, NexMainNativeCombatTest, NexMinionLifecycleIntegrationTest,
 NexPublicRoomLifecycleTest. These changes are NOT deployed; JVM1856 remains the recovery runtime.
@@ -30,6 +34,90 @@ movement/hook ordering and lifecycle ownership, not full client click/reach rout
 Exact next deliverable: permanent S10 native Central shutdown correction (mapped below), with
 producer quiescence, retained failed/pending social writes and propagated cleanup completion.
 Keep the restored server online while this source work proceeds; two controlled restarts remain held.
+
+The permanent Central dependency correction passes31 focused tests (17 new) in
+`logs/central-s10-focused2-20260913.log`. The first run exposed a repeated WorldLink close defect;
+the native close now observes its original close future after worker termination. Accepted notifier
+callbacks finish without interruption; failed/queued social writes and their original owner remain
+retained. Explicit embedded stop observes the same terminal result after Koin registry closure.
+The pinned patch SHA256 is `85866821e86effb7f4446aab77461c4a863bb4a396abf824689e6fc9ee86a4a5`.
+This dependency/integration increment is committed as `07b00480e`, backup branch
+`backup/central-native-shutdown-20260913`. Its five-file source archive
+`logs/central-native-shutdown-source-20260913.zip` has verified paths and SHA256
+`5BC79BEC02B8D814F0E6FFE5D88A97CB5FA9C1E0CBC00C2213C221E5D5A43EFB`.
+Focused credential-pattern scan found no candidates. Applied Central source and non-patch source
+pass diff whitespace checks; the raw patch's required blank context prefixes are not stripped.
+`scripts/setup-openrune-central-s10.ps1` prepared and then idempotently verified the exact official
+source/patch in `.gradle/openrune-central-s10`; canonical Gradle validates it before substitution.
+
+`logs/central-s10-canonical-checks-20260913.log`: BUILD SUCCESSFUL in4m25s/539 tasks
+(255 executed). All27 boss module selections contain1,061 cases, zero failures/errors/skips.
+Affected shared/app modules contain285 cases: net86, game-process16, player20, NPC18, instances34,
+bosses61, death6, account7, registry12, DB4, services6 and app15. Scoped net check/format,
+app assemble and architecture detector/self-tests pass. This verifies source behavior/build;
+JVM1856 still uses old Central2.0.1 and remains online. Canonical same-instance explicit game-owned
+JDBC remains authoritative; unrelated standalone embedded-PostgreSQL paths are not enabled.
+
+Game-side client/activity shutdown source is complete in `0f729d055`, backup branch
+`backup/central-game-producers-20260913`. Six changed files are OpenRuneCentralWorldLink,
+CentralActivityLogWriter, NetworkModule, GameBootstrap and their two new net shutdown test classes.
+All12 new focused tests pass (`logs/central-s10-game-producers-focused-20260913.log`,25s).
+Final `logs/central-s10-game-producers-final-20260913.log` passes in1m43s/542 tasks (38 executed):
+1,061 boss cases and297 affected shared/app cases, zero failures/errors/skips, including98 net cases.
+Scoped net/app checks, app assemble and architecture checks pass; valid unchanged suites were reused.
+The operational-helper owner is adding native drains and a stable retained failure/session root.
+No live attachment or handover has occurred. Read-only persistence before handover still matches
+the restored inventory/bank/realm fingerprints (`persistence-pre-central-handover.log` in recovery dir).
+
+The bounded pre-edit game-side S10 mapping is now verified: OpenRuneCentralWorldLink has no
+scope annotation or explicit binding, so Bootstrap/NetworkScript/ConnectionHandler/social consumers
+receive separate instances. Its accepted authentication/heartbeat executor has no shutdown method,
+and stopInboundWatch drops its thread reference without joining. Bind the existing native client
+as one singleton; preserve watcher ownership through bounded native stop/join; add the missing
+terminal shutdown operation to this same client using graceful ExecutorService shutdown/await.
+Existing Bootstrap.Resources.stopCentral invokes it after native service/callback closure and before
+the embedded Central owner. This is lifecycle completion, not a new combat or transport framework.
+CentralActivityLogWriter stays in its existing GameLifecycle.Shutdown path: drain accepted records,
+retain failed operations/causes, propagate failure and close its datasource only after success.
+Acceptance covers queued/active auth work, watcher termination, singleton injection, ordered activity
+writes and retained timeout/interruption/write failures. Existing service/bootstrap failure gates
+remain authoritative. The old runtime requires all original clients to be captured and drained;
+the new singleton binding cannot be retroactively assumed for JVM1856.
+The new client drain proves accepted authentication completes after native service producers stop;
+it does not certify consumption of every pre-admission game login callback. The legacy bridge
+explicitly observes those queues and dispatches existing callbacks while Central remains live.
+Native push-channel reconnect semantics do not imply offline SQL cleanup; claims/checks of native
+disconnect finalization apply only to eligible registered non-push connections.
+
+The one-time old-Central bridge `scripts/CentralLegacyNativeHandover.java` is committed as
+`74885e6c9`; no shutdown/handover has been invoked. It identifies authorized character1/world255 and
+existing native owners before
+changing runtime state. Mapping: await native prepareShutdown; close native RSProt admission and
+await workers; execute pending login rejection callbacks on the existing game executor and observe
+the loader batch on its own executor; require all player/account work drained; stop native HTTP,
+WorldLink/notifier/scheduler, then drain accepted social operations without shutdownNow, native
+flush and datasource closure; only afterward call existing bootstrap.shutdown for service/PG/lock
+closure. Existing old-WorldLink non-push finalization is checked through native session queries and
+read-only online-marker postconditions because its exceptionCaught can suppress callback errors.
+Push disconnects retain their documented reconnect semantics. Every failure blocks subsequent
+cleanup/receipt; no flags/jobs/failure states are reset and no System.exit is invoked. A static session
+retains every original owner and terminal failure; duplicate attempts are refused. All11 original
+client injection paths are captured explicitly, including their original watcher threads. Existing
+DB callbacks run on the game executor, with loader/gateway work observed on their native owners.
+Accepted client-auth work and activity logs drain before Central stops; original notifier ownership
+survives field clearing. Nineteen standalone gates pass independently, including actual queued work,
+retained failure, authority on the game executor and ambiguous/missing capture refusal; see
+`central-legacy-gate-tests-final.log` in recovery dir. They are not live persistence tests.
+
+Read-only inspection against JVM1856 succeeded with11 distinct native clients,2 live watchers,
+3 service executors,5 Central owners, live notifier and open activity datasource. No retained session,
+save countdown, callback consumption, shutdown or receipt occurred. This verifies the actual capture
+lookups before mutation. Exact frozen agent SHA256 is
+`D30525FCC35ADD4C81A6609723228FEC3CF6B3054DA6B4EFDE1C0176B7E2C16A`;
+reuse this loaded artifact for handover. Final source backup and independent review remain the last
+handover prerequisites. Native pg_dump is absent from the
+embedded binary package; preserve the existing offline backup and take a fresh offline copy after
+verified native closure, before launching any replacement.
 
 Pre-edit mapping reuses approved M01/M02 and existing APIs; no new shared route is needed.
 The self-protection defect suggested during recovery is NOT verified: executing protected

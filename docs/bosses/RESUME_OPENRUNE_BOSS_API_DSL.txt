@@ -22,6 +22,10 @@ Newer source, test logs and handoff entries take precedence over this prompt.
 Never infer current deployment from Git HEAD alone.
 
 KNOWN STARTING CHECKPOINT (RECHECK; DO NOT REPEAT COMPLETED WORK)
+- Permanent Central dependency07b00480e and game-side producer source0f729d055 are tested/backed
+  up;31 Central +12 new client/writer focused tests pass. Final checks contain1,061 boss and297
+  shared/app cases. Guarded legacy handover validation remains. JVM1856 stays online on old
+  Central2.0.1. Read current Nex ledger first; no new source is deployed yet.
 - Latest boss source444a39eb3 routes Nex barrier/altar/admin travel through protected movement.
   Backup/nex-protected-access-20260913;98 Nex +155 shared cases pass, build/checks pass.
   Source-only; JVM1856 stays9e592b389. Next: permanent Central native shutdown correction,

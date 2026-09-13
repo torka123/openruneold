@@ -10,7 +10,12 @@ Latest boss source checkpoint **444a39eb3** (`backup/nex-protected-access-202609
 barrier, altar and `::nex` native protected movement is implemented and verified by98 Nex and155
 shared-module cases. Scoped formatting, Nex check, app assemble and architecture checks pass.
 This slice is source-only. See the Nex ledger for files, red/green history and evidence limitations.
-Exact next source deliverable is the permanent Central shutdown correction before two verified restarts.
+Central dependency shutdown source `07b00480e` is committed/backed up:31 focused Central tests,
+1,061 boss cases and285 affected shared/app cases pass, with app assemble and architecture checks.
+Game-side client/activity-writer source `0f729d055` is also committed with12 new focused tests;
+final all-boss/shared/app checks pass (1,061 boss and297 shared/app cases). The next deliverable
+is the reviewed old-runtime handover and two verified restarts. The current Nex ledger records exact
+files, hashes, test logs and remaining gates; none of this new Central source is deployed yet.
 
 User priority remains server online through RSProx first, then Nex → Yama → Doom → DT2 →
 separate Dagannoth Kings review → ToA → ToB → CoX. The earlier60–65% estimate covers the
@@ -31,7 +36,7 @@ shared/app/Nex build pass. Native producer and persistence shutdown completed du
 recovery, but Central2.0.1 cleanup resolves services after Koin4.0.2 has closed its registry.
 The existing native Central owners were recovered and their social executor had zero submitted,
 active or queued work; native stop/flush methods completed before datasource/PG closure.
-The permanent Central dependency correction remains source work: resolve owners before Koin
+The tested permanent Central dependency correction remains source-only: resolve owners before Koin
 closure, stop/await producers before social drain, retain failed/pending writes and propagate
 the final cleanup result to existing embedded stop. The exact installed2.0.1 source is pinned
 at official9d718ca61aa6437007f883f27c35126fac5a0558 in the sibling backups checkout. No dependency
