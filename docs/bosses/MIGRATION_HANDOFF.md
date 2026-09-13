@@ -36,8 +36,10 @@ exact no-remains now pass153 Nex/1,116 boss,501 engine/shared/weapons/app,62 con
 cases (2,087 total), scoped checks/architecture/app assemble; nine-file archive verified. Source-only.
 M06 captured guard anchors now pass155 Nex cases, scoped checks/architecture/app assemble;
 native blocked terrain and ranged LOS are preserved through both rosters. Three-file archive
-verified; source-only. Next: S04 concrete reward preparation in the existing shared drop service,
-before durable allocation/pickup and Nex activation. M04 cooldown/equipment and
+verified; commit769ac739e, source-only. S04 concrete reward preparation now passes68 content/drops,
+155 Nex/1,118 boss and408 ToA cases, with501 unchanged shared cases valid (2,095 total), scoped
+checks/architecture/app assemble. Three-file archive verified. Next: S04 immutable allocation
+journal in the existing account repository, before ground/pickup recovery and Nex activation. M04 cooldown/equipment and
 M20 general placement/clipping remain evidence gaps. Boosted-floor evidence remains
 separate. Full local/pinned searches verified the missing fixed
 route before using the latest conditional approval. Existing timing/reward gaps remain separate.

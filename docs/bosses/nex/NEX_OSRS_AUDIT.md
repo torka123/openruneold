@@ -61,8 +61,11 @@ handling now pass153 Nex/1,116 boss cases,501 engine/shared/weapons/app,62 drop-
 existing ToA cases (2,087 total), scoped checks/architecture/app assemble; nine-file archive verified.
 Captured guard anchors now pass155 Nex cases, scoped checks/architecture/app assemble; canonical
 native terrain blocking and ranged line-of-sight are preserved through initial and replacement
-rosters. Three-file archive verified below. Next: S04 opt-in concrete reward preparation in the
-existing shared drop service, before the durable allocation/pickup foundation; no Nex activation yet.
+rosters; commit769ac739e. Three-file archive verified below. S04 opt-in concrete reward preparation
+now passes68 content/drop cases,155 Nex/1,118 boss cases and408 ToA;501 unchanged shared cases
+remain valid (2,095 total), scoped checks/architecture/app assemble. Three-file archive verified.
+Next: S04 immutable allocation journal in the existing account repository, before ground/pickup
+recovery and verified Nex allocation activation.
 M04 cooldown/equipment, M20 general placement/clipping and normal timing evidence remain missing. All these
 changes remain SOURCE ONLY; current deployment is unchanged.
 Existing timing/damage/geometry constants remain characterized under E07. Full native public/private
@@ -887,9 +890,78 @@ NexMinionCombatCharacterizationTest's existing fixture; new NexBodyguardPlacemen
 Archive `logs/nex-m06-guard-anchors-source-20260913.zip` contains exactly these three byte-verified
 files; SHA256 `39B86BA6F7E16E46A357D115E8254EDB4F92545207C81A91A3162D3BBDCD714D`.
 Build passed and native fixture behavior verified; no normal OSRS timing or live-client claim.
+Commit769ac739e, backup branch `backup/nex-bodyguard-anchors-20260913`.
 Source-only; deployment stays JVM23812/c4fc9390f. Next is bounded S04 concrete reward preparation;
 durable allocation, native ground/pickup recovery and verified Nex eligibility/distribution remain
 required before enabling multi-recipient rewards. Existing E07/M04/M20 gaps are unchanged.
+
+## Completed source increment: S04 concrete native reward preparation
+
+The conditional missing-route approval applies to this extension of the existing shared drop owner.
+Pinned61139e76a NpcDropTableKillHook directly resolves callbacks/counts before each spawn; the full
+pinned api/content search has no prepared reward/drop or allocation journal. Current shared
+NpcRewardDeliveryService still receives RollResult<DropRollItem>, which contains live predicates,
+transformations, quantity RNG and recursive bonuses. NpcKillRewardContexts is a weak live-NPC map.
+RoyalTitansStatistics persists completion/participants, but its corpse reward rolls/claimed set
+remain in memory. ToaRewardService's concrete rewardPlan before entitlement persistence is the
+established comparable preparation workflow; its single pending slot/manual inventory claim is
+not a generic per-life/recipient ground-reward journal. Reuse these verified findings.
+
+AccountSavingService owns the save gate and account/SQL transaction wrappers. GameDatabase retries
+SQL callbacks, so callbacks must consume prepared values, never reroll or invoke gameplay. Native
+InvObj already stores immutable id/count/packed vars; CoordGrid is an immutable packed value.
+CharacterInventoryData.Obj and GamePersistenceRscmKeys encode item IDs to stable RSCM keys for SQL.
+The first increment supplies only an in-memory concrete preparation result to the existing drop
+service. Future journal integration must use that existing stable-key persistence convention.
+
+| Responsibility | Existing route and bounded addition | Acceptance |
+|---|---|---|
+| Concrete item selection | Add opt-in NpcRewardDeliveryService.prepare; resolve isNothing, condition, killCondition, transform fallback, rollCount in existing order | Nothing/failed parents suppress their entire bonus subtree; count choices/ranges use injected GameRandom once; fixed counts consume no entropy |
+| Native provenance and order | EnsouledHeadProvenance.fromMonsterDrop(InvObj, supplied coords); depth-first parent/bonuses followed by top-level extras | Fresh-head normalization and packed origin retained; duplicate lines stay separate; ordinals are consecutive for accepted items |
+| Immutable prepared value | New PreparedNpcReward beside the shared service: original NPC type ID/internalName, coords, captured duration and defensively immutable ordinal/InvObj lines | No live Player/Npc, DropRollItem, lambda or mutable cache-type reference; later NPC/player/input-list changes cannot change the result; explicit empty result is valid |
+| Invalid plan | Opt-in preparation rejects nonpositive quantities and missing native cached item types before returning a complete result | Failed preparation exposes no partial plan and emits no service-owned object/log/broadcast/client output; legacy delivery behavior stays unchanged |
+| Legacy behavior | Keep deliver/spawnDrop unchanged, including native death and deferred corpse callers | Existing drop/bodyguard/deferred/ordinary regression tests continue to pass |
+
+Preparation is a game-thread snapshot operation and consumes callback/RNG state; it is not itself
+idempotent. Its caller must retain a successful plan across SQL retries. Drop callbacks are arbitrary
+content functions and not promised pure; preparation does not invoke delivery hooks between items,
+so it is deliberately opt-in. Legacy cache-missing behavior can emit partial delivery then skip
+bonuses; this new path instead fails before returning a usable plan. No life/recipient identity,
+entropy source, loot event allocator, roll table, distribution or pickup path is changed here.
+
+Root owns production/integration/builds. A bounded test owner may add only the new preparation test
+file. Focused preparation plus existing native delivery/bodyguard table tests run first, then
+content/drops checks, all-boss/ToA regressions, architecture/app assemble. Shared-module bytecode
+is unchanged; reuse M11's valid501 shared cases. Ground durability, atomic account/pickup transitions,
+source-stable notification delivery and verified Nex E06 allocations remain gates before activating
+this path on Nex. No deployed or exactly-once reward claim is made by this increment.
+
+Verification: `logs/nex-s04-preparation-focused-20260913.log` passes13 groups in21s: six new
+preparation groups, five existing native delivery groups and two actual bodyguard drop-table groups.
+No focused compile/test failure. Final `logs/nex-s04-preparation-checks-20260913.log` passes in1m37s,
+523 tasks/32 executed: scoped content/drops checks, death/drop-plugin/repository/native killcount
+checks, all-boss and ToA regressions, architecture and app assemble. Results:68 content/drops,
+155 Nex/1,118 total boss,408 ToA, with501 unchanged shared/engine/weapons/app cases valid from M11
+(some selected dependencies rechecked/up-to-date). Total2,095, zero failures/errors/skips;
+`logs/nex-s04-preparation-test-results-20260913.json`. Independent production review found no defect.
+
+The deterministic tests cover live delivery parity for valid independent callbacks, precise count
+entropy, depth-first extras/duplicate lines, rejected subtrees, explicit empty outcomes, original
+source/transmog snapshots, changed caller lists/duration/entities, an unmodifiable returned list,
+native stored-to-fresh ensouled heads and packed origin, callback-state versus delivery interleaving,
+and zero service-owned sink/client output. Callback exceptions, nonpositive quantities and unresolved
+item aliases fail without a returned partial plan. A natural valid-RSCM-key/missing-native-definition
+case was not found; that particular boundary is not claimed directly exercised. No cache mutation.
+
+Three changed source files: NpcRewardDeliveryService adds prepare/prepareDrop while legacy deliver/
+spawnDrop are unchanged; new PreparedNpcReward immutable native value; new NpcRewardPreparationTest.
+Archive `logs/nex-s04-preparation-source-20260913.zip` has exactly three byte-verified files,
+SHA256 `4F7866DCF886CC1C03DA8827903A57B8963E96D85AC51699BC5F7CA87B09FFDC`.
+Source-only; JVM23812/c4fc9390f remains deployed. This is a preparation foundation, not persisted or
+delivered Nex loot. Next: record/lookup immutable per-life/character allocations through existing
+CharacterAccountRepository and GameDatabase, using a tracked native Flyway migration and isolated
+PostgreSQL behavioral tests. Ground projection/pickup/recovery and E06 eligibility/distribution
+remain separate gates before this new reward route is enabled.
 
 ## Source verification history: M01/M02 protected access and S10
 

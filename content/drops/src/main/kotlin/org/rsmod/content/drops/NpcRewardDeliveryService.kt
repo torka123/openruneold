@@ -52,6 +52,62 @@ constructor(
             RollRandom.Context with GameDropRandom(random),
         )
 
+    /**
+     * Resolves a concrete reward on the game thread without emitting delivery effects.
+     *
+     * This consumes conditions and entropy once per call. A persistence caller must retain the
+     * returned value across retries and encode its final item IDs using native account RSCM keys.
+     * Eligibility and stable life/recipient identity remain the caller's responsibility.
+     *
+     * This is opt-in snapshot evaluation: callbacks do not observe intervening delivery hooks as
+     * they can in [deliver]. Arbitrary callbacks may have their own effects. Invalid quantities or
+     * missing item definitions fail preparation; no partially prepared value is returned.
+     */
+    public fun prepare(
+        receiver: Player,
+        npc: Npc,
+        result: RollResult<DropRollItem>,
+        coords: CoordGrid,
+        extraDrops: List<DropRollItem> = emptyList(),
+    ): PreparedNpcReward {
+        val sourceNpcId = npc.id
+        val sourceNpcKey = npc.type.internalName
+        val duration = receiver.lootDropDuration ?: constants.lootdrop_duration
+        val items = mutableListOf<PreparedNpcReward.Item>()
+        val drops =
+            when (result) {
+                RollResult.Nothing -> emptyList()
+                is RollResult.Single -> listOf(result.result)
+                is RollResult.ListOf -> result.results
+            }
+        for (drop in drops + extraDrops) {
+            prepareDrop(drop, coords, receiver, npc, items)
+        }
+        return PreparedNpcReward(sourceNpcId, sourceNpcKey, coords, duration, items)
+    }
+
+    private fun prepareDrop(
+        drop: DropRollItem,
+        coords: CoordGrid,
+        receiver: Player,
+        npc: Npc,
+        items: MutableList<PreparedNpcReward.Item>,
+    ) {
+        if (drop.isNothing || !drop.condition(receiver)) return
+        drop.killCondition?.let { if (!it(receiver, npc, areaChecker)) return }
+        val obj = drop.transformObj(receiver) ?: drop.obj
+        val count = drop.rollCount(random)
+        require(count > 0) { "Prepared NPC reward quantity must be positive: $obj x$count" }
+        val item = EnsouledHeadProvenance.fromMonsterDrop(InvObj(obj, count), coords)
+        requireNotNull(ServerCacheManager.getItem(item.id)) {
+            "Prepared NPC reward item is not in the native cache: ${item.id}"
+        }
+        items += PreparedNpcReward.Item(items.size, item)
+        for (bonus in drop.bonusDrops) {
+            prepareDrop(bonus, coords, receiver, npc, items)
+        }
+    }
+
     public fun deliver(
         receiver: Player,
         npc: Npc,
