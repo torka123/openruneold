@@ -1,5 +1,62 @@
 # Nex revision-240 evidence ledger and approval mapping
 
+## September 12 main DSL integration checkpoint (source; deployment recorded separately)
+
+S09 was approved and committed as `8b08bb84a`; optional shared S01 late-prayer policy is
+`e2c28eb33`. Neither is labelled official upstream. The current focused branch is
+`refactor/nex-main-native-combat-20260910`; pre-S09 recovery refs are
+`backup/nex-before-s09-20260910` and `backup/boss-selector-continuation-20260910`.
+
+The new `NexBossSpec` registers forms11278-11282 once through BossCombat. Ordinary melee,
+magic and ranged attacks use Effect.NpcAttack/NvPCombat, with the same characterized maxima,
+animation IDs, projectile definitions and prayer reductions. BossEncounter owns phase state,
+ordinary selection, two same-target melee continuations, five-normal forced-special cadence,
+and the twelve-opportunity Zaros overhead rotation. Removed the private attackNex/attackZaros,
+melee/magic/ranged launch methods, normal counter, Zaros counter, melee-chain fields and
+specialLockedUntil attack timer. The former pure Zaros arithmetic test is replaced by executing
+24 registered attacks, asserting visible forms, immutable UID and live hit validity.
+
+Named external handlers retain only normal-hit side effects, a one-use encounter-owned magic
+launch snapshot, post-primary secondary splash, special alternation/dispatch and idempotent
+native form presentation. They do not choose or schedule primary ordinary attacks. Retaining
+`npc.transmog` is intentional: local Effect.Transmog invokes changeType/assignUid, which would
+change the encounter identity. The run reads its phase from BossEncounter, not a second phase
+variable. Public-room membership, environmental mechanics and reward/death integration remain
+explicit migration debt; this is NOT full Nex completion.
+
+Two explicit safety/geometry corrections accompany the wiring: all ordinary fired hits use the
+native encounter attachment scope plus stable participant identity; raw disconnect, teleport,
+logout, death and deletion invalidate them. Melee eligibility uses the existing footprint-aware
+DSL condition instead of anchor-only distance. Four cardinal sides of Nex's3x3 footprint are
+tested. This condition alone does NOT prove collision-sensitive contact/pathfinding parity.
+
+The parameter resolver snapshots launch phase and prayer, and arms the secondary handoff only
+after native beginAttack accepts. The trailing handler consumes it once, after primary RNG/FX,
+including primary misses. Secondary hits now receive room/participant validity. Their existing
+launch-only prayer handling and lack of separate accuracy remain explicitly unresolved; final
+primary magic alone uses native deferred late-prayer evaluation. No damage or drop formula was
+changed to hide these discrepancies.
+
+Evidence: O1 was re-opened September12 and still documents two additional melee attempts,
+late25% final magic and the lower-floor example. Existing five main characterizations remain
+the migration behavior baseline, not proof of hidden OSRS random weights. C-GM3284/808 decoded
+evidence remains Grid Master, not normal-mode or raw-binary parity. Capture-backed called-guard
+corrections are a separate step, not silently mixed into this checkpoint.
+
+Initial formatting invocation failed because its manifest named the not-yet-created new test;
+no production/test failure occurred in that invocation. After creating it, all44 Nex tests
+passed (`logs/nex-main-second-20260912.log`,58s/165tasks). Team coverage then passed47 tests
+(`logs/nex-main-team-20260912.log`,59s/165tasks): primary miss with splash, one-use handoff,
+secondary disconnect, primary-vs-secondary late prayer and player target replacement.
+Broader checkpoint passed in1m51s/476tasks (148 executed,328 up-to-date):
+`logs/nex-main-checkpoint-20260912.log`. It ran scoped Nex formatting/check, Nex cache audit,
+boss API/player/combat-scripts/NPC/instance tests, application assemble and architecture check.
+Result XML: Nex47, boss API61, player20, combat-scripts8, NPC12, instances34, cache4 =186,
+zero failures/errors. Separate unscoped Nex check passed25s/165tasks (tests up-to-date),
+`logs/nex-main-unscoped-20260912.log`. Full unscoped boss API
+formatting still has the documented eight untouched baseline violations. No failing gameplay
+build was deployed. Deployment results follow only after actual controlled restarts.
+
 ## September 10 deployed checkpoint and next main-loop boundary
 
 **Live production source: `41fd77bff`, minion DSL migration only. Main Nex is not yet converted.**
@@ -174,8 +231,7 @@ Other selectors keep their existing behavior. Names and source signatures remain
 S09 acceptance tests: injected RNG bounds, two extra same-target selections, range exit without
 selection RNG, re-entry fresh roll, changed target/fresh chain, special interruption, normal-count
 fallback, no cancellation for movement entirely between selection opportunities, and phase/end/
-deletion/slot-reuse isolation. Run all boss API tests, main Nex native attack tests and existing
-migrated-boss regressions. No new shared source has been edited for this proposal.
+deletion/slot-reuse isolation. These are now executable S09 tests; see the September12 checkpoint.
 
 ## September10 native minion combat implementation
 

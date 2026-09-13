@@ -7,8 +7,6 @@ import org.rsmod.api.bosses.runtime.BossDeps
 import org.rsmod.api.combat.NpcAttackOverride
 import org.rsmod.api.death.NpcDeath
 import org.rsmod.api.npc.events.NpcHitEvents
-import org.rsmod.api.script.onAiApPlayer2
-import org.rsmod.api.script.onModifyNpcHit
 import org.rsmod.api.script.onNpcQueue
 import org.rsmod.game.entity.PlayerList
 import org.rsmod.game.entity.player.PlayerUid
@@ -29,6 +27,27 @@ constructor(
                 if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players) else null
             if (player == null) hit.damage = 0 else encounters.modifyNpcHit(player, npc, hit)
         }
+        deps.extensionRegistry.registerAttackParameters(NEX_ATTACK_PARAMETERS) { npc, target, data
+            ->
+            encounters.normalParameters(npc, target, data as NexNormalAttack)
+        }
+        deps.extensionRegistry.register(NEX_SPECIAL) { _, npc, target, _ ->
+            encounters.executeSpecial(npc, target)
+        }
+        deps.extensionRegistry.register(NEX_MAGIC_SPLASH) { _, npc, target, _ ->
+            encounters.magicSplash(npc, target)
+        }
+        deps.extensionRegistry.register(NEX_OVERHEAD) { _, npc, _, data ->
+            encounters.setZarosOverhead(npc, data as NexOverhead)
+        }
+        BossCombat.register(
+            this,
+            nexBossSpec(),
+            deps,
+            ownerSlug = "nex",
+            canTarget = encounters::canAttackNex,
+            onModifyHit = modify,
+        )
         deps.extensionRegistry.registerAttackParameters(NEX_MINION_TARGET_PARAMETERS) {
             npc,
             target,
@@ -48,10 +67,6 @@ constructor(
         NPC_IDS.forEach { id ->
             val type =
                 requireNotNull(ServerCacheManager.getNpc(id)) { "Missing revision-240 Nex NPC $id" }
-            if (id in 11278..11282) {
-                onAiApPlayer2(type) { encounters.attack(this, it.target) }
-                onModifyNpcHit(type, modify)
-            }
             onNpcQueue(type, "queue.death") {
                 val kind = encounters.handleDeath(npc)
                 death.deathNoDrops(this)

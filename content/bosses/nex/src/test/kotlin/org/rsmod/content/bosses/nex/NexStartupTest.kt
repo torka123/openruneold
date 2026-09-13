@@ -5,7 +5,7 @@ import kotlin.test.*
 import org.junit.jupiter.api.BeforeAll
 import org.mockito.Mockito.*
 import org.rsmod.annotations.InternalApi
-import org.rsmod.api.combat.NvPCombat
+import org.rsmod.api.bosses.runtime.EncounterRegistry
 import org.rsmod.api.game.process.world.WorldQueueListProcess
 import org.rsmod.api.npc.interact.AiPlayerInteractions
 import org.rsmod.api.random.DefaultGameRandom
@@ -37,6 +37,11 @@ class NexStartupTest {
             }
         val clock = MapClock()
         val queues = WorldQueueList()
+        val encounters =
+            EncounterRegistry(DefaultGameRandom(42L)).apply {
+                val spec = nexBossSpec()
+                for (id in 11278..11282) register(id, spec, "nex")
+            }
         val manager =
             NexEncounterManager(
                 clock,
@@ -46,7 +51,7 @@ class NexStartupTest {
                 mock(AiPlayerInteractions::class.java),
                 CollisionFlagMap(),
                 DefaultGameRandom(42L),
-                mock(NvPCombat::class.java),
+                encounters,
                 queues,
                 mock(WorldRepository::class.java),
                 mock(NexRewardService::class.java),

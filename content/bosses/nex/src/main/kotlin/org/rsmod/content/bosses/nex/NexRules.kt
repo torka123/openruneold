@@ -55,8 +55,7 @@ internal object NexRules {
         return (toThreshold + overdamage).coerceAtMost(currentHp - floor)
     }
 
-    fun special(state: NexState, attackCounter: Int, specialIndex: Int): NexSpecial? {
-        if (attackCounter != 5) return null
+    fun special(state: NexState, specialIndex: Int): NexSpecial? {
         val even = specialIndex % 2 == 0
         return when (state) {
             NexState.SMOKE -> if (even) NexSpecial.CHOKE else NexSpecial.SMOKE_DASH
@@ -66,13 +65,6 @@ internal object NexRules {
             else -> null
         }
     }
-
-    fun zarosOverhead(attackCounter: Int): NexOverhead =
-        when ((attackCounter.coerceAtLeast(0) / 4) % 3) {
-            0 -> NexOverhead.SOUL_SPLIT
-            1 -> NexOverhead.DEFLECT_MELEE
-            else -> NexOverhead.NONE
-        }
 
     fun eligibleDamage(total: Int): Int = min(100, ceil(total.coerceAtLeast(0) * 0.05).toInt())
 

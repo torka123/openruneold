@@ -144,7 +144,7 @@ class NexMinionCombatCharacterizationTest {
 }
 
 @OptIn(InternalApi::class)
-internal class NexMinionTestWorld {
+internal class NexMinionTestWorld(duo: Boolean = false) {
     val clock = MapClock().apply { cycle = 100 }
     val events = EventBus()
     val players = PlayerList()
@@ -211,7 +211,7 @@ internal class NexMinionTestWorld {
             AiPlayerInteractions(events, players),
             collision,
             random,
-            combat,
+            encounters,
             worldQueues,
             world,
             mock(NexRewardService::class.java),
@@ -234,6 +234,33 @@ internal class NexMinionTestWorld {
             worn = invMap.getOrPut("inv.worn")
         }
     private val modifier = StandardNpcHitModifier(events)
+    val partner =
+        if (duo)
+            Player().apply {
+                slotId = 2
+                uuid = 2L
+                observerUUID = 2L
+                assignUid()
+                coords = NEX_BANK_RETURN
+                currentMapClock = clock.cycle
+                processedMapClock = clock.cycle
+                for (stat in
+                    listOf(
+                        "hitpoints",
+                        "prayer",
+                        "attack",
+                        "strength",
+                        "defence",
+                        "ranged",
+                        "magic",
+                    )) {
+                    statMap.setBaseLevel("stat.$stat", 99)
+                    statMap.setCurrentLevel("stat.$stat", 99)
+                }
+                inv = invMap.getOrPut("inv.inv")
+                worn = invMap.getOrPut("inv.worn")
+            }
+        else null
     private val launcher =
         StandardNpcAccessLauncher(
             StandardNpcAccessContextFactory(
@@ -272,6 +299,10 @@ internal class NexMinionTestWorld {
         manager.startup()
         tick()
         assertTrue(manager.enter(player))
+        partner?.let {
+            players[2] = it
+            assertTrue(manager.enter(it))
+        }
         tick(5)
     }
 
@@ -280,9 +311,9 @@ internal class NexMinionTestWorld {
     fun protectMagic(enabled: Boolean) =
         VarPlayerIntMapSetter.set(player, "varbit.prayer_protectfrommagic", if (enabled) 1 else 0)
 
-    fun attack(npc: Npc) {
+    fun attack(npc: Npc, target: Player = player) {
         npc.mode = NpcMode.ApPlayer2
-        launcher.launch(npc) { events.publish(this, AiPlayerEvents.Ap2(player, npc)) }
+        launcher.launch(npc) { events.publish(this, AiPlayerEvents.Ap2(target, npc)) }
     }
 
     fun reachGuard(id: Int) {
@@ -354,17 +385,19 @@ internal class NexMinionTestWorld {
     fun processPlayerHits(count: Int = 12) =
         repeat(count) {
             clock.tick()
-            player.currentMapClock = clock.cycle
-            player.processedMapClock = clock.cycle
-            playerQueues.process(player)
+            for (target in listOfNotNull(player, partner)) {
+                target.currentMapClock = clock.cycle
+                target.processedMapClock = clock.cycle
+                playerQueues.process(target)
+            }
         }
 
-    fun hits(): List<Pair<Int, Hit>> = queued()
+    fun hits(target: Player = player): List<Pair<Int, Hit>> = queued(target)
 
-    fun deferredHits(): List<Pair<Int, DeferredPlayerHit>> = queued()
+    fun deferredHits(target: Player = player): List<Pair<Int, DeferredPlayerHit>> = queued(target)
 
-    private inline fun <reified T : Any> queued(): List<Pair<Int, T>> {
-        val iterator = player.queueList.iterator() ?: return emptyList()
+    private inline fun <reified T : Any> queued(target: Player): List<Pair<Int, T>> {
+        val iterator = target.queueList.iterator() ?: return emptyList()
         return try {
             buildList {
                 while (iterator.hasNext()) {

@@ -26,7 +26,7 @@ class NexMinionLifecycleIntegrationTest {
         assertNotNull(f.encounters.registeredSpec(reaver))
         f.encounters.of(reaver)
         assertFalse(reaver.movementLocked)
-        assertEquals(2, f.encounters.registeredBosses().size)
+        assertEquals(3, f.encounters.registeredBosses().size)
     }
 
     @Test
@@ -45,6 +45,7 @@ class NexMinionLifecycleIntegrationTest {
             listOf(
                 { it.player.coords = NEX_BANK_RETURN },
                 { it.player.pendingLogout = true },
+                { it.player.clientDisconnected.set(true) },
                 { it.player.loggingOut = true },
                 { it.manager.exit(it.player) },
                 { it.manager.playerLoggedOut(it.player) },

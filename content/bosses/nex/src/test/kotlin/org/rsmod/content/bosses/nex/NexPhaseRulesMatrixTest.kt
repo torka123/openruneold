@@ -32,19 +32,10 @@ class NexPhaseRulesMatrixTest {
                 NexState.ICE to (NexSpecial.CONTAINMENT to NexSpecial.ICE_PRISON),
             )
         rotations.forEach { (state, pair) ->
-            assertEquals(pair.first, NexRules.special(state, 5, 0))
-            assertEquals(pair.second, NexRules.special(state, 5, 1))
-            assertEquals(pair.first, NexRules.special(state, 5, 2))
+            assertEquals(pair.first, NexRules.special(state, 0))
+            assertEquals(pair.second, NexRules.special(state, 1))
+            assertEquals(pair.first, NexRules.special(state, 2))
         }
-    }
-
-    @Test
-    fun `zaros overhead rotation is deterministic for two full cycles`() {
-        val expected =
-            List(4) { NexOverhead.SOUL_SPLIT } +
-                List(4) { NexOverhead.DEFLECT_MELEE } +
-                List(4) { NexOverhead.NONE }
-        assertEquals(expected + expected, (0 until 24).map(NexRules::zarosOverhead))
     }
 
     @Test

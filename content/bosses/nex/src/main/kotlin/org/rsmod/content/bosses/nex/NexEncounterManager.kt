@@ -10,14 +10,10 @@ import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlin.math.abs
 import kotlin.math.max
+import org.rsmod.api.bosses.runtime.BossEncounter
+import org.rsmod.api.bosses.runtime.EncounterRegistry
 import org.rsmod.api.combat.NpcAttackOverride
-import org.rsmod.api.combat.NpcProjectile
-import org.rsmod.api.combat.NvPCombat
-import org.rsmod.api.combat.commons.CombatAttack
 import org.rsmod.api.combat.commons.CombatEffects
-import org.rsmod.api.combat.commons.types.MeleeAttackType
-import org.rsmod.api.combat.commons.types.RangedAttackType
-import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.api.npc.apPlayer2
 import org.rsmod.api.npc.heal
 import org.rsmod.api.npc.interact.AiPlayerInteractions
@@ -25,7 +21,6 @@ import org.rsmod.api.player.combatClearQueue
 import org.rsmod.api.player.hit.modifier.NpcBypassProtectionPrayerPlayerHitModifier
 import org.rsmod.api.player.hit.modifier.NpcCalculatedProtectionPrayerPlayerHitModifier
 import org.rsmod.api.player.hit.modifier.NpcPartialProtectionPrayerPlayerHitModifier
-import org.rsmod.api.player.hit.modifier.PlayerHitModifier
 import org.rsmod.api.player.hit.queueHit
 import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.stat.hitpoints
@@ -64,7 +59,7 @@ constructor(
     private val interactions: AiPlayerInteractions,
     private val collision: CollisionFlagMap,
     private val random: GameRandom,
-    private val combat: NvPCombat,
+    private val bossEncounters: EncounterRegistry,
     private val worldQueues: WorldQueueList,
     private val world: WorldRepository,
     private val rewards: NexRewardService,
@@ -157,11 +152,18 @@ constructor(
         }
     }
 
-    fun attack(access: StandardNpcAccess, target: Player) {
-        val npc = access.npc
-        val current = encounterFor(npc) ?: return
-        if (target.uid !in current.participants || !activeParticipant(current, target)) return
-        if (npc === current.boss) attackNex(access, current, target)
+    fun canAttackNex(npc: Npc, target: Player): Boolean {
+        val current = encounterFor(npc) ?: return false
+        if (
+            npc !== current.boss ||
+                target.uid !in current.participants ||
+                !activeParticipant(current, target)
+        )
+            return false
+        if (current.state !in combatStates) return false
+        // Characterized draft behavior; M10/M11 separately correct called-floor suppression.
+        return current.state !in calledStates ||
+            npc.hitpoints > (current.callFloor ?: Int.MAX_VALUE)
     }
 
     /** Only Nex-specific launch eligibility remains here; the DSL owns ordinary minion combat. */
@@ -212,7 +214,7 @@ constructor(
         if (npc === current.boss) {
             if (current.state != NexState.ZAROS || current.deathStarted) return DeathKind.UNRELATED
             current.deathStarted = true
-            current.state = NexState.DYING
+            transition(current, NexState.DYING)
             current.boss.transmog(requireNpc(NEX_DYING_ID), Int.MAX_VALUE)
             current.boss.anim(anim(9184))
             participants(current).forEach { it.combatClearQueue() }
@@ -241,7 +243,7 @@ constructor(
                 current.rewarded,
                 current.arena.spawn,
             )
-            current.state = NexState.RESETTING
+            transition(current, NexState.RESETTING)
             current.resetCycle = clock.cycle + NEX_RESPAWN_TICKS
         }
     }
@@ -308,7 +310,7 @@ constructor(
             activateSmoke(current)
         if (current.state == NexState.RESETTING && clock.cycle >= current.resetCycle) reset(current)
         if (current.state in activeStates && current.participants.isEmpty()) {
-            current.state = NexState.RESETTING
+            transition(current, NexState.RESETTING)
             current.resetCycle = clock.cycle + 1
         }
         if (current.state in combatStates) keepAggressive(current)
@@ -317,7 +319,7 @@ constructor(
     }
 
     private fun beginSpawn(current: Run) {
-        current.state = NexState.SPAWNING
+        transition(current, NexState.SPAWNING)
         current.startingTeamSize = current.participants.size
         current.stateReadyCycle = clock.cycle + 5
         current.boss.transmog(requireNpc(NEX_SPAWNING_ID), Int.MAX_VALUE)
@@ -329,178 +331,88 @@ constructor(
     private fun activateSmoke(current: Run) {
         if (current.state != NexState.SPAWNING) return
         current.boss.transmog(requireNpc(NEX_ID), Int.MAX_VALUE)
-        current.state = NexState.SMOKE
+        transition(current, NexState.SMOKE)
         current.boss.movementLocked = false
         current.boss.apRangeOverride = 10
         announce(current, "Fill my soul with smoke!")
         keepAggressive(current)
     }
 
-    private fun attackNex(access: StandardNpcAccess, current: Run, target: Player) {
-        if (current.state !in combatStates || clock.cycle < current.specialLockedUntil) return
+    /** Named DSL parameter resolver. It never chooses, launches or schedules a primary attack. */
+    fun normalParameters(npc: Npc, target: Player, attack: NexNormalAttack): NpcAttackOverride {
+        val current = requireNotNull(encounterFor(npc))
+        val validity = minionHitValidity(npc, target)
+        val protected = target.vars["varbit.prayer_protectfrommagic"] == 1
+        val launch = MagicLaunch(current, target.uid, clock.cycle, attack.phase)
+        val slot = current.encounter.state("nex.magic-launch") { MagicLaunchSlot() }
+        slot.launch = null
+        return when (attack.style) {
+            NexNormalStyle.MELEE ->
+                NpcAttackOverride(
+                    hitValidity = validity,
+                    onImpact = { _, impact -> soulSplitHeal(current, impact.damage) },
+                )
+            NexNormalStyle.RANGED ->
+                NpcAttackOverride(
+                    hitValidity = validity,
+                    onImpact = { _, impact ->
+                        soulSplitHeal(current, impact.damage)
+                        if (impact.damage > 0)
+                            target.statSub(
+                                "stat.prayer",
+                                constant = max(1, impact.damage / 10),
+                                percent = 0,
+                            )
+                    },
+                )
+            NexNormalStyle.MAGIC ->
+                NpcAttackOverride(
+                    hitValidity = validity,
+                    applyModifierOnImpact = attack.phase == NexState.ZAROS,
+                    hitModifier =
+                        NpcCalculatedProtectionPrayerPlayerHitModifier(
+                            protected,
+                            if (attack.phase == NexState.BLOOD) 66 else 50,
+                            lateReductionPercent = if (attack.phase == NexState.ZAROS) 25 else 0,
+                        ),
+                    // Arm only once native beginAttack accepts; secondaries follow primary RNG/FX.
+                    onAttack = { slot.launch = launch },
+                    onImpact = { _, impact ->
+                        target.spotanim(spotInternal(impactFor(attack.phase)))
+                        applyMagicImpact(current, target, attack.phase, impact.damage, protected)
+                    },
+                )
+        }
+    }
+
+    fun magicSplash(npc: Npc, primary: Player) {
+        val current = encounterFor(npc) ?: return
+        val slot = current.encounter.stateOrNull<MagicLaunchSlot>("nex.magic-launch") ?: return
+        val launch = slot.launch ?: return
+        slot.launch = null
         if (
-            current.state in calledStates &&
-                current.boss.hitpoints <= (current.callFloor ?: Int.MAX_VALUE)
+            launch.run !== current ||
+                launch.target != primary.uid ||
+                launch.cycle != clock.cycle ||
+                !minionHitValidity(npc, primary).isValid()
         )
             return
-        if (current.state != NexState.ZAROS) {
-            val special =
-                NexRules.special(current.state, current.attackCounter, current.specialIndex)
-            if (special != null) {
-                current.attackCounter = 0
-                current.specialIndex++
-                startSpecial(current, special, target)
-                return
-            }
-        }
-        if (current.state == NexState.ZAROS) {
-            setZarosOverhead(current)
-            attackZaros(access, current, target)
-            current.zarosAttackCounter++
-        } else {
-            val inMelee = distance(current.boss.coords, target.coords) <= 1
-            val continuingMelee =
-                current.meleeChainRemaining > 0 && current.meleeChainTarget == target.uid
-            val melee = inMelee && (continuingMelee || random.of(3) == 0)
-            if (melee) {
-                if (continuingMelee) {
-                    current.meleeChainRemaining--
-                } else {
-                    current.meleeChainRemaining = 2
-                    current.meleeChainTarget = target.uid
-                }
-                if (current.meleeChainRemaining == 0) current.meleeChainTarget = null
-                meleeAttack(access, current, target, 27, 80)
-            } else {
-                current.meleeChainRemaining = 0
-                current.meleeChainTarget = null
-                if (current.state == NexState.SHADOW) rangedAttack(access, current, target, 60)
-                else magicAttack(access, current, target, 33)
-            }
-            current.attackCounter++
-        }
-    }
-
-    private fun attackZaros(access: StandardNpcAccess, current: Run, target: Player) {
-        val inMelee = distance(current.boss.coords, target.coords) <= 1
-        val continuingMelee =
-            current.meleeChainRemaining > 0 && current.meleeChainTarget == target.uid
-        val melee = inMelee && (continuingMelee || random.of(3) == 0)
-        if (melee) {
-            if (continuingMelee) current.meleeChainRemaining--
-            else {
-                current.meleeChainRemaining = 2
-                current.meleeChainTarget = target.uid
-            }
-            if (current.meleeChainRemaining == 0) current.meleeChainTarget = null
-            meleeAttack(access, current, target, 30, 66)
-        } else {
-            current.meleeChainRemaining = 0
-            current.meleeChainTarget = null
-            magicAttack(access, current, target, 33, finalPhase = true)
-        }
-    }
-
-    private fun meleeAttack(
-        access: StandardNpcAccess,
-        current: Run,
-        target: Player,
-        maxHit: Int,
-        prayerReduction: Int,
-        attackRate: Int = NEX_ATTACK_RATE,
-    ) {
-        combat.attack(
-            access,
-            target,
-            CombatAttack.NpcMelee(MeleeAttackType.Crush),
-            NpcAttackOverride(
-                attackAnimation = anim(9180),
-                maxHit = maxHit,
-                attackRate = attackRate,
-                hitModifier = NpcPartialProtectionPrayerPlayerHitModifier(prayerReduction),
-                onImpact = { _, impact -> soulSplitHeal(current, impact.damage) },
-            ),
+        splashSecondaries(
+            current,
+            primary,
+            33,
+            HitType.Magic,
+            if (launch.phase == NexState.BLOOD) 66 else 50,
+            launch.phase,
         )
     }
 
-    private fun magicAttack(
-        access: StandardNpcAccess,
-        current: Run,
-        target: Player,
-        maxHit: Int,
-        finalPhase: Boolean = false,
-        attackRate: Int = NEX_ATTACK_RATE,
-    ) {
-        val protectedAtLaunch = target.vars["varbit.prayer_protectfrommagic"] == 1
-        val stateAtLaunch = current.state
-        val reduction = if (stateAtLaunch == NexState.BLOOD) 66 else 50
-        val projectileId =
-            if (finalPhase) 2007
-            else
-                when (current.state) {
-                    NexState.SMOKE -> 1997
-                    NexState.BLOOD -> 2000
-                    NexState.ICE -> 2004
-                    else -> 1999
-                }
-        val modifier =
-            if (finalPhase) finalMagicModifier(protectedAtLaunch)
-            else NpcCalculatedProtectionPrayerPlayerHitModifier(protectedAtLaunch, reduction)
-        combat.attack(
-            access,
-            target,
-            CombatAttack.NpcMagic(maxHit),
-            NpcAttackOverride(
-                attackAnimation = anim(if (finalPhase) 9188 else 9189),
-                maxHit = maxHit,
-                attackRate = attackRate,
-                projectile =
-                    NpcProjectile(
-                        spotInternal(projectileId),
-                        projectileType("projanim.magic_spell"),
-                    ),
-                applyModifierOnImpact = finalPhase,
-                hitModifier = modifier,
-                onImpact = { _, impact ->
-                    target.spotanim(
-                        spotInternal(if (finalPhase) 2008 else impactFor(stateAtLaunch))
-                    )
-                    applyMagicImpact(
-                        current,
-                        target,
-                        stateAtLaunch,
-                        impact.damage,
-                        protectedAtLaunch,
-                    )
-                },
-            ),
-        )
-        splashSecondaries(current, target, maxHit, HitType.Magic, reduction, stateAtLaunch)
-    }
-
-    private fun rangedAttack(access: StandardNpcAccess, current: Run, target: Player, maxHit: Int) {
-        combat.attack(
-            access,
-            target,
-            CombatAttack.NpcRanged(RangedAttackType.Standard),
-            NpcAttackOverride(
-                attackAnimation = anim(9189),
-                maxHit = maxHit,
-                attackRate = NEX_ATTACK_RATE,
-                projectile = NpcProjectile(spotInternal(1999), projectileType("projanim.arrow")),
-                hitModifier = NpcPartialProtectionPrayerPlayerHitModifier(50),
-                onImpact = { _, impact ->
-                    soulSplitHeal(current, impact.damage)
-                    if (impact.damage > 0) {
-                        target.statSub(
-                            "stat.prayer",
-                            constant = max(1, impact.damage / 10),
-                            percent = 0,
-                        )
-                    }
-                },
-            ),
-        )
+    /** Special alternation is Nex-specific; the DSL owns the five-normal cadence. */
+    fun executeSpecial(npc: Npc, target: Player) {
+        val current = encounterFor(npc) ?: return
+        val special = NexRules.special(current.state, current.specialIndex) ?: return
+        current.specialIndex++
+        startSpecial(current, special, target)
     }
 
     private fun splashSecondaries(
@@ -514,14 +426,21 @@ constructor(
         participants(current)
             .filter { it !== primary && distance(it.coords, primary.coords) <= 1 }
             .forEach { secondary ->
+                val participantValidity = minionHitValidity(current.boss, secondary)
                 val protectedAtLaunch = secondary.vars["varbit.prayer_protectfrommagic"] == 1
                 val modifier =
-                    if (stateAtLaunch == NexState.ZAROS) finalMagicModifier(protectedAtLaunch)
+                    if (stateAtLaunch == NexState.ZAROS)
+                        NpcCalculatedProtectionPrayerPlayerHitModifier(protectedAtLaunch, 50, 25)
                     else NpcPartialProtectionPrayerPlayerHitModifier(reduction)
                 secondary.queueHit(
                     source = current.boss,
                     delay = 3,
                     type = type,
+                    validity =
+                        HitValidity {
+                            bossEncounters.isAttached(current.boss, current.encounter) &&
+                                participantValidity.isValid()
+                        },
                     damage = random.of(0..maxHit),
                     modifier = modifier,
                     impactHandler =
@@ -568,18 +487,6 @@ constructor(
             else -> Unit
         }
     }
-
-    private fun finalMagicModifier(protectedAtLaunch: Boolean): PlayerHitModifier =
-        PlayerHitModifier { target ->
-            NpcBypassProtectionPrayerPlayerHitModifier.run { modify(target) }
-            val reduction =
-                when {
-                    protectedAtLaunch -> 50
-                    target.vars["varbit.prayer_protectfrommagic"] == 1 -> 25
-                    else -> 0
-                }
-            damage = damage * (100 - reduction) / 100
-        }
 
     private fun modifyNexHit(current: Run, player: Player, hit: HitBuilder) {
         if (current.state == NexState.BLOOD && clock.cycle < current.siphonUntil) {
@@ -654,10 +561,8 @@ constructor(
     private fun callBodyguard(current: Run, phase: NexState) {
         val called = NexRules.calledBodyguard(phase) ?: return
         if (current.state != phase) return
-        current.state = called
+        transition(current, called)
         current.callFloor = NexRules.lowerFloor(phase)
-        current.attackCounter = 0
-        current.meleeChainRemaining = 0
         current.bodyguards[called]?.let { guard ->
             nearestParticipant(current, guard.coords)?.let { guard.apPlayer2(it, interactions) }
         }
@@ -669,11 +574,16 @@ constructor(
 
     private fun advanceFromBodyguard(current: Run, called: NexState) {
         val next = NexRules.nextPhase(called) ?: return
-        current.state = next
+        transition(current, next)
         current.callFloor = null
-        current.attackCounter = 0
-        current.meleeChainRemaining = 0
-        current.specialLockedUntil = clock.cycle + 2
+        // A handoff may shorten a special, but never an already-launched ordinary attack.
+        val encounter = current.encounter
+        val specialGate = encounter.lastAbilityName?.endsWith(".special") == true
+        if (specialGate && current.boss.actionDelay == encounter.lastAbilityTick + 5)
+            current.boss.actionDelay = clock.cycle + 2
+        encounter.attackRateOverride = null
+        encounter.lastAbilityTick =
+            maxOf(current.boss.actionDelay, clock.cycle + 2) - NEX_ATTACK_RATE
         current.boss.transmog(requireNpc(NEX_ID), Int.MAX_VALUE)
         if (next == NexState.ZAROS) {
             current.boss.heal(500)
@@ -693,7 +603,6 @@ constructor(
     }
 
     private fun startSpecial(current: Run, special: NexSpecial, target: Player) {
-        current.specialLockedUntil = clock.cycle + 5
         when (special) {
             NexSpecial.CHOKE -> choke(current, target)
             NexSpecial.DRAG -> drag(current, target)
@@ -924,8 +833,9 @@ constructor(
         }
     }
 
-    private fun setZarosOverhead(current: Run) {
-        val overhead = NexRules.zarosOverhead(current.zarosAttackCounter)
+    fun setZarosOverhead(npc: Npc, overhead: NexOverhead) {
+        val current = encounterFor(npc) ?: return
+        if (current.state != NexState.ZAROS) return
         if (current.overhead == overhead) return
         current.overhead = overhead
         val id =
@@ -1000,6 +910,7 @@ constructor(
                 arena = NEX_CHAMBER_ARENA,
                 boss = boss,
                 bodyguards = bodyguards,
+                encounter = bossEncounters.of(boss),
             )
         log.info { "[Nex] spawned generation=${run?.generation} state=IDLE" }
     }
@@ -1096,6 +1007,7 @@ constructor(
 
     private fun activeParticipant(current: Run, player: Player): Boolean =
         player.isSlotAssigned &&
+            !player.clientDisconnected.get() &&
             !player.pendingLogout &&
             !player.loggingOut &&
             player.hitpoints > 0 &&
@@ -1242,7 +1154,7 @@ constructor(
         val arena: NexArena,
         var boss: Npc,
         val bodyguards: LinkedHashMap<NexState, Npc>,
-        var state: NexState = NexState.IDLE,
+        val encounter: BossEncounter,
         val participants: MutableSet<PlayerUid> = linkedSetOf(),
         val contributions: MutableMap<PlayerUid, NexContribution> = linkedMapOf(),
         val rewarded: MutableSet<PlayerUid> = linkedSetOf(),
@@ -1255,19 +1167,30 @@ constructor(
         var callFloor: Int? = null,
         var stateReadyCycle: Int = Int.MAX_VALUE,
         var resetCycle: Int = Int.MAX_VALUE,
-        var specialLockedUntil: Int = Int.MIN_VALUE,
         var siphonUntil: Int = Int.MIN_VALUE,
         var darknessUntil: Int = Int.MIN_VALUE,
-        var attackCounter: Int = 0,
         var specialIndex: Int = 0,
-        var zarosAttackCounter: Int = 0,
-        var meleeChainTarget: PlayerUid? = null,
-        var meleeChainRemaining: Int = 0,
         var overhead: NexOverhead = NexOverhead.NONE,
         var startingTeamSize: Int = 0,
         var deathStarted: Boolean = false,
         var rewardFinished: Boolean = false,
+    ) {
+        val state: NexState
+            get() = NexState.valueOf(encounter.currentPhaseName)
+    }
+
+    private data class MagicLaunch(
+        val run: Run,
+        val target: PlayerUid,
+        val cycle: Int,
+        val phase: NexState,
     )
+
+    private class MagicLaunchSlot(var launch: MagicLaunch? = null)
+
+    private fun transition(current: Run, state: NexState) {
+        current.encounter.transitionTo(state.name, clock.cycle)
+    }
 
     private companion object {
         const val NEX_ID = 11278

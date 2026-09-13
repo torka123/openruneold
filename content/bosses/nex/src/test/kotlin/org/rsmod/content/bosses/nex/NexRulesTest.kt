@@ -38,10 +38,10 @@ class NexRulesTest {
     }
 
     @Test
-    fun `special cycle alternates every five attacks`() {
-        assertEquals(NexSpecial.CHOKE, NexRules.special(NexState.SMOKE, 5, 0))
-        assertEquals(NexSpecial.SMOKE_DASH, NexRules.special(NexState.SMOKE, 5, 1))
-        assertEquals(null, NexRules.special(NexState.SMOKE, 4, 0))
+    fun `smoke specials alternate and called guard has no draft special`() {
+        assertEquals(NexSpecial.CHOKE, NexRules.special(NexState.SMOKE, 0))
+        assertEquals(NexSpecial.SMOKE_DASH, NexRules.special(NexState.SMOKE, 1))
+        assertEquals(null, NexRules.special(NexState.FUMUS, 0))
     }
 
     @Test

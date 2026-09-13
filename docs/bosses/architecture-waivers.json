@@ -135,7 +135,7 @@
     "boss": "nex",
     "rule": "direct-combat-review",
     "maximum": 14,
-    "reason": "Guard/Reaver ordinary attacks migrated to BossSpec September10; one approved parameter resolver remains. Main Nex attacks/hazards are still migration debt. See nex/NEX_OSRS_AUDIT.md."
+      "reason": "Main Nex and guard/Reaver primary ordinary attacks now use BossSpec. Four reviewed parameter objects only supply launch snapshots/impact callbacks. Secondary splash and environmental hits remain explicitly mapped migration debt; no private primary selector or attack timer remains. See nex/NEX_OSRS_AUDIT.md."
   },
   {
     "boss": "royal-titans",
