@@ -45,7 +45,7 @@ Current status (recheck before editing):
 $($migrationStatus -join "`n")
 
 Selected boss for this continuation: $Boss.
-Read docs/bosses/nex/NEX_OSRS_AUDIT.md for the current Nex mapping, helper migration,
+Read docs/bosses/nex/NEX_OSRS_AUDIT.md for the current Nex mapping, main/minion migration,
 executable results and remaining conflicts. Nex is the latest user priority unless this
 selection or a newer user request changes it. Preserve the completed Royal Titans reward pass.
 Do not repeat completed deployments or discard research. Client acceptance remains open.

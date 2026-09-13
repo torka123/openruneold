@@ -12,13 +12,16 @@ import org.rsmod.api.combat.commons.types.RangedAttackType
 
 /**
  * One ordinary-combat owner for all Nex forms. This preserves characterized draft attacks;
- * called-guard behavior and presentation discrepancies are tracked in NEX_OSRS_AUDIT.md. Group
- * specials remain named handlers, never a second ordinary selector or attack clock.
+ * presentation discrepancies are tracked in NEX_OSRS_AUDIT.md. Group specials remain named
+ * handlers, never a second ordinary selector or attack clock.
  */
 internal fun nexBossSpec(): BossSpec {
     val abilities = linkedMapOf<String, Effect>()
     val phases = linkedMapOf<String, PhaseSpec>()
     for (state in NexState.entries) {
+        // These identify vulnerable minions, not additional Nex combat phases.
+        if (state in setOf(NexState.FUMUS, NexState.UMBRA, NexState.CRUOR, NexState.GLACIES))
+            continue
         if (state !in NEX_COMBAT_STATES) {
             phases[state.name] = PhaseSpec(state.name, lockMovement = true)
             continue
@@ -144,17 +147,7 @@ internal enum class NexNormalStyle {
 }
 
 internal val NEX_COMBAT_STATES =
-    setOf(
-        NexState.SMOKE,
-        NexState.SHADOW,
-        NexState.BLOOD,
-        NexState.ICE,
-        NexState.FUMUS,
-        NexState.UMBRA,
-        NexState.CRUOR,
-        NexState.GLACIES,
-        NexState.ZAROS,
-    )
+    setOf(NexState.SMOKE, NexState.SHADOW, NexState.BLOOD, NexState.ICE, NexState.ZAROS)
 internal const val NEX_ATTACK_PARAMETERS = "nex.normal-impact"
 internal const val NEX_MAGIC_SPLASH = "nex.magic-splash"
 internal const val NEX_SPECIAL = "nex.special"

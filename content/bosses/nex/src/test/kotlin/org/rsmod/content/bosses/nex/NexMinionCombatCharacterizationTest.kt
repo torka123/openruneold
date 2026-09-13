@@ -144,7 +144,7 @@ class NexMinionCombatCharacterizationTest {
 }
 
 @OptIn(InternalApi::class)
-internal class NexMinionTestWorld(duo: Boolean = false) {
+internal class NexMinionTestWorld(duo: Boolean = false, nativeDeaths: Boolean = false) {
     val clock = MapClock().apply { cycle = 100 }
     val events = EventBus()
     val players = PlayerList()
@@ -295,7 +295,17 @@ internal class NexMinionTestWorld(duo: Boolean = false) {
         val context = ScriptContext(events, CheatCommandMap(), EngineQueueCache())
         with(NpcHitScript()) { context.startup() }
         with(PlayerHitScript()) { context.startup() }
-        with(NexCombat(manager, mock(NpcDeath::class.java), players, deps)) { context.startup() }
+        val death =
+            if (nativeDeaths)
+                NpcDeath(
+                    repository,
+                    players,
+                    mock(org.rsmod.api.repo.obj.ObjRepository::class.java),
+                    emptySet(),
+                    emptySet(),
+                )
+            else mock(NpcDeath::class.java)
+        with(NexCombat(manager, death, players, deps)) { context.startup() }
         manager.startup()
         tick()
         assertTrue(manager.enter(player))
@@ -315,6 +325,8 @@ internal class NexMinionTestWorld(duo: Boolean = false) {
         npc.mode = NpcMode.ApPlayer2
         launcher.launch(npc) { events.publish(this, AiPlayerEvents.Ap2(target, npc)) }
     }
+
+    fun damage(npc: Npc, amount: Int) = npc.queueHit(player, 1, HitType.Magic, amount, modifier)
 
     fun reachGuard(id: Int) {
         val thresholds = listOf(2720, 2040, 1360, 680)
@@ -370,7 +382,8 @@ internal class NexMinionTestWorld(duo: Boolean = false) {
             npcs.toList().forEach {
                 it.currentMapClock = clock.cycle
                 it.processedMapClock = clock.cycle
-                queues.process(it)
+                it.advanceActiveCoroutine()
+                if (it.isSlotAssigned) queues.process(it)
             }
             manager.tick(player)
         }

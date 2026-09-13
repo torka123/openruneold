@@ -1,5 +1,77 @@
 # Nex revision-240 evidence ledger and approval mapping
 
+## September 12 bodyguard-call and native death correction
+
+The main DSL checkpoint is committed as `8f0a6928c`, with source recovery branch
+`backup/nex-main-native-combat-20260912`. Source-only archive
+`logs/nex-main-native-combat-20260912.zip`:7,478 entries, zero excluded-path violations;
+SHA256 `C945A377EC3E41D1886DB60D14D94C49424AE28308DBABD1557A6ED75ECBBFF4`.
+This is not a PostgreSQL backup. Its deployment status is recorded separately below.
+
+M10/M11 correction: a called guard is now encounter coordination state, not an additional
+BossEncounter combat phase. Nex retains elemental normals, forced-special count and pending
+melee continuation during the call, including at the incoming damage floor. Incoming damage
+gating is preserved. Blood/Siphon, Ice and delayed special validation use the actual elemental
+phase. The change does not assert that the inherited incoming-damage formulas are correct.
+
+Decoded evidence inspected (Grid Master, NOT normal timing or binary parity):
+
+- `rsprox-3284.txt`:t631 L14926 calls Fumus; t632 L14952 reaches2550, L14953 immunity;
+  L14964 Nex9189 and L14984-14986 projectile1997. Outgoing Smoke magic continues after the call.
+- `rsprox-808.txt`:t2397 L60383-60384 Choke; ordinary attacks t2401 L60497, t2405 L60673,
+  t2414 call L60983/melee L60987, t2418 melee L61085, t2422 L61202; next special t2426
+  L61335-L61337. This supports preserving the attack sequence across the call, not copying
+  altered-mode attack cadence. All paths are under `logs/nex-audit-20260909/captures/`.
+
+Three executable `NexCalledGuardCombatTest` regressions failed against the pre-correction
+implementation (`logs/nex-called-guard-red-20260912.log`). They exercise all four elemental
+projectiles/styles at the floor, native ordinary count/continuation, and target reacquisition.
+
+M06/M26 spawn-ownership defect: `NpcRepository.add(npc, Int.MAX_VALUE)` sets respawns=true.
+The old Nex code set false BEFORE registration, so native death hid every actor for automatic
+respawn while the room separately owned replacement. Helpers now set false AFTER registration
+and use native deletion. Main Nex intentionally retains the native hide branch for Wrath source
+identity; `deathNoDrops(respawnDelay=Int.MAX_VALUE)` disables the competing automatic reveal.
+The room's existing reset then deletes the retained source. No shared API was added here.
+Native death/delete workflows are official; the optional respawnDelay parameter is an existing
+local extension. Native deathWithDrops itself runs synchronous drop handling after deletion;
+the helper callback uses that same supported pattern, with no new suspension after removal.
+
+The first native-death test exposed the overwritten flag. An experimental all-NPC-delete fix
+passed two cycles (`logs/nex-native-death-fixed-20260912.log`,49s/162tasks), but review identified
+lost Wrath source identity. That intermediate behavior was NOT deployed or retained. Final
+coverage instead requires native hidden/dead Nex to remain resolvable through Wrath, no native
+respawn timer, eventual room deletion, and two fresh encounter identities. Real helper death
+coverage sends simultaneous lethal queued hits through all four guards and checks one phase
+advance and removal per guard. No bodyguard death presentation or public auto-entry claim.
+
+M24 evidence rechecked:808 rev234.1 t715 L19223-L19229 transforms11282, t716 L19239-L19245
+Wrath dialogue, t717 L19249-L19250 death9184, t720 L19256-L19272 Wrath effects, t723
+L19308-L19313 player hit before deletion. Anchor2920,5191/effect center2921,5192. Eleven
+Grid Master deaths share death-sequence to FX3/deletion6 observed ticks; these are NOT certified
+normal cadence. Current hidden corpse, fixed-spawn Wrath geometry and legacy3+1 queue timing
+are explicitly preserved, not represented as visual parity. The source must remain attributable;
+HitContext alone cannot restore a removed NPC UID. Exact presentation remains M24 debt.
+
+Wrath validity regression: `logs/nex-wrath-validity-red2-20260912.log` has two tests, one failing
+(teleported player incorrectly damaged99->44). The first attempted run failed compilation due
+to a test accessing private Hit.sourceUid; the test now uses native resolveNpcSource instead.
+Wrath now uses the approved existing native HitValidity path for membership and source lifetime,
+including departure before the room post-tick. Its positive test checks both original UID
+resolution and PlayerHitpointsChangedEvent.source at actual native player impact.
+
+Final scoped formatting/check and affected-module verification passed1m36s/478tasks:
+`logs/nex-main-final-checkpoint-20260912.log` (17 executed,461 up-to-date).
+Tasks: Nex spotlessApply/check, `:or-cache:test --tests dev.openrune.NexR240CacheAuditTest`,
+`:api:bosses:test`, `:api:player:test`, `:api:combat:combat-scripts:test`, `:api:npc:test`,
+`:api:instances:test`, `:api:death:test`, `:server:app:assemble`, `bossArchitectureCheck`.
+The format manifest is `logs/nex-main-format-20260912.txt`, used with
+`-I scripts/format-selected.init.gradle -PopenruneFormatManifest=logs/nex-main-format-20260912.txt`.
+All commands use `--no-daemon --console=plain`. Result XML: Nex54, boss API61, player20,
+combat-scripts8, NPC12, instances34, death6, cache4 =199; zero failures/errors.
+Manager lines:1,236 (initial inventory1,321; minion checkpoint1,308). Retained specialized
+coordination is still migration debt, not hidden by the line-count reduction.
+
 ## September 12 main DSL integration checkpoint (source; deployment recorded separately)
 
 S09 was approved and committed as `8b08bb84a`; optional shared S01 late-prayer policy is

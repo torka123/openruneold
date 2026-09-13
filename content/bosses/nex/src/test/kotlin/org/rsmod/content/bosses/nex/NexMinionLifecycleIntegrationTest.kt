@@ -14,6 +14,30 @@ import org.rsmod.game.entity.Player
 @OptIn(InternalApi::class)
 class NexMinionLifecycleIntegrationTest {
     @Test
+    fun `real guard deaths advance each elemental phase once and retire native actors`() {
+        val f = NexMinionTestWorld(nativeDeaths = true)
+        val boss = f.npc(11278)
+        val thresholds = listOf(2720, 2040, 1360, 680)
+        val nextPhases = listOf("SHADOW", "BLOOD", "ICE", "ZAROS")
+        for (i in 0..3) {
+            boss.hitpoints = thresholds[i] + 1
+            f.damage(boss, 20)
+            f.tick()
+            val guard = f.npc(11283 + i)
+            val encounter = f.encounters.of(guard)
+            guard.hitpoints = 1
+            f.damage(guard, 1)
+            f.damage(guard, 1) // Both were queued while the guard was alive.
+            var ticks = 0
+            while (guard.isSlotAssigned && ticks++ < 40) f.tick()
+            assertFalse(guard.isSlotAssigned)
+            assertTrue(encounter.isEnded)
+            assertEquals(nextPhases[i], f.encounters.of(boss).currentPhaseName)
+            assertEquals(4 - i, f.npcs.count())
+        }
+    }
+
+    @Test
     fun `all minions have one DSL combat owner and preserve stationary guards`() {
         val f = NexMinionTestWorld()
         for (id in 11283..11286) {

@@ -4,7 +4,27 @@ This is a resumable handoff, not a project-completion or full OSRS-parity claim.
 mechanic mappings, uncertainties, commands and results remain in [DSL_MIGRATION.md](DSL_MIGRATION.md).
 Update this checkpoint after each completed boss and immediately before any authorized deployment.
 
-## Current continuation: Nex native minion combat (September10)
+## Current continuation: Nex main combat DSL (September12)
+
+Branch `refactor/nex-main-native-combat-20260910` contains approved S09 target-bound continuation
+(`8b08bb84a`), optional S01 late prayer (`e2c28eb33`), and main Nex DSL (`8f0a6928c`).
+Main and helper ordinary attacks now register through BossCombat/BossSpec/NvPCombat. BossEncounter
+owns normal selection, phases, forced cadence and Zaros overhead rotation; the private ordinary
+attack loop/counters are removed. This is NOT full Nex migration or mechanical parity.
+
+The follow-up preserves outgoing elemental combat and native attack state across bodyguard calls,
+fixes helper respawn ownership, and explicitly preserves main Nex's native death source for Wrath
+without an automatic respawn competing with room reset. See the existing Nex ledger for red/green
+tests, full command results, current backup and actual deployment. Do not infer deployment from
+HEAD or copy the historical JVM below as current. Remaining room lifecycle, specialized effects,
+damage/contribution, rewards/persistence/CAs and visual evidence are still mapped work.
+
+M01-M36/S01-S09 are approved; do not ask again for the same scope. No new death engine was added.
+Next safe migration work is the existing public-room/lifecycle mapping and scoped specialized
+effects; exact Wrath presentation is still unresolved, not fixed by merely retaining its source.
+The resume script and starter prompt now point to this main-combat checkpoint.
+
+## Earlier continuation: Nex native minion combat (September10 history)
 
 The latest user request resumes Nex. Branch `refactor/nex-native-minions-20260910` is based on
 `30e94ae13`; pre-work backup `backup/nex-before-minion-dsl-20260910` preserves that source.

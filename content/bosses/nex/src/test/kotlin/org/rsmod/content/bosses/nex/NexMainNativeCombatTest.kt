@@ -6,6 +6,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeAll
 import org.mockito.Mockito.framework
 import org.rsmod.annotations.InternalApi
+import org.rsmod.api.player.events.PlayerHitpointsChangedEvent
 import org.rsmod.api.player.stat.hitpoints
 import org.rsmod.game.hit.HitType
 
@@ -252,6 +253,84 @@ class NexMainNativeCombatTest {
         f.attack(boss, secondary)
         assertEquals(HitType.Magic, f.hits(secondary).last().second.type)
         assertEquals(listOf(3, 3), f.selectionBounds)
+    }
+
+    @Test
+    fun `real native death and room reset create a fresh authoritative encounter twice`() {
+        val f = NexMinionTestWorld(nativeDeaths = true)
+        repeat(2) {
+            assertTrue(f.npcs.filter { it.type.id != 11278 }.all { !it.respawns })
+            f.reachPhase(NexState.ZAROS)
+            val boss = f.npc(11278)
+            val old = f.encounters.of(boss)
+            boss.hitpoints = 1
+            f.damage(boss, 1)
+            var ticks = 0
+            while (!boss.hidden && ticks++ < 40) f.tick()
+            assertTrue(boss.hidden, "The native death sequence must finish")
+            assertTrue(boss.isSlotAssigned, "Wrath still needs its original source")
+            assertEquals(-1, boss.lifecycleRespawnCycle, "No competing automatic respawn timer")
+            while (boss.isSlotAssigned && ticks++ < 120) f.tick()
+            assertFalse(boss.isSlotAssigned, "Room reset must delete its retained death source")
+            assertTrue(old.isEnded)
+            val fresh = f.npc(11278)
+            assertNotSame(boss, fresh)
+            assertNotSame(old, f.encounters.of(fresh))
+            assertEquals("IDLE", f.encounters.of(fresh).currentPhaseName)
+            assertEquals(5, f.npcs.count(), "Old actors leaked across reset")
+            assertEquals(0, f.encounters.of(fresh).phaseAbilityCount)
+            // Public auto-reentry remains separately mapped lifecycle debt; exercise normal entry.
+            assertTrue(f.manager.enter(f.player))
+            f.tick(5)
+        }
+    }
+
+    @Test
+    fun `Wrath retains native source identity through player impact after native death`() {
+        val f = NexMinionTestWorld(nativeDeaths = true)
+        f.reachPhase(NexState.ZAROS)
+        val boss = f.npc(11278)
+        val uid = boss.uid
+        val impacts = mutableListOf<PlayerHitpointsChangedEvent>()
+        f.events.subscribeUnbound(PlayerHitpointsChangedEvent::class.java) { impacts += this }
+        f.player.coords = NEX_SPAWN.translateX(-1)
+        boss.hitpoints = 1
+        f.damage(boss, 1)
+        var ticks = 0
+        while (f.hits().isEmpty() && ticks++ < 40) f.tick()
+        val hit = f.hits().single().second
+        assertSame(boss, hit.resolveNpcSource(f.npcs))
+        assertSame(boss, uid.resolve(f.npcs))
+        assertTrue(boss.hidden)
+        f.processPlayerHits(2)
+        assertEquals(44, f.player.hitpoints)
+        assertSame(boss, uid.resolve(f.npcs))
+        assertSame(boss, impacts.single().source)
+    }
+
+    @Test
+    fun `queued Wrath is invalid after departure or source removal before room tick`() {
+        val departures: List<(NexMinionTestWorld) -> Unit> =
+            listOf(
+                { it.player.coords = NEX_BANK_RETURN },
+                { it.player.clientDisconnected.set(true) },
+                { it.repository.del(it.npc(11278), Int.MAX_VALUE) },
+            )
+        for (depart in departures) {
+            val f = NexMinionTestWorld(nativeDeaths = true)
+            f.reachPhase(NexState.ZAROS)
+            val boss = f.npc(11278)
+            f.player.coords = NEX_SPAWN.translateX(-1)
+            boss.hitpoints = 1
+            f.damage(boss, 1)
+            var ticks = 0
+            while (f.hits().isEmpty() && ticks++ < 40) f.tick()
+            assertEquals(1, f.hits().size)
+            depart(f)
+            f.processPlayerHits(2)
+            assertEquals(99, f.player.hitpoints)
+            framework().clearInlineMocks()
+        }
     }
 
     @AfterEach fun releaseMocks() = framework().clearInlineMocks()

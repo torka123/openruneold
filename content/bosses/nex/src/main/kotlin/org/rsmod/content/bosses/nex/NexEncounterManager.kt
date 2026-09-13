@@ -160,10 +160,8 @@ constructor(
                 !activeParticipant(current, target)
         )
             return false
-        if (current.state !in combatStates) return false
-        // Characterized draft behavior; M10/M11 separately correct called-floor suppression.
-        return current.state !in calledStates ||
-            npc.hitpoints > (current.callFloor ?: Int.MAX_VALUE)
+        // Incoming damage immunity never suppresses outgoing elemental attacks (3284 t632).
+        return current.phase in phaseStates || current.phase == NexState.ZAROS
     }
 
     /** Only Nex-specific launch eligibility remains here; the DSL owns ordinary minion combat. */
@@ -294,7 +292,7 @@ constructor(
 
     fun breakIce(player: Player): Boolean {
         val current = run ?: return false
-        if (player.uid !in current.participants || current.state != NexState.ICE) return false
+        if (player.uid !in current.participants || current.phase != NexState.ICE) return false
         val prisoner = current.prisonedUntil.keys.minByOrNull { it.packed } ?: return false
         current.prisonedUntil.remove(prisoner)
         player.mes("You break the ice prison before it can shatter.")
@@ -410,7 +408,7 @@ constructor(
     /** Special alternation is Nex-specific; the DSL owns the five-normal cadence. */
     fun executeSpecial(npc: Npc, target: Player) {
         val current = encounterFor(npc) ?: return
-        val special = NexRules.special(current.state, current.specialIndex) ?: return
+        val special = NexRules.special(current.phase, current.specialIndex) ?: return
         current.specialIndex++
         startSpecial(current, special, target)
     }
@@ -489,7 +487,7 @@ constructor(
     }
 
     private fun modifyNexHit(current: Run, player: Player, hit: HitBuilder) {
-        if (current.state == NexState.BLOOD && clock.cycle < current.siphonUntil) {
+        if (current.phase == NexState.BLOOD && clock.cycle < current.siphonUntil) {
             current.boss.heal(hit.damage.coerceAtLeast(0))
             current.flags[player.uid]?.bloodSiphonHeal = hit.damage > 0
             hit.damage = 0
@@ -545,7 +543,7 @@ constructor(
     }
 
     private fun modifyReaverHit(current: Run, player: Player, npc: Npc, hit: HitBuilder) {
-        if (npc !in current.reavers || current.state != NexState.BLOOD) {
+        if (npc !in current.reavers || current.phase != NexState.BLOOD) {
             hit.damage = 0
             return
         }
@@ -561,7 +559,8 @@ constructor(
     private fun callBodyguard(current: Run, phase: NexState) {
         val called = NexRules.calledBodyguard(phase) ?: return
         if (current.state != phase) return
-        transition(current, called)
+        // Calling a guard changes vulnerability, not Nex's elemental phase or attack count.
+        current.calledGuard = called
         current.callFloor = NexRules.lowerFloor(phase)
         current.bodyguards[called]?.let { guard ->
             nearestParticipant(current, guard.coords)?.let { guard.apPlayer2(it, interactions) }
@@ -574,6 +573,7 @@ constructor(
 
     private fun advanceFromBodyguard(current: Run, called: NexState) {
         val next = NexRules.nextPhase(called) ?: return
+        current.calledGuard = null
         transition(current, next)
         current.callFloor = null
         // A handoff may shorten a special, but never an already-launched ordinary attack.
@@ -861,12 +861,14 @@ constructor(
         announce(current, "Taste my wrath!")
         participants(current).forEach { player ->
             if (distance(current.arena.spawn, player.coords) <= 5) {
+                val membership = minionHitValidity(current.boss, player)
                 player.queueHit(
                     source = current.boss,
                     delay = 1,
                     type = HitType.Typeless,
                     damage = random.of(0..55),
                     modifier = NpcBypassProtectionPrayerPlayerHitModifier,
+                    validity = HitValidity { current.boss.isSlotAssigned && membership.isValid() },
                 )
             }
         }
@@ -919,8 +921,10 @@ constructor(
         val npc = Npc(requireNpc(id), tile)
         npc.baseHitpointsLvl = hitpoints
         npc.hitpoints = hitpoints
-        npc.respawns = false
         npcs.add(npc, Int.MAX_VALUE)
+        // Retain Nex's source identity through native death and Wrath. NexCombat disables her
+        // automatic reveal; the room owns replacement. Minions retire through native deletion.
+        npc.respawns = id == NEX_ID
         return npc
     }
 
@@ -958,11 +962,7 @@ constructor(
     }
 
     private fun keepAggressive(current: Run) {
-        if (
-            current.boss.isSlotAssigned &&
-                current.boss.mode == null &&
-                current.state !in calledStates
-        ) {
+        if (current.boss.isSlotAssigned && current.boss.mode == null) {
             nearestParticipant(current, current.boss.coords)?.let {
                 current.boss.apPlayer2(it, interactions)
             }
@@ -1032,7 +1032,7 @@ constructor(
     ): Boolean =
         isActiveRun(current) &&
             current.generation == generation &&
-            current.state == state &&
+            current.phase == state &&
             current.boss.isSlotAssigned &&
             (player == null ||
                 (player.uid in current.participants && activeParticipant(current, player)))
@@ -1165,6 +1165,7 @@ constructor(
         val prisonedUntil: MutableMap<PlayerUid, Int> = linkedMapOf(),
         val flags: MutableMap<PlayerUid, NexAchievementFlags> = linkedMapOf(),
         var callFloor: Int? = null,
+        var calledGuard: NexState? = null,
         var stateReadyCycle: Int = Int.MAX_VALUE,
         var resetCycle: Int = Int.MAX_VALUE,
         var siphonUntil: Int = Int.MIN_VALUE,
@@ -1176,6 +1177,9 @@ constructor(
         var rewardFinished: Boolean = false,
     ) {
         val state: NexState
+            get() = calledGuard ?: phase
+
+        val phase: NexState
             get() = NexState.valueOf(encounter.currentPhaseName)
     }
 
@@ -1189,6 +1193,7 @@ constructor(
     private class MagicLaunchSlot(var launch: MagicLaunch? = null)
 
     private fun transition(current: Run, state: NexState) {
+        current.calledGuard = null
         current.encounter.transitionTo(state.name, clock.cycle)
     }
 
