@@ -8,6 +8,7 @@ import kotlin.test.*
 import org.junit.jupiter.api.BeforeAll
 import org.rsmod.annotations.InternalApi
 import org.rsmod.api.config.refs.done.hitmark_groups
+import org.rsmod.api.config.refs.params
 import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.api.npc.access.StandardNpcAccessContext
 import org.rsmod.api.npc.events.NpcHitEvents
@@ -22,11 +23,108 @@ import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
 import org.rsmod.game.entity.npc.NoopNpcInfo
 import org.rsmod.game.entity.npc.NpcInfoProtocol
+import org.rsmod.game.entity.player.PlayerUid
+import org.rsmod.game.headbar.Headbar
 import org.rsmod.game.hit.*
 import org.rsmod.map.CoordGrid
 
 @OptIn(InternalApi::class)
 class NpcHitResolutionTest {
+    @Test
+    fun `retirement inside Resolve prevents all subsequent impact side effects`() {
+        val f = Fixture()
+        val scope = HitScope()
+        var resolved = 0
+        var callbacks = 0
+        f.resolve {
+            resolved++
+            scope.close()
+        }
+        f.land(
+            f.hit(120)
+                .copy(
+                    context = HitContext.of(HitAttribution(ownerUuid = 900L), scope),
+                    impactHandler = HitImpactHandler { callbacks++ },
+                )
+        )
+        assertEquals(1, resolved)
+        assertEquals(100, f.npc.hitpoints)
+        assertTrue(f.npc.damageContributions.isEmpty)
+        assertTrue(f.credits.isEmpty() && f.marks.isEmpty() && f.bars.isEmpty())
+        assertTrue(f.observations.isEmpty())
+        assertFalse("queue.death" in f.npc.queueList)
+        assertEquals(0, callbacks)
+    }
+
+    @Test
+    fun `Impact retirement prevents a silent heal from refreshing the old headbar`() {
+        val f = Fixture()
+        val scope = HitScope()
+        f.npc.slotId = 10
+        f.npc.assignUid()
+        f.npc.hitpoints = 50
+        f.resolve { damage = 0 }
+        f.afterImpact = {
+            it.npc.hitpoints += 20
+            scope.close()
+        }
+        f.land(f.hit(20).copy(context = HitContext.of(HitAttribution(), scope)))
+        assertEquals(70, f.npc.hitpoints)
+        assertEquals(1, f.observations.size)
+        assertEquals(1, f.bars.size)
+    }
+
+    @Test
+    fun `silent absorption refreshes native healthbar without a healing mark`() {
+        val f = Fixture()
+        f.npc.slotId = 10
+        f.npc.assignUid()
+        f.npc.hitpoints = 50
+        f.resolve { damage = 0 }
+        f.afterImpact = { it.npc.hitpoints += it.originalHit.damage }
+        f.land(
+            f.hit(20)
+                .copy(
+                    sourceUid = PlayerUid(1, 900L).packed,
+                    hitmark = Hitmark.fromPlayerSource(16, 16, null, 20, 10, 1),
+                )
+        )
+        assertEquals(70, f.npc.hitpoints)
+        assertEquals(
+            listOf(50, 70).map { it * f.npc.visHeadbar(params.headbar).segments / 100 },
+            f.bars.map { it.endFill },
+        )
+        assertEquals(1, f.marks.size)
+        assertEquals(0, f.marks.single().damage)
+        assertTrue(f.credits.isEmpty())
+        assertEquals(1, f.observations.size)
+        assertTrue(f.bars.all { it.isPrivate && it.playerSlot == 1 && it.startTime == 10 })
+    }
+
+    @Test
+    fun `post-impact healing cannot reintroduce a suppressed hidden or detached headbar`() {
+        for (retire in
+            listOf<(Npc) -> Unit>(
+                { it.suppressHitpointHeadbar = true },
+                { it.hidden = true },
+                { it.clearUid() },
+                { it.slotId = -1 },
+                { it.delay = 999 },
+            )) {
+            val f = Fixture()
+            f.npc.slotId = 10
+            f.npc.assignUid()
+            f.npc.hitpoints = 50
+            f.resolve { damage = 0 }
+            f.afterImpact = {
+                it.npc.hitpoints += 20
+                retire(it.npc)
+            }
+            f.land(f.hit(20))
+            assertEquals(1, f.bars.size)
+        }
+    }
+
     @Test
     fun `impact observes immutable input separately from overkill and zero private damage`() {
         val f = Fixture()
@@ -183,6 +281,8 @@ class NpcHitResolutionTest {
         val events = EventBus()
         val players = PlayerList()
         val marks = mutableListOf<Hitmark>()
+        val bars = mutableListOf<Headbar>()
+        var afterImpact: (NpcHitEvents.Impact) -> Unit = {}
         val impacts = mutableListOf<Hit>()
         val observations = mutableListOf<NpcHitEvents.Impact>()
         val credits = mutableListOf<Int>()
@@ -195,6 +295,10 @@ class NpcHitResolutionTest {
                     object : NpcInfoProtocol by NoopNpcInfo {
                         override fun showHitmark(hitmark: Hitmark) {
                             marks += hitmark
+                        }
+
+                        override fun showHeadbar(headbar: Headbar) {
+                            bars += headbar
                         }
                     }
             }
@@ -234,6 +338,7 @@ class NpcHitResolutionTest {
             events.subscribeKeyed(NpcHitEvents.Impact::class.java, npc.visType.id.toLong()) {
                 impacts += hit
                 observations += this
+                afterImpact(this)
             }
         }
 

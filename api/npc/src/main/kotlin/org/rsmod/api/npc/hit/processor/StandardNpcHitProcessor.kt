@@ -151,13 +151,35 @@ constructor(
 
         npc.showHitmark(hit.hitmark)
 
-        if (shouldShowHitpointHeadbar(npc.suppressHitpointHeadbar)) {
-            val visHeadbar = npc.visHeadbar(params.headbar)
+        val shownHeadbar =
+            if (shouldShowHitpointHeadbar(npc.suppressHitpointHeadbar))
+                npc.visHeadbar(params.headbar)
+            else null
+        if (shownHeadbar != null) {
+            val visHeadbar = shownHeadbar
             val headbar = hit.createHeadbar(npc.hitpoints, npc.baseHitpointsLvl, visHeadbar)
             npc.showHeadbar(headbar)
         }
 
+        val impactHp = npc.hitpoints
+        val impactUid = npc.uid
         npc.publishHitEvent(hit, originalHit, inputDamage, resolveKey)
+        // Absorption heals belong to Impact, after HP/credit/death resolution. Refresh their
+        // existing healthbar without moving events earlier or inventing a healing hitmark.
+        if (
+            shownHeadbar != null &&
+                npc.hitpoints != impactHp &&
+                npc.hitpoints > 0 &&
+                npc.isSlotAssigned &&
+                npc.uid == impactUid &&
+                npc.isVisible &&
+                npc.isNotDelayed &&
+                !npc.suppressHitpointHeadbar &&
+                hit.isValidNow() &&
+                npc.visHeadbar(params.headbar).id == shownHeadbar.id
+        ) {
+            npc.showHeadbar(hit.createHeadbar(npc.hitpoints, npc.baseHitpointsLvl, shownHeadbar))
+        }
         hit.dispatchImpact(npc, hit.damage)
     }
 
