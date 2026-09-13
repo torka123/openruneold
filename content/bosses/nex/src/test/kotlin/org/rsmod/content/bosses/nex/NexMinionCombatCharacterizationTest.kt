@@ -312,7 +312,7 @@ internal class NexMinionTestWorld(
                     emptySet(),
                 )
             else mock(NpcDeath::class.java)
-        with(NexCombat(manager, death, players, deps)) { context.startup() }
+        with(NexCombat(manager, death, deps)) { context.startup() }
         with(lifecycle) { context.startup() }
         manager.startup()
         tick()

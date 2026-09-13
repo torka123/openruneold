@@ -6,10 +6,7 @@ import org.rsmod.api.bosses.runtime.BossCombat
 import org.rsmod.api.bosses.runtime.BossDeps
 import org.rsmod.api.combat.NpcAttackOverride
 import org.rsmod.api.death.NpcDeath
-import org.rsmod.api.npc.events.NpcHitEvents
 import org.rsmod.api.script.onNpcQueue
-import org.rsmod.game.entity.PlayerList
-import org.rsmod.game.entity.player.PlayerUid
 import org.rsmod.plugin.scripts.PluginScript
 import org.rsmod.plugin.scripts.ScriptContext
 
@@ -18,15 +15,9 @@ internal class NexCombat
 constructor(
     private val encounters: NexEncounterManager,
     private val death: NpcDeath,
-    private val players: PlayerList,
     private val deps: BossDeps,
 ) : PluginScript() {
     override fun ScriptContext.startup() {
-        val modify: NpcHitEvents.Modify.() -> Unit = {
-            val player =
-                if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players) else null
-            if (player == null) hit.damage = 0 else encounters.modifyNpcHit(player, npc, hit)
-        }
         deps.extensionRegistry.registerAttackParameters(NEX_ATTACK_PARAMETERS) { npc, target, data
             ->
             encounters.normalParameters(npc, target, data as NexNormalAttack)
@@ -46,7 +37,9 @@ constructor(
             deps,
             ownerSlug = "nex",
             canTarget = encounters::canAttackNex,
-            onModifyHit = modify,
+            onModifyHit = { encounters.prepareNpcHit(npc, hit) },
+            onResolveHit = encounters::resolveNpcHit,
+            onImpactHit = encounters::impactNpcHit,
         )
         deps.extensionRegistry.registerAttackParameters(NEX_MINION_TARGET_PARAMETERS) {
             npc,
@@ -61,7 +54,9 @@ constructor(
                 deps,
                 ownerSlug = if (reaver) "nex-reaver" else "nex-bodyguards",
                 canTarget = encounters::canAttackMinion,
-                onModifyHit = modify,
+                onModifyHit = { encounters.prepareNpcHit(npc, hit) },
+                onResolveHit = encounters::resolveNpcHit,
+                onImpactHit = encounters::impactNpcHit,
             )
         }
         NPC_IDS.forEach { id ->

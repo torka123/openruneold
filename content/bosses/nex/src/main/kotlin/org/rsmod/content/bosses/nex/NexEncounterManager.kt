@@ -15,6 +15,7 @@ import org.rsmod.api.bosses.runtime.EncounterRegistry
 import org.rsmod.api.combat.NpcAttackOverride
 import org.rsmod.api.combat.commons.CombatEffects
 import org.rsmod.api.npc.apPlayer2
+import org.rsmod.api.npc.events.NpcHitEvents
 import org.rsmod.api.npc.heal
 import org.rsmod.api.npc.interact.AiPlayerInteractions
 import org.rsmod.api.player.combatClearQueue
@@ -37,6 +38,7 @@ import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
 import org.rsmod.game.entity.player.PlayerUid
 import org.rsmod.game.entity.util.PathingEntityCommon
+import org.rsmod.game.hit.Hit
 import org.rsmod.game.hit.HitBuilder
 import org.rsmod.game.hit.HitImpactHandler
 import org.rsmod.game.hit.HitType
@@ -196,24 +198,94 @@ constructor(
         }
     }
 
-    fun modifyNpcHit(player: Player, npc: Npc, hit: HitBuilder) {
+    /** Queue-time work only binds native validity; HP, credit and phase state wait for impact. */
+    fun prepareNpcHit(npc: Npc, hit: HitBuilder) {
         val current = encounterFor(npc)
-        if (
-            current == null ||
-                player.uid !in current.participants ||
-                !activeParticipant(current, player) ||
-                !hit.isFromPlayer
-        ) {
-            hit.damage = 0
-            return
+        val ownerUuid = hit.context.attribution.ownerUuid
+        val owner =
+            if (ownerUuid != null) players.firstOrNull { it.uuid == ownerUuid }
+            else if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players) else null
+        val hasOwner = ownerUuid != null || hit.isFromPlayer
+        val ownerUid = owner?.uid
+        val previous = hit.validity
+        hit.validity = HitValidity {
+            (previous?.isValid() ?: true) &&
+                current != null &&
+                isActiveRun(current) &&
+                bossEncounters.isAttached(current.boss, current.encounter) &&
+                encounterFor(npc) === current &&
+                (!hasOwner ||
+                    (owner != null &&
+                        ownerUid?.resolve(players) === owner &&
+                        ownerUid in current.participants &&
+                        activeParticipant(current, owner)))
         }
-        when {
-            npc === current.boss -> modifyNexHit(current, player, hit)
-            current.bodyguards.values.any { it === npc } ->
-                modifyBodyguardHit(current, player, npc, hit)
-            npc in current.reavers -> modifyReaverHit(current, player, npc, hit)
-            else -> hit.damage = 0
+    }
+
+    /**
+     * Native Resolve owns the current-HP policy; it has no healing, credit or death side effects.
+     */
+    fun resolveNpcHit(event: NpcHitEvents.Resolve) {
+        val current = encounterFor(event.npc)
+        event.damage =
+            when {
+                current == null || !isActiveRun(current) -> 0
+                event.npc === current.boss -> resolveNexDamage(current, event.hit, event.damage)
+                current.bodyguards.values.any { it === event.npc } -> {
+                    val guard = current.bodyguards.entries.first { it.value === event.npc }.key
+                    if (current.state == guard) NexRules.softCap(event.damage) else 0
+                }
+                event.npc in current.reavers && current.phase == NexState.BLOOD -> event.damage
+                else -> 0
+            }
+    }
+
+    /** Observe accepted native damage; the existing reward adapter remains pending M28/S04. */
+    fun impactNpcHit(event: NpcHitEvents.Impact) {
+        val current = encounterFor(event.npc) ?: return
+        if (!isActiveRun(current) || !event.hit.isValidNow()) return
+        val ownerUuid = event.hit.context.attribution.ownerUuid
+        val owner =
+            if (ownerUuid != null) players.firstOrNull { it.uuid == ownerUuid }
+            else if (event.hit.isFromPlayer) event.hit.resolvePlayerSource(players) else null
+        if (event.npc === current.boss) {
+            if (
+                current.boss.hitpoints > 0 &&
+                    current.phase == NexState.BLOOD &&
+                    clock.cycle < current.siphonUntil
+            ) {
+                // Preserve the characterized ordinary input, never admin-expanded instant healing.
+                val healed = current.boss.heal(event.originalHit.damage.coerceAtLeast(0))
+                if (healed > 0 && owner != null) current.flags[owner.uid]?.bloodSiphonHeal = true
+                return
+            }
+            if (
+                event.hit.damage > 0 &&
+                    owner != null &&
+                    current.state == NexState.ZAROS &&
+                    current.overhead == NexOverhead.DEFLECT_MELEE &&
+                    event.hit.type == HitType.Melee
+            ) {
+                owner.queueHit(
+                    current.boss,
+                    1,
+                    HitType.Typeless,
+                    event.hit.damage,
+                    modifier = NpcBypassProtectionPrayerPlayerHitModifier,
+                    validity = roomHitValidity(current, owner),
+                )
+            }
+            val threshold = NexRules.threshold(current.state)
+            if (event.hit.damage > 0 && threshold != null && current.boss.hitpoints <= threshold)
+                callBodyguard(current, current.state)
+        } else if (event.npc in current.reavers && owner != null && event.hit.damage > 0) {
+            val healing = NexRules.reaverHeal(event.hit.damage)
+            if (healing > 0) {
+                owner.statHeal("stat.hitpoints", constant = healing, percent = 0)
+                current.flags[owner.uid]?.bloodSiphonHeal = true
+            }
         }
+        if (owner != null) record(current, owner, event.hit.damage)
     }
 
     fun handleDeath(npc: Npc): DeathKind {
@@ -497,27 +569,24 @@ constructor(
         }
     }
 
-    private fun modifyNexHit(current: Run, player: Player, hit: HitBuilder) {
+    private fun resolveNexDamage(current: Run, hit: Hit, incoming: Int): Int {
         if (current.phase == NexState.BLOOD && clock.cycle < current.siphonUntil) {
-            current.boss.heal(hit.damage.coerceAtLeast(0))
-            current.flags[player.uid]?.bloodSiphonHeal = hit.damage > 0
-            hit.damage = 0
-            return
+            return 0
         }
         var accepted =
             when {
                 current.state in phaseStates ->
-                    NexRules.phaseDamage(current.boss.hitpoints, hit.damage, current.state)
+                    NexRules.phaseDamage(current.boss.hitpoints, incoming, current.state)
                 current.state in calledStates -> {
                     val floor = current.callFloor ?: current.boss.hitpoints
                     if (current.boss.hitpoints <= floor) 0
                     else
-                        (NexRules.softCap(hit.damage) / 10)
-                            .coerceAtLeast(if (hit.damage > 0) 1 else 0)
+                        (NexRules.softCap(incoming) / 10)
+                            .coerceAtLeast(if (incoming > 0) 1 else 0)
                             .coerceAtMost(current.boss.hitpoints - floor)
                 }
                 current.state == NexState.ZAROS ->
-                    NexRules.softCap(hit.damage).coerceAtMost(current.boss.hitpoints)
+                    NexRules.softCap(incoming).coerceAtMost(current.boss.hitpoints)
                 else -> 0
             }
         if (
@@ -526,46 +595,8 @@ constructor(
                 hit.type == HitType.Melee
         ) {
             accepted /= 2
-            if (accepted > 0) {
-                player.queueHit(
-                    source = current.boss,
-                    delay = 1,
-                    type = HitType.Typeless,
-                    damage = accepted,
-                    modifier = NpcBypassProtectionPrayerPlayerHitModifier,
-                    validity = roomHitValidity(current, player),
-                )
-            }
         }
-        hit.damage = accepted
-        record(current, player, accepted)
-        val threshold = NexRules.threshold(current.state)
-        if (threshold != null && current.boss.hitpoints - accepted <= threshold)
-            callBodyguard(current, current.state)
-    }
-
-    private fun modifyBodyguardHit(current: Run, player: Player, npc: Npc, hit: HitBuilder) {
-        val state = current.bodyguards.entries.firstOrNull { it.value === npc }?.key
-        if (state == null || current.state != state) {
-            hit.damage = 0
-            return
-        }
-        hit.damage = NexRules.softCap(hit.damage).coerceAtMost(npc.hitpoints)
-        record(current, player, hit.damage)
-    }
-
-    private fun modifyReaverHit(current: Run, player: Player, npc: Npc, hit: HitBuilder) {
-        if (npc !in current.reavers || current.phase != NexState.BLOOD) {
-            hit.damage = 0
-            return
-        }
-        hit.damage = hit.damage.coerceIn(0, npc.hitpoints)
-        record(current, player, hit.damage)
-        val healing = NexRules.reaverHeal(hit.damage)
-        if (healing > 0) {
-            player.statHeal("stat.hitpoints", constant = healing, percent = 0)
-            current.flags[player.uid]?.bloodSiphonHeal = true
-        }
+        return accepted
     }
 
     private fun callBodyguard(current: Run, phase: NexState) {
