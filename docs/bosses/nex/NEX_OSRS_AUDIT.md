@@ -34,15 +34,16 @@ PostgreSQL/caches/credentials/generated output and is separate from the verified
 Build and behavioral verification passed before deployment:31 Central focused tests,12 new native
 client/writer tests,1,061 boss cases and297 shared/app cases, scoped checks/assemble/architecture.
 
-Current source deliverable: bounded approved M21 prison ownership/cancellation is implemented.
-The actual clicked native loc retains its captured prison/target; rescued/replaced casts cannot
-deliver old expiry damage, and native loc ownership is cleaned up. All12 focused regression groups,
-110 Nex cases, required shared checks and application build pass. Existing timing/damage/geometry constants remain
-characterized under E07. Full native public/
-private sessions, other mechanics/rewards/evidence gaps below remain open; Nex is not complete.
+Current source: M21 prison ownership/cancellation is committed as `706e11330`; M26 completed-kill
+occupant handoff is now implemented and verified. Eligible survivors enter a fresh round in place,
+with exact session/callback guards and unchanged respawn/opening timing. All118 Nex cases, scoped
+checks, app assemble and architecture checks pass;167 unchanged shared results remain valid.
+These two increments are SOURCE ONLY. Next is the bounded M24 death-position snapshot mapped below.
+Existing timing/damage/geometry constants remain characterized under E07. Full native public/private
+sessions, other mechanics/rewards/evidence gaps below remain open; Nex is not complete.
 Existing order remains Nex ->Yama ->Doom ->DT2 ->separate Dagannoth Kings review ->ToA ->ToB ->CoX.
 
-## Current source increment: M21 prison ownership and cancellation
+## Completed source increment: M21 prison ownership and cancellation
 
 The following mapping was recorded before implementation.
 
@@ -98,8 +99,11 @@ SHA256 `79A9F830AEC0F97074E8866B6C24E784D7EB795BE4D18C3D86FDD55826382A1F`.
 The existing complete source snapshot and offline PostgreSQL backup remain intact. Scoped diff
 whitespace check passes. This increment is source-only; JVM23812 continues the deployed checkpoint
 above. Next exact deliverable is the approved M26 completed-kill occupant handoff below.
+M21 commit: `706e11330`; backup branch `backup/nex-ice-prison-20260913`.
 
-## Next approved increment: M26 completed-kill occupant handoff (pre-edit mapping)
+## Current source increment: M26 completed-kill occupant handoff
+
+The mapping below was recorded before edits; the implementation and focused tests now pass.
 
 Retained capture3284 t549:L13987-14017 ->t587:L14100-07 ->t790 shows consecutive rounds without
 re-entry. This is Grid Master private-solo evidence for continuity, not public/private parity or
@@ -124,6 +128,68 @@ private InstanceScript conversion remains separate.
 M01-M36/S01-S08 approval already includes M26. No new shared capability is required or proposed.
 Production integration remains owned by the primary. Implement after completing M21 verification;
 bounded M26 regression preparation may run independently in its own test files.
+
+M26 pre-edit review refinement: rewardFinished means the delayed finalizer was scheduled, not
+successful reward completion. Record completed-round eligibility only after the reward callback
+returns, and recheck the captured room/source before transitioning because reward hooks may retire
+it. Native NPC deletion callbacks can replace a player at the same packed UID; cleanup must retain
+its original Player objects before those callbacks, so clearing loot duration cannot mutate the
+replacement. Existing UID/Player identity checks suffice; no new shared route is needed.
+
+M26 implementation keeps valid surviving occupants at their unchanged coordinates, creates fresh
+per-kill Run/encounter state, and begins the existing opening once after a completed-round deadline.
+Explicit logout, death, disconnect, slot/Player replacement and departure in cleanup/spawn callbacks
+prevent carryover. Empty/source-loss resets stay idle. Cleanup clears loot settings only on original
+captured players. A reward callback that retires Nex cannot mark the old round completed. Native
+cleanup/reward exceptions propagate; a new encounter is not spawned after failed cleanup.
+
+RED history: the first invocation caught a test-only read-only hitpoints assignment, corrected to
+the native statMap setter. RED2 exposed a test reward-observation name mismatch from Kotlin's
+CoordGrid method mangling as well as the real membership gap. After correcting that observation,
+`logs/nex-m26-round-handoff-red3-20260913.log` runs6 groups:5 membership failures and the existing
+empty/source-loss behavior passing. No production changes preceded that red run.
+The first implementation passes6 groups plus NexMainNativeCombatTest in19s
+(`logs/nex-m26-round-handoff-green-20260913.log`). Expanded8 groups plus NexMain pass in19s
+(`logs/nex-m26-round-handoff-boundaries-20260913.log`), including post-reward source loss,
+source deletion inside the reward callback, and same-UID replacement loot-state preservation.
+These tests exercise native final death, queues, lifecycle and actor ownership; rewards are
+observed at the existing mocked service boundary, not certified as durable multi-recipient drops.
+`logs/nex-m26-final-checks-20260913.log` passes in57s/472 tasks (17 executed): all118 Nex cases,
+zero failures/errors/skips, scoped formatting/Nex check/app assemble and architecture/self-tests.
+Unchanged shared167-case results from the preceding M21 check remain valid; no shared source was
+edited. Final production review found no blocking defect. Changed source: NexEncounterManager.kt,
+NexMainNativeCombatTest.kt and new NexRoundHandoffIntegrationTest.kt. Archive
+`logs/nex-m26-round-source-20260913.zip` contains those three entries, verified byte-for-byte;
+SHA256 `244A71788201C55E10DBF9EDDA4CB0D16AA95D5506010DB2F3C22AB16D6C9F9F`.
+Scoped whitespace check passes. Source-only, not deployed. Next exact step: M24 death-position
+snapshot RED regression, then the mapped coordinate-only correction below.
+
+## Next approved M24 slice: Wrath death-position snapshot (pre-edit mapping)
+
+Retained `logs/nex-audit-20260909/captures/rsprox-808.txt` records death anchor(2920,5191)
+atL19223, Wrath effects centered(2921,5192) atL19257-72, and the nearby player(2918,5191)
+receiving41 damage before the same corpse deletion atL19309-13. Capture3284 L13922/L13960-80
+independently records death anchor(2916,5191) and effects centered(2917,5192). The current fixed
+spawn(2924,5202) five-tile selection cannot reach that observed damaged player.
+
+Pinned official61139e76a NpcDeath.deathWithDrops captures its default CoordGrid before awaiting
+native death; EffectInterpreter.applyTileAoE resolves a center before native hit selection. These
+existing coordinate/native hit workflows suffice. Reuse the approved local S03 encounter-owned
+schedule and roomHitValidity; no shared API addition is needed.
+
+| Responsibility | Existing route and bounded change | Acceptance |
+|---|---|---|
+| Death origin | Accepted ZAROS handleDeath/deathStarted guard captures immutable CoordGrid once | Duplicate death handling and later corpse-coordinate changes cannot move the origin |
+| Native delivery | Existing handleDeath ->deathNoDrops ->finishDeath ->schedule(3) ->queueHit(+1) | Hidden original Nex remains the attributable source through accepted impact |
+| Position-relative selection | Existing Wrath emission-time participants and legacy radius5, translated from fixed spawn to captured death anchor | Native off-spawn death reaches nearby eligible target and excludes target only near old spawn |
+| Lifetime | Existing encounter/participant/UID validity and round cleanup | Departure, replacement sessions/source/round cannot inherit old Wrath |
+
+This is a coordinate-only correction. The entire damage boundary and its relation to visual
+center offset(1,1) are unresolved; preserve the characterized anchor-relative radius instead of
+guessing a new one. Keep damage0..55, prayer policy, delay3+1 and emission-time participant sampling.
+E07 timing/radius/visuals and documented50-versus-draft55 damage conflict stay open. Reward location
+remains current.arena.spawn under separate M29 evidence; do not change it in this slice. Implement
+after the completed M26 checkpoint; independently prepared tests must remain outside source until then.
 
 ## Source verification history: M01/M02 protected access and S10
 

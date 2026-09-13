@@ -276,12 +276,10 @@ class NexMainNativeCombatTest {
             val fresh = f.npc(11278)
             assertNotSame(boss, fresh)
             assertNotSame(old, f.encounters.of(fresh))
-            assertEquals("IDLE", f.encounters.of(fresh).currentPhaseName)
+            assertEquals("SPAWNING", f.encounters.of(fresh).currentPhaseName)
             assertEquals(5, f.npcs.count(), "Old actors leaked across reset")
             assertEquals(0, f.encounters.of(fresh).phaseAbilityCount)
-            // Public auto-reentry remains separately mapped lifecycle debt; exercise normal entry.
-            f.player.coords = NEX_BANK_RETURN
-            assertTrue(f.enter())
+            assertTrue(f.manager.isParticipant(f.player))
             f.tick(5)
         }
     }

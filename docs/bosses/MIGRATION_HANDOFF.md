@@ -14,10 +14,11 @@ Revision240, SERVER/LIVE hashes and `.data/postgres` authority are unchanged. A 
 1,243-file PostgreSQL backup and4,393-file source archive were verified before replacement boot.
 Full evidence/receipts/hashes and build-marker limitation are in the current Nex ledger.
 
-M21 clicked-prison ownership/cancellation is complete in source:12 focused groups/110 Nex cases,
-167 reused valid shared cases, architecture checks, scoped formatting and app assemble pass.
-Four source files are archived and byte-verified; see current Nex ledger for hash/test logs.
-Next: approved M26 completed-kill occupant handoff, with pre-edit mapping and prepared regressions.
+M21 clicked-prison ownership/cancellation is committed as706e11330. M26 completed-kill occupant
+handoff is also complete in source: all118 Nex cases, architecture checks, scoped formatting and
+app assemble pass;167 unchanged shared results remain valid. Each increment has its own verified
+source archive; see current Nex ledger for hashes/test logs. Neither increment is deployed.
+Next: approved M24 Wrath death-position snapshot, with pre-edit mapping and regression preparation.
 Preserve unresolved E07 timing/damage/geometry evidence. Full Nex remains incomplete. Raid
 bosses remain after Nex/Yama/Doom/DT2/separate Dagannoth Kings review, in ToA/ToB/CoX order.
 

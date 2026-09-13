@@ -362,6 +362,11 @@ constructor(
                 current.rewarded,
                 current.arena.spawn,
             )
+            if (
+                !isActiveRun(current) || !bossEncounters.isAttached(current.boss, current.encounter)
+            )
+                return@schedule
+            current.roundCompleted = true
             transition(current, NexState.RESETTING)
             current.resetCycle = clock.cycle + NEX_RESPAWN_TICKS
         }
@@ -460,7 +465,7 @@ constructor(
         if (current.state == NexState.SPAWNING && clock.cycle >= current.stateReadyCycle)
             activateSmoke(current)
         if (current.state == NexState.RESETTING && clock.cycle >= current.resetCycle) {
-            reset(current)
+            reset(current, retainOccupants = current.roundCompleted)
             return
         }
         if (current.state in activeStates && current.participants.isEmpty()) {
@@ -1038,16 +1043,44 @@ constructor(
         }
     }
 
-    private fun reset(current: Run) {
-        when {
-            run === current -> {
-                cleanup(current)
-                spawnFresh()
-            }
+    private fun reset(current: Run, retainOccupants: Boolean = false) {
+        if (!isActiveRun(current)) return
+        val occupants =
+            if (retainOccupants)
+                current.participants.mapNotNull { uid ->
+                    uid.resolve(players)
+                        ?.takeIf { activeParticipant(current, it) }
+                        ?.let { uid to it }
+                }
+            else emptyList()
+        cleanup(current)
+        if (!isActiveRun(current)) return
+        val fresh = spawnFresh()
+        for ((uid, player) in occupants) {
+            // Cleanup and actor creation publish native callbacks before enrolment commits.
+            if (
+                uid !in current.participants ||
+                    player.uid != uid ||
+                    uid.resolve(players) !== player ||
+                    !activeParticipant(fresh, player) ||
+                    !isActiveRun(fresh) ||
+                    !bossEncounters.isAttached(fresh.boss, fresh.encounter)
+            )
+                continue
+            prepare(player)
+            fresh.participants += uid
+            fresh.flags[uid] = NexAchievementFlags()
+            player.lootDropDuration = NEX_DROP_DURATION
         }
+        if (
+            fresh.participants.isNotEmpty() &&
+                isActiveRun(fresh) &&
+                bossEncounters.isAttached(fresh.boss, fresh.encounter)
+        )
+            beginSpawn(fresh)
     }
 
-    private fun spawnFresh() {
+    private fun spawnFresh(): Run {
         val boss = spawnNpc(NEX_ID, NEX_SPAWN, NEX_MAX_HITPOINTS)
         boss.mode = null
         boss.movementLocked = true
@@ -1081,6 +1114,7 @@ constructor(
         run = fresh
         fresh.encounter.onCleanup { clearPrisons(fresh) }
         log.info { "[Nex] spawned generation=${run?.generation} state=IDLE" }
+        return fresh
     }
 
     private fun spawnNpc(id: Int, tile: CoordGrid, hitpoints: Int): Npc {
@@ -1095,14 +1129,16 @@ constructor(
     }
 
     private fun cleanup(current: Run) {
+        val occupants =
+            current.participants.mapNotNull { uid -> uid.resolve(players)?.let { uid to it } }
         clearPrisons(current)
         (listOf(current.boss) + current.bodyguards.values + current.reavers).forEach {
             if (it.isSlotAssigned) npcs.del(it, Int.MAX_VALUE)
         }
         current.temporaryLocs.forEach { locs.del(it, Int.MAX_VALUE) }
-        current.participants
-            .mapNotNull { it.resolve(players) }
-            .forEach { it.lootDropDuration = null }
+        occupants.forEach { (uid, player) ->
+            if (player.uid == uid && uid.resolve(players) === player) player.lootDropDuration = null
+        }
         current.reavers.clear()
         current.temporaryLocs.clear()
     }
@@ -1341,6 +1377,7 @@ constructor(
         var startingTeamSize: Int = 0,
         var deathStarted: Boolean = false,
         var rewardFinished: Boolean = false,
+        var roundCompleted: Boolean = false,
     ) {
         val state: NexState
             get() = calledGuard ?: phase
