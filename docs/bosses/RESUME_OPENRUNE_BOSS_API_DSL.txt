@@ -75,7 +75,12 @@ KNOWN STARTING CHECKPOINT (RECHECK; DO NOT REPEAT COMPLETED WORK)
   Sound commit6cc7ea092 is backed up. Durable non-pickup retirement now passes16 account/77 selected
   cases,2,124 valid results, scoped checks/architecture/app assemble and15-file archive. Shared claim/
   retirement quantity exclusion, exact settlement and two isolated database restarts are verified.
-  Source backup: backup/nex-s04-retirement-20260913. Next: receipt-aware native full-snapshot/save
+  Retirement commit609991bf7 is backed up at backup/nex-s04-retirement-20260913. Independent native
+  claim/full-snapshot SQL composition now passes83 selected cases,2,176 valid results, scoped checks/
+  architecture/app assemble and2-file archive; backup/nex-s04-native-snapshot-20260913. Real writers,
+  fresh reload, late SQL rollback, lost ACK and both Existing outcomes are verified without a live
+  saver wrapper. The52 Sailing cases newly included in the rollup are one new test plus51 existing
+  regressions. Next: receipt-aware native full-snapshot/save
   reconciliation and unresolved-operation ownership, pending the runtime choice between world pause
   and complete player isolation. Ground lifecycle/identity and restart-expiry policy remain gates;
   SOURCE ONLY, no live V43/V44/V45 migration. M04 cooldown/equipment and

@@ -88,7 +88,11 @@ presentation now passes158 Nex cases and2,119 valid results, scoped checks/archi
 and4-file archive; commit195d6f60a. Captured guard cast sounds now pass160 Nex cases and2,121 valid
 results, scoped checks/architecture/app assemble and2-file archive; commit6cc7ea092. Durable non-pickup
 retirement now passes16 account/77 selected cases,2,124 valid results, scoped checks/architecture/
-app assemble and15-file archive. Source backup: `backup/nex-s04-retirement-20260913`.
+app assemble and15-file archive; commit609991bf7, backup `backup/nex-s04-retirement-20260913`.
+Independent claim/full native SQL snapshot composition now passes its real PostgreSQL fixture,
+83 selected cases,2,176 valid results, scoped checks/architecture/app assembly and2-file archive.
+Source backup: `backup/nex-s04-native-snapshot-20260913`. The52 Sailing cases added to this result
+rollup contain one new composition test and51 existing cases; they are not52 newly implemented tests.
 Next concrete deliverable: receipt-aware native full-snapshot/save reconciliation with an owned
 unresolved operation. Its required runtime choice (pause the world until commit/abort is confirmed,
 or add complete player isolation while others play) is still unanswered. Complete receipt/save reconciliation,
@@ -98,6 +102,102 @@ changes remain SOURCE ONLY; current deployment is unchanged.
 Existing timing/damage/geometry constants remain characterized under E07. Full native public/private
 sessions, other mechanics/rewards/evidence gaps below remain open; Nex is not complete.
 Existing order remains Nex ->Yama ->Doom ->DT2 ->separate Dagannoth Kings review ->ToA ->ToB ->CoX.
+
+## Completed verification increment: S04 claim and native full-snapshot SQL composition
+
+Pre-edit mapping, September13: retirement is committed as `609991bf7`, backed up at
+`backup/nex-s04-retirement-20260913`. One independent verification step is possible while the
+required runtime-policy choice is pending: compose existing SQL methods in an offline fixture.
+No new API, production wrapper or runtime behavior is approved or introduced by this test.
+
+Current bindings are CharacterModule:19-21 (CharacterInventoryPipeline, CharacterStatPipeline)
+and SailingModule:10 (SailingOwnershipPipeline). The complete production-source binding search
+finds these three pipeline implementations. CharacterAccountRepository.save:329-380 persists
+base fields, permanent varps and character/account attributes; inventory save:88-189, stat save:
+40-57 and Sailing save:40-61 all use the supplied DatabaseConnection. The existing native saver
+composes these methods under its save boundary; its unresolved-outcome problem remains separate.
+
+| Acceptance | Existing native route and fixture |
+| --- | --- |
+| Claim and complete current snapshot commit together | stageNpcRewardClaim, then repository.save and all three real pipeline.save methods on one caller connection, only for Staged COMMITTED |
+| Every persisted segment survives reload | Real revision240 Player/inventories/stats, nonempty permanent varps and both attribute scopes, real JsonModule/JacksonModule mapper, SailingBoatDefinitionRegistry/public validator; native metadata/append/appliers plus direct persisted timestamp checks |
+| Late native SQL failure preserves previous snapshot and allocation capacity | Isolated test-only PostgreSQL failure trigger on a late Sailing write; rollback caller transaction, then compare claim and all snapshot segments |
+| Lost acknowledgement preserves exact complete committed state | Physical JDBC commit followed by injected failure, same-key settlement returns Existing COMMITTED; exact replay must execute no new snapshot writes |
+
+Place the test in Sailing's test owner, which can reach all three real pipeline implementations.
+Add only required test classpath dependencies, including api.net so its actual V30/V31 and other
+native migrations are discovered by Flyway, plus native mapper modules. Native Flyway must precede
+fixture rows in a fresh logs-owned PostgreSQL cluster; no reduced/fake account schema or literal
+boat-key validator. Do not use canonical `.data/postgres`. Use one character per fixture account
+because native metadata lookup selects that account's first character. Preserve native pendingLogout
+presence handling; CharacterAccountApplier intentionally replaces lastLogin with current time, so
+verify that saved timestamp directly in SQL. Inventory stale-container deletion is native behavior.
+Reload into a fresh Player because appliers merge attributes/varps and fill inventory slots.
+Omitted account attributes remain stored and supplied updates honor updatedAtEpochMillis precedence;
+character attributes/varps use replacement semantics. Native api.net contributes V27-41, not Royal
+Titans-owned V42; record actual fixture Flyway history rather than claiming every canonical migration.
+
+This verifies explicit composition of the three current registered implementations, not automatic
+DI set discovery, an AccountSavingService call, safe live-player exclusion or pickup activation.
+Future binding changes invalidate the full-set coverage claim. Run this focused test first, then
+Sailing and affected account/app checks, architecture and app assembly; reuse unaffected results.
+The exact next production deliverable and unanswered runtime/ground/restart decisions remain as
+recorded below. No boss-priority or deployment hold is waived.
+
+Completed in `content/skills/sailing/src/test/kotlin/org/rsmod/content/skills/sailing/ownership/
+NpcRewardSnapshotIntegrationTest.kt`. The only other source change is Sailing's build.gradle.kts:
+four test-only dependencies provide api.net migrations, Json/Jackson modules and ExtendedModule.
+No production method, cache, migration or native saver changed. The real repository and all three
+current pipeline methods commit with the claim on one connection. Fresh native reloads verify
+coordinates including changed level, display name, energy, XP rate, membership, four permanent
+inventories/counts/vars/slot removal, all loaded stats, permanent-only varps, character/account
+attributes and validated boat ownership. Persisted timestamps/presence are checked directly.
+Omitted character attributes disappear; omitted account attributes remain, and older account
+attribute updates are rejected by native timestamp precedence during the clear-presence save.
+
+A real test-only PostgreSQL trigger fails the Sailing INSERT after inventory/stat saves and the
+Sailing DELETE have executed. Whole-transaction rollback restores all12 observed snapshot/claim
+tables, including timestamps, and leaves no claim receipt. Physical JDBC commit followed by an
+injected acknowledgement exception leaves the complete committed snapshot intact after rollback
+is attempted. Same-key settlement returns Existing COMMITTED; replay with deliberately different
+candidate memory writes no snapshot or new consumption. Existing ABORTED also skips the candidate
+snapshot. This is SQL composition evidence only: the fixture does not call AccountSavingService,
+discover the DI set dynamically, simulate pickup, or establish live gameplay/memory isolation.
+
+Native Flyway runs before fixture rows, discovers required V30/V31/V43/V44/V45 with checksums and
+preserves its actual39-entry history on repeat. The fixture's printed versions are01-12,14-15,
+20-41,43-45; V42 is not on this test classpath. The temporary cluster is logs-owned under
+`npc-reward-snapshot-test-*`; canonical `.data/postgres` is not used. Real revision240 SERVER
+definitions and JsonModule/JacksonModule mapper are used; cache handles close through native
+try/finally. The shared `sailing-server-cache` resource lock matches existing cache tests.
+
+Initial focus exposed only fixture compile assumptions: the cache handle is not Closeable and
+JacksonModule's ExtendedModule requires the explicit test dependency. Corrected focus passes in22s
+(`logs/nex-s04-snapshot-focused2-20260913.log`). Full scoped Sailing/account/app checks, app assembly
+and architecture pass in48s,481 tasks/6 executed/1 cached/474 up-to-date:
+`logs/nex-s04-snapshot-checks-20260913.log`. Independent review found one coverage refinement:
+vary the player's level as well as x/z. The refined final focus passes in22s
+(`logs/nex-s04-snapshot-focused3-20260913.log`). Final scoped checks/assembly/architecture pass
+in8s,479 tasks/5 executed/474 up-to-date (`logs/nex-s04-snapshot-final-checks-20260913.log`), excluding
+only the already-verified Sailing test task. Its51 unchanged cases retain the prior full-run result.
+
+Initial and valid Sailing suite-level results are preserved in
+`logs/nex-s04-snapshot-initial-sailing-suites-20260913.json` and
+`logs/nex-s04-snapshot-valid-sailing-suites-20260913.json`; the latter replaces exactly the one
+refined case with `logs/nex-s04-snapshot-final-focus-result-20260913.json`. Selected valid results:
+52 Sailing,16 account,15 app =83,zero failures/errors/skips. Combined authority
+`logs/nex-s04-snapshot-valid-test-results-20260913.json` records1,123 boss (160 Nex),525 prior shared/
+engine/weapons/app,52 Sailing,68 drops and408 ToA =2,176 valid cases. Adding previously uncounted
+Sailing regression coverage does not represent52 new tests or additional completed bosses.
+
+Two-file manifest `logs/nex-s04-snapshot-source-files-20260913.txt`; byte-verified archive
+`logs/nex-s04-snapshot-source-20260913.zip`, SHA256
+`631772A5ADC1502D78652AC7D7721E44E2774ED4BDD6D3D2B97193D822243028`.
+Build/checks passed; bounded native SQL composition verified; SOURCE ONLY. JVM23812/deployed
+c4fc9390f remains online. The exact next production deliverable remains receipt-aware native
+saver/full-snapshot reconciliation with separately owned unresolved operations. Its required
+world-pause versus complete player-isolation choice is still unanswered. All ground lifetime,
+restart policy, normal mechanic evidence and deployment/priority holds remain in force.
 
 ## Completed source increment: S04 durable non-pickup quantity retirement
 

@@ -12,6 +12,10 @@ dependencies {
     testImplementation(libs.embedded.postgres)
     testImplementation(kotlin("test"))
     testImplementation(libs.openrune.central.common)
+    testImplementation(projects.api.net)
+    testImplementation(projects.api.parsers.jackson)
+    testImplementation(projects.api.parsers.json)
+    testImplementation(projects.engine.module)
 }
 
 tasks.withType<Test>().configureEach {
