@@ -1,5 +1,190 @@
 # Nex revision-240 evidence ledger and approval mapping
 
+## Current source increment: M01/M02 protected access and travel
+
+Completed source checkpoint **444a39eb3**, backup branch `backup/nex-protected-access-20260913`.
+Seven changed files: NexEncounterManager, NexWorld, new NexAccessIntegrationTest and existing
+NexMinionCombatCharacterizationTest fixture, NexMainNativeCombatTest, NexMinionLifecycleIntegrationTest,
+NexPublicRoomLifecycleTest. These changes are NOT deployed; JVM1856 remains the recovery runtime.
+
+Production barrier/altar loc dispatch and the registered `::nex` command now use native protected
+movement. Success effects follow actual changed destination and surviving player/room identity.
+Same-destination calls are no-ops because native telejump's Unit return cannot prove movement
+acceptance from coordinates alone. Old reentry fixtures now explicitly position at the bank;
+this does not implement public auto-reentry. No direct entry/bank/exit movement remains; boss-driven
+pulls stay in their separate approved mapping. Altar refusal no longer produces the unrelated
+"not inside" message. Replaced/departed sessions and retired rooms cannot commit stale ownership.
+
+Red run `logs/nex-m01-m02-access-red-20260913.log` ran10 cases:7 behavioral failures and1 wrong
+CoordGrid fixture argument-order error. Native arrival delay and physical Exempt semantics passed
+against old code. Green run passed all92 Nex cases in37s. Review added6 regressions, including
+registered command busy handling, stale identity/room cleanup and same-destination refusal.
+The final check first needed test-only InternalApi opt-in; no production workaround was added.
+`logs/nex-m01-m02-final-checks2-20260913.log`: BUILD SUCCESSFUL in1m11s/476 tasks (11 executed).
+Nex98, player20, instances34, bosses61, game-process16, NPC18 and death6 report253 cases total,
+zero failures/errors/skips. Valid unchanged suites were reused by Gradle. Scoped formatting,
+Nex check, app assemble and boss architecture detector/self-tests passed; staged diff check passed.
+These tests cover production coordinate/multiloc dispatch, protected coroutine delay, native
+movement/hook ordering and lifecycle ownership, not full client click/reach routing or OSRS visuals.
+
+Exact next deliverable: permanent S10 native Central shutdown correction (mapped below), with
+producer quiescence, retained failed/pending social writes and propagated cleanup completion.
+Keep the restored server online while this source work proceeds; two controlled restarts remain held.
+
+Pre-edit mapping reuses approved M01/M02 and existing APIs; no new shared route is needed.
+The self-protection defect suggested during recovery is NOT verified: executing protected
+coroutines are no longer suspended, so the old check does not inherently reject its own handler.
+The verified gap is direct PathingEntityCommon movement bypassing native hooks/zone validation,
+plus altar departure cleanup before movement. Acceptance is observable production access dispatch,
+hook-before-movement/membership ordering, invalid/refused travel preserving membership/effects,
+native busy/arrival handling and no enrollment into a replaced room.
+
+| Mechanic | Existing native mapping | Evidence/limits |
+|---|---|---|
+| Public barrier pass | LocInteractions.opTrigger → existing LocCoordEvents → ProtectedAccessLauncher/event → arriveDelay → ProtectedAccess.telejump(Exempt); commit membership only on arrival and same active room | [Barrier15333724](https://oldschool.runescape.wiki/w/Special:PermanentLink/15333724); [official Venenatis physical traversal61139e76a](https://github.com/OpenRune/OpenRune-Server/blob/61139e76a216592d66c2b20366ef26d48609875d/content/bosses/spindel/src/main/kotlin/org/rsmod/content/bosses/spindel/VenenatisLair.kt#L53). Exempt classification is comparable-content mapping, not captured Nex timing proof. |
+| Administrative bank command | Existing ProtectedAccessLauncher as in KrakenWorld, native telejump(Exempt), then departure/preparation and success output | Existing TeleportType.Exempt explicitly covers administrative commands; preserve coordinates and command semantics. |
+| Altar exit | Existing protected event and arriveDelay → telejump(Standard), then departure cleanup and success output; distinguish refused travel from absent membership | [Altar15329763](https://oldschool.runescape.wiki/w/Special:PermanentLink/15329763) documents Teleport to safe-room entrance; official InstanceScript defaultLeaveFlow uses Standard. Nex-specific Tele Block evidence is absent; injected validator refusals test API behavior only. |
+
+ProtectedAccess/telejump are official upstream APIs. LocCoordEvents and PlayerTeleportHooks are
+established local shared extensions. Exempt still checks valid destination zones and invokes
+beforeTeleport hooks. Standard invokes existing validators; the current Wilderness hook returns
+outside Wilderness before checking Tele Block. Kill-count/essence access, private sessions, altar
+Prayer restoration rules, boss-driven pulls and full instance attachment remain separate mappings.
+No encounter HP/phase/damage/timing/asset/geometry constants are changed in this increment.
+
+## September13 crash recovery and S10 timeout correction
+
+**Current runtime:** recovery completed; JVM1856 is online from03:32 EDT September13 on
+game43594/HTTP8080/WorldLink9091. Native SQL audit `persistence-restored.log` matches the
+before-recovery23 inventory containers,1,153 inventory/bank rows and1 realm fingerprint.
+Canonical doctor verifies revision240, data authority and unchanged SERVER/LIVE dat2 hashes.
+JVM1856 runs incoming-hit source `a87f5fc47` plus tested shutdown fix `9e592b389`; this is
+runtime restoration, not two-restart deployment acceptance. Central dependency fix is not loaded.
+
+Recovery artifacts below live in `logs/crash-recovery-20260913-025956/`. After native producer,
+account saving and game database services completed, Central2.0.1's ApplicationStopped callback
+could not resolve owners because Koin4.0.2 had closed its registry on ApplicationStopping.
+Read-only capture recovered the original WorldLink/PgNotify/social-persistence/datasource owners,
+verified listener identity and shared datasource, and showed social submitted0/active0/queued0.
+`CentralNativeRecoveryFinish.java` then invoked existing native WorldLink stop and awaited workers,
+native notifier stop/join, scheduler shutdown/await, social flush, datasource close, bootstrap-owned
+PostgreSQL stop and lock release. Fresh `logs/native-central-final-*.ok` receipt precedes normal
+exit solely to release the already-failed retention thread. No hard kill, failed-save discard,
+failure-state reset or ordinary clean-shutdown receipt occurred. Earlier guard refusals remain in
+startup stderr; the original ordinary restart still failed. Operational helper sources are archived
+under `retained-helper-sources/`, not installed as gameplay or production engine hooks.
+
+`9e592b389` is backed up by `backup/native-shutdown-empty-world-20260913`. Four focused cases
+failed before the correction; all16 game-process cases pass afterward. Combined app/services/
+account/registry/DB/Nex tests plus assemble passed in1m16s/470 tasks (`final-build.log`);
+scoped formatting passed. Existing recovery helper error/suspend tests passed7 cases.
+
+Remaining S10 deployment prerequisite: repair the native Central dependency's existing stop
+workflow. Official source pin9d718ca61aa6437007f883f27c35126fac5a0558 matches all235 installed
+2.0.1 source/resource entries; clean checkout is `../backups/upstream-central-s10-20260913`.
+Existing KoinApplicationStopPreparing runs before registry close, but merely moving the event
+does not prove saves completed: social flush currently discards pending work on timeout and
+swallows write failures. Capture existing owners while available; stop and await producers before
+drain, retain failed/pending operations, propagate the same terminal result through existing
+CentralEmbeddedServer.stop, and close datasource/PG only after success. Public start/stop signatures
+and the existing property-gated includeBuild route suffice; no production reflection is needed.
+Two clean controlled restarts remain held until this source correction is tested and backed up.
+Next approved boss source increment is Nex M01/M02 native protected movement and access dispatch.
+
+The machine crash ended the historical JVM42364; it is no longer a live deployment hold.
+Recovered incoming-hit source is committed as `a87f5fc47`, with recovery branch
+`backup/nex-native-impact-20260913`. The final pre-crash all-boss build actually passed:
+`logs/nex-s02-all-boss-checkpoint2-20260913.log`, 1m50s,522 tasks (44 executed).
+Existing XML reports contain1,045 boss cases and244 affected cases, with zero failures/errors/skips;
+some suites were up-to-date in that final invocation. No rendered-client acceptance is implied.
+
+Cold recovery preserved an offline copy of canonical `.data/postgres` and a source archive in
+`logs/crash-recovery-20260913-025956/`. The source archive SHA256 is
+`3DF5B0D57720B5700A3AED9C3DB29BD6CBD856BDC4440CE8AE96A90A2553EBDD`.
+JVM10576 started successfully at03:01:14 EDT, with the canonical build marker/revision240 and
+ports43594/8080/9091. PostgreSQL was readable. First controlled restart did NOT complete:
+preflight reported committed0/players0/pending0, then native preShutdown simulated1024 entire
+world cycles despite the empty player list. Signal/cleanup timeouts retained PostgreSQL and the
+JVM. This was an operational timeout, not a successful restart or a reported account-save failure.
+
+Bounded pre-edit S10 correction mapping (existing approval, no combat API change):
+
+| Responsibility | Existing native owner and correction | Verification |
+|---|---|---|
+| Final database responses | Keep GameDbSynchronizer fast-forward and explicitly dispatch all queued callbacks on the game thread before testing player emptiness | More than50 responses, callback-created pending logout and thrown callback |
+| Native player logout cycles | MainGameProcess retains pendingShutdown flags and native GameCycle; stop when PlayerList empties and fail closed if the1024-cycle limit leaves any player | Empty world, actual removal after cycles, retained/logging-out player at limit |
+| Already retained cold-start JVM | One-time operational helper verifies the exact timeout-only failure, completed service scopes/executors, empty player/login/logout/save/gateway queues, then invokes existing native Service.shutdown in Producer/Persistence/Resource order and bootstrap-owned Central/PostgreSQL/process-lock closure | Refuse dirty state, other failures and incomplete suspend callbacks; fresh recovery receipt only after successful cleanup |
+
+The one-time helper must not clear native failure state, forge a clean ordinary-shutdown receipt,
+skip persistence errors, interrupt the retained process, or hard-kill it. Normal JVM exit is allowed
+only after verified native cleanup, to release the failed-shutdown retention thread. The original
+failed restart stays recorded; two later clean controlled restarts are still required.
+
+## Latest September13 continuation: native incoming Resolve/Impact integration
+
+Approved M10/M11/M16/M17/M23 and S02/S03 wiring now replaces incoming queue-time gameplay mutation.
+Shared prerequisite `63c5028ee` preserves immutable queued input separately from admin-adjusted input
+and accepted HP loss in the existing Impact event. The subsequent conditional native headbar refresh
+keeps silent absorption HP visible without moving event order or inventing a healing hitmark.
+These are approved local shared extensions of the official A04 processor, not upstream signatures.
+Nex's BossCombat registration is the existing A01 workflow with approved local Resolve/Impact slots.
+No private hit scheduler, context-identity map, new boss framework, or alternate death path was added.
+
+Implementation changes in the existing NexCombat/NexEncounterManager:
+
+- Queue construction binds existing HitValidity to the captured native encounter and exact owner
+  session. It neither changes HP nor grants contribution/healing, reflection or bodyguard calls.
+- Resolve samples the current phase, guard vulnerability, Siphon window, Deflect overhead and HP.
+  Native processing retains final HP clamping, source-tagged contributions and single queued death.
+- Impact observes actual accepted damage for guard calls, the temporary existing reward adapter,
+  Reaver player healing and Deflect reflection. Siphon uses each immutable original incoming hit,
+  never admin-expanded damage; zero hits cannot clear a recorded positive-healing failure flag.
+- Recoil, burn and thrall-attributed hits are no longer globally discarded as non-player sources.
+  Unowned damage may damage the actor without fabricated player credit. A declared owner
+  who is absent/departed or a retired/replaced session cannot acquire a fresh encounter membership.
+
+All pre-existing NexRules caps, thresholds, 3/4 Reaver healing, Siphon8-tick window, rotations,
+NPC/sequence/graphic/projectile/sound IDs and geometry remain characterized rather than recertified.
+Nex/guard/Reaver flat armour is zero in these executable encounter fixtures. Moving policy to Resolve
+uses native armour-before-resolution order; no nonzero-armour boss-local exception was introduced.
+Existing debt remains explicit: the reward/contribution adapter is not yet M28/S04 native multi-recipient
+completion; Reaver player lifesteal still sets the inherited Nex-healing CA flag (E02); Deflect's inherited
+clamp-before-half rule leaves the last HP unreachable with melee during that overhead. The latter's
+correct formula belongs to unresolved E03/M23 rather than an unannounced balance change in this wiring.
+Public/private session conversion, secondary magic accuracy, prison/Drag/Wrath mechanics, rewards,
+reclaim, persistence and CAs remain mapped work. No full Nex or 1:1 completion is claimed.
+
+Tests execute production NexCombat registration, real NPC queues/processors and native guard death.
+Nine new regressions first failed against old wiring (`nex-s02-incoming-red-20260913.log`,41s), then
+passed with all existing Nex tests (`nex-s02-incoming-green-20260913.log`,53s). The next three tests
+exposed the stale Siphon bar (`nex-s02-headbar-red-20260913.log`,43s,12 cases/1 failure); correction
+passed with NPC/boss/Nex suites (`nex-s02-headbar-green-20260913.log`,58s). Additional arrival-overhead,
+ownerless/indirect/session/retired ownership and private/delayed bar regressions are included in the
+final checkpoint run. These are not rendered client, PostgreSQL or raw packet parity tests.
+
+Shared headbar correction is separately committed as `815275a7f` on
+`fix/npc-impact-headbar-20260913`; Nex integration continues on
+`refactor/nex-native-impact-20260913`. Three read-only subagents independently reviewed API,
+mechanics and tests; only the primary edited source. The test audit added cancellation inside
+Resolve, cancellation after Impact healing, composed caller validity and ownerless native-credit
+assertions. `nex-s02-review-cancellation-20260913.log`: BUILD SUCCESSFUL, 48s,169 tasks; NPC18
+and Nex82 cases, zero failures/errors/skips. The full affected result set is244 cases, including
+boss API61, game-process11, combat-scripts8, player20, death6, instances34 and cache4.
+
+The preceding broad scoped check/assemble/architecture run passed in41s/483 tasks
+(`nex-s02-full-checkpoint4-20260913.log`). Earlier attempts are retained: fixture compilation
+needed InternalApi opt-in; the private-bar fixture needed a player source UID and a delay compatible
+with native five-unit headbar packing. These were test corrections, not production protocol changes.
+An unscoped NPC check then failed on formatting in nine untouched files
+(`nex-s02-all-boss-checkpoint-20260913.log`,25s/200 tasks, primarily LF/CRLF differences).
+No mass-formatting or unrelated changes were made; this is not reported as an all-module check pass.
+
+Final broader build/backup results are recorded below when complete. Live JVM42364 remains
+0372044fc; no attachment, restart or gameplay deployment occurred. The read-only doctor in
+`logs/nex-s02-doctor-after-20260913.log` confirms the canonical root and unchanged revision240
+SERVER/LIVE/PostgreSQL authorities. S10's old-JVM save-first handover and two verified restarts
+remain the deployment gate. No rendered encounter or OpenRune-versus-OSRS packet diff was run.
+
 ## September 13 continuation: runtime safety and approved M26 world lifecycle
 
 This slice is committed as **`55efb8fa3`**, recovery branch
@@ -1143,6 +1328,14 @@ approved local S02 metadata, not a separate hit pipeline or official upstream si
 real resolution for overkill, zero/private hits, admin expansion, transforms and invalid scopes.
 Nex will retain its characterized formulas, use original damage for Siphon (no admin-expanded healing),
 and credit/heal/call guards only after impact. Full source-origin reward eligibility remains M28/S03/S04.
+Impact integration exposed a presentation dependency in this same approved processor: the normal
+headbar precedes Impact, so an absorbed hit's silent native heal would leave its bar at old HP.
+Preserve event ordering and reuse the processor's existing headbar encoder for a conditional refresh
+when Impact changes HP, only for the same visible, non-delayed, still-assigned identity/headbar and
+without suppression. Do not invent a heal hitmark or bypass InternalNpcHeadbars from content.
+The native Nex headbar regression is red against the first integration (`nex-s02-headbar-red-20260913.log`,
+12 tests,1 failure). Shared refresh/teardown regressions and the Nex test will verify the correction.
+This emits a second same-type bar update when needed; raw packet count/parity remains unverified.
 Metadata foundation implemented and tested separately before Nex production integration:
 `nex-s02-impact-metadata-20260913.log`,1m4s,169 tasks,23 executed; NPC14, boss API61 and Nex67
 tests pass (142 total). The two new processor regressions exercise immutable overkill/private-hit

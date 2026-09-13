@@ -2,6 +2,29 @@
 
 ## Authority and preservation
 
+Current September13 checkpoint: server restored online as JVM1856 on source9e592b389 after gated
+native crash/shutdown recovery. M01/M02 Nex access source444a39eb3 is backed up and verified
+(Nex98/shared155; build/checks pass), not deployed. The [Nex ledger](nex/NEX_OSRS_AUDIT.md) is the
+current increment authority; [handoff](MIGRATION_HANDOFF.md) records runtime status. Permanent
+Central native shutdown correction and two verified restarts remain the deployment hold.
+
+September13 continuation instructions are authoritative: recover the actual source/test/runtime
+checkpoint, reuse verified findings and existing approvals, implement small complete increments,
+and continue to the next approved increment without requesting another "continue". Use up to
+three independent mapping/evidence/regression agents when useful; one owner coordinates shared
+framework edits, integration and expensive builds. Keep the current encounter ledger and handoff
+explicit about behavior verified, build passed, source backed up, deployed and client acceptance.
+The user explicitly approves a missing shared boss API/DSL route ONLY after full repository,
+upstream and comparable-content searches show no suitable route already exists. Record that
+search, the smallest native owner/mapping, evidence and behavioral acceptance before editing.
+All native save/restart protections, evidence conflicts and deployment holds still apply.
+
+Scope extension approved September13: add the raid bosses in Tombs of Amascut, Theatre of Blood
+and Chambers of Xeric AFTER the existing boss priorities. Order remains Nex, Yama, Doom of
+Mokhaiotl, DT2, separate Dagannoth Kings review, then ToA, ToB and CoX. Preserve existing raid
+implementations and ledgers; characterize their actual native execution paths before migration.
+The earlier60-65% estimate described the pre-raid scope and is not an updated total-scope measure.
+
 Requested scope: architecture migration, not a combat rebalance. The user's later instruction
 conditionally authorizes local deployment/restarts at about 5% remaining Codex plan allowance,
 after finishing and testing the current migration and preparing a change/testing/continuation
@@ -237,7 +260,7 @@ Diagnostic-only modules are excluded. Zero manager lines is not proof of archite
 | Muspah | manager; 1,088 -> 552 | Weighted normal attacks, final cadence and all timed phases on BossSpec/BossEncounter | InstanceScript, configured actor, typed session, native death/respawn and KC | Threshold/shield policy, spatial cloud/spike/LOS handlers, corruption presentation | 67 tests (27 native, 40 retained) pass | Draft timings, projectile geometry, source exclusions and shield-skip policy not OSRS-certified; client verification pending |
 | Cerberus | manager; 1,290 -> 598 | Native ordinary attacks, triple components, weighted/conditional rotation, forced diagnostics and timed phases | Protected InstanceScript, typed session state and same-actor native death/reveal | Arena effects426 lines (Souls/lava/wall); phase-ready presentation, debug and CA policy | 75 module tests,2 revision-240 audit tests; all boss/shared regressions and app classes pass | Command-only access retained; donor/capture geometry and timeout fallbacks not OSRS-certified; not yet deployed |
 | Royal Titans | manager; 2,017 -> 829 | Elemental ordinary attacks, per-Titan platform/arena/teleport phases migrated | Protected InstanceScript/session ownership; native paired reset and elemental corpse deadlines; no private membership indexes | Focused routes, landings, walls, elementals, paired tile attacks and statistics; rewards now delegate native delivery | 133 passing module tests,3 revision-240 audit cases; drops60, shared regressions, broader505-task check and two controlled boots pass | Sourceeb5d0f4a8 deployed; contribution/durable claims, CA, legacy rotation and visual evidence gaps remain open |
-| Nex | manager; 1,321 ->1,254 (1,236 before lifecycle safety checks) | Main forms and helpers use BossSpec/BossCombat/NvPCombat; native phases, continuation, forced cadence and Zaros rotation; S09/S01 approved and implemented | Official EndCycle drives public-room maintenance; full session/InstanceScript conversion pending | Named special/secondary/impact/form handlers; delayed callbacks owned by BossEncounter, native impact validity; retained Wrath source and room/reward debt | 67 module tests and 4 cache cases; affected checkpoint 223 tests plus app assemble/architecture check pass; see Nex ledger for broader results | Not full Nex parity; September13 source not deployed. Newly mapped S10 shutdown/save ordering blocks safe restart; presentation, contribution, sessions, rewards/persistence and CAs remain open |
+| Nex | manager; 1,321 ->1,285 (1,254 before incoming-hit identity and impact safety) | Main forms and helpers use BossSpec/BossCombat/NvPCombat; native phases, forced cadence and Zaros rotation; incoming policy/effects now use approved Resolve/Impact | Official EndCycle drives public-room maintenance; full session/InstanceScript conversion pending | Named special/secondary/impact/form handlers; BossEncounter-owned callbacks and native validity; temporary reward adapter and room debt retained explicitly | 82 module tests and 4 cache cases; affected suites total 244; see Nex ledger for final broader checks and unrelated formatting failure | Not full Nex parity or deployed acceptance. S10 source repair is committed/backed up; safe old-JVM handover remains required. Mechanics/evidence, sessions, rewards/persistence and CAs remain open |
 | Yama | managers; 2,908 | Pending | Pending | Contracts/judges/group mechanics | Pending | Detailed mapping pending |
 | Doom of Mokhaiotl | managers; 4,432 | Pending | Pending | Delves/larvae/scoreboard | Pending | Detailed mapping pending |
 | DT2 | manager; 3,706 | Pending | Pending | Four environmental encounters | Pending | Detailed mapping pending |

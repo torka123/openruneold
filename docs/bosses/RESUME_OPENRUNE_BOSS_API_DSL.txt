@@ -22,6 +22,24 @@ Newer source, test logs and handoff entries take precedence over this prompt.
 Never infer current deployment from Git HEAD alone.
 
 KNOWN STARTING CHECKPOINT (RECHECK; DO NOT REPEAT COMPLETED WORK)
+- Latest boss source444a39eb3 routes Nex barrier/altar/admin travel through protected movement.
+  Backup/nex-protected-access-20260913;98 Nex +155 shared cases pass, build/checks pass.
+  Source-only; JVM1856 stays9e592b389. Next: permanent Central native shutdown correction,
+  then two verified controlled restarts before deployed acceptance. Read Nex ledger top.
+- CURRENT crash recovery: read MIGRATION_HANDOFF.md's top runtime section and the Nex ledger
+  first. Historical JVM42364 ended in the crash. Cold JVM10576 failed its first controlled
+  restart, then completed gated native recovery including Central owners, social flush and
+  PostgreSQL/lock closure. Replacement JVM1856 is ONLINE from03:32 EDT with game/Central
+  listeners and matching inventory/bank/realm fingerprints. Do not force-kill it.
+  Incoming-hit source a87f5fc47 and tested empty-world shutdown fix9e592b389 are backed up.
+  Permanent Central dependency shutdown correction and two clean verified restarts remain.
+  Approved Nex source work can continue under this deployment hold. Older runtime claims below
+  are history. Add ToA, ToB, CoX after Nex/Yama/Doom/DT2/separate Dagannoth Kings review.
+- September13 latest: approved S10 save/shutdown source checkpoint cde8b17a8 is backed up;
+  shared Impact metadata63c5028ee and Nex incoming Resolve/Impact wiring follow on
+  refactor/nex-native-impact-20260913. Read the latest Nex ledger for final source commits,
+  tests/backup and limitations. The live JVM remains0372044fc until a verified old-JVM
+  save-first handover is completed. Do not repeat old System.exit helper deployment.
 - Source baseline: 798b8c320, backup/boss-dsl-source-baseline-20260909.
 - Nine encounter migrations were deployed: Kraken, Vorkath, Corporeal Beast,
   Alchemical Hydra, Grotesque Guardians, Zulrah, Muspah, Cerberus, Royal Titans.

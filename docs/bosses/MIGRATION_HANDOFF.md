@@ -4,7 +4,51 @@ This is a resumable handoff, not a project-completion or full OSRS-parity claim.
 mechanic mappings, uncertainties, commands and results remain in [DSL_MIGRATION.md](DSL_MIGRATION.md).
 Update this checkpoint after each completed boss and immediately before any authorized deployment.
 
-## Current continuation: approved S10 native save/shutdown repair (September13)
+## Current runtime checkpoint: September13 crash recovery
+
+Latest boss source checkpoint **444a39eb3** (`backup/nex-protected-access-20260913`): M01/M02
+barrier, altar and `::nex` native protected movement is implemented and verified by98 Nex and155
+shared-module cases. Scoped formatting, Nex check, app assemble and architecture checks pass.
+This slice is source-only. See the Nex ledger for files, red/green history and evidence limitations.
+Exact next source deliverable is the permanent Central shutdown correction before two verified restarts.
+
+User priority remains server online through RSProx first, then Nex → Yama → Doom → DT2 →
+separate Dagannoth Kings review → ToA → ToB → CoX. The earlier60–65% estimate covers the
+original scope before adding raids, not the expanded total. Existing approvals and holds persist;
+new shared routes are approved only after verifying no suitable route already exists.
+
+The crash ended historical JVM42364. Cold recovery JVM10576 booted incoming-hit checkpoint
+`a87f5fc47`, but its first controlled restart failed after native save preflight completed with
+zero players/pending saves. Its gated recovery has now completed every native producer,
+persistence and Central resource closure, followed by native PostgreSQL/lock closure and normal
+exit. Replacement JVM1856 is online from03:32 EDT with43594/8080/9091 listening and matching
+inventory/bank/realm fingerprints. An offline backup predates recovery. Exact evidence and steps
+are in the latest Nex ledger and `logs/crash-recovery-20260913-025956/`.
+
+The empty-world1024-cycle shutdown timeout is fixed in source `9e592b389` with backup branch
+`backup/native-shutdown-empty-world-20260913`. Five focused regressions and the required
+shared/app/Nex build pass. Native producer and persistence shutdown completed during gated
+recovery, but Central2.0.1 cleanup resolves services after Koin4.0.2 has closed its registry.
+The existing native Central owners were recovered and their social executor had zero submitted,
+active or queued work; native stop/flush methods completed before datasource/PG closure.
+The permanent Central dependency correction remains source work: resolve owners before Koin
+closure, stop/await producers before social drain, retain failed/pending writes and propagate
+the final cleanup result to existing embedded stop. The exact installed2.0.1 source is pinned
+at official9d718ca61aa6437007f883f27c35126fac5a0558 in the sibling backups checkout. No dependency
+changes are loaded. Complete this correction and two controlled restarts before deployed
+acceptance. Server recovery is successful; the failed ordinary restart remains failed. Further
+approved Nex source work can proceed under this deployment hold. Older runtime claims are history.
+
+## Previous source continuation: Nex native incoming hits (September13)
+
+Branch `refactor/nex-native-impact-20260913` continues approved S02/S03 after the backed-up S10
+source repair. Incoming guard thresholds, Siphon absorption, Reaver lifesteal, accepted contribution
+and Deflect reflection now use native Resolve/Impact through BossCombat. Queue-time gameplay effects
+are removed; validity remains tied to exact encounter/owner identity. Shared Impact input observations
+are committed as63c5028ee. The existing Nex ledger holds mapping, red/green tests, remaining formula
+conflicts and final verification/backup details. No deployment has occurred; see S10 gate below.
+
+## Source checkpoint: approved S10 native save/shutdown repair (September13)
 
 Working branch: `fix/native-shutdown-order-20260913`; pre-work recovery:
 `backup/before-s10-shutdown-20260913` at `38fe43cc1`. S10 is approved, not a new approval request.
