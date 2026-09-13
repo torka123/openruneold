@@ -7,6 +7,11 @@ Update this checkpoint after each completed boss and immediately before any auth
 ## Current continuation: Nex lifecycle and delayed effects (September13)
 
 Source work now builds on `0372044fc` on `refactor/nex-main-native-combat-20260910`.
+Current completed source slice: `55efb8fa3`, recovery branch
+`backup/nex-native-lifecycle-20260913`, source ZIP `logs/nex-native-lifecycle-20260913.zip`
+(4,401 files; SHA-256 in the Nex ledger). Nex 67 tests; affected-module run 223; all-boss
+task selection 1,030 result cases; app assemble, architecture and unscoped Nex check pass.
+Thirteen new tests were added. This source is backed up but NOT deployed.
 Nex public-room maintenance uses the official GameLifecycle.EndCycle instead of the first
 online player's post-tick. The former lastWorldTick dedup clock is removed. Deleted room actors
 are retired without continuing their effects or stat repair. Eight delayed encounter callbacks

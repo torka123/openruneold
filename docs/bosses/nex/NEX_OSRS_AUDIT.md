@@ -2,7 +2,22 @@
 
 ## September 13 continuation: runtime safety and approved M26 world lifecycle
 
-Current source checkpoint: `0372044fc`, recovery branch
+This slice is committed as **`55efb8fa3`**, recovery branch
+`backup/nex-native-lifecycle-20260913`. Final source-only archive:
+`logs/nex-native-lifecycle-20260913.zip`, 4,401 files, zero excluded-path violations,
+SHA-256 `45D925B46A59DDBEB6E1DDA40EE6FBAA81E2A2253CB23695F4F91CE03FEC6984`.
+Archive review retained the legitimate TwoFactorSecretResolver source (not secret material);
+no credentials, PostgreSQL, cache, logs or generated output are included. This is not a DB backup.
+No remote push/merge/PR or server restart was performed in this slice.
+
+Changed files: Nex `build.gradle.kts`, `NexEncounterManager.kt`, `NexLifecycle.kt`, existing
+`NexMinionCombatCharacterizationTest.kt` fixture, new `NexPublicRoomLifecycleTest.kt` and
+`NexSpecialLifecycleTest.kt`; documentation `DSL_MIGRATION.md`, `MIGRATION_HANDOFF.md`,
+`RESUME_OPENRUNE_BOSS_API_DSL.txt` and this ledger. No shared-engine source edits. The existing
+four tracked `.data` changes and untracked Grand Exchange area are preserved and uncommitted.
+Changed-source secret-signature scan found zero matches; staged and final diff checks passed.
+
+Prior main-combat checkpoint (still deployed): `0372044fc`, recovery branch
 `backup/nex-main-native-verified-20260912`. Source-only archive
 `logs/nex-main-native-verified-20260912.zip` has 4,399 file entries, no excluded-path
 violations, SHA-256 `7C56E647730A44479C48AF26763048138D398DEC4734CD7F5739DE273AB88492`.
@@ -51,6 +66,13 @@ post-tick as the old callback, but after all player flushes. This removes player
 chat/barrier output at transitions may flush on the following cycle. Client packet comparison
 is still required. This bounded change does not finish public/private InstanceScript migration,
 automatic consecutive-kill participation, hazard ownership or death/reclaim integration.
+
+Retained consecutive-kill gap: decoded Grid Master private-solo capture 3284 rev234.1 has first
+KC/deletion t549 L13987-L14017, player movement inside the arena t559-t562 L14047-L14060,
+then fresh Nex index59712/opening at t587 L14100-L14107 without re-entry. Current reset still
+does not enrol surviving occupants in the fresh room. This is separately mapped session work;
+the observed 38-tick gap is not a normal-mode timer and was not copied. Empty/offline rooms
+cannot be observed by a departed capture client.
 
 M26 result: all five new `NexPublicRoomLifecycleTest` cases failed against the prior clock driver
 (`logs/nex-world-lifecycle-red-20260913.log`, 47s). After the production event migration all 59
