@@ -4,6 +4,7 @@ import dev.openrune.rscm.RSCM
 import dev.openrune.rscm.RSCMType
 import dev.openrune.types.ItemServerType
 import jakarta.inject.Inject
+import java.util.concurrent.ConcurrentLinkedQueue
 import org.rsmod.api.registry.obj.ObjRegistry
 import org.rsmod.api.registry.obj.ObjRegistryResult
 import org.rsmod.api.registry.obj.isSuccess
@@ -15,7 +16,6 @@ import org.rsmod.game.obj.ObjScope
 import org.rsmod.game.type.getObj
 import org.rsmod.map.CoordGrid
 import org.rsmod.map.zone.ZoneKey
-import java.util.concurrent.ConcurrentLinkedQueue
 
 public class ObjRepository
 @Inject
@@ -28,6 +28,18 @@ constructor(private val mapClock: MapClock, private val registry: ObjRegistry) {
         val register = register(obj, duration, reveal)
         return register.isSuccess()
     }
+
+    /**
+     * Returns the native registration outcome after applying the existing repository timers.
+     * Merge/Split contain the actual registered objects; Stack registers [obj] itself. These are
+     * live references, not durable ownership handles. Bulk rejection is returned, while dummy and
+     * invalid-count inputs retain the existing exceptions. This adds no rollback guarantee.
+     */
+    public fun addWithResult(
+        obj: Obj,
+        duration: Int,
+        reveal: Int = DEFAULT_REVEAL_DELAY,
+    ): ObjRegistryResult.Add = register(obj, duration, reveal)
 
     private fun register(obj: Obj, duration: Int, reveal: Int): ObjRegistryResult.Add {
         require(obj.count > 0) { "Obj must have a `count` higher than 0: $obj" }
@@ -54,7 +66,14 @@ constructor(private val mapClock: MapClock, private val registry: ObjRegistry) {
         count: Int = 1,
         reveal: Int = DEFAULT_REVEAL_DELAY,
     ): Obj {
-        return add(RSCM.getReverseMapping(RSCMType.OBJ, type.id), coords, duration, receiver, count, reveal)
+        return add(
+            RSCM.getReverseMapping(RSCMType.OBJ, type.id),
+            coords,
+            duration,
+            receiver,
+            count,
+            reveal,
+        )
     }
 
     public fun add(

@@ -36,7 +36,9 @@ journal now passes native Flyway/PG rollback/concurrency/save-lock ordering/two 
 app assemble. Thirteen-file archive verified; commit753b7b1ef, SOURCE ONLY. Explicit native commit-
 outcome API now passes actual lost-ack/unsent-commit tests,8 DB/507 shared,155 Nex/1,118 boss,68 drops
 and408 ToA (2,101 total), scoped checks/architecture/app assemble; four-file archive verified.
-Next: expose existing native ground registration results with repository timers. Receipt/save/
+Native ground registration results now pass6 new groups/86 selected tests, with2,107 total valid
+results including reused suites; scoped checks/architecture/app assemble and3-file archive pass.
+Next: M06 captured inward guard facing through native Create/post-tick. Receipt/save/
 lifecycle composition, tracked quantities and restart policy remain gates; SOURCE ONLY. M04 cooldown/equipment and
 M20 placement/clipping remain evidence gaps. The Nex ledger records exact source files,
 searches, tests, failure limits, evidence gaps and next mapping.

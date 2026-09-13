@@ -69,8 +69,11 @@ ordering and two isolated database restarts;9 account cases,155 Nex/1,118 boss,5
 weapons/app,68 content/drops and408 ToA (2,097 total), scoped checks/architecture/app assemble.
 Thirteen-file source archive verified; commit753b7b1ef. S04 explicit native commit-outcome API now
 passes real lost-ack/unsent-commit tests,8 DB/507 shared,155 Nex/1,118 boss,68 drops and408 ToA
-(2,101 total), scoped checks/architecture/app assemble; four-file archive verified. Next: expose
-the existing native ground registration result with its repository timers. Receipt reconciliation,
+(2,101 total), scoped checks/architecture/app assemble; four-file archive verified. Native ground
+registration results now pass six new groups and86 selected repo/registry/drop cases; unchanged
+results remain valid for2,107 total. Scoped checks/architecture/app assemble and three-file archive
+pass. Next: captured inward-facing bodyguard presentation through native Create/post-tick.
+Receipt reconciliation,
 complete unresolved-player handling, tracked ground quantities/lifecycle and restart policy remain gates.
 M04 cooldown/equipment, M20 general placement/clipping and normal timing evidence remain missing. All these
 changes remain SOURCE ONLY; current deployment is unchanged.
@@ -1158,6 +1161,62 @@ queuing a full save; it is not a nonmutating receipt hold. Do not substitute tho
 unresolved-operation boundary. The next independent approved prerequisite is public access to the
 existing ObjRepository registration result after native timers are installed, preserving all default
 callers and behavior. This does not select restart policy or implement a persistent ground handle.
+
+Commit-outcome API commit2998b3edd, backup `backup/nex-s04-commit-outcome-20260913`.
+
+## Completed source increment: S04 native ground registration result
+
+Local ObjRepository is identical to pinned61139e76a before this increment. Only its private register
+returns ObjRegistryResult.Add after scheduling native timers. Public Boolean add discards details;
+convenience Obj overloads return the input even when it was not registered. Public ObjRegistry.add
+provides the result but does not install repository timers. No suitable combined public route exists,
+so the conditional missing-route approval applies. Expose addWithResult(obj,duration,reveal=default)
+as a direct call to existing register; do not change register or any current caller.
+
+| Native outcome | Existing contract exposed | Acceptance |
+|---|---|---|
+| Stack | Input Obj registered, existing timer setup | Exact membership; owner/private visibility then native reveal/expiry |
+| Merge | Result.merged is the existing registered object with combined count; input is absent; current timer update rules apply | Exact reference/count, superseded old deadlines; preserve existing retained vars rather than inventing vars-sensitive merges |
+| Split | Result.split contains actual one-count objects, each with native timers | Exact registered references, count1, existing local owner/vars/creation propagation; all reveal/expire |
+| Rejection | BulkNonStackableLimitExceeded returned unchanged; dummy still throws IllegalStateException; invalid count still rejected | No additions/timers from rejected bulk/dummy/count requests; Boolean add control unchanged |
+| Permanent duration | Existing Int.MAX_VALUE behavior | Fresh infinite registrations get no timer; infinite merge into finite keeps old timer, finite merge into untimed does not create one |
+
+Use real MapClock/ObjRepository/ObjRegistry/ZoneUpdateMap and existing native cache definitions.
+Raw canonical obj.cert_chompy_bird_obj sets dummyitem=1 (items.toml3168-3172); verify that loaded
+cache definition before the dummy test, without mutating cache or fabricating types. Same-module
+tests advance MapClock and call native processDurations. This characterizes current repository
+timings and merge semantics, not an OSRS lifetime certificate. The returned references are live
+registration results, not durable IDs, reservations or stable ownership handles. No rollback or
+pickup/restart policy is added. Caller must not mistake the input for a registered merged/split Obj.
+
+Root owns the public method and test settings; a bounded agent may add only the new repository test.
+Focused native registration tests first, then api/repo check, api/registry checks, content/drops
+regression and architecture/app assemble. Existing method bodies and every production caller stay
+unchanged apart from scoped formatting, so reuse the just-passed DB/account/other-shared/all-boss/ToA
+results instead of another full world test run. Widen only for a new failure or invalidated finding.
+
+Verification: first focus passes six groups in15s; the packed dummy definition agrees with raw
+dummyitem=1. A missing test-only rsprot classpath dependency produced a compiler warning; adding
+the existing libs.rsprot.api test dependency removes it. Review caught that invalid-count factories
+threw before repository entry. The corrected test constructs malformed counts through the existing
+public packed ObjEntity constructor, then calls both repository entrypoints; no cache is mutated.
+`logs/nex-s04-ground-result-focused2-20260913.log` passes all six groups in18s.
+
+Final `logs/nex-s04-ground-result-checks2-20260913.log` passes in18s,481 tasks/6 executed/475 up-to-date,
+following the initial1m40s scoped build. Repo6, registry12 and drops68 =86 selected cases, zero
+failures/errors/skips. Scoped formatting/checks, architecture and app assemble pass. Existing
+DB/account/other-shared/boss/ToA results remain valid because no old method body or caller changed
+apart from formatting:2,107 valid cases (513 shared,1,118 boss including155 Nex,68 drops,408 ToA).
+Fresh and combined valid-result manifests are logs/nex-s04-ground-result-test-results-20260913.json
+and logs/nex-s04-ground-result-valid-test-results-20260913.json. This was not another full-suite run.
+
+Three changed source files: api/repo/build.gradle.kts; ObjRepository.kt; new ObjRegistrationResultTest.kt.
+Archive `logs/nex-s04-ground-result-source-20260913.zip`:three byte-verified files,
+SHA256 `1BC387E6B16181A226D669D0FD6A9113BD812CAC4751A378F85C5E52219FFD27`.
+Build passed; native references/timers/rejections and Boolean parity verified. No live caller or
+durable ground projection is enabled. SOURCE ONLY; JVM23812/c4fc9390f remains deployed.
+Next independent ready increment: M06 captured inward guard facing using prepared native spawn
+direction and post-tick face angle. S04 receipt/save/lifecycle and restart policy gates remain open.
 
 ## Source verification history: M01/M02 protected access and S10
 
