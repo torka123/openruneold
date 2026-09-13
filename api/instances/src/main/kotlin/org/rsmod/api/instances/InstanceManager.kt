@@ -304,6 +304,9 @@ constructor(
             "NPC must be fresh, without previous registration or pending native lifecycle work"
         }
         require(contains(session, npc.coords)) { "NPC spawn anchor is outside the fixed area" }
+        require(contains(session, npc.spawnCoords)) {
+            "NPC respawn anchor is outside the fixed area"
+        }
         withFixedActorOperation(session) {
             val owned = spawnedNpcs.getOrPut(session.id) { mutableListOf() }
             if (addFixedNpc(session, npc, duration, owned)) {

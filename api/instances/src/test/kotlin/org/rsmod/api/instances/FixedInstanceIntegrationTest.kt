@@ -892,6 +892,7 @@ class FixedInstanceIntegrationTest {
         val malformed =
             listOf(
                 Npc(type, EXIT),
+                Npc(type, EXIT).apply { coords = FIRST_NPC },
                 Npc(type, CoordGrid(FIRST_NPC.x, FIRST_NPC.z, 1)),
                 Npc(type, FIRST_NPC).apply { slotId = 100 },
                 Npc(type, FIRST_NPC).apply {

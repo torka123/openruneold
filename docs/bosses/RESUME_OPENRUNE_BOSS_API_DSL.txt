@@ -32,8 +32,11 @@ KNOWN STARTING CHECKPOINT (RECHECK; DO NOT REPEAT COMPLETED WORK)
   ownership88d0abf0c are complete in source. Fixed-public sessions49f73a317 and prepared owned
   spawning pass20 native groups,54 instance cases,1,090 boss cases and322 shared/app cases, scoped
   checks, architecture and app assemble. Both source archives are byte-verified; none of these six
-  increments is deployed. Next: adopt the tested Fixed InstanceSession/spawnFixedNpc routes in
-  Nex's public chamber. The missing fixed route was verified locally/pinned before using the
+  increments is deployed. Nex public-session adoption also passes12 new groups,139 Nex cases,
+  1,102 boss cases and322 shared/app cases, scoped checks, architecture and app assemble. One Fixed
+  session owns admission/actors and completed-round continuity; nine source files are byte-verified.
+  This is source-only. Next: approved S08 native defence-drain floor and Nex configuration, preserving
+  the separate boosted-floor evidence gap. The missing fixed route was verified locally/pinned before using the
   latest conditional approval. See Nex ledger for source hashes and native failure limitations.
   The older source-only/hold entries below are historical, not the current runtime status.
 - Permanent Central dependency07b00480e and game-side producer source0f729d055 are tested/backed

@@ -9,6 +9,7 @@ dependencies {
     implementation(projects.api.combat.combatScripts)
     implementation(projects.api.death)
     implementation(projects.api.gameProcess)
+    implementation(projects.api.instances)
     implementation(projects.api.npc)
     implementation(projects.api.player)
     implementation(projects.api.playerOutput)

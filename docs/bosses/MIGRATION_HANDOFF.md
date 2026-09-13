@@ -20,8 +20,12 @@ complete in source. Fixed-public sessions49f73a317 and prepared owned spawning a
 20 native groups,54 total instance cases,1,090 boss cases and322 shared/app cases pass;
 scoped checks, architecture and app assemble pass. Both source archives are byte-verified. Each
 increment has a verified source backup; see the Nex ledger for hashes/logs/native failure limits.
-These increments are not deployed. Next: adopt the tested Fixed InstanceSession/spawnFixedNpc
-routes in Nex's public chamber. Full local/pinned searches verified the missing fixed
+These increments are not deployed. Nex public-session adoption is now source-verified:12 new groups,
+139 Nex cases,1,102 boss cases and322 shared/app cases pass, with scoped checks, architecture and
+app assemble. One native Fixed session owns admission/actors and survives completed rounds; callback
+and exact-identity cleanup are covered. Nine source files are byte-verified in the archive recorded
+in the Nex ledger. Next: approved S08 native defence-drain floor and Nex configuration, preserving
+the separate boosted-floor evidence gap. Full local/pinned searches verified the missing fixed
 route before using the latest conditional approval. Existing timing/reward gaps remain separate.
 Preserve unresolved E07 timing/damage/geometry evidence. Full Nex remains incomplete. Raid
 bosses remain after Nex/Yama/Doom/DT2/separate Dagannoth Kings review, in ToA/ToB/CoX order.

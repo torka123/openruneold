@@ -12,6 +12,7 @@ import org.rsmod.api.death.PlayerDeathHandling
 import org.rsmod.api.death.PlayerDeathHook
 import org.rsmod.api.death.UntradeableHandling
 import org.rsmod.api.game.process.GameLifecycle
+import org.rsmod.api.instances.events.InstancePlayerLeaveUnboundEvent
 import org.rsmod.api.player.hook.PlayerPostTickHook
 import org.rsmod.api.script.onEvent
 import org.rsmod.api.script.onPlayerLogout
@@ -58,6 +59,9 @@ internal class NexLifecycle @Inject constructor(private val encounters: NexEncou
     PluginScript(), PlayerPostTickHook {
     override fun ScriptContext.startup() {
         onPlayerLogout { encounters.playerLoggedOut(player) }
+        onEvent<InstancePlayerLeaveUnboundEvent> {
+            if (key == NEX_PUBLIC_INSTANCE_KEY) encounters.playerLeftSession(player, instanceId)
+        }
         onEvent<GameLifecycle.EndCycle> { encounters.tickWorld() }
     }
 

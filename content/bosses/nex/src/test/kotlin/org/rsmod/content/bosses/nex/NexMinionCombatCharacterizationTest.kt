@@ -23,6 +23,9 @@ import org.rsmod.api.game.process.player.PlayerQueueProcessor
 import org.rsmod.api.game.process.world.WorldQueueListProcess
 import org.rsmod.api.hit.plugin.NpcHitScript
 import org.rsmod.api.hit.plugin.PlayerHitScript
+import org.rsmod.api.instances.InstanceManager
+import org.rsmod.api.instances.InstanceSession
+import org.rsmod.api.instances.region.InstanceAreaResolver
 import org.rsmod.api.npc.access.StandardNpcAccessContextFactory
 import org.rsmod.api.npc.access.StandardNpcAccessLauncher
 import org.rsmod.api.npc.events.interact.AiPlayerEvents
@@ -31,6 +34,7 @@ import org.rsmod.api.npc.hit.processor.StandardNpcHitProcessor
 import org.rsmod.api.npc.hit.queueHit
 import org.rsmod.api.npc.interact.AiPlayerInteractions
 import org.rsmod.api.player.hit.DeferredPlayerHit
+import org.rsmod.api.player.hook.PlayerPostTickHook
 import org.rsmod.api.player.hook.PlayerTeleportHook
 import org.rsmod.api.player.hook.PlayerTeleportHooks
 import org.rsmod.api.player.hook.PlayerTeleportValidateHook
@@ -53,6 +57,7 @@ import org.rsmod.api.repo.controller.ControllerRepository
 import org.rsmod.api.repo.loc.LocRepository
 import org.rsmod.api.repo.npc.NpcRepository
 import org.rsmod.api.repo.obj.ObjRepository
+import org.rsmod.api.repo.region.RegionRepository
 import org.rsmod.api.repo.world.WorldRepository
 import org.rsmod.api.route.BoundValidator
 import org.rsmod.api.utils.logging.GameExceptionHandler
@@ -74,6 +79,7 @@ import org.rsmod.game.proj.ProjAnim
 import org.rsmod.game.queue.EngineQueueCache
 import org.rsmod.game.queue.WorldQueueList
 import org.rsmod.map.CoordGrid
+import org.rsmod.plugin.scripts.PluginScript
 import org.rsmod.plugin.scripts.ScriptContext
 import org.rsmod.routefinder.collision.CollisionFlagMap
 
@@ -215,6 +221,21 @@ internal class NexMinionTestWorld(
         else mock(LocRepository::class.java)
     private val registry = NpcRegistry(npcs, collision, events)
     val repository = NpcRepository(clock, registry, npcs)
+    val instanceRegions =
+        mock(RegionRepository::class.java) { call ->
+            error("Nex fixed public fixture called RegionRepository.${call.method.name}")
+        }
+    val instances =
+        InstanceManager(
+            instanceRegions,
+            repository,
+            players,
+            events,
+            InstanceAreaResolver(),
+            clock,
+            collision,
+            npcs,
+        )
     private val entityLifecycle =
         EntityLifecycleProcess(
             repository,
@@ -276,7 +297,7 @@ internal class NexMinionTestWorld(
     val manager =
         NexEncounterManager(
             clock,
-            repository,
+            npcs,
             players,
             locs,
             AiPlayerInteractions(events, players),
@@ -286,6 +307,7 @@ internal class NexMinionTestWorld(
             worldQueues,
             world,
             rewardService,
+            instances,
         )
     val lifecycle = NexLifecycle(manager)
     val player =
@@ -376,11 +398,13 @@ internal class NexMinionTestWorld(
     val playerLauncher =
         ProtectedAccessLauncher(mock(ProtectedAccessContextFactory::class.java) { playerContext })
     private val playerQueues = PlayerQueueProcessor(events, playerLauncher)
+    val nativeInstanceLifecycle: PlayerPostTickHook
 
     init {
         players[1] = player
         for (x in 360..368) for (z in 647..653) collision.allocateIfAbsent(x * 8, z * 8, 0)
         val context = ScriptContext(events, commands, EngineQueueCache())
+        nativeInstanceLifecycle = installNexNativeInstanceScripts(context, instances, clock)
         with(NpcHitScript()) { context.startup() }
         with(PlayerHitScript()) { context.startup() }
         val death =
@@ -408,6 +432,9 @@ internal class NexMinionTestWorld(
     }
 
     fun npc(id: Int): Npc = npcs.first { it.type.id == id }
+
+    fun session(): InstanceSession =
+        requireNotNull(instances.sessionForId(requireNotNull(instances.instanceForNpc(npc(11278)))))
 
     fun passBarrier(target: Player = player, coords: CoordGrid = NEX_BARRIER): Boolean {
         val type = requireNotNull(ServerCacheManager.getObject(42967))
@@ -531,6 +558,7 @@ internal class NexMinionTestWorld(
             if (nativeLocs) entityLifecycle.process()
             WorldQueueListProcess(worldQueues).process()
             clock.tick()
+            events.publish(GameLifecycle.LateCycle)
             players.forEach {
                 it.currentMapClock = clock.cycle
                 it.processedMapClock = clock.cycle
@@ -542,7 +570,10 @@ internal class NexMinionTestWorld(
                 it.advanceActiveCoroutine()
                 if (it.isSlotAssigned) queues.process(it)
             }
-            players.forEach(lifecycle::onPostTick)
+            players.forEach {
+                nativeInstanceLifecycle.onPostTick(it)
+                lifecycle.onPostTick(it)
+            }
             events.publish(GameLifecycle.EndCycle)
         }
 
@@ -580,4 +611,23 @@ internal class NexMinionTestWorld(
             iterator.cleanUp()
         }
     }
+}
+
+/** Uses the same test-only JVM constructor route as the Royal Titans native instance fixture. */
+internal fun installNexNativeInstanceScripts(
+    context: ScriptContext,
+    instances: InstanceManager,
+    clock: MapClock,
+): PlayerPostTickHook {
+    val lifecycle =
+        Class.forName("org.rsmod.api.instances.hook.InstanceLifecycleScript")
+            .getConstructor(InstanceManager::class.java, MapClock::class.java)
+            .newInstance(instances, clock) as PluginScript
+    with(lifecycle) { context.startup() }
+    val ticks =
+        Class.forName("org.rsmod.api.instances.hook.InstanceTickScript")
+            .getConstructor(MapClock::class.java, InstanceManager::class.java)
+            .newInstance(clock, instances) as PluginScript
+    with(ticks) { context.startup() }
+    return lifecycle as PlayerPostTickHook
 }

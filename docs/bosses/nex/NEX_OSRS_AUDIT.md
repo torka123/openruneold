@@ -42,8 +42,12 @@ scoped checks, app assemble and architecture checks pass;167 unchanged shared re
 These four increments are SOURCE ONLY. Fixed-public sessions49f73a317 and the prepared owned-spawn
 entrypoint are now verified:20 native groups,54 total instance cases,1,090 boss cases and322 shared/
 app cases pass, with scoped formatting/checks, architecture and app assemble. Both source archives
-are byte-verified; details and native failure limits are below. Neither is deployed. Next: adopt
-the tested Fixed InstanceSession/spawnFixedNpc routes in Nex's public chamber.
+are byte-verified; details and native failure limits are below. Neither is deployed. Nex public-room
+adoption is now source-verified: one native Fixed session owns admission, five prepared actors and
+dynamic Reavers; completed rounds retain that session, with exact identity and callback-safe cleanup.
+All139 Nex cases,1,102 boss cases and322 shared/app cases pass, with scoped checks, architecture and
+app assemble. The nine-file source archive is byte-verified below. Next: approved S08 atomic native
+defence-drain floor, using retained ordinary260-minus10 evidence; boosted-floor mechanics stay open.
 Existing timing/damage/geometry constants remain characterized under E07. Full native public/private
 sessions, other mechanics/rewards/evidence gaps below remain open; Nex is not complete.
 Existing order remains Nex ->Yama ->Doom ->DT2 ->separate Dagannoth Kings review ->ToA ->ToB ->CoX.
@@ -430,7 +434,14 @@ SHA256 `B009602CDB4F7B9BBA09479DFF1D097D11DBC0506FCA36B8BBCBCC9B36E52752`.
 It contains InstanceManager.kt and FixedInstanceIntegrationTest.kt. Existing complete source and
 PostgreSQL backups remain preserved. This increment is source-only; JVM23812 remains online.
 
-## Next content increment: Nex public-session adoption (mapping)
+## Completed source increment: Nex public-session adoption
+
+Adoption review refinement: prepared actors must also retain an in-bounds native spawnCoords,
+not just current coords. Native respawn uses the constructor anchor. Reject an outside-born actor
+moved inside before add rather than rewriting its anchor. This strengthens the new route's existing
+placement precondition; the invalid-candidate native test now covers it. Nex's existing constructors
+already use their intended spawn tiles. Prepared-spawn checkpoint: `bcf764d91`, backup branch
+`backup/fixed-public-spawn-20260913`.
 
 Use a source-defined InstanceScript/spec on Fixed bounds south-west(2910,5189,0), exclusive
 north-east(2941,5218,0), existing entry(2910,5203,0) and exit(2908,5203,0). Preserve existing
@@ -460,6 +471,48 @@ raw UID loss/replacement and source deletion; dynamic reaver pre-add stats/owner
 callback invalidation and no actor/resource leak. First expand the real Nex fixture to register
 native InstanceLifecycleScript and manager, then add focused integration coverage. Private Nex,
 S04/S05/S06/S08 and E07 timing/damage/geometry evidence remain their separate approved gaps.
+
+Initial focused adoption check compiled production/fixtures and ran17 groups;16 passed, one exposed
+captured-original loot cleanup after raw slot replacement. Correct original-owned NEX_DROP_DURATION
+without touching replacement/later ownership. Review additionally requires exact altar admission,
+rollback of newly committed but content-invalid native joins, and full-roster exact native validation
+after all five synchronous Create/Spawn callback paths, before publishing a round. Invalid partial
+creation closes the same native session through its existing cleanup pipeline. Existing admissions
+and a newer successful content enrolment must survive an older failed entry callback. These are
+the mapping's identity/cleanup acceptance criteria; no combat constants or engine overrides change.
+The expanded focused checks and all138 Nex cases pass. Final callback review found reset reentry:
+an old encounter cleanup callback can call world maintenance before the outer native reset returns.
+Guard that same Run's reset operation across cleanup/spawn callbacks, so an inner reset cannot
+publish a roster that the outer operation immediately deletes. Add a behavioral cleanup-callback
+regression before the final required shared checks. Fixture scope is native handler/lifecycle
+integration; its calibrated frame helper is not a complete GameCycle scheduling certification.
+
+Final implementation uses source-defined NexPublicInstance and the tested Fixed InstanceSession
+plus spawnFixedNpc routes. Native session admission and captured exact Player identities govern
+combat, rewards and departure; retained Run collections contain only round state. Native leave
+events clear owned player effects regardless of cleanup order. Five prepared actors are validated
+together after native callbacks; partial creation terminates through shared native cleanup. The
+same session survives completed-round actor reset, while source loss clears admission. A per-Run
+guard prevents cleanup callbacks from recursively replacing and deleting a newly published roster.
+Shared spawning also validates immutable respawn anchors, covered by the existing native fixture.
+
+Verification: focused2 passes protected access, startup, round handoff and the expanded new suite
+in20s. All138 Nex cases then pass in21s. The final reset-callback case brings the new suite to12
+groups, all passing in18s (`logs/nex-public-session-boundaries-20260913.log`). Final selected checks
+pass in2m43s/548 tasks (97 executed):1,102 boss cases and322 shared/app cases, zero failures/errors/
+skips;139 Nex and54 instance cases included. Scoped formatting/checks, app assemble and architecture
+detector/self-tests pass. Log, task selection, formatting/source manifests and per-module result JSON
+are retained under `logs/nex-public-session-*20260913.*`. Build passed and these behaviors verified;
+no new live-client acceptance or full OSRS-parity claim is made.
+
+Changed source files: InstanceManager.kt, FixedInstanceIntegrationTest.kt, Nex build.gradle.kts,
+NexEncounterManager.kt, NexLifecycle.kt, new NexPublicInstance.kt, NexStartupTest.kt, the shared
+NexMinionCombatCharacterizationTest.kt fixture and new NexPublicSessionIntegrationTest.kt.
+Archive `logs/nex-public-session-source-20260913.zip` contains exactly those nine files, verified
+byte-for-byte; SHA256 `1B21B738BD34F5834276608C1A57C1B3224C9CC2D9D9B0FB333ACFB08DD365CD`.
+Existing complete source and PostgreSQL backups remain preserved. No cache/data edits or deployment
+occurred; JVM23812 still serves c4fc9390f on all three listeners. Next exact deliverable: S08 native
+NPC defence-drain minimum and Nex adoption after recording the bounded setter/config mapping.
 
 ## Source verification history: M01/M02 protected access and S10
 

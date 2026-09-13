@@ -14,6 +14,11 @@ import org.rsmod.api.bosses.runtime.BossEncounter
 import org.rsmod.api.bosses.runtime.EncounterRegistry
 import org.rsmod.api.combat.NpcAttackOverride
 import org.rsmod.api.combat.commons.CombatEffects
+import org.rsmod.api.instances.InstanceAccess
+import org.rsmod.api.instances.InstanceId
+import org.rsmod.api.instances.InstanceManager
+import org.rsmod.api.instances.InstanceSession
+import org.rsmod.api.instances.InstanceStateKey
 import org.rsmod.api.npc.apPlayer2
 import org.rsmod.api.npc.events.NpcHitEvents
 import org.rsmod.api.npc.heal
@@ -32,10 +37,10 @@ import org.rsmod.api.player.stat.statSub
 import org.rsmod.api.player.vars.VarPlayerIntMapSetter
 import org.rsmod.api.random.GameRandom
 import org.rsmod.api.repo.loc.LocRepository
-import org.rsmod.api.repo.npc.NpcRepository
 import org.rsmod.api.repo.world.WorldRepository
 import org.rsmod.game.MapClock
 import org.rsmod.game.entity.Npc
+import org.rsmod.game.entity.NpcList
 import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
 import org.rsmod.game.entity.player.PlayerUid
@@ -60,7 +65,7 @@ internal class NexEncounterManager
 @Inject
 constructor(
     private val clock: MapClock,
-    private val npcs: NpcRepository,
+    private val npcs: NpcList,
     private val players: PlayerList,
     private val locs: LocRepository,
     private val interactions: AiPlayerInteractions,
@@ -70,10 +75,12 @@ constructor(
     private val worldQueues: WorldQueueList,
     private val world: WorldRepository,
     private val rewards: NexRewardService,
+    private val instances: InstanceManager,
 ) {
     private val log = InlineLogger()
     private var generation = 1L
     private var run: Run? = null
+    private var publicSession: InstanceSession? = null
 
     fun startup() {
         validateAssets()
@@ -129,8 +136,32 @@ constructor(
                 current.state !in setOf(NexState.IDLE, NexState.SPAWNING)
         )
             return false
+        val previousAdmission = instances.sessionForPlayer(player)
+        instances.finalizeEntry(player, current.session, clock.cycle)
+        if (
+            !isActiveRun(current) ||
+                !bossEncounters.isAttached(current.boss, current.encounter) ||
+                instances.sessionForPlayer(player) !== current.session ||
+                uid.resolve(players) !== player ||
+                player.uid != uid ||
+                player.hitpoints <= 0 ||
+                player.coords != NEX_ARENA_ENTRY ||
+                current.state !in setOf(NexState.IDLE, NexState.SPAWNING)
+        ) {
+            // Join callbacks can invalidate content admission after native membership commits.
+            // Preserve a pre-existing admission or a newer successfully enrolled round.
+            if (
+                previousAdmission !== current.session &&
+                    !isParticipant(player) &&
+                    instances.sessionForPlayer(player) === current.session
+            ) {
+                instances.leave(player, current.session, clock.cycle)
+            }
+            return false
+        }
         prepare(player)
         current.participants += player.uid
+        current.participantPlayers[player.uid] = player
         current.flags.putIfAbsent(player.uid, NexAchievementFlags())
         player.lootDropDuration = NEX_DROP_DURATION
         setBarrierState(player)
@@ -143,7 +174,7 @@ constructor(
         val player = access.player
         val uid = player.uid
         val current = run ?: return false
-        if (player.uid !in current.participants) return false
+        if (!isRoundMember(current, player)) return false
         if (player.coords == NEX_BANK_RETURN) return false
         access.telejump(NEX_BANK_RETURN, TeleportType.Standard)
         if (
@@ -360,7 +391,9 @@ constructor(
             if (!isActiveRun(current) || current.generation != generationAtDeath) return@schedule
             wrath(current, deathCoords)
             rewards.reward(
-                current.contributions.filterKeys { it in current.participants },
+                current.contributions.filterKeys { uid ->
+                    uid.resolve(players)?.let { isRoundMember(current, it) } == true
+                },
                 current.rewarded,
                 current.arena.spawn,
             )
@@ -378,7 +411,7 @@ constructor(
 
     fun attackDenial(player: Player, npc: Npc): String? {
         val current = encounterFor(npc) ?: return "This Nex encounter is resetting."
-        if (player.uid !in current.participants)
+        if (!isRoundMember(current, player))
             return "Pass the barrier before attacking this encounter."
         if (!activeParticipant(current, player)) return "You are no longer inside Nex's chamber."
         if (npc === current.boss) {
@@ -402,14 +435,21 @@ constructor(
         return null
     }
 
-    fun isParticipant(player: Player): Boolean = activeRuns().any { player.uid in it.participants }
+    fun isParticipant(player: Player): Boolean = activeRuns().any { isRoundMember(it, player) }
 
     fun isChamberParticipant(player: Player): Boolean =
-        player.uid in (run?.participants ?: emptySet())
+        run?.let { isRoundMember(it, player) } == true
+
+    fun playerLeftSession(player: Player, instanceId: InstanceId) {
+        val current = run?.takeIf { it.session.id == instanceId } ?: return
+        if (current.participantPlayers[player.uid] !== player) return
+        if (player.hitpoints <= 0) current.flags[player.uid]?.playerDeath = true
+        clearParticipant(current, player, "left native instance membership")
+    }
 
     fun playerDied(player: Player) {
         activeRuns()
-            .filter { player.uid in it.participants }
+            .filter { it.participantPlayers[player.uid] === player }
             .forEach { current ->
                 current.flags[player.uid]?.playerDeath = true
                 leave(current, player, reason = "player death")
@@ -459,10 +499,16 @@ constructor(
             reset(current)
             return
         }
-        current.participants.removeIf { uid ->
+        for (uid in current.participants.toList()) {
             val departed = uid.resolve(players)?.let { activeParticipant(current, it) } != true
-            if (departed) clearPrisons(current, uid)
-            departed
+            if (departed) {
+                val player = current.participantPlayers[uid]
+                if (player != null) leave(current, player, "left the chamber")
+                else {
+                    current.participants.remove(uid)
+                    clearPrisons(current, uid)
+                }
+            }
         }
         if (current.state == NexState.SPAWNING && clock.cycle >= current.stateReadyCycle)
             activateSmoke(current)
@@ -847,10 +893,12 @@ constructor(
             val offset = offsets[index]
             val reaver =
                 spawnNpc(
+                    current.session,
                     BLOOD_REAVER_ID,
                     current.arena.spawn.translate(offset.first, offset.second),
                     NEX_REAVER_HITPOINTS,
-                )
+                ) ?: return
+            if (!isActiveRun(current)) return
             current.reavers += reaver
             nearestParticipant(current, reaver.coords)?.let { reaver.apPlayer2(it, interactions) }
         }
@@ -1046,7 +1094,16 @@ constructor(
     }
 
     private fun reset(current: Run, retainOccupants: Boolean = false) {
-        if (!isActiveRun(current)) return
+        if (!isActiveRun(current) || current.resetInProgress) return
+        current.resetInProgress = true
+        try {
+            resetRound(current, retainOccupants)
+        } finally {
+            current.resetInProgress = false
+        }
+    }
+
+    private fun resetRound(current: Run, retainOccupants: Boolean) {
         val occupants =
             if (retainOccupants)
                 current.participants.mapNotNull { uid ->
@@ -1055,9 +1112,12 @@ constructor(
                         ?.let { uid to it }
                 }
             else emptyList()
-        cleanup(current)
+        if (!retainOccupants) {
+            current.participantPlayers.values.toList().forEach { leave(current, it, "round reset") }
+        }
+        if (!cleanup(current)) return
         if (!isActiveRun(current)) return
-        val fresh = spawnFresh()
+        val fresh = spawnFresh(current.session) ?: return
         for ((uid, player) in occupants) {
             // Cleanup and actor creation publish native callbacks before enrolment commits.
             if (
@@ -1071,6 +1131,7 @@ constructor(
                 continue
             prepare(player)
             fresh.participants += uid
+            fresh.participantPlayers[uid] = player
             fresh.flags[uid] = NexAchievementFlags()
             player.lootDropDuration = NEX_DROP_DURATION
         }
@@ -1082,8 +1143,45 @@ constructor(
             beginSpawn(fresh)
     }
 
-    private fun spawnFresh(): Run {
-        val boss = spawnNpc(NEX_ID, NEX_SPAWN, NEX_MAX_HITPOINTS)
+    private fun spawnFresh(existingSession: InstanceSession? = null): Run? {
+        val session = existingSession ?: publicSession ?: createPublicSession() ?: return null
+        if (instances.sessionForId(session.id) !== session) return null
+        try {
+            val fresh = spawnRound(session)
+            if (fresh == null) instances.terminate(session)
+            return fresh
+        } catch (error: Throwable) {
+            try {
+                instances.terminate(session)
+            } catch (cleanupError: Throwable) {
+                if (cleanupError !== error) error.addSuppressed(cleanupError)
+            }
+            throw error
+        }
+    }
+
+    private fun createPublicSession(): InstanceSession? {
+        val session =
+            instances.createServerOwned(
+                NEX_PUBLIC_INSTANCE_KEY,
+                NEX_PUBLIC_INSTANCE_SPEC,
+                InstanceAccess.Friends,
+                clock.cycle,
+            ) ?: return null
+        val state = session.state(ROOM_STATE) { RoomState() }
+        publicSession = session
+        session.onCleanup {
+            val previous = state.run
+            state.run = null
+            if (run === previous) run = null
+            if (publicSession === session) publicSession = null
+            if (previous != null) retireRoundResources(previous)
+        }
+        return session
+    }
+
+    private fun spawnRound(session: InstanceSession): Run? {
+        val boss = spawnNpc(session, NEX_ID, NEX_SPAWN, NEX_MAX_HITPOINTS) ?: return null
         boss.mode = null
         boss.movementLocked = true
         boss.apRangeOverride = 10
@@ -1091,13 +1189,17 @@ constructor(
         val bodyguards =
             linkedMapOf(
                 NexState.FUMUS to
-                    spawnNpc(FUMUS_ID, CoordGrid(2912, 5216), NEX_BODYGUARD_HITPOINTS),
+                    (spawnNpc(session, FUMUS_ID, CoordGrid(2912, 5216), NEX_BODYGUARD_HITPOINTS)
+                        ?: return null),
                 NexState.UMBRA to
-                    spawnNpc(UMBRA_ID, CoordGrid(2937, 5216), NEX_BODYGUARD_HITPOINTS),
+                    (spawnNpc(session, UMBRA_ID, CoordGrid(2937, 5216), NEX_BODYGUARD_HITPOINTS)
+                        ?: return null),
                 NexState.CRUOR to
-                    spawnNpc(CRUOR_ID, CoordGrid(2937, 5190), NEX_BODYGUARD_HITPOINTS),
+                    (spawnNpc(session, CRUOR_ID, CoordGrid(2937, 5190), NEX_BODYGUARD_HITPOINTS)
+                        ?: return null),
                 NexState.GLACIES to
-                    spawnNpc(GLACIES_ID, CoordGrid(2912, 5190), NEX_BODYGUARD_HITPOINTS),
+                    (spawnNpc(session, GLACIES_ID, CoordGrid(2912, 5190), NEX_BODYGUARD_HITPOINTS)
+                        ?: return null),
             )
         bodyguards.values.forEach {
             it.mode = null
@@ -1105,14 +1207,28 @@ constructor(
             it.apRangeOverride = 10
             it.apRequiresLineOfSight = true
         }
+        // Each native add can publish callbacks that retire an earlier roster member.
+        // Validate the entire roster before resolving or publishing an encounter.
+        if (
+            instances.sessionForId(session.id) !== session ||
+                (listOf(boss) + bodyguards.values).any {
+                    it.uid.resolve(npcs) !== it || instances.instanceForNpc(it) != session.id
+                }
+        )
+            return null
+        val encounter = bossEncounters.of(boss)
+        if (!bossEncounters.isAttached(boss, encounter)) return null
         val fresh =
             Run(
                 generation = generation++,
                 arena = NEX_CHAMBER_ARENA,
                 boss = boss,
                 bodyguards = bodyguards,
-                encounter = bossEncounters.of(boss),
+                encounter = encounter,
+                session = session,
             )
+        if (instances.sessionForId(session.id) !== session) return null
+        checkNotNull(session.stateOrNull(ROOM_STATE)).run = fresh
         run = fresh
         fresh.encounter.onCleanup { clearPrisons(fresh) }
         fresh.encounter.onCleanup { clearShadowSmashLocs(fresh) }
@@ -1120,38 +1236,53 @@ constructor(
         return fresh
     }
 
-    private fun spawnNpc(id: Int, tile: CoordGrid, hitpoints: Int): Npc {
+    private fun spawnNpc(session: InstanceSession, id: Int, tile: CoordGrid, hitpoints: Int): Npc? {
         val npc = Npc(requireNpc(id), tile)
         npc.baseHitpointsLvl = hitpoints
         npc.hitpoints = hitpoints
-        npcs.add(npc, Int.MAX_VALUE)
+        if (!instances.spawnFixedNpc(session, npc)) return null
         // Retain Nex's source identity through native death and Wrath. NexCombat disables her
         // automatic reveal; the room owns replacement. Minions retire through native deletion.
         npc.respawns = id == NEX_ID
         return npc
     }
 
-    private fun cleanup(current: Run) {
-        val occupants =
-            current.participants.mapNotNull { uid -> uid.resolve(players)?.let { uid to it } }
+    private fun cleanup(current: Run): Boolean {
+        retireRoundResources(current)
+        return instances.resetNpcs(current.session, clock.cycle)
+    }
+
+    private fun retireRoundResources(current: Run) {
+        val occupants = current.participantPlayers.toList()
         clearPrisons(current)
-        (listOf(current.boss) + current.bodyguards.values + current.reavers).forEach {
-            if (it.isSlotAssigned) npcs.del(it, Int.MAX_VALUE)
-        }
+        bossEncounters.remove(current.boss)
         clearShadowSmashLocs(current)
         occupants.forEach { (uid, player) ->
-            if (player.uid == uid && uid.resolve(players) === player) player.lootDropDuration = null
+            if (player.uid == uid && player.lootDropDuration == NEX_DROP_DURATION)
+                player.lootDropDuration = null
         }
         current.reavers.clear()
     }
 
     private fun leave(current: Run, player: Player, reason: String) {
+        if (current.participantPlayers[player.uid] !== player) return
+        if (instances.sessionForPlayer(player) === current.session) {
+            instances.leave(player, current.session, clock.cycle)
+        }
+        clearParticipant(current, player, reason)
+    }
+
+    private fun clearParticipant(current: Run, player: Player, reason: String) {
+        if (current.participantPlayers[player.uid] !== player) return
         if (!current.participants.remove(player.uid)) return
+        current.participantPlayers.remove(player.uid)
         current.coughUntil.remove(player.uid)
         clearPrisons(current, player.uid)
-        player.lootDropDuration = null
-        prepare(player)
-        setBarrierState(player)
+        if (player.lootDropDuration == NEX_DROP_DURATION) player.lootDropDuration = null
+        if (player.uid.resolve(players) === player) {
+            prepare(player)
+            setBarrierState(player)
+        }
         log.info {
             "[Nex:${current.arena.name}] player=${player.displayName} " +
                 "generation=${current.generation} leave=$reason"
@@ -1160,7 +1291,7 @@ constructor(
 
     private fun leaveAll(player: Player, reason: String) {
         activeRuns()
-            .filter { player.uid in it.participants }
+            .filter { it.participantPlayers[player.uid] === player }
             .forEach { leave(it, player, reason = reason) }
     }
 
@@ -1199,7 +1330,10 @@ constructor(
 
     private fun activeRuns(): List<Run> = listOfNotNull(run)
 
-    private fun isActiveRun(current: Run): Boolean = run === current
+    private fun isActiveRun(current: Run): Boolean =
+        run === current &&
+            instances.sessionForId(current.session.id) === current.session &&
+            current.session.stateOrNull(ROOM_STATE)?.run === current
 
     private fun encounterFor(npc: Npc): Run? =
         activeRuns().firstOrNull { current ->
@@ -1210,11 +1344,19 @@ constructor(
 
     private fun activeParticipant(current: Run, player: Player): Boolean =
         player.isSlotAssigned &&
+            instances.sessionForPlayer(player) === current.session &&
+            (current.participantPlayers[player.uid]?.let { it === player } != false) &&
             !player.clientDisconnected.get() &&
             !player.pendingLogout &&
             !player.loggingOut &&
             player.hitpoints > 0 &&
             current.arena.contains(player.coords)
+
+    private fun isRoundMember(current: Run, player: Player): Boolean =
+        isActiveRun(current) &&
+            player.uid in current.participants &&
+            current.participantPlayers[player.uid] === player &&
+            instances.sessionForPlayer(player) === current.session
 
     private fun participants(current: Run): List<Player> =
         current.participants
@@ -1372,7 +1514,10 @@ constructor(
         var boss: Npc,
         val bodyguards: LinkedHashMap<NexState, Npc>,
         val encounter: BossEncounter,
+        val session: InstanceSession,
+        // Per-round mechanic tracking; only the native session can authorize room admission.
         val participants: MutableSet<PlayerUid> = linkedSetOf(),
+        val participantPlayers: MutableMap<PlayerUid, Player> = linkedMapOf(),
         val contributions: MutableMap<PlayerUid, NexContribution> = linkedMapOf(),
         val rewarded: MutableSet<PlayerUid> = linkedSetOf(),
         val reavers: MutableSet<Npc> = linkedSetOf(),
@@ -1395,6 +1540,7 @@ constructor(
         var deathCoords: CoordGrid? = null,
         var rewardFinished: Boolean = false,
         var roundCompleted: Boolean = false,
+        var resetInProgress: Boolean = false,
     ) {
         val state: NexState
             get() = calledGuard ?: phase
@@ -1404,6 +1550,8 @@ constructor(
     }
 
     internal class IcePrison(val target: Player, val uid: PlayerUid, val deadline: Int)
+
+    private class RoomState(var run: Run? = null)
 
     internal class IcePrisonSegment(val loc: LocInfo, val prison: IcePrison)
 
@@ -1429,6 +1577,7 @@ constructor(
     }
 
     private companion object {
+        val ROOM_STATE = InstanceStateKey<RoomState>("nex-public-round")
         const val NEX_ID = 11278
         const val NEX_SPAWNING_ID = 11279
         const val NEX_SOUL_SPLIT_ID = 11280

@@ -13,8 +13,11 @@ marker ownership88d0abf0c are source-verified. Fixed-public sessions49f73a317 an
 spawning are verified under the conditional missing-route approval:20 native groups,54 instance
 cases,1,090 boss cases and322 shared/app cases pass, plus scoped checks/architecture/app assemble.
 Their source archives and the four Nex archives are byte-verified; these increments are not deployed.
-Next: adopt the tested Fixed InstanceSession/spawnFixedNpc routes in Nex's public chamber. Current
-Nex ledger records the local/pinned route search, implementation, failure limits and next mapping.
+Nex public-session adoption now passes12 new groups,139 Nex cases,1,102 boss cases and322 shared/app
+cases, scoped checks, architecture and app assemble. Its nine-file source archive is byte-verified.
+One native Fixed session owns admission/actors and completed-round continuity with callback-safe
+cleanup. Source-only; next is approved S08 native defence-drain floor and Nex configuration. The Nex
+ledger records exact source files, searches, tests, failure limits, evidence gaps and next mapping.
 
 September13 continuation instructions are authoritative: recover the actual source/test/runtime
 checkpoint, reuse verified findings and existing approvals, implement small complete increments,
