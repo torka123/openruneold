@@ -1228,16 +1228,16 @@ constructor(
         val bodyguards =
             linkedMapOf(
                 NexState.FUMUS to
-                    (spawnNpc(session, FUMUS_ID, CoordGrid(2912, 5216), NEX_BODYGUARD_HITPOINTS)
+                    (spawnNpc(session, FUMUS_ID, CoordGrid(2913, 5215), NEX_BODYGUARD_HITPOINTS)
                         ?: return null),
                 NexState.UMBRA to
-                    (spawnNpc(session, UMBRA_ID, CoordGrid(2937, 5216), NEX_BODYGUARD_HITPOINTS)
+                    (spawnNpc(session, UMBRA_ID, CoordGrid(2937, 5215), NEX_BODYGUARD_HITPOINTS)
                         ?: return null),
                 NexState.CRUOR to
-                    (spawnNpc(session, CRUOR_ID, CoordGrid(2937, 5190), NEX_BODYGUARD_HITPOINTS)
+                    (spawnNpc(session, CRUOR_ID, CoordGrid(2937, 5191), NEX_BODYGUARD_HITPOINTS)
                         ?: return null),
                 NexState.GLACIES to
-                    (spawnNpc(session, GLACIES_ID, CoordGrid(2912, 5190), NEX_BODYGUARD_HITPOINTS)
+                    (spawnNpc(session, GLACIES_ID, CoordGrid(2913, 5191), NEX_BODYGUARD_HITPOINTS)
                         ?: return null),
             )
         bodyguards.values.forEach {

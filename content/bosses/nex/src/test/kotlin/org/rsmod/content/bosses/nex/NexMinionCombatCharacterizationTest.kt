@@ -184,13 +184,14 @@ internal class NexMinionTestWorld(
     deathObjects: ObjRepository? = null,
     deathDropHooks: Set<NpcDeathDropHook> = emptySet(),
     deathKillHooks: Set<NpcDeathKillHook> = emptySet(),
+    nativeCollision: CollisionFlagMap? = null,
 ) {
     val clock = MapClock().apply { cycle = 100 }
     val events = EventBus()
     val commands = CheatCommandMap()
     val players = PlayerList()
     val npcs = NpcList()
-    val collision = CollisionFlagMap()
+    val collision = nativeCollision ?: CollisionFlagMap()
     val locUpdates = ZoneUpdateMap()
     private val locStorage = LocZoneStorage()
     var rejectLocAddAt: CoordGrid? = null

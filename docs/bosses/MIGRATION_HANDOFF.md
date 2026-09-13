@@ -34,7 +34,10 @@ M06 captured facing512/sound5303/overhead speech also passes150 Nex cases, scope
 app assemble; three-file archive byte-verified, commitbe131db42. Bounded M11 native bodyguard drops/
 exact no-remains now pass153 Nex/1,116 boss,501 engine/shared/weapons/app,62 content/drops and408 ToA
 cases (2,087 total), scoped checks/architecture/app assemble; nine-file archive verified. Source-only.
-Next: captured guard coordinates with canonical native map validation. M04 cooldown/equipment and
+M06 captured guard anchors now pass155 Nex cases, scoped checks/architecture/app assemble;
+native blocked terrain and ranged LOS are preserved through both rosters. Three-file archive
+verified; source-only. Next: S04 concrete reward preparation in the existing shared drop service,
+before durable allocation/pickup and Nex activation. M04 cooldown/equipment and
 M20 general placement/clipping remain evidence gaps. Boosted-floor evidence remains
 separate. Full local/pinned searches verified the missing fixed
 route before using the latest conditional approval. Existing timing/reward gaps remain separate.

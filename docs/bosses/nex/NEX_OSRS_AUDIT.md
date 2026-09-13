@@ -59,7 +59,10 @@ facing512/sound5303/overhead speech now pass150 Nex cases, scoped checks, archit
 its three-file archive is byte-verified. Bounded M11 native bodyguard drops and exact no-remains
 handling now pass153 Nex/1,116 boss cases,501 engine/shared/weapons/app,62 drop-content and408
 existing ToA cases (2,087 total), scoped checks/architecture/app assemble; nine-file archive verified.
-Next: coordinate-only guard placement with retained capture anchors and canonical native map checks.
+Captured guard anchors now pass155 Nex cases, scoped checks/architecture/app assemble; canonical
+native terrain blocking and ranged line-of-sight are preserved through initial and replacement
+rosters. Three-file archive verified below. Next: S04 opt-in concrete reward preparation in the
+existing shared drop service, before the durable allocation/pickup foundation; no Nex activation yet.
 M04 cooldown/equipment, M20 general placement/clipping and normal timing evidence remain missing. All these
 changes remain SOURCE ONLY; current deployment is unchanged.
 Existing timing/damage/geometry constants remain characterized under E07. Full native public/private
@@ -816,6 +819,7 @@ Archive `logs/nex-m11-guard-drops-source-20260913.zip` contains all nine files, 
 SHA256 `9F75C9A5F670386EE4EF1D70E729ED36C9DEBE735055964EFC8D820E35E5E1B8`.
 Source-only; deployment remains JVM23812/c4fc9390f. Main Nex S04 reward durability/distributions
 remain open. Next exact deliverable: guard-coordinate mapping and native canonical map validation.
+M11 commit: `21beba3ce`; backup branch `backup/nex-bodyguard-drops-20260913`.
 
 ### M04 focused evidence checkpoint (no implementation)
 
@@ -830,6 +834,62 @@ whether full-stat uses consume cooldown, and Nex combat-use restriction. GWD1529
 out-of-combat use for the four generals' altars, not proof of that gate for Nex. Do not invent a
 transient Run/UID timer. Existing statHeal throws for current>base; future mapping must preserve
 boosts with an explicit current<base guard. This evidence gap does not block independent increments.
+
+## Completed source increment: M06 bodyguard anchors
+
+Retained3284 add lines8686/8716/8745/8774 and808 lines3586/3615/3645/3676 agree on all four
+level0 anchors: Fumus11283=(2913,5215), Umbra11284=(2937,5215), Cruor11285=(2937,5191),
+Glacies11286=(2913,5191). Native cache35-38 confirms size1/unchanged guard types; no staged guard
+forms are defined. Captures determine intended placement independently of their Grid Master spawn
+intervals. Keep the current eager five-actor roster and do not copy those intervals.
+
+Mapping: change only the four CoordGrid arguments of existing spawnRound -> prepared spawnNpc ->
+InstanceManager.spawnFixedNpc -> native NpcRepository/registry collision/ownership. The current
+anchors are(2912,5216),(2937,5216),(2937,5190),(2912,5190); no new map/region/API or actor workaround.
+Before accepting the correction, validate captured anchors against canonical revision240 SERVER
+terrain and static loc collision using the existing RoyalTitansCombatIntegrationTest982-1004
+loadArenaCollision workflow. Load only MapSquareKey(45,81), archive11601, MAPS files0/1 through
+MapTileDecoder/MapLocListDecoder; GameMapDecoder.putMaps/putLocs into a fresh local collision map
+and GameMapBuilder. These native methods already exist in pinned61139e76a. Do not mutate global
+map state, clear/paint blocked tiles, or infer that the old anchors must be blocked.
+
+Acceptance: decoded zone availability, actual BLOCK_WALK/LOC/GROUND_DECOR plus native canStep from
+an adjacent interior tile at each size1 capture anchor; then actual initial native session creation
+and a completed-round replacement use those anchors with unchanged actor count, sizes, ownership,
+stats and readiness. Inject the isolated decoded collision into the existing Nex fixture rather
+than asserting against a blank map. Reuse M11's unchanged shared/drop/other-boss/ToA results;
+focused integration then Nex scoped check/architecture/app assemble. No guard cadence/damage,
+staging timing, static cache edit or deployment is included. Root owns source/fixture; bounded test
+owner may edit only a new placement integration file after this mapping.
+
+Native-map refinement: the initial seven-case focused run correctly rejected the proposed walkable
+destination assertion (two new groups failed). A read-only native decoder probe then showed all four
+captured anchors have exactly BLOCK_WALK=2097152, adjacent interior tiles have0, and inward-to-anchor
+native steps are false (`logs/nex-m06-guard-anchor-map-flags-20260913.txt`). These are stationary
+spawn anchors, not player walk destinations. Captures plus actual native terrain now establish this
+more precise contract. Existing prepared/native NPC addition supports them without clearing map
+collision; guards already have movementLocked=true. Refine acceptance to preserve BLOCK_WALK,
+reject walking onto them, verify native projectile line-of-sight to their interior neighbor, and
+retain those flags through actual initial/replacement NPC registration. No cache/engine change or
+new movement rule is justified. The temporary diagnostic output was removed from the final test.
+
+Verification: initial focused log `logs/nex-m06-guard-anchors-focused-20260913.log` ran seven
+groups with the two incorrect walkability expectations failing; the native map probe is retained
+in `logs/nex-m06-guard-anchors-map-probe-20260913.log`. After the evidence-led refinement,
+`logs/nex-m06-guard-anchors-focused2-20260913.log` passes all seven groups in17s. Final scoped
+Nex check, architecture and app assemble pass in58s/472 tasks/13 executed:
+`logs/nex-m06-guard-anchors-checks-20260913.log`,155 Nex cases, zero failures/errors/skips.
+Reuse M11's unchanged963 other-boss,501 shared/engine/weapons/app,62 content/drops and408 ToA
+results (2,089 valid cases with this increment). Independent read-only review found no defect.
+
+Changed source: NexEncounterManager's four coordinates; optional nativeCollision injection in
+NexMinionCombatCharacterizationTest's existing fixture; new NexBodyguardPlacementIntegrationTest.
+Archive `logs/nex-m06-guard-anchors-source-20260913.zip` contains exactly these three byte-verified
+files; SHA256 `39B86BA6F7E16E46A357D115E8254EDB4F92545207C81A91A3162D3BBDCD714D`.
+Build passed and native fixture behavior verified; no normal OSRS timing or live-client claim.
+Source-only; deployment stays JVM23812/c4fc9390f. Next is bounded S04 concrete reward preparation;
+durable allocation, native ground/pickup recovery and verified Nex eligibility/distribution remain
+required before enabling multi-recipient rewards. Existing E07/M04/M20 gaps are unchanged.
 
 ## Source verification history: M01/M02 protected access and S10
 
