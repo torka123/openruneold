@@ -1519,7 +1519,23 @@ constructor(
 
     private fun validateAssets() {
         NPC_IDS.forEach(::requireNpc)
-        listOf(811, 9178, 9179, 9180, 9182, 9183, 9184, 9185, 9186, 9187, 9188, 9189, 9202, 9203)
+        listOf(
+                1979,
+                9178,
+                9179,
+                9180,
+                9182,
+                9183,
+                9184,
+                9185,
+                9186,
+                9187,
+                9188,
+                9189,
+                9194,
+                9202,
+                9203,
+            )
             .forEach { anim(it) }
         listOf(
                 1997,

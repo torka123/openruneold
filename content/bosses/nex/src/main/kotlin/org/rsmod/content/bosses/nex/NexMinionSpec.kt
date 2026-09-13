@@ -9,9 +9,10 @@ import org.rsmod.api.combat.NpcProjectile
 import org.rsmod.api.combat.commons.CombatAttack
 
 /**
- * Architecture-only migration of the characterized draft. Presentation and maxima below are NOT
- * OSRS-certified; see M11/M17 and the minion capture discrepancies in NEX_OSRS_AUDIT.md. Ordinary
- * selection, cadence, accuracy, prayer, projectiles and hits have one native DSL owner.
+ * Native attack animation identities1979/9194 are capture-backed under M11/M17 in
+ * NEX_OSRS_AUDIT.md. Remaining maxima, prayer, projectile and timing values retain the
+ * characterized draft and its recorded evidence gaps. Ordinary selection, cadence, accuracy and
+ * hits have one native DSL owner.
  */
 internal fun nexMinionSpec(reaver: Boolean): BossSpec {
     val maximum = if (reaver) 18 else 20
@@ -19,7 +20,8 @@ internal fun nexMinionSpec(reaver: Boolean): BossSpec {
         Effect.NpcAttack(
             attack = CombatAttack.NpcMagic(maximum),
             maxHit = maximum,
-            animation = RSCM.getReverseMapping(RSCMType.SEQ, 811),
+            animation =
+                requireNotNull(RSCM.getReverseMapping(RSCMType.SEQ, if (reaver) 9194 else 1979)),
             projectile =
                 if (reaver) null
                 else

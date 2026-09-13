@@ -70,6 +70,7 @@ import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.NpcList
 import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
+import org.rsmod.game.entity.npc.NpcInfoProtocol
 import org.rsmod.game.hit.Hit
 import org.rsmod.game.hit.HitType
 import org.rsmod.game.interact.InteractionOp
@@ -86,9 +87,12 @@ import org.rsmod.plugin.scripts.ScriptContext
 import org.rsmod.routefinder.collision.CollisionFlagMap
 
 /**
- * Production registration/native combat characterization, NOT OSRS certification of the draft's
- * generic minion damage, animation or prayer constants. Player hits are inspected on the native
- * queue; this suite does not claim player impact processing or complete bodyguard-death parity.
+ * Production registration/native combat characterization, with captured attack animation
+ * identities: guards1979 at3284:9773-78 and808:6376-77/7617-19/9837-38; Reaver9194 at808:6666-69.
+ * These Grid Master samples do not certify normal timing, generic damage, projectiles or prayer
+ * constants. Player hits are inspected on the native queue; this suite does not claim player impact
+ * processing or complete bodyguard-death parity. A delegating native protocol records sequences
+ * emitted by accepted attacks without replacing the combat handler.
  */
 @OptIn(InternalApi::class)
 class NexMinionCombatCharacterizationTest {
@@ -98,6 +102,7 @@ class NexMinionCombatCharacterizationTest {
             val f = NexMinionTestWorld()
             f.reachGuard(guardId)
             val guard = f.npc(guardId)
+            val sequences = recordSequences(f, guard)
             f.protectMagic(protected)
             val start = f.clock.cycle
             f.attack(guard)
@@ -105,7 +110,8 @@ class NexMinionCombatCharacterizationTest {
             val projectile = f.projectiles().last()
             assertEquals(if (protected) 10 else 20, hit.damage)
             assertEquals(HitType.Magic, hit.type)
-            assertEquals(811, guard.pendingSequence.id)
+            assertEquals(1979, guard.pendingSequence.id)
+            assertEquals(listOf(Sequence(start, 1979, 0)), sequences)
             assertEquals(1999, projectile.spotanim)
             assertEquals(projectile.serverCycles, delay)
             assertEquals(start + 5, guard.actionDelay)
@@ -115,10 +121,16 @@ class NexMinionCombatCharacterizationTest {
             f.attack(guard)
             assertEquals(1, f.hits().size)
             assertEquals(rolls, f.accuracyRolls, "Cooldown rejection must not roll accuracy")
+            assertEquals(
+                listOf(Sequence(start, 1979, 0)),
+                sequences,
+                "Cooldown rejection and native post-tick must not replay the cast",
+            )
             f.tick()
             f.attack(guard)
             assertEquals(2, f.hits().size)
             assertEquals(start + 10, guard.actionDelay)
+            assertEquals(listOf(Sequence(start, 1979, 0), Sequence(start + 5, 1979, 0)), sequences)
             framework().clearInlineMocks()
         }
     }
@@ -127,19 +139,24 @@ class NexMinionCombatCharacterizationTest {
     fun `inactive guard outsider and inaccurate native magic do not inflict damage`() {
         val f = NexMinionTestWorld()
         val fumus = f.npc(11283)
+        val sequences = recordSequences(f, fumus)
         f.attack(fumus)
         assertTrue(f.hits().isEmpty())
         assertEquals(0, f.accuracyRolls)
+        assertTrue(sequences.isEmpty(), "An inactive guard must not emit an attack animation")
         f.reachGuard(11283)
         f.accurate = false
+        val start = f.clock.cycle
         f.attack(fumus)
         assertEquals(0, f.hits().single().second.damage)
         assertEquals(1, f.accuracyRolls)
+        assertEquals(listOf(Sequence(start, 1979, 0)), sequences)
         f.tick(5)
         f.player.coords = NEX_BANK_TELEPORT
         f.attack(fumus)
         assertEquals(1, f.hits().size)
         assertEquals(1, f.accuracyRolls)
+        assertEquals(listOf(Sequence(start, 1979, 0)), sequences)
     }
 
     @Test
@@ -147,21 +164,51 @@ class NexMinionCombatCharacterizationTest {
         for (protected in listOf(false, true)) {
             val f = NexMinionTestWorld()
             val reaver = f.summonReaver()
+            val sequences = recordSequences(f, reaver)
             f.protectMagic(protected)
             val start = f.clock.cycle
             val beforeProjectiles = f.projectiles().size
             f.attack(reaver)
-            val hit = f.hits().single().second
+            val (delay, hit) = f.hits().single()
+            assertEquals(2, delay, "Preserve the native no-projectile magic hit delay")
             assertEquals(if (protected) 9 else 18, hit.damage)
             assertEquals(HitType.Magic, hit.type)
-            assertEquals(811, reaver.pendingSequence.id)
+            assertEquals(9194, reaver.pendingSequence.id)
+            assertEquals(listOf(Sequence(start, 9194, 0)), sequences)
             assertEquals(start + 5, reaver.actionDelay)
             assertEquals(beforeProjectiles, f.projectiles().size)
             f.attack(reaver)
+            f.tick(4)
+            f.attack(reaver)
             assertEquals(1, f.hits().size)
+            assertEquals(
+                listOf(Sequence(start, 9194, 0)),
+                sequences,
+                "Cooldown rejection must not replay the Reaver attack",
+            )
+            f.tick()
+            f.attack(reaver)
+            assertEquals(2, f.hits().size)
+            assertEquals(start + 10, reaver.actionDelay)
+            assertEquals(listOf(Sequence(start, 9194, 0), Sequence(start + 5, 9194, 0)), sequences)
             framework().clearInlineMocks()
         }
     }
+
+    private fun recordSequences(f: NexMinionTestWorld, npc: Npc): List<Sequence> {
+        val sequences = mutableListOf<Sequence>()
+        val protocol = npc.infoProtocol
+        npc.infoProtocol =
+            object : NpcInfoProtocol by protocol {
+                override fun setSequence(seq: Int, delay: Int) {
+                    sequences += Sequence(f.clock.cycle, seq, delay)
+                    protocol.setSequence(seq, delay)
+                }
+            }
+        return sequences
+    }
+
+    private data class Sequence(val cycle: Int, val id: Int, val delay: Int)
 
     @AfterEach fun releaseMocks() = framework().clearInlineMocks()
 
@@ -170,6 +217,8 @@ class NexMinionCombatCharacterizationTest {
         @JvmStatic
         fun cache() {
             if (ServerCacheManager.objectSize() == 0) ServerCacheManager.init(240).close()
+            assertNotNull(ServerCacheManager.getAnim(1979), "Native bodyguard cast asset")
+            assertNotNull(ServerCacheManager.getAnim(9194), "Native Reaver attack asset")
         }
     }
 }

@@ -39,8 +39,10 @@ and408 ToA (2,101 total), scoped checks/architecture/app assemble; four-file arc
 Native ground registration results now pass6 new groups/86 selected tests, with2,107 total valid
 results including reused suites; scoped checks/architecture/app assemble and3-file archive pass.
 M06 captured inward guard facing now passes157 Nex tests and2,109 total valid results; scoped
-checks/architecture/app assemble and3-file archive pass. Next: captured1979/9194 helper attack
-animations through the existing DSL. Receipt/save/
+checks/architecture/app assemble and3-file archive pass. Captured1979/9194 helper attack
+animations now pass157 Nex tests with native output/cooldown/delay checks, scoped checks/
+architecture/app assemble and3-file archive.2,109 total valid results. Next: S04 native connection
+recovery under the Nex ledger mapping. Receipt/save/
 lifecycle composition, tracked quantities and restart policy remain gates; SOURCE ONLY. M04 cooldown/equipment and
 M20 placement/clipping remain evidence gaps. The Nex ledger records exact source files,
 searches, tests, failure limits, evidence gaps and next mapping.

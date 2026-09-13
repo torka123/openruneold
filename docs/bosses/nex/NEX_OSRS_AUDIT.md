@@ -73,8 +73,10 @@ passes real lost-ack/unsent-commit tests,8 DB/507 shared,155 Nex/1,118 boss,68 d
 registration results now pass six new groups and86 selected repo/registry/drop cases; unchanged
 results remain valid for2,107 total. Scoped checks/architecture/app assemble and three-file archive
 pass; commit802cdf96e. Captured inward-facing bodyguards now pass157 Nex cases, scoped checks/
-architecture/app assemble, with2,109 total valid results. Next: captured helper attack animations
-through the existing native DSL.
+architecture/app assemble, with2,109 total valid results; commit5d2d8a0ad. Captured helper attack
+animations1979/9194 now pass the same157 Nex cases with native emission/cooldown/delay assertions,
+scoped checks/architecture/app assemble and a byte-verified three-file archive. Next: S04 native
+connection recovery under the recorded bounded mapping.
 Receipt reconciliation,
 complete unresolved-player handling, tracked ground quantities/lifecycle and restart policy remain gates.
 M04 cooldown/equipment, M20 general placement/clipping and normal timing evidence remain missing. All these
@@ -1263,6 +1265,100 @@ Archive `logs/nex-m06-guard-facing-source-20260913.zip`:three byte-verified file
 SHA256 `640206FC4BFADEF3724E53CB02774E598352F8F515C2359F8932579DEAF1F8B7`.
 SOURCE ONLY; JVM23812/c4fc9390f remains deployed. Next: independently captured1979/9194 helper attack
 animations through Effect.NpcAttack; all damage/projectile/prayer/normal timing gaps stay recorded.
+
+Guard-facing commit5d2d8a0ad, backup `backup/nex-bodyguard-facing-20260913`.
+
+## Completed source increment: M11/M17 helper attack animation identity
+
+The retained minion presentation table already distinguishes attack identity from unresolved timing.
+Actual attack frames show1979 for Fumus3284 L9773-78, Umbra808 L6376-77, Cruor808 L7617-19 and
+Glacies808 L9837-38; Reaver11294 uses9194 at808 L6666-69 and3284 t445 L10940-62. Canonical native/
+LIVE asset audit verifies1979/9194; guard cache attack_anim5247 remains capture-contradicted. The
+current shared guard/Reaver spec explicitly selects811, an unrelated wizard animation.
+
+Existing route: NexCombat registers nexMinionSpec -> Effect.NpcAttack.animation -> EffectInterpreter
+native override -> NvPCombat.playAttackFx260-270 -> Npc.anim468-488. Select an explicitly required
+native alias for guards1979/Reavers9194; do not fall back to the incorrect guard definition. Extend
+Nex validateAssets to include1979/9194 and remove its unused811 requirement. No shared API/cache edit.
+Native attack-rate arming255 and hit-delay209-211 do not depend on sequence tickDuration, so this
+animation identity correction does not change scheduling, prayer, accuracy or hit delivery.
+
+Acceptance: existing actual registered combat tests still cover every guard with/without prayer,
+Reaver launch, cooldown refusal, hit damage/type, projectile and queued delay. Assert native
+setSequence emits the captured ID once per accepted launch and does not replay during cooldown;
+preserve remaining characterized damage/projectile/prayer/five-cycle values. Update stale KDoc
+to distinguish these verified animation identities from still-open M11/M17 constants. This does
+not add staged spawn casting, normal timing proof, projectiles/impact graphics or healing formulas.
+Root owns spec/asset validation/builds; one test owner may edit only the existing minion test
+class above its shared fixture. Focused minion tests, then Nex check/scoped formatting/architecture/
+app assemble; unaffected shared/other-boss/ToA results remain valid.
+
+Verification: initial focus passes3 existing behavioral groups in20s. Review strengthened the
+Reaver group to assert the unchanged native no-projectile hit delay2 and no sequence replay at
+tick4, then exactly one new9194 at tick5. Required decoded native1979/9194 assets are checked in
+the existing setup; retained native/LIVE coverage is or-cache/src/test/kotlin/dev/openrune/
+NexR240CacheAuditTest.kt115-117. `logs/nex-m11-m17-helper-animation-focused2-20260913.log` passes
+the strengthened3 groups in18s. No new standalone tests or shared fixture changes were needed.
+
+Final `logs/nex-m11-m17-helper-animation-checks2-20260913.log` passes in27s,473 tasks/6 executed/
+467 up-to-date, after the initial1m scoped build. All157 Nex cases have zero failures/errors/skips;
+scoped formatting/checks, architecture and app assemble pass. Unaffected963 other boss,513 shared,
+68 drops and408 ToA results remain valid:2,109 total. Fresh results are
+logs/nex-m11-m17-helper-animation-test-results-20260913.json; no full-suite rerun is claimed.
+
+Changed files: NexMinionSpec.kt, NexEncounterManager.kt asset validation and existing
+NexMinionCombatCharacterizationTest.kt. Archive
+`logs/nex-m11-m17-helper-animation-source-20260913.zip`:three byte-verified files,
+SHA256 `53EA527F527C87BF6B748A0C9020F3C94F8A3E9BF2F0BA3A7F52ABE838B1FC87`.
+Build passed; native sequence emission and unchanged scheduling behavior verified. SOURCE ONLY;
+JVM23812/c4fc9390f remains deployed. Full M11/M17 mechanics and live visual parity remain open.
+Next independent prerequisite is the bounded native DB recovery mapping below.
+
+## S04 receipt resolution refinement and next DB recovery mapping
+
+The completed native trace found no complete nonmutating per-player receipt hold. A possible
+composition keeps AccountSavingService.saveGate AND the original game-thread mutation call until
+authoritative receipt proof, so queued snapshots and other synchronous gameplay cannot overtake
+it. It would stall the whole world during database unavailability; this remains an explicit
+proposal/tradeoff, not an implemented or enabled lifecycle policy. A future operation must be owned
+in native saver drain/failure status and must keep resolver/DB alive through shutdown attempts.
+Input/post-tick flags alone and autosave overlays with continued trade/gameplay are insufficient.
+
+A fresh SELECT finding no receipt is not authoritative noncommit proof while the old backend may
+still finish. The resolver needs a serialization barrier on the stable attempt key (or another
+authoritative final-outcome mechanism). The existing once-API tests read already settled controlled
+fixtures; they do not prove this general reconciliation property. No claim is enabled by those tests.
+
+Independent required prerequisite: recover the existing native JDBC owner after connection loss.
+Current and pinned61139e76a GameDatabase expose startup connect and terminal close only; GameConnection
+opens the configured authority with autoCommit=false. Repository/upstream searches found no reconnect
+route. Conditional missing-route approval applies to an opt-in GameDatabase.reconnect(connector),
+using that existing native connector and transaction monitor, without Flyway, callback replay or
+receipt interpretation. This prerequisite is needed regardless of the eventual lifecycle hold policy.
+
+Before editing, the bounded contract is:
+
+- Reject reconnect before initial connection and after an intentional native close request. Reject
+  same-thread nested reconnect/close before taking the reentrant transaction monitor, so a SQL
+  callback cannot replace/close its own in-flight connection. Other threads wait on the same monitor.
+- Set recoveryUnavailable before retiring the old owned connection. Close old BEFORE requesting a
+  replacement. Publish the replacement and clear recoveryUnavailable only after native connect
+  succeeds. Failed close/connect keeps transactions unavailable and the old reference retained;
+  reconnect can retry. Neither connection retirement nor recovery proves the prior commit outcome.
+- Latch intentional close for an initialized owner before attempting closure; prevent later
+  transactions/reconnect even if closure fails. Close may retry actual retained connection cleanup
+  while recoveryUnavailable; do not accidentally gate cleanup on transaction availability.
+- Native GameConnection closes a newly created connection if autoCommit=false setup fails and
+  preserves a secondary close failure as suppressed. This is best-effort cleanup, not proof of
+  successful physical closure. No canonical config, migration, database service or existing caller changes.
+
+Acceptance: actual isolated PostgreSQL reconnect changes backend/connection while preserving
+committed data and autoCommit=false; native once/default calls work afterward. Cover old-close
+failure, replacement-connect failure, rejected transactions during recovery, successful retry,
+uninitialized/terminal/nested rejection, monitor exclusion with once/default/close, no Flyway or
+callback replay, and connector setup/cleanup failures. Existing commit-outcome and shutdown tests
+must remain valid. Root owns production and all builds; a bounded agent may write only new DB tests.
+This mapping does not activate rewards, solve claim receipts or choose a whole-world stall policy.
 
 ## Source verification history: M01/M02 protected access and S10
 
