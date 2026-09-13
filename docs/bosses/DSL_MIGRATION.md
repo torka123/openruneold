@@ -8,9 +8,10 @@ fixes07b00480e/0f729d055 are deployed. Final checks contain1,061 boss and297 sha
 doctor, canonical caches and inventory/bank/realm persistence checks pass after both restarts.
 The [Nex ledger](nex/NEX_OSRS_AUDIT.md) is the current increment/evidence authority and records
 backups, receipts and remaining limitations. M21 ownership/cancellation706e11330 and M26 completed-
-kill occupant handoff are source-verified:118 Nex tests,167 valid reused shared cases, architecture,
-scoped checks and app assemble pass. Both focused source archives are byte-verified; neither is
-deployed. Next approved increment is the bounded M24 Wrath death-position snapshot mapped there.
+kill occupant handoff13719ba1c and bounded M24 Wrath death-position snapshot are source-verified:
+122 Nex tests,167 valid reused shared cases, architecture/scoped checks and app assemble pass.
+All three focused archives are byte-verified; these increments are not deployed. Next: bounded
+M14 Shadow Smash native loc-ownership mapping/review before edits, using existing repository APIs.
 
 September13 continuation instructions are authoritative: recover the actual source/test/runtime
 checkpoint, reuse verified findings and existing approvals, implement small complete increments,

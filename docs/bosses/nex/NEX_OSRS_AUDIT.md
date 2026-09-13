@@ -35,10 +35,11 @@ Build and behavioral verification passed before deployment:31 Central focused te
 client/writer tests,1,061 boss cases and297 shared/app cases, scoped checks/assemble/architecture.
 
 Current source: M21 prison ownership/cancellation is committed as `706e11330`; M26 completed-kill
-occupant handoff is now implemented and verified. Eligible survivors enter a fresh round in place,
-with exact session/callback guards and unchanged respawn/opening timing. All118 Nex cases, scoped
-checks, app assemble and architecture checks pass;167 unchanged shared results remain valid.
-These two increments are SOURCE ONLY. Next is the bounded M24 death-position snapshot mapped below.
+occupant handoff as `13719ba1c`. The bounded M24 Wrath death-position snapshot is now verified:
+accepted death coordinates remain stable through native death and delayed impact. All122 Nex
+cases, scoped checks, app assemble and architecture checks pass;167 unchanged shared results
+remain valid. These three increments are SOURCE ONLY. Next: finish the bounded M14 Shadow Smash
+native loc-ownership mapping/review before editing; it can reuse existing LocRepository workflows.
 Existing timing/damage/geometry constants remain characterized under E07. Full native public/private
 sessions, other mechanics/rewards/evidence gaps below remain open; Nex is not complete.
 Existing order remains Nex ->Yama ->Doom ->DT2 ->separate Dagannoth Kings review ->ToA ->ToB ->CoX.
@@ -101,7 +102,7 @@ whitespace check passes. This increment is source-only; JVM23812 continues the d
 above. Next exact deliverable is the approved M26 completed-kill occupant handoff below.
 M21 commit: `706e11330`; backup branch `backup/nex-ice-prison-20260913`.
 
-## Current source increment: M26 completed-kill occupant handoff
+## Completed source increment: M26 completed-kill occupant handoff
 
 The mapping below was recorded before edits; the implementation and focused tests now pass.
 
@@ -163,8 +164,11 @@ NexMainNativeCombatTest.kt and new NexRoundHandoffIntegrationTest.kt. Archive
 SHA256 `244A71788201C55E10DBF9EDDA4CB0D16AA95D5506010DB2F3C22AB16D6C9F9F`.
 Scoped whitespace check passes. Source-only, not deployed. Next exact step: M24 death-position
 snapshot RED regression, then the mapped coordinate-only correction below.
+M26 commit: `13719ba1c`; backup branch `backup/nex-round-handoff-20260913`.
 
-## Next approved M24 slice: Wrath death-position snapshot (pre-edit mapping)
+## Current source increment: bounded M24 Wrath death-position snapshot
+
+The following mapping was recorded before implementation.
 
 Retained `logs/nex-audit-20260909/captures/rsprox-808.txt` records death anchor(2920,5191)
 atL19223, Wrath effects centered(2921,5192) atL19257-72, and the nearby player(2918,5191)
@@ -190,6 +194,23 @@ guessing a new one. Keep damage0..55, prayer policy, delay3+1 and emission-time 
 E07 timing/radius/visuals and documented50-versus-draft55 damage conflict stay open. Reward location
 remains current.arena.spawn under separate M29 evidence; do not change it in this slice. Implement
 after the completed M26 checkpoint; independently prepared tests must remain outside source until then.
+
+M24 result: the accepted native death captures CoordGrid once, and finishDeath retains that value
+in its existing encounter-owned callback. Only Wrath's distance origin changed; reward tile,
+radius, damage/prayer, timing, emission-time selection and native identity/lifetime are preserved.
+`logs/nex-m24-wrath-origin-red-20260913.log` compiled and ran4 groups, all failing the old fixed-
+spawn targeting. `logs/nex-m24-wrath-origin-green-20260913.log` passes all4 plus native combat/
+round-handoff regressions in20s. Independent production review found no blocking defect.
+`logs/nex-m24-final-checks-20260913.log` passes in58s/472 tasks (15 executed): all122 Nex cases,
+zero failures/errors/skips, scoped formatting/Nex check/app assemble and architecture/self-tests.
+Unchanged shared167-case results remain valid; no shared source was edited.
+
+Changed source: NexEncounterManager.kt and new NexWrathOriginIntegrationTest.kt. Archive
+`logs/nex-m24-wrath-source-20260913.zip` contains both files, verified byte-for-byte;
+SHA256 `311B76A7F43590AEF50394BE5759228D8C084C7C372056921A9FC169B7A1379F`.
+Scoped diff whitespace check passes. Source-only; JVM23812 remains online on deployedc4fc9390f.
+Next exact step: complete the bounded M14 Shadow Smash native loc-ownership mapping and regression
+review, reusing the already verified repository/timer pipeline; no M14 edits have begun.
 
 ## Source verification history: M01/M02 protected access and S10
 

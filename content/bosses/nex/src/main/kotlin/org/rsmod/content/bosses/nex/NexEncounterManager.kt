@@ -333,6 +333,7 @@ constructor(
         if (npc === current.boss) {
             if (current.state != NexState.ZAROS || current.deathStarted) return DeathKind.UNRELATED
             current.deathStarted = true
+            current.deathCoords = npc.coords
             transition(current, NexState.DYING)
             current.boss.transmog(requireNpc(NEX_DYING_ID), Int.MAX_VALUE)
             current.boss.anim(anim(9184))
@@ -352,11 +353,12 @@ constructor(
     fun finishDeath(npc: Npc, kind: DeathKind) {
         val current = encounterFor(npc) ?: return
         if (kind != DeathKind.NEX || current.boss !== npc || current.rewardFinished) return
+        val deathCoords = checkNotNull(current.deathCoords) { "Nex death has not been accepted." }
         current.rewardFinished = true
         val generationAtDeath = current.generation
         current.encounter.schedule(worldQueues, 3) {
             if (!isActiveRun(current) || current.generation != generationAtDeath) return@schedule
-            wrath(current)
+            wrath(current, deathCoords)
             rewards.reward(
                 current.contributions.filterKeys { it in current.participants },
                 current.rewarded,
@@ -1027,10 +1029,10 @@ constructor(
         }
     }
 
-    private fun wrath(current: Run) {
+    private fun wrath(current: Run, deathCoords: CoordGrid) {
         announce(current, "Taste my wrath!")
         participants(current).forEach { player ->
-            if (distance(current.arena.spawn, player.coords) <= 5) {
+            if (distance(deathCoords, player.coords) <= 5) {
                 player.queueHit(
                     source = current.boss,
                     delay = 1,
@@ -1376,6 +1378,7 @@ constructor(
         var overhead: NexOverhead = NexOverhead.NONE,
         var startingTeamSize: Int = 0,
         var deathStarted: Boolean = false,
+        var deathCoords: CoordGrid? = null,
         var rewardFinished: Boolean = false,
         var roundCompleted: Boolean = false,
     ) {
