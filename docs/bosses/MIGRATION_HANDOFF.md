@@ -24,8 +24,11 @@ These increments are not deployed. Nex public-session adoption is now source-ver
 139 Nex cases,1,102 boss cases and322 shared/app cases pass, with scoped checks, architecture and
 app assemble. One native Fixed session owns admission/actors and survives completed rounds; callback
 and exact-identity cleanup are covered. Nine source files are byte-verified in the archive recorded
-in the Nex ledger. Next: approved S08 native defence-drain floor and Nex configuration, preserving
-the separate boosted-floor evidence gap. Full local/pinned searches verified the missing fixed
+in the Nex ledger; commit219fa193a. Bounded S08 native defence minimum and Nex250 configuration now
+pass142 Nex cases,1,105 boss cases and484 engine/shared/weapons/app cases, scoped checks, architecture
+and app assemble. Its ten-file archive is byte-verified; source-only. Next: M18 captured marking,
+preceded by the missing tint ownership and late-update queue mapping. Boosted-floor evidence remains
+separate. Full local/pinned searches verified the missing fixed
 route before using the latest conditional approval. Existing timing/reward gaps remain separate.
 Preserve unresolved E07 timing/damage/geometry evidence. Full Nex remains incomplete. Raid
 bosses remain after Nex/Yama/Doom/DT2/separate Dagannoth Kings review, in ToA/ToB/CoX order.

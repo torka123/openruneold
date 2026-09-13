@@ -72,8 +72,13 @@ class NexPublicRoomLifecycleTest {
         val previous = f.npcs.toList()
         f.repository.del(boss, Int.MAX_VALUE)
         boss.defenceLvl = 1
+        val acceptedDefence = boss.defenceLvl
         f.tick()
-        assertEquals(1, boss.defenceLvl, "The ended room must not repair a retired NPC's stats")
+        assertEquals(
+            acceptedDefence,
+            boss.defenceLvl,
+            "The ended room must not repair a retired NPC's stats",
+        )
         assertTrue(previous.none { it.isSlotAssigned })
         assertFalse(f.manager.isParticipant(f.player))
         assertNull(f.player.lootDropDuration)

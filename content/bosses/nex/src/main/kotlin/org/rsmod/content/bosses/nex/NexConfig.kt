@@ -6,6 +6,9 @@ import org.rsmod.map.CoordGrid
 internal const val NEX_MAX_HITPOINTS = 3400
 internal const val NEX_BODYGUARD_HITPOINTS = 500
 internal const val NEX_REAVER_HITPOINTS = 150
+// Retained Wiki revisions15325291/15331654: ordinary Defence260, maximum reduction10 (S08).
+// Exact Turmoil boosts and a boosted-floor formula remain separate evidence gaps.
+internal const val NEX_DEFENCE_DRAIN_MINIMUM = 250
 internal const val NEX_ATTACK_RATE = 4
 internal const val NEX_RESPAWN_TICKS = 50
 internal const val NEX_DROP_DURATION = 18_000

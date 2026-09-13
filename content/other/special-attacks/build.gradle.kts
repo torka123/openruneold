@@ -10,4 +10,5 @@ dependencies {
     implementation(projects.api.pluginCommons)
     implementation(projects.api.specials)
     implementation(projects.engine.utilsBits)
+    testImplementation("org.mockito:mockito-core:5.18.0")
 }

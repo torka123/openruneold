@@ -164,6 +164,16 @@ public class Npc(
 
     public val combatImmunities: NpcCombatImmunities = NpcCombatImmunities()
 
+    /**
+     * Optional lower bound for defence drains on this actor, retained across stat copies and
+     * respawns like combat immunities. Configuring a bound does not itself change the level.
+     */
+    public var defenceDrainMinimum: Int? = null
+        set(value) {
+            require(value == null || value >= 0) { "Defence drain minimum must be non-negative" }
+            field = value
+        }
+
     public var attackLvl: Int = type.attack
         set(value) {
             if (!combatImmunities.statDrain || value >= field) field = value
@@ -176,7 +186,12 @@ public class Npc(
 
     public var defenceLvl: Int = type.defence
         set(value) {
-            if (!combatImmunities.statDrain || value >= field) field = value
+            if (value >= field) {
+                field = value
+            } else if (!combatImmunities.statDrain) {
+                // A drain cannot heal an actor already below a newly configured minimum.
+                field = defenceDrainMinimum?.let { value.coerceAtLeast(minOf(it, field)) } ?: value
+            }
         }
 
     public var hitpoints: Int = type.hitpoints

@@ -521,8 +521,6 @@ constructor(
             current.resetCycle = clock.cycle + 1
         }
         if (current.state in combatStates) keepAggressive(current)
-        val defenceFloor = current.boss.baseDefenceLvl - 10
-        if (current.boss.defenceLvl < defenceFloor) current.boss.defenceLvl = defenceFloor
     }
 
     private fun beginSpawn(current: Run) {
@@ -1240,6 +1238,7 @@ constructor(
         val npc = Npc(requireNpc(id), tile)
         npc.baseHitpointsLvl = hitpoints
         npc.hitpoints = hitpoints
+        if (id == NEX_ID) npc.defenceDrainMinimum = NEX_DEFENCE_DRAIN_MINIMUM
         if (!instances.spawnFixedNpc(session, npc)) return null
         // Retain Nex's source identity through native death and Wrath. NexCombat disables her
         // automatic reveal; the room owns replacement. Minions retire through native deletion.

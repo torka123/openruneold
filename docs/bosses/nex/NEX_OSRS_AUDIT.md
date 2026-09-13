@@ -46,8 +46,12 @@ are byte-verified; details and native failure limits are below. Neither is deplo
 adoption is now source-verified: one native Fixed session owns admission, five prepared actors and
 dynamic Reavers; completed rounds retain that session, with exact identity and callback-safe cleanup.
 All139 Nex cases,1,102 boss cases and322 shared/app cases pass, with scoped checks, architecture and
-app assemble. The nine-file source archive is byte-verified below. Next: approved S08 atomic native
-defence-drain floor, using retained ordinary260-minus10 evidence; boosted-floor mechanics stay open.
+app assemble. Public-session commit219fa193a is backed up. Bounded S08 atomic defence-drain minimum
+is also source-verified: Nex250 is configured before native add and the post-tick repair is removed.
+All142 Nex cases,1,105 boss cases and484 engine/shared/weapons/app cases pass, with scoped checks,
+architecture/app assemble and a byte-verified ten-file archive. Boosted-floor mechanics stay open.
+Next: M18 captured Blood Sacrifice marking, preceded by the missing tint-owner and late-update
+consumption mapping. These changes remain SOURCE ONLY; current deployment is unchanged.
 Existing timing/damage/geometry constants remain characterized under E07. Full native public/private
 sessions, other mechanics/rewards/evidence gaps below remain open; Nex is not complete.
 Existing order remains Nex ->Yama ->Doom ->DT2 ->separate Dagannoth Kings review ->ToA ->ToB ->CoX.
@@ -513,6 +517,69 @@ byte-for-byte; SHA256 `1B21B738BD34F5834276608C1A57C1B3224C9CC2D9D9B0FB333ACFB08
 Existing complete source and PostgreSQL backups remain preserved. No cache/data edits or deployment
 occurred; JVM23812 still serves c4fc9390f on all three listeners. Next exact deliverable: S08 native
 NPC defence-drain minimum and Nex adoption after recording the bounded setter/config mapping.
+Public-session commit: `219fa193a`; backup branch `backup/nex-public-session-20260913`.
+
+## Completed bounded source increment: S08 atomic native defence-drain minimum
+
+Existing S08 approval applies. Current/pinned61139e76a searches confirm all relevant NPC defence
+drains already write Npc.defenceLvl, whose only local policy is statDrain immunity. No suitable
+minimum exists. Effect.StatDrain targets players and is not an NPC stat-mutation replacement.
+Use one optional runtime Npc.defenceDrainMinimum, default null, enforced at that existing setter.
+The native boundary has no Nex IDs/constants. Source-configured NPC policy is established by
+Dt2EncounterManager.spawnBoss and CerberusEncounterManager.configureBoss before native add.
+This refines S08's definition/config wording to that existing source configuration route: a new
+typed parameter requires IDs/definitions and packed-cache installation; a type field needs codec/
+copy compatibility. Neither is required for this per-encounter policy, and no suitable existing
+floor parameter was found. Do not duplicate transports or modify current dirty cache/gameval data.
+
+Retained W1 wiki-Nex revision15325291 decoded line22 gives base defence260. W2 wiki-Nex-Strategies
+revision15331654 decoded line59 states maximum reduction10: ordinary floor250 follows by arithmetic.
+Revision240 Nex11278-11282 definitions corroborate260. This is retained Wiki/cache evidence, not
+primary Jagex/packet proof. Configure250 from NexConfig on the prepared boss before spawnFixedNpc;
+guards/Reavers/default NPCs retain null. Remove the post-world-tick repair. Transmogs, native stat
+copies and respawn retain the runtime policy like existing combatImmunities; new rounds configure
+it explicitly. Existing Turmoil only changes presentation; exact boosts/boosted floor remain missing
+evidence and no new formula is introduced. BGS attempted-drain spillover remains unchanged.
+
+| Responsibility | Native mapping | Observable acceptance |
+|---|---|---|
+| Atomic reduction | Npc.defenceLvl, immunity checked before optional lower bound |260->255 accepted; attempts below250 clamp immediately, repeats stay250, immunity still rejects reductions |
+| Safe defaults/boosts | null policy preserves raw setter behavior; apply minimum only to reductions, bounded by prior level | Ordinary negative/raw assignments remain unchanged; boosts/restoration work; configuring above a current depleted stat never heals it through an attempted drain |
+| Actual weapon paths | Existing flat/percentage impact handlers and Ralos ordering write the same setter | Native DWH/BGS/Elder/Bone paths and Ralos second-roll defence see accepted value before tickWorld; no weapon timing/overflow rewrite |
+| Policy lifetime | Existing per-NPC configuration, transmog/copyStats/respawn | Visual forms and numeric-stat copies retain policy; native regeneration works; fresh Nex rounds configure250 and ordinary new NPCs remain null |
+| Source loss | Existing room lifecycle | Replace the old raw-value1 test probe with its accepted native value, and prove world maintenance does not mutate it after source retirement |
+
+Root owns production/shared edits and all builds. Bounded test owners may write only their assigned
+test files. Focused native setter/weapon/Nex behavior precedes required engine/game, game-process,
+special-attack/shared/boss regressions and app assemble; then ledger/source backup checkpoint.
+
+Implemented exactly that source-configured runtime policy. Eight new native setter/lifetime groups,
+one added native regeneration group and three Nex actor-configuration groups pass in the focused
+native run (`logs/nex-s08-native-focused-20260913.log`,33s); the existing source-retirement suite
+also passes with its accepted-value probe. Eight real registered melee-special groups plus the
+new charged Ralos group pass in20s (`logs/nex-s08-weapons-focused-20260913.log`). Melee tests retain
+the production registered attack bodies and impact handlers through native Hit.dispatchImpact;
+rolls, presentation and queue scheduling are isolated. Ralos executes registered Division and
+observes accuracy reads260 then250. These are not full combat-loop or new weapon-parity claims.
+Independent native-boundary review found no blocker. Mockito is test-only, matching the existing
+Nex dependency; no special-attack production logic changed.
+
+Final required checks pass in4m22s/570 tasks (215 executed,1 cached):1,105 boss cases and484 engine/
+shared/weapons/app cases, zero failures/errors/skips. Includes142 Nex,43 engine/game,17 game-process
+and60 special-attack cases. Scoped formatting/checks, architecture detector/self-tests and app
+assemble pass. Log/task selection/formatting and source manifests/per-module result JSON are under
+`logs/nex-s08-*20260913.*`. This replaces the old post-tick repair with immediate native enforcement;
+it does not resolve Turmoil boost semantics or the separately documented BGS overflow evidence.
+
+Changed source files: Npc.kt, new NpcDefenceDrainMinimumTest.kt, NpcRegenProcessorTest.kt,
+NexConfig.kt, NexEncounterManager.kt, NexPublicRoomLifecycleTest.kt, new NexDefenceDrainIntegrationTest.kt,
+special-attacks/build.gradle.kts, new NpcDefenceDrainSpecialAttackTest.kt and
+TonalzticsOfRalosSpecialDamageTest.kt. Archive `logs/nex-s08-source-20260913.zip` contains exactly these
+ten files, verified byte-for-byte; SHA256
+`2AB62C1DAE609357E0441B09FEAB2D982E1ED0A9175BE9C7B0D42EBBC68439AB`.
+Existing complete source/PostgreSQL backups are preserved. No cache/data edits or deployment.
+JVM23812 remains on c4fc9390f with all three listeners. Next exact deliverable: M18 captured tint
+and area sound, with a separately recorded shared tint-ownership/late-queue-consumption mapping.
 
 ## Source verification history: M01/M02 protected access and S10
 

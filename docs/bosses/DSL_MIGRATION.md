@@ -16,8 +16,11 @@ Their source archives and the four Nex archives are byte-verified; these increme
 Nex public-session adoption now passes12 new groups,139 Nex cases,1,102 boss cases and322 shared/app
 cases, scoped checks, architecture and app assemble. Its nine-file source archive is byte-verified.
 One native Fixed session owns admission/actors and completed-round continuity with callback-safe
-cleanup. Source-only; next is approved S08 native defence-drain floor and Nex configuration. The Nex
-ledger records exact source files, searches, tests, failure limits, evidence gaps and next mapping.
+cleanup (commit219fa193a). Bounded S08 native defence minimum and Nex250 source configuration also
+pass142 Nex cases,1,105 boss cases and484 engine/shared/weapons/app cases, scoped checks, architecture
+and app assemble. Its ten-file archive is byte-verified. Source-only; next is M18 captured marking,
+preceded by the shared tint-owner/late-update mapping. The Nex ledger records exact source files,
+searches, tests, failure limits, evidence gaps and next mapping.
 
 September13 continuation instructions are authoritative: recover the actual source/test/runtime
 checkpoint, reuse verified findings and existing approvals, implement small complete increments,
