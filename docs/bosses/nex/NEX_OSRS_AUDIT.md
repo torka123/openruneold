@@ -54,8 +54,10 @@ S08 commit1ab48e36d is backed up. M18 captured Blood Sacrifice marking and nativ
 queue cleanup now pass148 Nex cases,1,111 boss cases,494 engine/shared/weapons/app cases and408
 existing ToA regression cases, scoped checks, architecture and app assemble. Its ten-file archive
 is byte-verified below. Bounded M06 opening animation9203->captured9182 now passes148 Nex cases,
-scoped checks, architecture and app assemble; its two-file archive is byte-verified. Next: captured
-opening facing512 and sound5303 through existing native APIs. M20 general placement/clipping and normal timing evidence remain missing. All these
+scoped checks, architecture and app assemble; its two-file archive is byte-verified. Captured opening
+facing512/sound5303/overhead speech now pass150 Nex cases, scoped checks, architecture/app assemble;
+its three-file archive is byte-verified. Next: native bodyguard death/drop dispatch and explicit
+no-remains handling. M20 general placement/clipping and normal timing evidence remain missing. All these
 changes remain SOURCE ONLY; current deployment is unchanged.
 Existing timing/damage/geometry constants remain characterized under E07. Full native public/private
 sessions, other mechanics/rewards/evidence gaps below remain open; Nex is not complete.
@@ -692,6 +694,56 @@ or live-client appearance. Changed files: NexEncounterManager.kt and NexPublicSe
 `logs/nex-m06-opening-source-20260913.zip` contains exactly these two source files, verified byte-for-byte;
 SHA256 `64C4C3E0B795CB4E40BDE041A23DCA3214CB255B30898B01AB4E35558FE7AE4B`.
 Source-only; JVM23812 remains deployed c4fc9390f. Next: captured opening facing and sound.
+M06 animation commit: `f26dce674`; backup branch `backup/nex-opening-animation-20260913`.
+
+## Completed source increment: bounded M06 opening facing, sound and speech
+
+Retained capture3284 t353 L8654-58 and t587 L14103-07, corroborated808 t110 L3554-58 and
+t449 L11895-99, show spawning11279 at(2924,5202), add direction west, explicit angle512 and
+SoundArea5303 at(2925,5203), delay0/loops1/radius15/size0 in the AT LAST!/9182 frame.
+The installed official RSProx TextServerPacketTranscriber.kt3809-15 suppresses delay/size only
+when zero; their absent text fields are decoded zeros. Native-cache-inspection.log148 shows
+9182's embedded sounds5231/5293/5298/5207, so explicit5303 is a distinct recorded cue.
+These presentation values do not resolve normal opening duration or staged guard timing.
+
+| Responsibility | Existing native route | Acceptance |
+|---|---|---|
+| Add direction | Set prepared main Nex's respawnDir=Direction.West before InstanceManager.spawnFixedNpc; NetworkScript.createNpcAvatar283-94 reads that native property during Create allocation | Initial and replacement Create callbacks observe west; guard/reaver setup is unchanged |
+| Explicit opening facing | After transition clears facing lock, resetFaceEntity/resetPendingFaceSquare then pendingFaceAngle=EntityFaceAngle(Direction.West.angle); existing NpcPostTickProcess155-68 emits512 and consumes it | Stale target/square cannot replace512; actual native post-tick emits once and leaves no pending angle |
+| Opening sound | Existing WorldRepository coordinate/raw-ID soundArea -> native ZoneUpdateMap/transformer, same established M18 path; center=size/2, id5303, delay0, loops1, radius15, size0 | Exact native payload on initial and completed-round openings, no startup/next-tick duplicate |
+
+No new API or engine/cache change is needed: pendingFaceAngle and respawnDir exist in pinned
+upstream61139e76a; existing native facing processors and avatar creation own emission. Avoid the
+otherwise established faceDirection(West) helper here: its1x1 target produces360 for a3x3 NPC.
+No raw packet hook or persistent facing lock is introduced. Preserve native asset metadata,
+clock+5 readiness, form/actor continuity and current guard staging. Existing M06 approval applies.
+Root owns production and integration/builds; bounded test owner edits only the new opening
+presentation integration test. Focused behavioral tests first, then Nex scoped check, architecture
+and app assemble; unchanged M18 shared/other-boss/ToA results remain valid.
+
+Focused review refinement before the additional production edit: the first20-case run compiled,
+but both new opening groups found the captured overhead `AT LAST!` missing. Existing announce
+only calls Player.mes; the recorded NpcInfoProtocol.setSay is correctly empty. Add opening-only
+Npc.say("AT LAST!") -> existing infoProtocol.setSay (Npc.kt533-35), using the same native NPC
+speech route as established content. Keep the existing player chat path; matching its separate
+MessageGame npc_say type is outside this bounded overhead correction. No timer or API changes.
+Tests retain the failed assertion and seed stale entity/square facing before entry, checking the
+native512 emission clears those competing fields. This is a verified M06 presentation omission.
+Comparable native speech content is generic-npcs/ducks/Ducks.kt59 and lumbridge/npcs/Hans.kt46.
+
+The corrected focused20-case run passes in19s (`logs/nex-m06-presentation-focused2-20260913.log`).
+Final `logs/nex-m06-presentation-checks-20260913.log` passes in57s/472 tasks (15 executed): all150
+Nex cases, zero failures/errors/skips, scoped formatting/check, architecture/self-tests and app
+assemble. M18's unchanged963 other-boss,494 engine/shared/weapons/app and408 ToA results remain valid.
+Two new groups run actual native post-tick facing emission/consumption and native SoundArea payloads,
+initial/second-player entry and next-round native Create/death/reset. Native header byte encoding,
+separate chat message type and live-client acceptance are not covered; normal readiness/staging
+remains characterized, not recertified. No shared source changed.
+Changed source: NexConfig.kt, NexEncounterManager.kt and new NexOpeningPresentationIntegrationTest.kt.
+Archive `logs/nex-m06-presentation-source-20260913.zip` contains exactly these three files, verified
+byte-for-byte; SHA256 `E12C9C1014702EF282BC521B017A7B708050E2E606AC71A3179490A32C477C32`.
+Source-only; JVM23812 remains c4fc9390f. Next: bounded M11 native bodyguard drop dispatch, after
+mapping the native explicit no-remains sentinel and preserving ordinary fallback/kill hooks.
 
 ## Source verification history: M01/M02 protected access and S10
 

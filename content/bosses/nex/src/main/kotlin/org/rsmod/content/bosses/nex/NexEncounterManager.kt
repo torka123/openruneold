@@ -45,6 +45,7 @@ import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
 import org.rsmod.game.entity.player.PlayerTintToken
 import org.rsmod.game.entity.player.PlayerUid
+import org.rsmod.game.entity.util.EntityFaceAngle
 import org.rsmod.game.entity.util.PathingEntityCommon
 import org.rsmod.game.hit.Hit
 import org.rsmod.game.hit.HitBuilder
@@ -56,6 +57,7 @@ import org.rsmod.game.loc.LocAngle
 import org.rsmod.game.loc.LocEntity
 import org.rsmod.game.loc.LocInfo
 import org.rsmod.game.loc.LocShape
+import org.rsmod.game.map.Direction
 import org.rsmod.game.queue.WorldQueueList
 import org.rsmod.map.CoordGrid
 import org.rsmod.routefinder.collision.CollisionFlagMap
@@ -529,9 +531,22 @@ constructor(
         current.startingTeamSize = current.participants.size
         current.stateReadyCycle = clock.cycle + 5
         current.boss.transmog(requireNpc(NEX_SPAWNING_ID), Int.MAX_VALUE)
+        current.boss.resetFaceEntity()
+        current.boss.resetPendingFaceSquare()
+        current.boss.pendingFaceAngle = EntityFaceAngle(Direction.West.angle)
         current.boss.anim(anim(9182))
         current.boss.movementLocked = true
+        current.boss.say("AT LAST!")
         announce(current, "AT LAST!")
+        val centerOffset = current.boss.size / 2
+        world.soundArea(
+            current.boss.coords.translate(centerOffset, centerOffset),
+            NEX_OPENING_SOUND,
+            delay = 0,
+            loops = 1,
+            radius = 15,
+            size = 0,
+        )
     }
 
     private fun activateSmoke(current: Run) {
@@ -1265,7 +1280,10 @@ constructor(
         val npc = Npc(requireNpc(id), tile)
         npc.baseHitpointsLvl = hitpoints
         npc.hitpoints = hitpoints
-        if (id == NEX_ID) npc.defenceDrainMinimum = NEX_DEFENCE_DRAIN_MINIMUM
+        if (id == NEX_ID) {
+            npc.defenceDrainMinimum = NEX_DEFENCE_DRAIN_MINIMUM
+            npc.respawnDir = Direction.West
+        }
         if (!instances.spawnFixedNpc(session, npc)) return null
         // Retain Nex's source identity through native death and Wrath. NexCombat disables her
         // automatic reveal; the room owns replacement. Minions retire through native deletion.

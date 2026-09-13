@@ -30,7 +30,9 @@ and app assemble; commit1ab48e36d. M18 marking and owned tint/late-queue cleanup
 1,111 boss,494 engine/shared/weapons/app and408 existing ToA cases, scoped checks/architecture/app
 assemble; commite6bfba9f6. Bounded M06 opening animation9203->captured9182 also passes all148 Nex
 cases, scoped checks, architecture/app assemble; both source archives are byte-verified. Source-only.
-Next: captured opening facing512 and sound5303 through existing native APIs. M20 general placement/clipping remains an exact evidence gap. Boosted-floor evidence remains
+M06 captured facing512/sound5303/overhead speech also passes150 Nex cases, scoped checks/architecture/
+app assemble; three-file archive byte-verified. Next: native bodyguard death/drop dispatch and exact
+no-remains handling. M20 general placement/clipping remains an exact evidence gap. Boosted-floor evidence remains
 separate. Full local/pinned searches verified the missing fixed
 route before using the latest conditional approval. Existing timing/reward gaps remain separate.
 Preserve unresolved E07 timing/damage/geometry evidence. Full Nex remains incomplete. Raid

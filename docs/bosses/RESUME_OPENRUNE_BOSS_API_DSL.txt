@@ -41,7 +41,9 @@ KNOWN STARTING CHECKPOINT (RECHECK; DO NOT REPEAT COMPLETED WORK)
   1,111 boss,494 engine/shared/weapons/app and408 existing ToA cases, scoped checks/architecture/app
   assemble; commite6bfba9f6. Bounded M06 opening animation9203->captured9182 also passes all148 Nex,
   scoped checks/architecture/app assemble; both source archives are byte-verified. Source-only.
-  Next: captured opening facing512 and sound5303. M20 placement/clipping remains an evidence gap. Boosted-floor evidence remains
+  M06 captured facing512/sound5303/overhead speech also passes150 Nex cases, scoped checks/architecture/
+  app assemble; three-file archive byte-verified. Next: native bodyguard death/drop dispatch and exact
+  no-remains handling. M20 placement/clipping remains an evidence gap. Boosted-floor evidence remains
   separate. The missing fixed route was verified locally/pinned before using the
   latest conditional approval. See Nex ledger for source hashes and native failure limitations.
   The older source-only/hold entries below are historical, not the current runtime status.
