@@ -178,6 +178,7 @@ internal class NexMinionTestWorld(
     nativeDeaths: Boolean = false,
     enterRoom: Boolean = true,
     private val nativeLocs: Boolean = false,
+    nativeWorld: Boolean = false,
 ) {
     val clock = MapClock().apply { cycle = 100 }
     val events = EventBus()
@@ -252,7 +253,9 @@ internal class NexMinionTestWorld(
                 throw AssertionError(message().toString(), error)
             },
         )
-    val world = mock(WorldRepository::class.java)
+    val worldUpdates = ZoneUpdateMap()
+    val world =
+        if (nativeWorld) spy(WorldRepository(worldUpdates)) else mock(WorldRepository::class.java)
     val worldQueues = WorldQueueList()
     val selectionBounds = mutableListOf<Int>()
     val selectionRolls = ArrayDeque<Int>()

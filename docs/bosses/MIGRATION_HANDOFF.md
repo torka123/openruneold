@@ -26,8 +26,10 @@ app assemble. One native Fixed session owns admission/actors and survives comple
 and exact-identity cleanup are covered. Nine source files are byte-verified in the archive recorded
 in the Nex ledger; commit219fa193a. Bounded S08 native defence minimum and Nex250 configuration now
 pass142 Nex cases,1,105 boss cases and484 engine/shared/weapons/app cases, scoped checks, architecture
-and app assemble. Its ten-file archive is byte-verified; source-only. Next: M18 captured marking,
-preceded by the missing tint ownership and late-update queue mapping. Boosted-floor evidence remains
+and app assemble; commit1ab48e36d. M18 marking and owned tint/late-queue cleanup now pass148 Nex,
+1,111 boss,494 engine/shared/weapons/app and408 existing ToA cases, scoped checks/architecture/app
+assemble. Its ten-file source archive is byte-verified; source-only. Next: bounded M06 opening
+animation9203->captured9182. M20 general placement/clipping remains an exact evidence gap. Boosted-floor evidence remains
 separate. Full local/pinned searches verified the missing fixed
 route before using the latest conditional approval. Existing timing/reward gaps remain separate.
 Preserve unresolved E07 timing/damage/geometry evidence. Full Nex remains incomplete. Raid

@@ -50,8 +50,12 @@ app assemble. Public-session commit219fa193a is backed up. Bounded S08 atomic de
 is also source-verified: Nex250 is configured before native add and the post-tick repair is removed.
 All142 Nex cases,1,105 boss cases and484 engine/shared/weapons/app cases pass, with scoped checks,
 architecture/app assemble and a byte-verified ten-file archive. Boosted-floor mechanics stay open.
-Next: M18 captured Blood Sacrifice marking, preceded by the missing tint-owner and late-update
-consumption mapping. These changes remain SOURCE ONLY; current deployment is unchanged.
+S08 commit1ab48e36d is backed up. M18 captured Blood Sacrifice marking and native owned-tint/late-
+queue cleanup now pass148 Nex cases,1,111 boss cases,494 engine/shared/weapons/app cases and408
+existing ToA regression cases, scoped checks, architecture and app assemble. Its ten-file archive
+is byte-verified below. Next: bounded M06 opening animation9203->captured9182 using existing native
+animation. M20 general placement/clipping and normal timing evidence remain missing. All these
+changes remain SOURCE ONLY; current deployment is unchanged.
 Existing timing/damage/geometry constants remain characterized under E07. Full native public/private
 sessions, other mechanics/rewards/evidence gaps below remain open; Nex is not complete.
 Existing order remains Nex ->Yama ->Doom ->DT2 ->separate Dagannoth Kings review ->ToA ->ToB ->CoX.
@@ -580,6 +584,78 @@ ten files, verified byte-for-byte; SHA256
 Existing complete source/PostgreSQL backups are preserved. No cache/data edits or deployment.
 JVM23812 remains on c4fc9390f with all three listeners. Next exact deliverable: M18 captured tint
 and area sound, with a separately recorded shared tint-ownership/late-queue-consumption mapping.
+S08 commit: `1ab48e36d`; backup branch `backup/nex-defence-minimum-20260913`.
+
+## Completed source increment: M18 captured marking and owned native tint cleanup
+
+Retained captures3284 t477 L11951-55 and808 L7476-81 show the selected Player tint with literal
+start0/end210/hue0/saturation6/lightness28/weight112. Installed RSProt240 Tinting documentation
+defines these as20ms client cycles; do not replace210 with the existing eight-game-tick impact delay.
+3284 L11973 and808 L7493 show sound_area5223, delay0/loops1/radius15/size0 at Nex's3x3 center
+(anchor+1,+1). The transcriber omits only zero delay/size. Use the existing WorldRepository.soundArea
+coordinate/raw-ID overload, not the entity overload that supplies NPC size3. No separate sacrifice
+spotanim is evidenced. Target selection, impact delay/damage/distance/prayer remain unchanged.
+
+Existing PlayerTint/tint/clearTint, RspCycle.applyTint and ToA marking/cleanup are a shared local
+extension; pinned61139e76a has no player tint API. Local/pinned and all pendingTint-writer searches
+find no active owner retained after synchronization. Content cannot safely clear a sent tint by
+comparing pendingTint because the outgoing update is consumed. The user's conditional missing-route
+approval therefore covers this minimal extension at the existing Player tint boundary:
+
+| Responsibility | Existing route / smallest extension | Observable acceptance |
+|---|---|---|
+| Owned visual update | Keep tint(PlayerTint):Unit and clearTint():Unit; add tintOwned(PlayerTint):PlayerTintToken and clearTint(token):Boolean | Fresh opaque reference per application; only the exact Player's current token can clear once |
+| Producer replacement | Any non-null pendingTint assignment invalidates the prior token, including equal/same-object values and CLEAR; null consumes only transport | New unrelated/owned tint before or after synchronization survives stale cleanup; same-UID replacement cannot inherit the token |
+| Native queue phase | PlayerPostTickProcess currently synchronizes, runs UpdateInfo/post-tick callbacks, then unconditionally clears pendingTint | Consume the sent tint immediately after successful clientCycle.update, before UpdateInfo/hooks; remove the late tint reset. A tint/CLEAR queued by those callbacks must reach the next synchronization once |
+| Nex cast lifecycle | Retain exact target Player/UID plus tint token under Run; use existing encounter cleanup, departure and captured cast completion | Selected target only; old cast/Run/departure cleanup cannot clear a newer cast or other producer; no ownership map persists past cleanup |
+| Packet-backed sound | Existing official zone sound path (raw-ID adapter already exists), center coordinate and captured wire fields | Exact5223/0/1/15/0 from current Nex center, with no new SynthSound/spotanim/timing guess |
+
+Native clientCycle.update applies tint synchronously before returning; the actual RspCycle consumer
+contains no game callback. Moving its existing consumption ahead of UpdateInfo/post-tick producers
+preserves the native synchronization ordering without changing other pending update types. The
+token is separate from the one-shot queue, so consumption does not surrender visual ownership.
+No new timers, private combat hook, replacement output pipeline, value-equality owner or account-ID
+owner. Root owns production/integration/builds; bounded native queue and Nex presentation test
+owners may use separate files. Verify native frame ordering/delivery at the ClientCycle boundary,
+exact captured fields, early cleanup/recasts/same-UID replacements, then required shared/boss checks.
+
+Focused verification: existing3 plus6 new PlayerTint groups pass in7s; four real PlayerPostTickProcess
+groups pass in15s, recording the ClientCycle synchronization boundary. The first Nex fixture compile
+exposed a missing test-only RSProt dependency for inspecting native SoundArea payloads; adding the
+existing libs.rsprot.api test dependency resolves it. All six new Nex presentation groups plus12
+public-session groups pass in22s. Exact native SoundArea fields, selected target, recasts, departures,
+source/encounter/session cleanup and same-UID/new-producer replacement survive the tested lifecycles.
+Independent production review found no blocker. These checks do not claim live rendering, normal
+OSRS impact timing or a new damage rule. Required broad checks include existing ToA regressions
+because ToA already produces player tints; this does not advance raid migration ahead of the queue.
+
+Bounded next-mechanic evidence check, M20: capture3284 t494 L12387-97 calls Containment at anchor
+(2935,5198); placement t499 L12534-57 and matching deletion t509 L12896-12915 show eleven visible
+42943(shape10) and nine invisible26209 interior blockers. Visible offsets are north/south dx0..3,
+dz-1/3 and east dx3,dz0..2; the west dx-1 boundary is absent. Rotations vary. This is an observed
+partial shape, not a universal layout or rotation rule. General placement/clipping remains missing.
+Ten captured tick intervals also do not directly establish LocRepository.add(...,10): native
+GameCycle's pre/post-clock offset must be exercised at the actual scheduling phase, and these
+Grid Master rows do not certify normal-game duration. Do not implement a guessed ring/lifetime.
+Native LocRepository and the existing M21 ownership route are sufficient once geometry is pinned;
+Containment/Prison42943 overlap must retire superseded ownership on both sides. Independent M06
+opening visual evidence can still be checked while this exact M20 gap remains open.
+
+Final required checks pass in5m/571 tasks (267 executed,1 cached):1,111 boss cases,494 engine/shared/
+weapons/app cases and408 existing ToA cases; zero failures/errors/skips. Includes148 Nex,49 engine/
+game and21 game-process cases. The selected api/repo test task has no source tests; native sound
+payload behavior is verified by the Nex integration suite. Scoped formatting/checks, architecture
+detector/self-tests and app assemble pass. Exact commands/manifests/results are retained under
+`logs/nex-m18-*20260913.*`. No live rendering/normal-game timing claim is made.
+
+Changed source files: Player.kt, PlayerTint.kt, PlayerTintTest.kt, PlayerPostTickProcess.kt, new
+PlayerTintPostTickIntegrationTest.kt, Nex build.gradle.kts, NexConfig.kt, NexEncounterManager.kt,
+NexMinionCombatCharacterizationTest.kt fixture and new NexSacrificePresentationIntegrationTest.kt.
+Archive `logs/nex-m18-source-20260913.zip` contains exactly these ten files, verified byte-for-byte;
+SHA256 `4EB2CF69C85E9692F5E7F5689D17D2658890DF651C8907954417FBAFD11C56E6`.
+Existing complete source/PostgreSQL backups are preserved. No cache/data edit or deployment.
+JVM23812 remains on c4fc9390f. Next exact deliverable: bounded M06 opening animation correction;
+retained first and consecutive openings both show9182, independently of the unresolved duration.
 
 ## Source verification history: M01/M02 protected access and S10
 

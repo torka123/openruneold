@@ -18,8 +18,10 @@ cases, scoped checks, architecture and app assemble. Its nine-file source archiv
 One native Fixed session owns admission/actors and completed-round continuity with callback-safe
 cleanup (commit219fa193a). Bounded S08 native defence minimum and Nex250 source configuration also
 pass142 Nex cases,1,105 boss cases and484 engine/shared/weapons/app cases, scoped checks, architecture
-and app assemble. Its ten-file archive is byte-verified. Source-only; next is M18 captured marking,
-preceded by the shared tint-owner/late-update mapping. The Nex ledger records exact source files,
+and app assemble; commit1ab48e36d. M18 marking and owned tint/late-queue cleanup now pass148 Nex,
+1,111 boss,494 engine/shared/weapons/app and408 existing ToA cases, scoped checks/architecture/app
+assemble. Its ten-file archive is byte-verified. Source-only; next is bounded M06 opening animation
+9203->captured9182. M20 placement/clipping remains an evidence gap. The Nex ledger records exact source files,
 searches, tests, failure limits, evidence gaps and next mapping.
 
 September13 continuation instructions are authoritative: recover the actual source/test/runtime

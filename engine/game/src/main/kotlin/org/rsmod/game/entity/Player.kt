@@ -28,6 +28,7 @@ import org.rsmod.game.client.NoopClientCycle
 import org.rsmod.game.damage.DamageContributions
 import org.rsmod.game.entity.player.Appearance
 import org.rsmod.game.entity.player.PlayerTint
+import org.rsmod.game.entity.player.PlayerTintToken
 import org.rsmod.game.entity.player.PlayerUid
 import org.rsmod.game.entity.player.PublicMessage
 import org.rsmod.game.entity.util.EntityFaceAngle
@@ -229,8 +230,17 @@ public class Player(
     public val activeHitmarks: LongArrayList = LongArrayList()
     public val activeHeadbars: LongArrayList = LongArrayList()
 
-    /** Tint update to send during the current client synchronization cycle. */
+    private var tintOwner: PlayerTintToken? = null
+
+    /**
+     * Tint update to send during client synchronization. Null consumes only the outgoing update.
+     */
     public var pendingTint: PlayerTint? = null
+        set(value) {
+            // Every new update supersedes ownership, even when its values or object are identical.
+            if (value != null) tintOwner = null
+            field = value
+        }
 
     public var regionUid: Int? = null
 
@@ -553,9 +563,22 @@ public class Player(
         pendingTint = tint
     }
 
+    /** Queues a tint whose producer can later clear only that same application. */
+    public fun tintOwned(tint: PlayerTint): PlayerTintToken {
+        this.tint(tint)
+        return PlayerTintToken().also { tintOwner = it }
+    }
+
     /** Queues the client-side no-tint sentinel, cancelling any active encounter tint. */
     public fun clearTint() {
         pendingTint = PlayerTint.CLEAR
+    }
+
+    /** Clears this application once; a newer producer or another Player cannot be affected. */
+    public fun clearTint(token: PlayerTintToken): Boolean {
+        if (tintOwner !== token) return false
+        clearTint()
+        return true
     }
 
     public fun showHeadbar(headbar: Headbar) {

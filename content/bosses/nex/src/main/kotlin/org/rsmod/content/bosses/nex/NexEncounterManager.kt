@@ -43,6 +43,7 @@ import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.NpcList
 import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
+import org.rsmod.game.entity.player.PlayerTintToken
 import org.rsmod.game.entity.player.PlayerUid
 import org.rsmod.game.entity.util.PathingEntityCommon
 import org.rsmod.game.hit.Hit
@@ -905,8 +906,21 @@ constructor(
     private fun bloodSacrifice(current: Run, target: Player) {
         announce(current, "I demand a blood sacrifice!")
         target.mes("<col=ff0000>Nex has marked you for a blood sacrifice. Run away!</col>")
+        clearSacrificeMarks(current, target.uid)
+        val mark = BloodSacrificeMark(target, target.uid, target.tintOwned(NEX_SACRIFICE_TINT))
+        current.sacrificeMarks[mark.uid] = mark
+        val centerOffset = current.boss.size / 2
+        world.soundArea(
+            current.boss.coords.translate(centerOffset, centerOffset),
+            NEX_SACRIFICE_SOUND,
+            delay = 0,
+            loops = 1,
+            radius = 15,
+            size = 0,
+        )
         val castGeneration = current.generation
         current.encounter.schedule(worldQueues, 8) {
+            clearSacrificeMark(current, mark)
             if (!validDelayed(current, castGeneration, NexState.BLOOD, target)) return@schedule
             if (distance(current.boss.coords, target.coords) < 7) {
                 target.queueHit(
@@ -921,6 +935,18 @@ constructor(
                 target.statSub("stat.prayer", constant = 10, percent = 0)
             }
         }
+    }
+
+    private fun clearSacrificeMark(current: Run, mark: BloodSacrificeMark) {
+        if (current.sacrificeMarks[mark.uid] !== mark) return
+        current.sacrificeMarks.remove(mark.uid)
+        if (mark.target.uid == mark.uid) mark.target.clearTint(mark.token)
+    }
+
+    private fun clearSacrificeMarks(current: Run, uid: PlayerUid? = null) {
+        current.sacrificeMarks.values
+            .filter { uid == null || it.uid == uid }
+            .forEach { clearSacrificeMark(current, it) }
     }
 
     private fun containment(current: Run) {
@@ -1230,6 +1256,7 @@ constructor(
         run = fresh
         fresh.encounter.onCleanup { clearPrisons(fresh) }
         fresh.encounter.onCleanup { clearShadowSmashLocs(fresh) }
+        fresh.encounter.onCleanup { clearSacrificeMarks(fresh) }
         log.info { "[Nex] spawned generation=${run?.generation} state=IDLE" }
         return fresh
     }
@@ -1254,6 +1281,7 @@ constructor(
     private fun retireRoundResources(current: Run) {
         val occupants = current.participantPlayers.toList()
         clearPrisons(current)
+        clearSacrificeMarks(current)
         bossEncounters.remove(current.boss)
         clearShadowSmashLocs(current)
         occupants.forEach { (uid, player) ->
@@ -1277,6 +1305,7 @@ constructor(
         current.participantPlayers.remove(player.uid)
         current.coughUntil.remove(player.uid)
         clearPrisons(current, player.uid)
+        clearSacrificeMarks(current, player.uid)
         if (player.lootDropDuration == NEX_DROP_DURATION) player.lootDropDuration = null
         if (player.uid.resolve(players) === player) {
             prepare(player)
@@ -1524,6 +1553,7 @@ constructor(
         val calledGuardResolved: MutableSet<NexState> = linkedSetOf(),
         val coughUntil: MutableMap<PlayerUid, Int> = linkedMapOf(),
         val prisons: MutableMap<PlayerUid, IcePrison> = linkedMapOf(),
+        val sacrificeMarks: MutableMap<PlayerUid, BloodSacrificeMark> = linkedMapOf(),
         val prisonSegments: MutableMap<LocInfo, IcePrisonSegment> = linkedMapOf(),
         val flags: MutableMap<PlayerUid, NexAchievementFlags> = linkedMapOf(),
         var callFloor: Int? = null,
@@ -1549,6 +1579,12 @@ constructor(
     }
 
     internal class IcePrison(val target: Player, val uid: PlayerUid, val deadline: Int)
+
+    internal class BloodSacrificeMark(
+        val target: Player,
+        val uid: PlayerUid,
+        val token: PlayerTintToken,
+    )
 
     private class RoomState(var run: Run? = null)
 

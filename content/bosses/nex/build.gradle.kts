@@ -28,6 +28,7 @@ dependencies {
     testImplementation(projects.api.combat.combatFormulas)
     testImplementation(projects.api.registry)
     testImplementation(libs.fastutil)
+    testImplementation(libs.rsprot.api)
     testImplementation(projects.api.hitPlugin)
     testImplementation(projects.engine.coroutine)
     testImplementation(projects.engine.events)

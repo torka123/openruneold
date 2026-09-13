@@ -49,6 +49,8 @@ constructor(
                 regions.process(this)
                 buildAreas.process(this)
                 clientCycle.update(this)
+                // Consume the update just synchronized, before later callbacks can queue another.
+                pendingTint = null
             }
         }
         eventBus.publish(GameLifecycle.UpdateInfo)
@@ -139,7 +141,6 @@ constructor(
         pendingFaceAngle = EntityFaceAngle.NULL
         pendingSequence = EntitySeq.NULL
         pendingSpotanims.clear()
-        pendingTint = null
         activeHeadbars.clear()
         activeHitmarks.clear()
         appearance.clearRebuildFlag()

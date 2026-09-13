@@ -1,6 +1,7 @@
 package org.rsmod.content.bosses.nex
 
 import org.rsmod.api.attr.AttributeKey
+import org.rsmod.game.entity.player.PlayerTint
 import org.rsmod.map.CoordGrid
 
 internal const val NEX_MAX_HITPOINTS = 3400
@@ -9,6 +10,9 @@ internal const val NEX_REAVER_HITPOINTS = 150
 // Retained Wiki revisions15325291/15331654: ordinary Defence260, maximum reduction10 (S08).
 // Exact Turmoil boosts and a boosted-floor formula remain separate evidence gaps.
 internal const val NEX_DEFENCE_DRAIN_MINIMUM = 250
+// Captures3284 t477 and808: exact client-cycle tint and centered area-sound identity (M18).
+internal val NEX_SACRIFICE_TINT = PlayerTint(0, 210, 0, 6, 28, 112)
+internal const val NEX_SACRIFICE_SOUND = 5223
 internal const val NEX_ATTACK_RATE = 4
 internal const val NEX_RESPAWN_TICKS = 50
 internal const val NEX_DROP_DURATION = 18_000

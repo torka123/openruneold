@@ -1,5 +1,8 @@
 package org.rsmod.game.entity.player
 
+/** Opaque identity for one owned tint application on one Player. */
+public class PlayerTintToken internal constructor()
+
 /**
  * A one-shot player-info tint update.
  *

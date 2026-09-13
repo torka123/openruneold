@@ -37,8 +37,10 @@ KNOWN STARTING CHECKPOINT (RECHECK; DO NOT REPEAT COMPLETED WORK)
   session owns admission/actors and completed-round continuity; nine source files are byte-verified.
   Commit219fa193a is backed up. Bounded S08 native defence minimum and Nex250 configuration also
   pass142 Nex,1,105 boss and484 engine/shared/weapons/app cases, scoped checks, architecture and
-  app assemble; ten-file source archive byte-verified. Source-only. Next: M18 captured marking,
-  preceded by shared tint ownership/late-update consumption mapping. Boosted-floor evidence remains
+  app assemble; commit1ab48e36d. M18 marking and owned tint/late-queue cleanup now pass148 Nex,
+  1,111 boss,494 engine/shared/weapons/app and408 existing ToA cases, scoped checks/architecture/app
+  assemble; ten-file archive byte-verified. Source-only. Next: bounded M06 opening animation
+  9203->captured9182. M20 placement/clipping remains an evidence gap. Boosted-floor evidence remains
   separate. The missing fixed route was verified locally/pinned before using the
   latest conditional approval. See Nex ledger for source hashes and native failure limitations.
   The older source-only/hold entries below are historical, not the current runtime status.
