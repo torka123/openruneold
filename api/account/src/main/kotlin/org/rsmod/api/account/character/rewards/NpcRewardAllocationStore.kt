@@ -94,13 +94,15 @@ internal object NpcRewardAllocationStore {
     ): NpcRewardAllocationBalance? {
         require(timeout > 0) { "NPC reward balance statement timeout must be positive" }
         val claimed = mutableMapOf<Pair<Int, Int>, Long>()
+        val retired = mutableMapOf<Pair<Int, Int>, Long>()
         val allocation =
             read(db, lifeId, "select_allocation_balance", timeout) { rows, character, ordinal ->
                 check(claimed.put(character to ordinal, rows.getLong("claimed_count")) == null) {
                     "Duplicate stored allocation balance ordinal"
                 }
+                retired[character to ordinal] = rows.getLong("retired_count")
             } ?: return null
-        return NpcRewardAllocationBalance(allocation, claimed)
+        return NpcRewardAllocationBalance(allocation, claimed, retired)
     }
 
     private fun read(

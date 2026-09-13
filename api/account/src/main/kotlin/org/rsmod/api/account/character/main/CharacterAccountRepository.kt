@@ -26,6 +26,10 @@ import org.rsmod.api.account.character.rewards.NpcRewardClaim
 import org.rsmod.api.account.character.rewards.NpcRewardClaimReceipt
 import org.rsmod.api.account.character.rewards.NpcRewardClaimStore
 import org.rsmod.api.account.character.rewards.NpcRewardClaimWrite
+import org.rsmod.api.account.character.rewards.NpcRewardRetirement
+import org.rsmod.api.account.character.rewards.NpcRewardRetirementReceipt
+import org.rsmod.api.account.character.rewards.NpcRewardRetirementStore
+import org.rsmod.api.account.character.rewards.NpcRewardRetirementWrite
 import org.rsmod.api.account.persistence.GamePersistenceRscmKeys
 import org.rsmod.api.db.DatabaseConnection
 import org.rsmod.api.db.util.getIntOrNull
@@ -61,11 +65,12 @@ constructor(
     ): NpcRewardAllocation? = NpcRewardAllocationStore.find(connection, lifeId)
 
     /**
-     * Observes original allocation and inventory-claim quantities in one caller SQL snapshot.
+     * Observes original allocation, inventory claims and non-pickup retirement in one SQL snapshot.
      * Preserves original item ordinals, keys and vars, including fully claimed items and empty
-     * recipients. Null means no allocation in this snapshot; unclaimed count is not a reservation,
-     * ground eligibility or expiry/restart decision. Other backends may still commit and own staged
-     * claims remain provisional. Requires a positive per-statement JDBC timeout; performs no
+     * recipients. Unclaimed count retains retired units; remaining count subtracts both journals.
+     * Null means no allocation in this snapshot; neither quantity is a reservation, ground
+     * eligibility or expiry/restart decision. Other backends may still commit and own staged
+     * consumption remains provisional. Requires a positive per-statement JDBC timeout; performs no
      * writes.
      */
     public fun findNpcRewardAllocationBalance(
@@ -112,6 +117,45 @@ constructor(
         statementTimeoutSeconds: Int,
     ): NpcRewardClaimReceipt? =
         NpcRewardClaimStore.find(connection, attemptId, statementTimeoutSeconds)
+
+    /**
+     * Stages non-pickup source consumption in a caller-owned READ COMMITTED transaction, sharing
+     * source locks and remaining capacity with inventory claims. The caller supplies the reason; no
+     * ground object, inventory or account snapshot changes here. Existing must not replay a
+     * gameplay mutation. Roll back the entire transaction on any error; every return is provisional
+     * until commit. A positive timeout bounds each SQL statement, not the total operation/commit.
+     */
+    public fun stageNpcRewardRetirement(
+        connection: DatabaseConnection,
+        retirement: NpcRewardRetirement,
+        statementTimeoutSeconds: Int,
+    ): NpcRewardRetirementWrite =
+        NpcRewardRetirementStore.stage(connection, retirement, statementTimeoutSeconds)
+
+    /**
+     * Proposes ABORTED at the same unique retirement key before any live-source lookup. A competing
+     * original may instead supply its exact Existing outcome. Staged abort requires caller commit;
+     * timeout/exception remains unresolved and requires whole-transaction rollback. Retry
+     * settlement with the same immutable request after an uncertain commit. Requires READ COMMITTED
+     * and a positive per-statement timeout; does not remove or restore ground objects.
+     */
+    public fun settleNpcRewardRetirement(
+        connection: DatabaseConnection,
+        retirement: NpcRewardRetirement,
+        statementTimeoutSeconds: Int,
+    ): NpcRewardRetirementWrite =
+        NpcRewardRetirementStore.settle(connection, retirement, statementTimeoutSeconds)
+
+    /**
+     * Detached observation in the caller's READ COMMITTED transaction. Null is unknown, never proof
+     * of abort; own uncommitted rows are provisional. Requires a positive statement timeout.
+     */
+    public fun findNpcRewardRetirement(
+        connection: DatabaseConnection,
+        attemptId: UUID,
+        statementTimeoutSeconds: Int,
+    ): NpcRewardRetirementReceipt? =
+        NpcRewardRetirementStore.find(connection, attemptId, statementTimeoutSeconds)
 
     public fun insertOrSelectAccountId(
         connection: DatabaseConnection,

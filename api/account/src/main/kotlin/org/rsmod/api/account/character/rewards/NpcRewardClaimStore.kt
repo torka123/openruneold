@@ -110,8 +110,9 @@ internal object NpcRewardClaimStore {
                     }
                 }
             // All source rows are now locked. A fresh statement snapshot includes consumption
-            // committed by a contender we waited for; a locking/aggregate CTE would be stale.
-            statement("select_claim_consumed").use { sum ->
+            // committed by a claim or retirement contender we waited for; combining this with
+            // lock acquisition in one statement would retain a stale snapshot.
+            statement("select_reward_consumed").use { sum ->
                 for ((index, fragment) in request.fragments.withIndex()) {
                     sum.bindFragment(fragment)
                     val consumed =

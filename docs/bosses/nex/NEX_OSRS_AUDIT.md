@@ -86,16 +86,112 @@ results, scoped checks/architecture/app assemble and5-file archive; commitff8649
 mapping identified the separate durable non-pickup retirement gap. Captured Fumus/Glacies projectile
 presentation now passes158 Nex cases and2,119 valid results, scoped checks/architecture/app assemble
 and4-file archive; commit195d6f60a. Captured guard cast sounds now pass160 Nex cases and2,121 valid
-results, scoped checks/architecture/app assemble and2-file archive. Next: map durable non-pickup
-retirement through the account owner, including shared claim/retirement quantity exclusion;
-receipt-aware snapshot composition is mapped
-but its unresolved-runtime policy remains unselected. Complete receipt/save reconciliation,
+results, scoped checks/architecture/app assemble and2-file archive; commit6cc7ea092. Durable non-pickup
+retirement now passes16 account/77 selected cases,2,124 valid results, scoped checks/architecture/
+app assemble and15-file archive. Source backup: `backup/nex-s04-retirement-20260913`.
+Next concrete deliverable: receipt-aware native full-snapshot/save reconciliation with an owned
+unresolved operation. Its required runtime choice (pause the world until commit/abort is confirmed,
+or add complete player isolation while others play) is still unanswered. Complete receipt/save reconciliation,
 complete unresolved-player handling, tracked ground quantities/lifecycle and restart policy remain gates.
 M04 cooldown/equipment, M20 general placement/clipping and normal timing evidence remain missing. All these
 changes remain SOURCE ONLY; current deployment is unchanged.
 Existing timing/damage/geometry constants remain characterized under E07. Full native public/private
 sessions, other mechanics/rewards/evidence gaps below remain open; Nex is not complete.
 Existing order remains Nex ->Yama ->Doom ->DT2 ->separate Dagannoth Kings review ->ToA ->ToB ->CoX.
+
+## Completed source increment: S04 durable non-pickup quantity retirement
+
+Pre-edit mapping, September13: sound checkpoint `6cc7ea092` is committed/backed up at
+`backup/nex-guard-cast-sounds-20260913`. Apply the existing conditional missing-route approval.
+Current account/reward SQL and full repository searches find only V43 allocation, V44 inventory
+claim consumption and observational balance; unrelated actor/session retirement has no durable
+loot accounting. Pinned61139e76a `git grep` for npc_reward/reward retirement/consumption finds no
+route. Its native ObjRepository.processAddDurations still calls ObjRegistry.reveal/del directly;
+ObjRegistry owns in-memory exact-object removal and zone updates, not durable reward consumption.
+The prior complete pickup/expiry/reanimation/firemaking trace remains valid. Existing V44 is not
+suitable: inventory destination and positive picker IDs are mandatory, and stage locks a real
+picker. Do not invent a picker or label destruction as an inventory claim.
+
+This bounded increment adds a SQL-only account-owner primitive. It records a caller's explicit
+EXPIRED or DESTROYED decision; it does not decide when expiry/destruction occurred, change OSRS
+mechanics, choose downtime policy or activate a ground-lifecycle callback. Comparable native
+routes are CharacterAccountRepository's V43/V44 delegates and caller-owned DatabaseConnection;
+reuse established once-only transaction/unique-key settlement semantics without changing GameDatabase.
+PostgreSQL's verified unique-index waiting and READ COMMITTED fresh-statement findings below
+remain applicable. No new engine combat hook, sidecar event queue or runtime hold is introduced.
+
+| Requirement | Approved native owner/API mapping | Observable acceptance |
+| --- | --- | --- |
+| Immutable retirement intent | NpcRewardRetirement(attemptId, reason, sorted unique source fragments), detached copies | Exact reason/payload replay, invalid IDs/ordinals/counts rejected; each count native positive Int; no aggregate inventory limit because no inventory grant |
+| Durable exact outcome | Additive V45 attempt/request/consumption tables; public stage/settle/find delegates in CharacterAccountRepository | READ COMMITTED caller transaction, positive per-statement timeout, provisional Staged versus Existing, no internal commit/rollback |
+| Missing-parent/unknown commit settlement | Reserve same unique attempt before source lookup; abort request has no live-parent FK | SELECT miss remains unknown; competing original commit/rollback, abort-first fencing, timeout and lost acknowledgement retain exact outcomes without replay |
+| Claims and retirements share one allocation | Both writers lock all identical V43 item rows in canonical UUID-text/character/ordinal order, then a fresh shared claims-plus-retirements SUM statement | Bidirectional item-lock contention cannot overspend; rollback releases capacity; exact remaining quantity can be consumed once |
+| Enforce retirement provenance | COMMITTED-only consumption with exact request-count FK, outcome FK and V43 source FK; no mutable balance table | Each constraint rejects isolated invalid rows; late-fragment failure rolls back entire provisional transaction |
+| Coherent balance observation | Existing one-statement balance adds separately named retiredCount and remainingCount | Long-safe claimed/retired range checks before narrowing, original metadata/empty recipients preserved, own provisional/other-backend visibility, earlier values remain detached |
+
+Keep existing unclaimedCount semantics (allocated minus inventory claims, including retired units)
+and document it explicitly; remainingCount subtracts both journals. Claims must switch to the same
+combined consumption query in this increment, otherwise adding retirement would permit duplicate
+consumption. V43/V44 migrations remain byte-unchanged; V45 adds retirement tables. Abort attempts
+remain settleable without a source item, while committed consumption requires one. Reasons belong
+to immutable attempt identity. Neither a receipt nor remainingCount proves live ground eligibility.
+
+Focused tests use native Flyway and a fresh isolated logs PostgreSQL cluster, observed blocking
+via pg_blocking_pids, physical commit followed by injected acknowledgement failure, and two isolated
+restarts. Root owns production/integration/builds; one agent owns the new retirement test file.
+Then run account, registry, DB, game-process and app checks, app assembly and architecture. Reuse
+unaffected boss/drop/ToA results. Live database migration, runtime claim/retirement activation,
+receipt-aware snapshot reconciliation and lifecycle/restart policy remain held.
+
+Implemented exactly this SQL-only mapping. Changed source: `CharacterAccountRepository.kt`,
+`NpcRewardAllocationBalance.kt`, `NpcRewardAllocationStore.kt`, `NpcRewardClaimStore.kt`; new
+`NpcRewardRetirement.kt`, `NpcRewardRetirementReceipt.kt`, `NpcRewardRetirementStore.kt`; additive
+`V45__npc_reward_retirements.sql`; four new insert/select retirement SQL resources; updated
+`select_allocation_balance.sql`; and `select_reward_consumed.sql` replaces the deleted claim-only
+`select_claim_consumed.sql`. Both stores use the same combined query after the existing V43 locks.
+V43/V44 migration bytes are unchanged. New `NpcRewardRetirementTest.kt` is the only changed test.
+There are no production callers or live database migrations for this new route.
+
+Three new test groups verify detached request/balance values and actual PostgreSQL accounting.
+Both claim->retirement and retirement->claim contenders wait on the same native item row, then
+observe the first writer's commit or rollback; each fixture consumes exactly the residual quantity
+and rejects further consumption by either writer. Exact reason/payload retries, later-fragment
+failure, whole caller rollback, abort-first missing-parent fencing, unique-key waits and SQL timeout
+are covered. A delegated JDBC commit physically commits before throwing the injected lost ACK,
+for both retirement COMMITTED and settlement ABORTED; exact replay does not consume twice. All
+three consumption FKs are tested independently, including a missing V43 source with the request
+and COMMITTED header otherwise valid. Own provisional balances, independent backend visibility,
+retained RR snapshots, original metadata/empty recipients and two Int.MAX_VALUE source quantities
+are verified. These are source-accounting observations, not proof of actual ground deletion or
+complete inventory/save atomicity. Independent implementation and test reviews are green.
+
+Native Flyway discovers V45 before fixture rows, preserves migration history/receipts/consumption
+through two isolated PostgreSQL restarts, and does not touch canonical `.data/postgres`. Final owned
+fixture: `logs/npc-reward-retirement-test-2090690509892217306/`. Focused retirement/claim/balance
+log `logs/nex-s04-retirement-focused-20260913.log`:7 groups pass,33s. Required checks pass in1m3s,
+489 tasks/28 executed/461 up-to-date: `logs/nex-s04-retirement-checks-20260913.log`. XML measurement:
+16 account,13 DB,12 registry,21 game-process,15 app =77 cases,zero failures/errors/skips. Combined
+valid results:1,123 boss (160 Nex),525 engine/shared/weapons/app,68 drops,408 ToA =2,124 cases;
+unaffected suites are reused, not claimed as rerun. Results are
+`logs/nex-s04-retirement-test-results-20260913.json` and
+`logs/nex-s04-retirement-valid-test-results-20260913.json`.
+
+Manifest `logs/nex-s04-retirement-source-files-20260913.txt` lists15 extant source/test files;
+the removed old query is additionally recorded by Git. Byte-verified source archive
+`logs/nex-s04-retirement-source-20260913.zip`, SHA256
+`F135B8DCB236B35540C72F9B0E3C8EACF18D8E2045783E46D51AB0A1BE6257D7`.
+Build passed; bounded SQL behavior verified; SOURCE ONLY. JVM23812/deployedc4fc9390f still owns
+43594/8080/9091. Live V43/V44/V45 application and all source-only deployment holds remain unchanged.
+
+Exact next step is the already-mapped receipt-aware native saver, full account/pipeline snapshot,
+Staged-versus-Existing memory reconciliation and separate unresolved-operation drain owner. Its
+runtime boundary is a real pending decision: retaining the game-thread call/save gate pauses the
+world until authoritative settlement; allowing others to play needs a complete player-isolation
+API, which current input/logout/save flags do not provide. Do not choose that policy from elapsed
+time or implement a save-only hold. Ground Merge/Split identity, all-removal attribution, confirmed
+retirement/removal reconciliation and restart-expiry policy remain subsequent gates. The normal
+Nex capture and cooldown/mechanics evidence gaps remain open. Do not bypass the boss/deployment
+order or add a dormant lifecycle queue merely to avoid this decision.
 
 ## Completed source increment: M11 captured bodyguard cast sounds
 

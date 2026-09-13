@@ -53,8 +53,13 @@ Balance commitff86491af is backed up. Captured Fumus/Glacies projectiles now pas
 Projectile commit195d6f60a is backed up. Captured guard cast sounds now pass160 Nex tests,
 2,121 valid results, scoped checks/architecture/app assemble and2-file archive. Native accepted
 hit/miss output, rejection and duplicate prevention are verified; no live audio acceptance claimed.
-Next: durable non-pickup retirement mapping with shared quantity exclusion. Receipt-aware snapshot/runtime/
-lifecycle composition, tracked quantities and restart policy remain gates; SOURCE ONLY. M04 cooldown/equipment and
+Sound commit6cc7ea092 is backed up. Durable non-pickup retirement now passes16 account/77 selected
+cases,2,124 valid results, scoped checks/architecture/app assemble and15-file archive. Shared claim/
+retirement quantity exclusion, exact settlement and two isolated database restarts are verified.
+Source backup: backup/nex-s04-retirement-20260913. Next: receipt-aware native full-snapshot/save
+reconciliation and unresolved-operation ownership, pending the runtime choice between world pause
+and complete player isolation. Ground lifecycle/identity and restart-expiry policy remain gates;
+SOURCE ONLY, no live V43/V44/V45 migration. M04 cooldown/equipment and
 M20 placement/clipping remain evidence gaps. The Nex ledger records exact source files,
 searches, tests, failure limits, evidence gaps and next mapping.
 
