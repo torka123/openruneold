@@ -67,8 +67,11 @@ remain valid (2,095 total), scoped checks/architecture/app assemble. Three-file 
 S04 allocation journal now passes native Flyway/real PostgreSQL rollback, concurrency, save-lock
 ordering and two isolated database restarts;9 account cases,155 Nex/1,118 boss,503 shared/engine/
 weapons/app,68 content/drops and408 ToA (2,097 total), scoped checks/architecture/app assemble.
-Thirteen-file source archive verified. Next: native save receipt reconciliation and unresolved
-mutation ownership mapping; tracked ground quantities/lifecycle and restart policy remain gates.
+Thirteen-file source archive verified; commit753b7b1ef. S04 explicit native commit-outcome API now
+passes real lost-ack/unsent-commit tests,8 DB/507 shared,155 Nex/1,118 boss,68 drops and408 ToA
+(2,101 total), scoped checks/architecture/app assemble; four-file archive verified. Next: expose
+the existing native ground registration result with its repository timers. Receipt reconciliation,
+complete unresolved-player handling, tracked ground quantities/lifecycle and restart policy remain gates.
 M04 cooldown/equipment, M20 general placement/clipping and normal timing evidence remain missing. All these
 changes remain SOURCE ONLY; current deployment is unchanged.
 Existing timing/damage/geometry constants remain characterized under E07. Full native public/private
@@ -1049,7 +1052,7 @@ and attribute/inventory replacement code is unchanged. Independent review found 
 Archive `logs/nex-s04-journal-source-20260913.zip`:13 byte-verified files,
 SHA256 `F24EBB27AFB5E352BDCD7C5EE88FEF765D55668F584DC3BF46D6FDCDB3BC360E`.
 Build passed and allocation behavior verified; no ground grant/pickup/expiry recovery is enabled.
-SOURCE ONLY: JVM23812/c4fc9390f and its canonical DB remain unchanged.
+SOURCE ONLY: deployment remains JVM23812/c4fc9390f; this increment applied no live DB migration.
 
 ## S04 next boundaries: native claim/save and ground lifecycle (verified gaps)
 
@@ -1087,6 +1090,74 @@ resets deadlines, and V43 intentionally has no chosen projection timestamp/revea
 has been asked asynchronously whether a restart/expiry policy was already approved; no answer is
 assumed. Normal Nex timing/Containment capture question is still pending. Continue independent
 native save-safety work; do not infer policy or activate unverified Nex rewards.
+
+Allocation journal commit753b7b1ef, backup `backup/nex-s04-reward-journal-20260913`.
+
+## Completed source increment: S04 explicit native commit outcome
+
+The local/pinned61139e76a api/db and api/account search has no no-retry/uncertain-commit route.
+Current GameDatabase owns the one JDBC connection and transactionMonitor; GameConnection sets
+autoCommit=false. Existing withTransaction/withTransactionBlocking retry SQLExceptions across both
+callback and commit. DatabaseRollbackException distinguishes rollback failure only. A successful
+rollback after a failed commit acknowledgement is not proof that the transaction did not commit.
+The conditional missing-route approval therefore applies to an opt-in extension of GameDatabase.
+
+Add withTransactionBlockingOnce(block) on that existing owner, sharing its transaction monitor,
+connection validation and native rollback behavior. Invoke the SQL callback and commit at most
+once. Before-commit callback failures propagate normally (or existing DatabaseRollbackException
+if rollback also fails). Any failure from commit produces a distinct DatabaseCommitUncertainException
+that retains the commit cause and any rollback failure, even when rollback reports success. Never
+retry that callback or present it as known rolled back. Default retrying entrypoints stay unchanged.
+
+This entrypoint is for future prepared, receipt-aware callers; SQL callbacks still must not contain
+gameplay/rolls. The caller must reconcile its durable receipt and protect unresolved state before
+allowing another account snapshot. The new exception itself does not quarantine a player or solve
+the existing blocking helper's unknown-outcome gap. Do not switch existing account/ToA/ground callers
+until that complete save/lifecycle mapping is ready. No new DB, connection, config or shutdown owner.
+
+Acceptance: real separately owned temporary PostgreSQL verifies both commit-then-lost-ack (row is
+durable on a fresh connection) and commit-not-sent failure (row absent); both surface uncertainty
+without replay. Verify ordinary callback rollback, preservation of a secondary rollback error,
+normal return value, no callback on an uninitialized/closed connection, and serialization with
+the current retrying/suspending entrypoints/close. Existing retry semantics and native shutdown
+tests remain valid. Reuse the established isolated cluster pattern and existing test-only installed
+connection seam from GameDatabaseConcurrencyTest; no production test hook or canonical DB access.
+Root owns production/integration/builds; a bounded agent may write only the new outcome test file.
+Run focused native DB tests first, then required DB/account/shared/boss/ToA/drop checks and app/
+architecture. This is a bounded native prerequisite, not an enabled reward claim.
+
+Verification: `logs/nex-s04-commit-outcome-focused-20260913.log` passes five focused DB groups in11s.
+Four new groups cover nine actual PostgreSQL outcome/error scenarios plus connection validation,
+monitor exclusion and unchanged legacy retries; the existing concurrency test also passes. Commit
+before a simulated lost acknowledgement remains durable on a fresh connection; an unsent commit
+leaves no row, but both correctly surface uncertainty and execute the callback/commit only once.
+Secondary rollback causes remain accessible, including commit-then-rollback-failure. A native JVM
+BLOCKED state and monitor-owner ID prove exclusion against legacy blocking/suspending transactions
+and close. Existing default entrypoints still make their three SQL callback attempts. Initial
+Thread.id deprecation warnings were removed using the repository's Java21 threadId API before final
+verification; no assertion or production behavior changed.
+
+Final `logs/nex-s04-commit-outcome-checks-20260913.log` passes in4m32s,582 tasks/72 executed/1 cache/
+509 up-to-date: scoped DB check, required account/shared/engine/weapons/app, boss/drop/ToA regressions,
+architecture and app assemble.8 DB cases,9 account/507 shared,155 Nex/1,118 boss,68 drops and408 ToA
+=2,101, zero failures/errors/skips; `logs/nex-s04-commit-outcome-test-results-20260913.json`.
+Final isolated fixture: `logs/game-db-commit-outcome-test-18343230459653792674/`. No canonical
+connector/config, runtime data or account gameplay was used. Independent source review found no defect.
+
+Four changed files: api/db test working directory/serialization settings; GameDatabase's opt-in
+withTransactionBlockingOnce; new DatabaseCommitUncertainException; new GameDatabaseCommitOutcomeTest.
+Existing retrying methods and all production callers remain unchanged. Archive
+`logs/nex-s04-commit-outcome-source-20260913.zip`:four byte-verified files,
+SHA256 `2099FC666C52B50234F164AF55113DABCBE03F32FA0711D14E08F250167276C3`.
+Build passed and transaction outcome behavior verified; SOURCE ONLY, deployment JVM23812/c4fc9390f.
+
+The receipt-aware save/lifecycle composition remains open. Native pendingLogout still drains queues;
+loggingOut suppresses PlayerMainProcess but does not gate PlayerInputProcess/MessageHandler or all
+post-tick hooks. launchLenient can bypass protection. Failed logout retains the actor only after
+queuing a full save; it is not a nonmutating receipt hold. Do not substitute those flags for a complete
+unresolved-operation boundary. The next independent approved prerequisite is public access to the
+existing ObjRepository registration result after native timers are installed, preserving all default
+callers and behavior. This does not select restart policy or implement a persistent ground handle.
 
 ## Source verification history: M01/M02 protected access and S10
 

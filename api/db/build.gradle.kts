@@ -6,6 +6,11 @@ kotlin {
     explicitApi()
 }
 
+tasks.test {
+    workingDir = rootProject.projectDir
+    systemProperty("junit.jupiter.execution.parallel.enabled", "false")
+}
+
 dependencies {
     implementation(libs.embedded.postgres)
     implementation(libs.openrune.central.common)

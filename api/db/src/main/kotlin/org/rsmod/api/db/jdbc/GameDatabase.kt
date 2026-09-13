@@ -8,6 +8,7 @@ import java.sql.SQLException
 import org.rsmod.api.db.Database
 import org.rsmod.api.db.DatabaseConfig
 import org.rsmod.api.db.DatabaseConnection
+import org.rsmod.api.db.util.DatabaseCommitUncertainException
 import org.rsmod.api.db.util.DatabaseRollbackException
 
 public class GameDatabase
@@ -47,6 +48,43 @@ constructor(private val configProvider: Provider<DatabaseConfig>) : Database {
     /** Blocking variant for the game thread (avoids [kotlinx.coroutines.runBlocking] overhead). */
     public fun <T> withTransactionBlocking(block: (DatabaseConnection) -> T): T =
         withSerializedConnection(block)
+
+    /**
+     * Executes one prepared SQL transaction without retrying its callback or commit.
+     *
+     * A failed commit acknowledgement has an unknown outcome, even if a subsequent rollback
+     * succeeds. Receipt-aware callers must reconcile [DatabaseCommitUncertainException] and retain
+     * unresolved state before permitting another account snapshot. This does not provide that
+     * reconciliation or suspend gameplay. Keep gameplay mutation and randomness outside [block].
+     */
+    public fun <T> withTransactionBlockingOnce(block: (DatabaseConnection) -> T): T =
+        synchronized(transactionMonitor) {
+            assertValidConnection()
+            val result =
+                try {
+                    block(DatabaseConnection(connection))
+                } catch (cause: Throwable) {
+                    try {
+                        connection.rollback()
+                    } catch (rollbackCause: Throwable) {
+                        throw DatabaseRollbackException(cause, rollbackCause)
+                    }
+                    throw cause
+                }
+            try {
+                connection.commit()
+            } catch (cause: Throwable) {
+                val rollbackCause =
+                    try {
+                        connection.rollback()
+                        null
+                    } catch (rollbackFailure: Throwable) {
+                        rollbackFailure
+                    }
+                throw DatabaseCommitUncertainException(cause, rollbackCause)
+            }
+            result
+        }
 
     /**
      * The database owns one JDBC [connection], so every transaction must use the same monitor. This

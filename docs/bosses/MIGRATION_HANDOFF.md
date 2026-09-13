@@ -41,8 +41,11 @@ verified; commit769ac739e, source-only. S04 concrete reward preparation now pass
 checks/architecture/app assemble. Three-file archive verified; commit6dc2a4dd0. S04 allocation
 journal now passes native Flyway/PG rollback/concurrency/save-lock ordering/two isolated restarts,
 9 account/503 shared,155 Nex/1,118 boss,68 drops and408 ToA (2,097 total), scoped checks/architecture/
-app assemble. Thirteen-file archive verified; SOURCE ONLY. Next: native claim receipt and unresolved
-save/lifecycle handling; tracked ground quantities/recovery and restart policy remain gates. M04 cooldown/equipment and
+app assemble. Thirteen-file archive verified; commit753b7b1ef, SOURCE ONLY. Explicit native commit-
+outcome API now passes actual lost-ack/unsent-commit tests,8 DB/507 shared,155 Nex/1,118 boss,68 drops
+and408 ToA (2,101 total), scoped checks/architecture/app assemble; four-file archive verified.
+Next: expose existing native ground registration results with repository timers. Receipt/save/
+lifecycle composition, tracked quantities and restart policy remain gates; SOURCE ONLY. M04 cooldown/equipment and
 M20 general placement/clipping remain evidence gaps. Boosted-floor evidence remains
 separate. Full local/pinned searches verified the missing fixed
 route before using the latest conditional approval. Existing timing/reward gaps remain separate.
