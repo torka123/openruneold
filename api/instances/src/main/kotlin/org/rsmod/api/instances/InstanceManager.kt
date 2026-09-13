@@ -40,6 +40,7 @@ import org.rsmod.game.entity.PlayerList
 import org.rsmod.game.entity.npc.NpcUid
 import org.rsmod.game.region.Region
 import org.rsmod.map.CoordGrid
+import org.rsmod.map.zone.ZoneKey
 import org.rsmod.routefinder.collision.CollisionFlagMap
 
 internal fun isWithinInstanceBounds(
@@ -271,6 +272,49 @@ constructor(
 
     public fun npcsForInstance(id: InstanceId): List<Npc> = spawnedNpcs[id]?.toList() ?: emptyList()
 
+    /**
+     * Registers a prepared actor in a fixed public session. Ownership precedes native creation
+     * callbacks; termination during those callbacks retires the actor before returning false.
+     * Configuration is supplied on the unregistered NPC. Duration/respawns use NpcRepository.add.
+     */
+    public fun spawnFixedNpc(
+        session: InstanceSession,
+        npc: Npc,
+        duration: Int = Int.MAX_VALUE,
+    ): Boolean {
+        if (
+            !isLive(session) ||
+                !session.isFixed ||
+                session.arenaExpired ||
+                session.state !is SessionState.Active ||
+                session.id in fixedActorOperations
+        )
+            return false
+        require(!npc.isSlotAssigned && npc.uid == NpcUid.NULL) { "NPC must not be registered" }
+        require(
+            npc.lastProcessedZone == ZoneKey.NULL &&
+                npc.lifecycleAddCycle == -1 &&
+                npc.lifecycleDelCycle == -1 &&
+                npc.lifecycleRevealCycle == -1 &&
+                npc.lifecycleRespawnCycle == -1 &&
+                npc.lifecycleChangeCycle == -1 &&
+                npc.lifecycleDelayedAddCycle == -1 &&
+                npc.lifecycleDelayedAddDuration == -1
+        ) {
+            "NPC must be fresh, without previous registration or pending native lifecycle work"
+        }
+        require(contains(session, npc.coords)) { "NPC spawn anchor is outside the fixed area" }
+        withFixedActorOperation(session) {
+            val owned = spawnedNpcs.getOrPut(session.id) { mutableListOf() }
+            if (addFixedNpc(session, npc, duration, owned)) {
+                startBossKillTimer(session, npc, worldClock.cycle)
+            }
+        }
+        return isLive(session) &&
+            npc.uid.resolve(npcList) === npc &&
+            npcInstanceIndex[npc] == session.id
+    }
+
     public fun attachNpc(instanceId: InstanceId, npc: Npc) {
         val session = requireNotNull(sessionForId(instanceId)) { "Instance no longer exists" }
         require(npc.isSlotAssigned && npc.uid != NpcUid.NULL) {
@@ -453,33 +497,43 @@ constructor(
             val npc = Npc(type, session.localCoord(region, entry.coord))
             npc.mode = type.defaultMode
             if (session.isFixed) {
-                out += npc
-                npcInstanceIndex[npc] = session.id
-            }
-            try {
+                if (!addFixedNpc(session, npc, Int.MAX_VALUE, out)) return
+            } else {
                 npcRepo.add(npc, Int.MAX_VALUE)
-            } catch (error: Throwable) {
-                if (session.isFixed && npc.uid.resolve(npcList) !== npc) {
-                    // The native call did not return a complete registration. It may have run
-                    // callbacks that retired the NPC before throwing; do not reopen these tiles.
-                    failedFixedTeardowns += session.id
-                }
-                throw error
+                indexNpc(session.id, npc)
+                out += npc
             }
-            if (session.isFixed) {
-                if (npc.uid.resolve(npcList) !== npc) {
-                    failedFixedTeardowns += session.id
-                    error("Fixed instance NPC lost during native creation; area remains closed")
-                }
-                if (!isLive(session)) return
-                check(out.any { it === npc } && npcInstanceIndex[npc] == session.id) {
-                    "Fixed instance NPC ownership changed during creation"
-                }
-            }
-            indexNpc(session.id, npc)
-            if (!session.isFixed) out += npc
             startBossKillTimer(session, npc, currentTick)
         }
+    }
+
+    private fun addFixedNpc(
+        session: InstanceSession,
+        npc: Npc,
+        duration: Int,
+        owned: MutableList<Npc>,
+    ): Boolean {
+        owned += npc
+        npcInstanceIndex[npc] = session.id
+        try {
+            npcRepo.add(npc, duration)
+        } catch (error: Throwable) {
+            if (npc.uid.resolve(npcList) !== npc) {
+                // A failed native call may have retired the candidate during a callback.
+                // Retain the reservation rather than assuming its zone state is repairable.
+                failedFixedTeardowns += session.id
+            }
+            throw error
+        }
+        if (npc.uid.resolve(npcList) !== npc) {
+            failedFixedTeardowns += session.id
+            error("Fixed instance NPC lost during native creation; area remains closed")
+        }
+        if (!isLive(session)) return false
+        check(owned.any { it === npc } && npcInstanceIndex[npc] == session.id) {
+            "Fixed instance NPC ownership changed during creation"
+        }
+        return true
     }
 
     private fun canJoin(playerId: Long, session: InstanceSession, code: String?): Boolean =

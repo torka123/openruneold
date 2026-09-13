@@ -39,11 +39,11 @@ occupant handoff as `13719ba1c`; bounded M24 Wrath death-position snapshot as `3
 M14/M27 Shadow Smash marker ownership is committed as `88d0abf0c`: placement success controls ownership,
 natural expiry releases it, and source cleanup preserves later replacements. All127 Nex cases,
 scoped checks, app assemble and architecture checks pass;167 unchanged shared results remain valid.
-These four increments are SOURCE ONLY. The fixed-public-session foundation is also now verified:
-15 new native groups,49 total instance cases,1,090 boss cases and317 shared/app cases pass, with
-scoped formatting/checks, architecture and app assemble. Its23-file source archive is byte-verified;
-details and native failure limits are below. It is not deployed. Next: map the dynamic owned-spawn
-boundary, then adopt the existing fixed session route in Nex's public chamber.
+These four increments are SOURCE ONLY. Fixed-public sessions49f73a317 and the prepared owned-spawn
+entrypoint are now verified:20 native groups,54 total instance cases,1,090 boss cases and322 shared/
+app cases pass, with scoped formatting/checks, architecture and app assemble. Both source archives
+are byte-verified; details and native failure limits are below. Neither is deployed. Next: adopt
+the tested Fixed InstanceSession/spawnFixedNpc routes in Nex's public chamber.
 Existing timing/damage/geometry constants remain characterized under E07. Full native public/private
 sessions, other mechanics/rewards/evidence gaps below remain open; Nex is not complete.
 Existing order remains Nex ->Yama ->Doom ->DT2 ->separate Dagannoth Kings review ->ToA ->ToB ->CoX.
@@ -377,10 +377,89 @@ Source archive `logs/fixed-public-foundation-source-20260913.zip` contains exact
 verified byte-for-byte; SHA256 `0D4E2952D0200899D8CE457527889AC8D517D6BE64DC14CC63AD39051A06355B`.
 Existing complete source/PostgreSQL backups are preserved. No cache/data/credentials are included.
 Source-only: JVM23812 still serves the deployed checkpoint above; no restart was performed.
+Foundation commit `49f73a317`; backup branch `backup/fixed-public-sessions-20260913`.
 Next deliverable: Nex public-session adoption, preserving existing protected access, exact member
 identity, delayed-hit/loc cleanup and completed-round handoff. Dynamic reaver creation must first
 be mapped to an owned native spawn route; post-add attachment alone is not atomic across Create
 callbacks. Full private Nex/rewards/OSRS evidence gaps remain in their existing ledger entries.
+
+## Completed source increment: expose the existing fixed actor spawn pipeline
+
+Pre-edit mapping: local/pinned InstanceManager offers post-registration attachNpc/registerSessionNpc
+and private configured-roster spawning, but no public prepared-actor path that owns native Create/
+Spawn callbacks. Existing Effect.Summon is present and was inspected: it chooses random walkable
+tiles/fallback, uses a hard-coded100-cycle lifetime, applies cache-default stats and only calls
+encounter.own after native add. Its separate BossCombat cleanup owner also differs from the fixed
+session. It cannot preserve Nex's current exact reaver offsets, HP150, native permanent-add then
+respawns=false semantics and returned actor identity. Do not duplicate or silently change Summon.
+
+Expose `InstanceManager.spawnFixedNpc(session, preparedNpc, duration)` by extracting and reusing
+the foundation's private preclaimed native-add pipeline. This is the smallest missing public route
+under the user's conditional approval; it introduces no engine override or separate spawn manager.
+The caller supplies an unregistered NPC with its existing pre-add stats/mode/coordinates. Validate
+the exact active Fixed session, in-bounds anchor and fresh NPC identity before claiming anything.
+Fresh means original zone/lifecycle sentinel values as well as no slot/UID. A deleted timed actor
+retains its old deadline and addDelayed actors are already queued despite being unregistered;
+reject them without clearing or bypassing that native work.
+Existing native NpcRepository.add controls registration, lifecycle duration and respawn defaults.
+Use the same actor-operation guard, exact post-add ownership check, deferred termination and
+quarantine behavior as the tested configured roster. No copied-placement or Summon behavior changes.
+
+Acceptance: native callbacks see prepared configuration and owning session; timed/permanent adds
+retain repository semantics; duplicate/stale/wrong-placement/outside inputs cannot leak actors;
+nested spawning cannot run inside an in-flight actor mutation; source termination during Create/
+Spawn finishes the native tail and cleans the candidate before returning false. Focused native
+tests precede shared/all-boss checks and a separate source backup. Nex wiring remains the next
+content increment; timing, damage, reaver count/geometry and reward policy are not changed here.
+
+Implementation extracts the foundation's configured-roster add into one private helper and exposes
+spawnFixedNpc over that same operation. Preconfigured HP/mode/coordinates are visible at native
+Create/Spawn, ownership is already indexed, and repository duration/respawns behavior is unchanged.
+Reused/deleted/queued candidates are rejected without clearing their native work. Copied spawning
+retains its prior route, and no DSL Summon behavior changed. Two independent reviews found the
+freshness precondition gap before verification; focused tests cover both native stale cases.
+
+`logs/fixed-public-spawn-focused-20260913.log` passes all20 native groups (five new) in19s.
+`logs/fixed-public-spawn-checks-20260913.log` passes in2m33s/545 tasks (91 executed,2 cached):
+1,090 boss cases and322 shared/app cases, zero failures/errors/skips, including54 instance cases
+and127 Nex cases. Scoped checks/formatting, architecture and app assemble pass. Exact task and
+per-module result files use the same fixed-public-spawn prefix under logs. No unrelated source
+formatting, cache/data edits or deployment occurred.
+Two-source-file archive `logs/fixed-public-spawn-source-20260913.zip` is byte-verified;
+SHA256 `B009602CDB4F7B9BBA09479DFF1D097D11DBC0506FCA36B8BBCBCC9B36E52752`.
+It contains InstanceManager.kt and FixedInstanceIntegrationTest.kt. Existing complete source and
+PostgreSQL backups remain preserved. This increment is source-only; JVM23812 remains online.
+
+## Next content increment: Nex public-session adoption (mapping)
+
+Use a source-defined InstanceScript/spec on Fixed bounds south-west(2910,5189,0), exclusive
+north-east(2941,5218,0), existing entry(2910,5203,0) and exit(2908,5203,0). Preserve existing
+public behavior: no added fee, capacity restriction, time limit or duplicate native record award.
+The fixed spec has an empty configured roster; prepare Nex and its four guards with their existing
+HP before spawnFixedNpc, then retain current post-add respawns/mode/lock assignments. Reavers use
+the same route with existing offsets/HP150, MAX native duration then respawns=false and aggression.
+
+The existing protected barrier/altar/command movement remains the physical authority. Finalize
+native admission only after the existing actual-arrival and exact Run/Player checks. InstanceSession
+becomes the room-admission and actor owner; any retained Run participant collections represent
+per-round mechanic state and must never independently authorize combat/rewards or alias a new
+Player. Store round state under the native session and use native leave events for departure
+cleanup regardless of logout/teleport listener order. Death policy must still see admitted HP-zero
+players before native death relocation: membership resolution itself has no health filter.
+
+M26 retains the same session across completed rounds. Snapshot exact eligible survivors, retire
+old round effects, call shared resetNpcs to remove all owned actors, then create the five prepared
+actors and fresh round state. Revalidate source/session/player identity after native callbacks;
+never bind a partial roster. Source-loss/abandonment resets clear admission and remain idle.
+Session termination owns final actor cleanup; content only retires its locs, effect scope and
+captured original-player UI state. No second public room manager or manual session construction.
+
+Acceptance: native authority/indexes and zero copied-region work; unchanged M01 protected access;
+M21 prison/M14 marker/M24 Wrath lifetimes; M26 two kills without re-entry; exact logout/death/bank/
+raw UID loss/replacement and source deletion; dynamic reaver pre-add stats/ownership; reset/cleanup
+callback invalidation and no actor/resource leak. First expand the real Nex fixture to register
+native InstanceLifecycleScript and manager, then add focused integration coverage. Private Nex,
+S04/S05/S06/S08 and E07 timing/damage/geometry evidence remain their separate approved gaps.
 
 ## Source verification history: M01/M02 protected access and S10
 

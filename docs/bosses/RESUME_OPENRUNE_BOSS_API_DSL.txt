@@ -29,10 +29,10 @@ KNOWN STARTING CHECKPOINT (RECHECK; DO NOT REPEAT COMPLETED WORK)
   backups verified; see Nex ledger top for receipts/hashes and marker limitation. Do not repeat
   completed S10 work. M21 prison ownership/cancellation706e11330 and M26 completed-kill occupant
   handoff13719ba1c, bounded M24 Wrath death-position snapshot30ef8129c and M14 Shadow marker
-  ownership88d0abf0c are complete in source. The fixed-public-session foundation also passes15 new
-  native groups,49 instance cases,1,090 boss cases and317 shared/app cases, scoped checks,
-  architecture and app assemble. Its23-file source archive is byte-verified; none of these five
-  increments is deployed. Next: map dynamic owned spawning, then adopt fixed InstanceSession in
+  ownership88d0abf0c are complete in source. Fixed-public sessions49f73a317 and prepared owned
+  spawning pass20 native groups,54 instance cases,1,090 boss cases and322 shared/app cases, scoped
+  checks, architecture and app assemble. Both source archives are byte-verified; none of these six
+  increments is deployed. Next: adopt the tested Fixed InstanceSession/spawnFixedNpc routes in
   Nex's public chamber. The missing fixed route was verified locally/pinned before using the
   latest conditional approval. See Nex ledger for source hashes and native failure limitations.
   The older source-only/hold entries below are historical, not the current runtime status.

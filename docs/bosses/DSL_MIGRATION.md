@@ -9,11 +9,11 @@ doctor, canonical caches and inventory/bank/realm persistence checks pass after 
 The [Nex ledger](nex/NEX_OSRS_AUDIT.md) is the current increment/evidence authority and records
 backups, receipts and remaining limitations. M21 ownership/cancellation706e11330, M26 completed-
 kill occupant handoff13719ba1c, bounded M24 Wrath death-position snapshot30ef8129c and M14 Shadow
-marker ownership88d0abf0c are source-verified. The fixed-public-session foundation is now verified
-under the conditional missing-route approval:15 new native groups,49 instance cases,1,090 boss
-cases and317 shared/app cases pass, plus scoped checks/architecture/app assemble. Its23-file source
-archive and the four Nex archives are byte-verified; these increments are not deployed. Next: map
-the dynamic owned-spawn boundary and adopt fixed InstanceSession in Nex's public chamber. Current
+marker ownership88d0abf0c are source-verified. Fixed-public sessions49f73a317 and prepared owned
+spawning are verified under the conditional missing-route approval:20 native groups,54 instance
+cases,1,090 boss cases and322 shared/app cases pass, plus scoped checks/architecture/app assemble.
+Their source archives and the four Nex archives are byte-verified; these increments are not deployed.
+Next: adopt the tested Fixed InstanceSession/spawnFixedNpc routes in Nex's public chamber. Current
 Nex ledger records the local/pinned route search, implementation, failure limits and next mapping.
 
 September13 continuation instructions are authoritative: recover the actual source/test/runtime

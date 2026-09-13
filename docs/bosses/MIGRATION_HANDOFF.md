@@ -16,12 +16,12 @@ Full evidence/receipts/hashes and build-marker limitation are in the current Nex
 
 M21 clicked-prison ownership/cancellation706e11330, M26 completed-kill occupant handoff13719ba1c,
 bounded M24 Wrath death-position snapshot30ef8129c and M14 Shadow marker ownership88d0abf0c are
-complete in source. The fixed-public-session foundation in api/instances is now also verified:
-15 new native groups,49 total instance cases,1,090 boss cases and317 shared/app cases pass;
-scoped checks, architecture and app assemble pass. The23-file archive is byte-verified. Each
+complete in source. Fixed-public sessions49f73a317 and prepared owned spawning are now verified:
+20 native groups,54 total instance cases,1,090 boss cases and322 shared/app cases pass;
+scoped checks, architecture and app assemble pass. Both source archives are byte-verified. Each
 increment has a verified source backup; see the Nex ledger for hashes/logs/native failure limits.
-These increments are not deployed. Next: map the dynamic owned-spawn boundary and adopt fixed
-InstanceSession in Nex's public chamber. Full local/pinned searches verified the missing fixed
+These increments are not deployed. Next: adopt the tested Fixed InstanceSession/spawnFixedNpc
+routes in Nex's public chamber. Full local/pinned searches verified the missing fixed
 route before using the latest conditional approval. Existing timing/reward gaps remain separate.
 Preserve unresolved E07 timing/damage/geometry evidence. Full Nex remains incomplete. Raid
 bosses remain after Nex/Yama/Doom/DT2/separate Dagannoth Kings review, in ToA/ToB/CoX order.

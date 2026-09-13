@@ -3,6 +3,7 @@ package org.rsmod.api.instances
 import dev.openrune.ServerCacheManager
 import dev.openrune.rscm.RSCM
 import dev.openrune.rscm.RSCMType
+import dev.openrune.types.NpcMode
 import kotlin.test.*
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeAll
@@ -15,16 +16,22 @@ import org.rsmod.api.instances.hook.InstanceLifecycleScript
 import org.rsmod.api.instances.region.InstanceAreaResolver
 import org.rsmod.api.player.vars.VarPlayerIntMapSetter
 import org.rsmod.api.registry.npc.NpcRegistry
+import org.rsmod.api.repo.EntityLifecycleProcess
+import org.rsmod.api.repo.controller.ControllerRepository
+import org.rsmod.api.repo.loc.LocRepository
 import org.rsmod.api.repo.npc.NpcRepository
+import org.rsmod.api.repo.obj.ObjRepository
 import org.rsmod.api.repo.region.RegionRepository
 import org.rsmod.events.EventBus
 import org.rsmod.game.MapClock
 import org.rsmod.game.cheat.CheatCommandMap
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.NpcList
+import org.rsmod.game.entity.PathingEntity
 import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
 import org.rsmod.game.entity.npc.NpcStateEvents
+import org.rsmod.game.entity.npc.NpcUid
 import org.rsmod.game.queue.EngineQueueCache
 import org.rsmod.game.region.Region
 import org.rsmod.game.region.zone.RegionZoneCopy
@@ -736,6 +743,315 @@ class FixedInstanceIntegrationTest {
             if (serverOwned) assertTrue(f.manager.terminate(session))
             assertEquals(if (serverOwned) 1 else 0, f.unprotections)
             assertNull(f.manager.sessionForId(session.id))
+            framework().clearInlineMocks()
+        }
+    }
+
+    @Test
+    fun `guarded dynamic spawn owns the prepared actor before native events and preserves its configuration`() {
+        val f = Fixture()
+        val session = f.create(f.spec(actors = false))
+        val candidate =
+            Npc(assertNotNull(ServerCacheManager.getNpc(12596)), FIRST_NPC).apply {
+                hitpoints = 317
+                baseHitpointsLvl = 421
+                mode = NpcMode.ApPlayer2
+            }
+        var creates = 0
+        var spawns = 0
+        fun assertPreparedOwner(npc: Npc) {
+            assertSame(candidate, npc)
+            assertSame(candidate, npc.uid.resolve(f.npcs))
+            assertEquals(session.id, f.manager.instanceForNpc(npc))
+            assertEquals(listOf(candidate), f.manager.npcsForInstance(session.id))
+            assertEquals(FIRST_NPC, npc.coords)
+            assertEquals(317, npc.hitpoints)
+            assertEquals(421, npc.baseHitpointsLvl)
+            assertEquals(NpcMode.ApPlayer2, npc.mode)
+        }
+        f.events.subscribeUnbound(NpcStateEvents.Create::class.java) {
+            creates++
+            assertPreparedOwner(npc)
+        }
+        f.events.subscribeKeyed(NpcStateEvents.Spawn::class.java, 12596L) {
+            spawns++
+            assertPreparedOwner(npc)
+        }
+        assertTrue(f.manager.spawnFixedNpc(session, candidate))
+        assertPreparedOwner(candidate)
+        assertTrue(candidate.respawns, "Preserve the native permanent-spawn contract")
+        assertEquals(-1, candidate.lifecycleDelCycle)
+        assertEquals(1, creates)
+        assertEquals(1, spawns)
+        assertEquals(1, f.started, "Dynamic helpers must not restart the session")
+        val uid = candidate.uid
+        assertFailsWith<IllegalArgumentException> { f.manager.spawnFixedNpc(session, candidate) }
+        assertEquals(uid, candidate.uid)
+        assertEquals(1, creates)
+        assertEquals(1, f.npcs.count())
+        assertTrue(f.manager.terminate(session))
+        assertFalse(candidate.isSlotAssigned)
+        assertNull(f.manager.instanceForNpc(candidate))
+        f.assertNoRegions()
+    }
+
+    @Test
+    fun `guarded timed helper expires through native entity lifecycle and releases only its own ownership`() {
+        val f = Fixture()
+        val session = f.create(f.spec(actors = false))
+        f.clock.cycle = 100
+        val candidate = Npc(assertNotNull(ServerCacheManager.getNpc(12596)), FIRST_NPC)
+        val permanent = Npc(assertNotNull(ServerCacheManager.getNpc(12596)), SECOND_NPC)
+        assertTrue(f.manager.spawnFixedNpc(session, permanent))
+        assertTrue(f.manager.spawnFixedNpc(session, candidate, duration = 20))
+        assertEquals(120, candidate.lifecycleDelCycle)
+        assertFalse(candidate.respawns)
+        val lifecycle =
+            EntityLifecycleProcess(
+                f.npcRepo,
+                mock(LocRepository::class.java),
+                mock(ObjRepository::class.java),
+                mock(ControllerRepository::class.java),
+            )
+        f.clock.cycle = 119
+        lifecycle.process()
+        assertTrue(candidate.isSlotAssigned)
+        assertEquals(session.id, f.manager.instanceForNpc(candidate))
+        f.clock.cycle = 120
+        lifecycle.process()
+        assertFalse(candidate.isSlotAssigned)
+        assertNull(f.manager.instanceForNpc(candidate))
+        assertEquals(listOf(permanent), f.manager.npcsForInstance(session.id))
+        assertTrue(permanent.isSlotAssigned)
+        assertSame(session, f.manager.sessionForId(session.id))
+        f.manager.tickReclaim(120)
+        assertTrue(f.manager.terminate(session))
+        assertFalse(permanent.isSlotAssigned)
+        assertEquals(0, f.npcs.count())
+        f.assertNoRegions()
+    }
+
+    @Test
+    fun `guarded spawn refuses invalid session state and rejects malformed candidates before native mutation`() {
+        for (state in listOf("forged", "ended", "expired", "grace", "copied")) {
+            val f = Fixture(allowCopies = state == "copied")
+            val session =
+                if (state == "copied") {
+                    val copied =
+                        InstanceSettings()
+                            .withArea(
+                                InstanceArea.copyRegions(
+                                    listOf(9116),
+                                    enterCoord = RegionLocal(0, 35, 156, 40, 38),
+                                    exitCoord = EXIT,
+                                ),
+                                0,
+                            )
+                    assertNotNull(
+                        f.manager.createServerOwned(
+                            "copied-dynamic-control",
+                            copied,
+                            InstanceAccess.Friends,
+                            0,
+                        )
+                    )
+                } else f.create(f.spec(actors = false))
+            val target =
+                if (state == "forged") {
+                    InstanceSession(
+                        session.id,
+                        session.regionIds,
+                        session.owner,
+                        session.key,
+                        session.spec,
+                        session.placement,
+                        session.access,
+                        isServerOwned = true,
+                    )
+                } else session
+            when (state) {
+                "ended" -> f.manager.terminate(session)
+                "expired" -> session.markArenaExpired()
+                "grace" -> session.enterGrace(1)
+            }
+            val candidate = Npc(assertNotNull(ServerCacheManager.getNpc(12596)), FIRST_NPC)
+            val before = f.collisionSnapshot()
+            assertFalse(f.manager.spawnFixedNpc(target, candidate), state)
+            assertFalse(candidate.isSlotAssigned, state)
+            assertEquals(NpcUid.NULL, candidate.uid, state)
+            assertNull(f.manager.instanceForNpc(candidate), state)
+            assertEquals(0, f.npcs.count(), state)
+            assertEquals(before, f.collisionSnapshot(), state)
+            if (state == "copied") assertEquals(1, f.allocations) else f.assertNoRegions()
+            framework().clearInlineMocks()
+        }
+        val f = Fixture()
+        val session = f.create(f.spec(actors = false))
+        val before = f.collisionSnapshot()
+        val type = assertNotNull(ServerCacheManager.getNpc(12596))
+        val malformed =
+            listOf(
+                Npc(type, EXIT),
+                Npc(type, CoordGrid(FIRST_NPC.x, FIRST_NPC.z, 1)),
+                Npc(type, FIRST_NPC).apply { slotId = 100 },
+                Npc(type, FIRST_NPC).apply {
+                    slotId = 101
+                    assignUid()
+                    slotId = PathingEntity.INVALID_SLOT
+                },
+            )
+        malformed.forEach { candidate ->
+            assertFailsWith<IllegalArgumentException> {
+                f.manager.spawnFixedNpc(session, candidate)
+            }
+            assertNull(f.manager.instanceForNpc(candidate))
+        }
+        fun nativeLifecycle(npc: Npc) =
+            listOf(
+                npc.lifecycleAddCycle,
+                npc.lifecycleDelCycle,
+                npc.lifecycleRevealCycle,
+                npc.lifecycleRespawnCycle,
+                npc.lifecycleChangeCycle,
+                npc.lifecycleDelayedAddCycle,
+                npc.lifecycleDelayedAddDuration,
+            )
+        val deletedTimed = Npc(type, FIRST_NPC)
+        f.npcRepo.add(deletedTimed, 20)
+        val oldDeadline = deletedTimed.lifecycleDelCycle
+        f.npcRepo.del(deletedTimed, Int.MAX_VALUE)
+        assertFalse(deletedTimed.isSlotAssigned)
+        assertEquals(NpcUid.NULL, deletedTimed.uid)
+        assertEquals(20, oldDeadline)
+        assertEquals(oldDeadline, deletedTimed.lifecycleDelCycle)
+        assertNotEquals(ZoneKey.NULL, deletedTimed.lastProcessedZone)
+        val deletedState = nativeLifecycle(deletedTimed)
+        val deletedZone = deletedTimed.lastProcessedZone
+        assertFailsWith<IllegalArgumentException> { f.manager.spawnFixedNpc(session, deletedTimed) }
+        assertEquals(
+            deletedState,
+            nativeLifecycle(deletedTimed),
+            "Rejected reuse must preserve native deadlines",
+        )
+        assertEquals(deletedZone, deletedTimed.lastProcessedZone)
+        assertNull(f.manager.instanceForNpc(deletedTimed))
+
+        val pending = Npc(type, SECOND_NPC)
+        f.npcRepo.addDelayed(pending, spawnDelay = 5, duration = 20)
+        assertFalse(pending.isSlotAssigned)
+        assertEquals(NpcUid.NULL, pending.uid)
+        assertEquals(5, pending.lifecycleDelayedAddCycle)
+        assertEquals(20, pending.lifecycleDelayedAddDuration)
+        val pendingState = nativeLifecycle(pending)
+        val pendingZone = pending.lastProcessedZone
+        assertFailsWith<IllegalArgumentException> { f.manager.spawnFixedNpc(session, pending) }
+        assertEquals(
+            pendingState,
+            nativeLifecycle(pending),
+            "Rejection must not clear or reschedule the pending native add",
+        )
+        assertEquals(pendingZone, pending.lastProcessedZone)
+        assertFalse(pending.isSlotAssigned)
+        assertNull(f.manager.instanceForNpc(pending))
+        assertEquals(0, f.npcs.count())
+        assertTrue(f.manager.npcsForInstance(session.id).isEmpty())
+        assertEquals(before, f.collisionSnapshot())
+        f.assertNoRegions()
+    }
+
+    @Test
+    fun `guarded dynamic spawn rejects nested registration while member departure leaves public ownership intact`() {
+        val f = Fixture()
+        val session = f.create(f.spec(actors = false))
+        val player = f.player(1)
+        f.enter(player, session)
+        val tile = player.coords
+        val type = assertNotNull(ServerCacheManager.getNpc(12596))
+        val candidate = Npc(type, FIRST_NPC)
+        val nested = Npc(type, SECOND_NPC)
+        var creates = 0
+        f.events.subscribeUnbound(NpcStateEvents.Create::class.java) {
+            creates++
+            assertSame(candidate, npc)
+            assertFalse(f.manager.spawnFixedNpc(session, nested))
+            assertFalse(nested.isSlotAssigned)
+            assertEquals(NpcUid.NULL, nested.uid)
+            assertEquals(tile, f.manager.leaveForLogout(player, 1))
+        }
+        assertTrue(f.manager.spawnFixedNpc(session, candidate))
+        assertEquals(1, creates)
+        assertEquals(tile, player.coords)
+        assertNull(f.manager.sessionForPlayer(player))
+        assertNull(player.attr[InstanceAttributes.LOGIN_EXIT_COORD])
+        assertSame(session, f.manager.sessionForId(session.id))
+        assertEquals(listOf(candidate), f.manager.npcsForInstance(session.id))
+        assertEquals(session.id, f.manager.instanceForNpc(candidate))
+        assertNull(f.manager.instanceForNpc(nested))
+        assertEquals(1, f.npcs.count())
+        assertEquals(1, f.started)
+        assertTrue(f.manager.terminate(session))
+        assertFalse(candidate.isSlotAssigned)
+        f.assertNoRegions()
+    }
+
+    @Test
+    fun `guarded dynamic spawn handles callback termination and quarantines lost native registration`() {
+        for (duringCreate in listOf(true, false)) for (deleteCandidate in listOf(false, true)) {
+            val f = Fixture()
+            val session = f.create(f.spec(actors = false))
+            val candidate = Npc(assertNotNull(ServerCacheManager.getNpc(12596)), FIRST_NPC)
+            var callbacks = 0
+            val retire: (Npc) -> Unit = { npc ->
+                assertSame(candidate, npc)
+                callbacks++
+                assertEquals(session.id, f.manager.instanceForNpc(candidate))
+                if (deleteCandidate) f.npcRepo.del(candidate, Int.MAX_VALUE)
+                assertTrue(f.manager.terminate(session))
+            }
+            if (duringCreate)
+                f.events.subscribeUnbound(NpcStateEvents.Create::class.java) { retire(npc) }
+            else f.events.subscribeKeyed(NpcStateEvents.Spawn::class.java, 12596L) { retire(npc) }
+            if (deleteCandidate) {
+                assertFailsWith<IllegalStateException> {
+                    f.manager.spawnFixedNpc(session, candidate)
+                }
+                // The outer native add may retain zone/collision residue. Only quarantine is
+                // claimed.
+                assertNull(
+                    f.manager.createServerOwned(
+                        "dynamic-failed-overlap",
+                        session.spec,
+                        InstanceAccess.Friends,
+                        1,
+                    )
+                )
+                f.manager.tickReclaim(2)
+                assertNull(
+                    f.manager.createServerOwned(
+                        "dynamic-failed-reclaim",
+                        session.spec,
+                        InstanceAccess.Friends,
+                        2,
+                    )
+                )
+            } else {
+                assertFalse(f.manager.spawnFixedNpc(session, candidate))
+                assertTrue(session.isEnded)
+                assertFalse(candidate.isSlotAssigned)
+                assertNull(f.manager.instanceForNpc(candidate))
+                assertTrue(f.manager.npcsForInstance(session.id).isEmpty())
+                assertEquals(0, f.npcs.count())
+                assertNotNull(
+                    f.manager.createServerOwned(
+                        "dynamic-next-owner",
+                        session.spec,
+                        InstanceAccess.Friends,
+                        1,
+                    )
+                )
+            }
+            assertEquals(1, callbacks)
+            f.assertNoRegions()
             framework().clearInlineMocks()
         }
     }
