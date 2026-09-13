@@ -156,6 +156,12 @@ is ready for a focused checkpoint, not full encounter acceptance; S10 blocks saf
 The user's subsequent `approve` explicitly covers this mapping. Source recovery branch
 `backup/before-s10-shutdown-20260913` preserves `38fe43cc1`; work is isolated on
 `fix/native-shutdown-order-20260913`. No deployment has occurred for this repair.
+Source checkpoint `cde8b17a8` is preserved by `backup/native-save-shutdown-20260913`.
+Focused source archive `logs/native-save-shutdown-source-20260913.zip` contains all28 checkpoint
+files (not a whole-tree or database backup); SHA256
+`D43B046FB337E75E16409C8247F638D5B0864DAD005896DE753B42D2A9C8613D`.
+Final `nex-s10-ready-checkpoint-20260913.log`:44 core tests, scoped core checks and app assemble
+pass,1m27s,477 tasks,20 executed. No remote push, live attachment or restart was performed.
 The smallest ordering API uses fixed Producer/Persistence/Resource stages instead of an arbitrary
 dependency graph: cycles are unrepresentable, and unrelated services retain concurrent producer
 shutdown. This implements the approved ordering scope without adding a separate framework.
@@ -1125,6 +1131,22 @@ Smallest addition in `api/npc/.../events/NpcCombatEvents.kt` and
 needed): a keyed, default-no-op pre-resolution rule before final HP clamp, hitmark and contribution.
 Use existing post-impact events for calls/heals. Preserve current dirty attribution and validity
 checks; don't duplicate processors. Tests T05 with ordinary-NPC and admin-rule regressions.
+
+September13 integration refinement (within approved S02, before edits): moving Blood Siphon healing
+to Impact requires the incoming amount even when accepted damage is zero. Complete local event,
+processor, consumer and pinned upstream61139e76 searches confirm Impact currently retains only final
+damage. Append defaulted `originalHit` and `inputDamage` observations to the existing Impact event in
+the already mapped NpcCombatEvents/StandardNpcHitProcessor files. `originalHit` is the immutable queued
+hit after queue modifiers; `inputDamage` includes admin adjustment before Resolve; `hit.damage` remains
+accepted HP loss. Preserve Impact timing and pin its dispatch key to the resolution identity. This is
+approved local S02 metadata, not a separate hit pipeline or official upstream signature. Tests execute
+real resolution for overkill, zero/private hits, admin expansion, transforms and invalid scopes.
+Nex will retain its characterized formulas, use original damage for Siphon (no admin-expanded healing),
+and credit/heal/call guards only after impact. Full source-origin reward eligibility remains M28/S03/S04.
+Metadata foundation implemented and tested separately before Nex production integration:
+`nex-s02-impact-metadata-20260913.log`,1m4s,169 tasks,23 executed; NPC14, boss API61 and Nex67
+tests pass (142 total). The two new processor regressions exercise immutable overkill/private-hit
+observations and transform-stable dispatch; existing admin/invalid-scope tests also assert metadata.
 
 ### S03 Native ownership, attribution and cancellation context
 

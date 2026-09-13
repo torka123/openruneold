@@ -27,9 +27,17 @@ public class NpcHitEvents {
         override val id: Long = npc.visType.id.toLong(),
     ) : KeyedEvent
 
+    /**
+     * [hit] contains accepted HP loss. [originalHit] is immutable queued input, after queue-time
+     * modifiers; [inputDamage] includes administrative adjustment before Resolve and HP clamping.
+     * These observations allow absorption effects without side effects in a Resolve rule. [id]
+     * remains the resolution key even if a rule/contribution listener transforms the NPC.
+     */
     public data class Impact(
         public val npc: Npc,
         public val hit: Hit,
         override val id: Long = npc.visType.id.toLong(),
+        public val originalHit: Hit = hit,
+        public val inputDamage: Int = originalHit.damage,
     ) : KeyedEvent
 }

@@ -28,6 +28,32 @@ import org.rsmod.map.CoordGrid
 @OptIn(InternalApi::class)
 class NpcHitResolutionTest {
     @Test
+    fun `impact observes immutable input separately from overkill and zero private damage`() {
+        val f = Fixture()
+        val first = f.hit(120)
+        val second = f.hit(30, privateHit = true)
+        f.land(first)
+        f.land(second)
+        assertEquals(listOf(120, 30), f.observations.map { it.originalHit.damage })
+        assertEquals(listOf(120, 30), f.observations.map { it.inputDamage })
+        assertEquals(listOf(100, 0), f.observations.map { it.hit.damage })
+        assertSame(first, f.observations.first().originalHit)
+        assertSame(second, f.observations.last().originalHit)
+        assertTrue(f.observations.last().hit.hitmark.isPrivate)
+    }
+
+    @Test
+    fun `impact remains on original resolution identity after transformation`() {
+        val f = Fixture()
+        val key = f.npc.visType.id.toLong()
+        f.resolve { npc.transmog(assertNotNull(ServerCacheManager.getNpc(11279)), Int.MAX_VALUE) }
+        f.land(f.hit(20))
+        assertEquals(80, f.npc.hitpoints)
+        assertEquals(key, f.observations.single().id)
+        assertEquals(20, f.observations.single().inputDamage)
+    }
+
+    @Test
     fun `simultaneous arrivals use updated HP and credit only accepted damage`() {
         val f = Fixture()
         val observedHp = mutableListOf<Int>()
@@ -81,6 +107,7 @@ class NpcHitResolutionTest {
         assertEquals(0, calls)
         assertEquals(100, f.npc.hitpoints)
         assertTrue(f.impacts.isEmpty() && f.marks.isEmpty() && f.credits.isEmpty())
+        assertTrue(f.observations.isEmpty())
     }
 
     @Test
@@ -147,6 +174,8 @@ class NpcHitResolutionTest {
         f.land(hit)
         assertEquals(50, f.npc.hitpoints)
         assertEquals(50, f.impacts.single().damage)
+        assertEquals(1, f.observations.single().originalHit.damage)
+        assertEquals(100, f.observations.single().inputDamage)
         assertFalse("queue.death" in f.npc.queueList)
     }
 
@@ -155,6 +184,7 @@ class NpcHitResolutionTest {
         val players = PlayerList()
         val marks = mutableListOf<Hitmark>()
         val impacts = mutableListOf<Hit>()
+        val observations = mutableListOf<NpcHitEvents.Impact>()
         val credits = mutableListOf<Int>()
         val npc =
             Npc(assertNotNull(ServerCacheManager.getNpc(11278)), CoordGrid(2924, 5202)).apply {
@@ -203,6 +233,7 @@ class NpcHitResolutionTest {
         init {
             events.subscribeKeyed(NpcHitEvents.Impact::class.java, npc.visType.id.toLong()) {
                 impacts += hit
+                observations += this
             }
         }
 

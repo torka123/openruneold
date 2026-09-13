@@ -8,6 +8,8 @@ Update this checkpoint after each completed boss and immediately before any auth
 
 Working branch: `fix/native-shutdown-order-20260913`; pre-work recovery:
 `backup/before-s10-shutdown-20260913` at `38fe43cc1`. S10 is approved, not a new approval request.
+Source repair committed as `cde8b17a8`, recovery branch `backup/native-save-shutdown-20260913`,
+focused28-file archive `logs/native-save-shutdown-source-20260913.zip` (hash in Nex ledger).
 Ordered native service shutdown, completed-result waiters, retained interrupted account batches,
 honest commit/failure accounting, safe logout removal, bootstrap-owned PostgreSQL closure and a
 native save-first restart gate are implemented in source. Five core modules pass44 tests (33 new);

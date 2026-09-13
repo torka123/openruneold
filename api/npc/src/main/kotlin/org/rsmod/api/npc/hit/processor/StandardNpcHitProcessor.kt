@@ -65,7 +65,12 @@ constructor(
                         else zeroDamageHitmark.tint?.asRSCM(RSCMType.HITMARK),
                     damage = changedDamage,
                 )
-            takeHit(processedHit.copy(hitmark = modifiedHitmark))
+            takeHit(
+                processedHit.copy(hitmark = modifiedHitmark),
+                hit,
+                processedHit.damage,
+                resolveKey,
+            )
             return
         }
 
@@ -79,20 +84,35 @@ constructor(
                     public = if (processedHit.hitmark.isPrivate) null else mark,
                     damage = changedDamage ?: processedHit.damage,
                 )
-            takeHit(processedHit.copy(hitmark = modifiedHitmark))
+            takeHit(
+                processedHit.copy(hitmark = modifiedHitmark),
+                hit,
+                processedHit.damage,
+                resolveKey,
+            )
             return
         }
 
         if (changedDamage != null) {
             val modifiedHitmark = processedHit.hitmark.copy(damage = changedDamage)
-            takeHit(processedHit.copy(hitmark = modifiedHitmark))
+            takeHit(
+                processedHit.copy(hitmark = modifiedHitmark),
+                hit,
+                processedHit.damage,
+                resolveKey,
+            )
             return
         }
 
-        takeHit(processedHit)
+        takeHit(processedHit, hit, processedHit.damage, resolveKey)
     }
 
-    private fun StandardNpcAccess.takeHit(hit: Hit) {
+    private fun StandardNpcAccess.takeHit(
+        hit: Hit,
+        originalHit: Hit,
+        inputDamage: Int,
+        resolveKey: Long,
+    ) {
         check(hit.damage <= npc.hitpoints) {
             "Expected hit damage to be less than or equal to available hitpoints: " +
                 "health=${npc.hitpoints}, hit=$hit"
@@ -137,7 +157,7 @@ constructor(
             npc.showHeadbar(headbar)
         }
 
-        npc.publishHitEvent(hit)
+        npc.publishHitEvent(hit, originalHit, inputDamage, resolveKey)
         hit.dispatchImpact(npc, hit.damage)
     }
 
@@ -153,8 +173,13 @@ constructor(
     private fun Hit.createHeadbar(currHp: Int, maxHp: Int, headbar: HealthBarServerType): Headbar =
         InternalNpcHeadbars.createFromHitmark(hitmark, currHp, maxHp, headbar)
 
-    private fun Npc.publishHitEvent(hit: Hit) {
-        val event = NpcHitEvents.Impact(this, hit)
+    private fun Npc.publishHitEvent(
+        hit: Hit,
+        originalHit: Hit,
+        inputDamage: Int,
+        resolveKey: Long,
+    ) {
+        val event = NpcHitEvents.Impact(this, hit, resolveKey, originalHit, inputDamage)
         eventBus.publish(event)
     }
 }
