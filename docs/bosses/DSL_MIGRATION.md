@@ -41,8 +41,10 @@ results including reused suites; scoped checks/architecture/app assemble and3-fi
 M06 captured inward guard facing now passes157 Nex tests and2,109 total valid results; scoped
 checks/architecture/app assemble and3-file archive pass. Captured1979/9194 helper attack
 animations now pass157 Nex tests with native output/cooldown/delay checks, scoped checks/
-architecture/app assemble and3-file archive.2,109 total valid results. Next: S04 native connection
-recovery under the Nex ledger mapping. Receipt/save/
+architecture/app assemble and3-file archive. S04 native connection
+recovery now passes13 DB/70 selected checks and2,114 total valid results; frozen startup authority,
+native failure/monitor behavior, scoped checks/architecture/app assemble and3-file archive verified.
+Next: typed claim receipt/quantity-consumption and unique-key settlement mapping. Receipt/save/
 lifecycle composition, tracked quantities and restart policy remain gates; SOURCE ONLY. M04 cooldown/equipment and
 M20 placement/clipping remain evidence gaps. The Nex ledger records exact source files,
 searches, tests, failure limits, evidence gaps and next mapping.

@@ -15,12 +15,16 @@ public class GameDatabase
 @Inject
 constructor(private val configProvider: Provider<DatabaseConfig>) : Database {
     private lateinit var connection: Connection
+    private lateinit var connector: GameConnection
+    private lateinit var connectionConfig: DatabaseConfig
     private val transactionMonitor = Any()
+    private var recoveryUnavailable = false
+    private var closeRequested = false
 
     public fun connect(connector: GameConnection) {
         check(!::connection.isInitialized) { "Connection already initialized." }
         val config = configProvider.get()
-        val connection = connector.connect()
+        val connection = connector.connect(config)
         try {
             FlywayMigrator.migrate(config.jdbcUrl, config.user, config.password)
             connection.commit()
@@ -33,11 +37,41 @@ constructor(private val configProvider: Provider<DatabaseConfig>) : Database {
             throw t
         }
         this.connection = connection
+        this.connector = connector
+        this.connectionConfig = config
+    }
+
+    /**
+     * Replaces this owner's connection through its successful startup connector and resolved
+     * configuration, without migrations, provider fallback or SQL replay. The old connection is
+     * retired before a replacement is opened. Failed retirement or connection setup leaves
+     * transactions unavailable until an explicit successful retry.
+     *
+     * This does not resolve a prior uncertain commit. Receipt-aware callers must retain their save
+     * and gameplay boundary until authoritative outcome proof. Recovery cannot reopen an owner
+     * after intentional [close], or replace a connection from inside its own transaction callback.
+     */
+    public fun reconnect() {
+        checkOutsideDatabaseOperation()
+        synchronized(transactionMonitor) {
+            check(::connection.isInitialized) { "Connection was not initialized." }
+            check(!closeRequested) { "Database closure was requested." }
+            check(::connector.isInitialized && ::connectionConfig.isInitialized) {
+                "Startup connection authority was not initialized."
+            }
+            recoveryUnavailable = true
+            connection.close()
+            connection = connector.connect(connectionConfig)
+            recoveryUnavailable = false
+        }
     }
 
     public fun close() {
+        checkOutsideDatabaseOperation()
         synchronized(transactionMonitor) {
-            assertValidConnection()
+            check(::connection.isInitialized) { "Connection was not initialized." }
+            closeRequested = true
+            check(!connection.isClosed) { "Connection is closed." }
             this.connection.close()
         }
     }
@@ -123,7 +157,15 @@ constructor(private val configProvider: Provider<DatabaseConfig>) : Database {
 
     private fun assertValidConnection() {
         check(::connection.isInitialized) { "Connection was not initialized." }
+        check(!closeRequested) { "Database closure was requested." }
+        check(!recoveryUnavailable) { "Connection recovery has not completed." }
         check(!connection.isClosed) { "Connection is closed." }
+    }
+
+    private fun checkOutsideDatabaseOperation() {
+        check(!Thread.holdsLock(transactionMonitor)) {
+            "Connection ownership cannot change inside a database operation."
+        }
     }
 
     private companion object {

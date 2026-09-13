@@ -75,8 +75,11 @@ results remain valid for2,107 total. Scoped checks/architecture/app assemble and
 pass; commit802cdf96e. Captured inward-facing bodyguards now pass157 Nex cases, scoped checks/
 architecture/app assemble, with2,109 total valid results; commit5d2d8a0ad. Captured helper attack
 animations1979/9194 now pass the same157 Nex cases with native emission/cooldown/delay assertions,
-scoped checks/architecture/app assemble and a byte-verified three-file archive. Next: S04 native
-connection recovery under the recorded bounded mapping.
+scoped checks/architecture/app assemble and a byte-verified three-file archive; commit2a1dd7b76.
+S04 native connection recovery now passes actual startup/frozen-authority/backend replacement,
+failure and monitor tests:13 DB cases/70 selected checks, with2,114 total valid results. Scoped
+checks/architecture/app assemble and three-file archive pass. Next: map typed native claim receipts,
+quantity consumption and unique-key settlement before enabling any pickup/save integration.
 Receipt reconciliation,
 complete unresolved-player handling, tracked ground quantities/lifecycle and restart policy remain gates.
 M04 cooldown/equipment, M20 general placement/clipping and normal timing evidence remain missing. All these
@@ -1314,7 +1317,7 @@ Build passed; native sequence emission and unchanged scheduling behavior verifie
 JVM23812/c4fc9390f remains deployed. Full M11/M17 mechanics and live visual parity remain open.
 Next independent prerequisite is the bounded native DB recovery mapping below.
 
-## S04 receipt resolution refinement and next DB recovery mapping
+## Completed source increment: S04 native connection recovery
 
 The completed native trace found no complete nonmutating per-player receipt hold. A possible
 composition keeps AccountSavingService.saveGate AND the original game-thread mutation call until
@@ -1359,6 +1362,56 @@ uninitialized/terminal/nested rejection, monitor exclusion with once/default/clo
 callback replay, and connector setup/cleanup failures. Existing commit-outcome and shutdown tests
 must remain valid. Root owns production and all builds; a bounded agent may write only new DB tests.
 This mapping does not activate rewards, solve claim receipts or choose a whole-world stall policy.
+Focused DB recovery/outcome tests first; final DB/account/registry/game-process/app checks and app
+assemble/architecture cover the actual connection and shutdown owners. Existing retry callbacks,
+production callers and gameplay remain unchanged, so reuse other shared/boss/drop/ToA results unless
+a failure invalidates them. No full-world rerun solely for adding this unused recovery route.
+
+Pre-final authority refinement: the initial reconnect(connector) implementation passes10 focused
+recovery/outcome/concurrency groups in15s. Root interface review found that accepting a replacement
+connector is unnecessary, and DatabaseConfig.create14-52 can fall back to a different endpoint
+if embedded authority metadata disappears. Before changing the API/tests, refine the mapping to
+no-argument reconnect(), retaining the successful startup connector AND resolved DatabaseConfig.
+Startup already resolves that config for Flyway; native opening must use the same config through
+an internal GameConnection.connect(config) route. Existing public GameConnection.connect() keeps
+provider-based behavior for its current callers. Publish owned connector/config only on startup
+success; recovery checks both before retiring anything and reuses the frozen endpoint/credentials.
+No constructor/DI change or automatic endpoint/embedded-process restart policy is added. Recovery
+of a changed endpoint remains a startup operation, subject to existing save/restart protections.
+Verify the actual startup retention and that later provider changes cannot redirect recovery.
+
+Helper-animation commit2a1dd7b76, backup `backup/nex-helper-animations-20260913`.
+
+Final recovery implementation follows that authority refinement: public reconnect() has no argument;
+the startup connector and immutable resolved config are retained only after native startup succeeds.
+GameConnection's public provider-based entrypoint remains available; only this owner's recovery
+bypasses provider lookup. Close-before-initialization remains invalid/unlatched; an initialized
+owner's intentional closure is terminal. Existing startup-failure cleanup is outside this change.
+
+`logs/nex-s04-db-recovery-focused2-20260913.log` passes10 recovery/outcome/concurrency groups in14s.
+Five new groups include actual native startup/Flyway on isolated PostgreSQL, two fresh backends,
+fixed committed payload, autoCommit=false and unchanged complete migration history while BOTH
+providers fail if consulted again. Strict unique-URL JDBC drivers cover failed retirement/connect,
+all three transaction gates, successful retry, uninitialized/missing-authority/nested/terminal
+rejection, retained close cleanup and SQL/non-SQL connector setup failures with secondary close
+failure preservation. Nine owner/waiter combinations prove the actual monitor and lock-owner ID.
+No canonical connector/config, account mutation or database-service restart was exercised.
+
+Final `logs/nex-s04-db-recovery-checks-20260913.log` passes in1m14s,489 tasks/31 executed/1 cache/
+457 up-to-date: DB13, account9, registry12, game-process21 and app15 =70 cases, zero failures/errors/
+skips. Scoped formatting/checks, architecture and app assemble pass. Unchanged boss/drop/ToA/other
+shared results remain valid:2,114 total (518 shared,1,120 boss including157 Nex,68 drops,408 ToA).
+Fresh and combined manifests are logs/nex-s04-db-recovery-test-results-20260913.json and
+logs/nex-s04-db-recovery-valid-test-results-20260913.json. This was not another full-world test run.
+Final separately owned fixture: logs/game-db-recovery-test-13008939596952842824/.
+
+Changed files: GameDatabase.kt, GameConnection.kt and new GameDatabaseRecoveryTest.kt. Archive
+`logs/nex-s04-db-recovery-source-20260913.zip`:three byte-verified files,
+SHA256 `57DD566C856EDE778281851387171C0BCEF8BC523A13D89D9C1E044FDA787ABF`.
+Build passed and native recovery behavior verified. SOURCE ONLY; JVM23812/c4fc9390f remains deployed.
+No live migration/reconnect, receipt resolution, player hold or ground reward activation occurred.
+Next exact deliverable: typed claim receipt/quantity-consumption mapping with unique-key settlement
+that waits for an in-flight original transaction, instead of treating a SELECT miss as rollback.
 
 ## Source verification history: M01/M02 protected access and S10
 

@@ -9,10 +9,20 @@ import org.rsmod.api.db.DatabaseConfig
 public class GameConnection
 @Inject
 constructor(private val configProvider: Provider<DatabaseConfig>) {
-    public fun connect(): Connection {
-        val config = configProvider.get()
+    public fun connect(): Connection = connect(configProvider.get())
+
+    internal fun connect(config: DatabaseConfig): Connection {
         val connection = DriverManager.getConnection(config.jdbcUrl, config.user, config.password)
-        connection.autoCommit = false
-        return connection
+        try {
+            connection.autoCommit = false
+            return connection
+        } catch (cause: Throwable) {
+            try {
+                connection.close()
+            } catch (closeCause: Throwable) {
+                if (closeCause !== cause) cause.addSuppressed(closeCause)
+            }
+            throw cause
+        }
     }
 }
