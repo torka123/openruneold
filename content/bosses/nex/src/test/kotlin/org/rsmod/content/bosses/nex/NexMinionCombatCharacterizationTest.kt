@@ -89,10 +89,11 @@ import org.rsmod.routefinder.collision.CollisionFlagMap
 /**
  * Production registration/native combat characterization, with captured attack animation
  * identities: guards1979 at3284:9773-78 and808:6376-77/7617-19/9837-38; Reaver9194 at808:6666-69.
- * These Grid Master samples do not certify normal timing, generic damage, projectiles or prayer
- * constants. Player hits are inspected on the native queue; this suite does not claim player impact
- * processing or complete bodyguard-death parity. A delegating native protocol records sequences
- * emitted by accepted attacks without replacing the combat handler.
+ * Fumus390 at3284:9773-80 and Glacies368 at808:9837-38/9854-56 supply the two projectile fixtures
+ * below. These Grid Master samples do not certify general normal timing, damage, prayer or other
+ * minion projectiles. Player hits are inspected on the native queue; this suite does not claim
+ * player impact processing or complete bodyguard-death parity. A delegating native protocol records
+ * sequences emitted by accepted attacks without replacing the combat handler.
  */
 @OptIn(InternalApi::class)
 class NexMinionCombatCharacterizationTest {
@@ -112,7 +113,14 @@ class NexMinionCombatCharacterizationTest {
             assertEquals(HitType.Magic, hit.type)
             assertEquals(1979, guard.pendingSequence.id)
             assertEquals(listOf(Sequence(start, 1979, 0)), sequences)
-            assertEquals(1999, projectile.spotanim)
+            assertEquals(
+                when (guardId) {
+                    11283 -> 390
+                    11286 -> 368
+                    else -> 1999
+                },
+                projectile.spotanim,
+            )
             assertEquals(projectile.serverCycles, delay)
             assertEquals(start + 5, guard.actionDelay)
             val rolls = f.accuracyRolls
@@ -131,6 +139,80 @@ class NexMinionCombatCharacterizationTest {
             assertEquals(2, f.hits().size)
             assertEquals(start + 10, guard.actionDelay)
             assertEquals(listOf(Sequence(start, 1979, 0), Sequence(start + 5, 1979, 0)), sequences)
+            framework().clearInlineMocks()
+        }
+    }
+
+    @Test
+    fun `Fumus and Glacies native projectiles match captured fields without changing queued delay`() {
+        val captures =
+            listOf(
+                CapturedProjectile(
+                    11283,
+                    CoordGrid(2913, 5215),
+                    CoordGrid(2915, 5212),
+                    390,
+                    76,
+                    124,
+                    3,
+                ),
+                CapturedProjectile(
+                    11286,
+                    CoordGrid(2913, 5191),
+                    CoordGrid(2919, 5192),
+                    368,
+                    106,
+                    0,
+                    4,
+                ),
+            )
+        for (capture in captures) {
+            val f = NexMinionTestWorld()
+            f.reachGuard(capture.guardId)
+            val guard = f.npc(capture.guardId)
+            f.player.coords = capture.target
+            assertEquals(capture.source, guard.coords)
+            val beforeProjectiles = f.projectiles().size
+            val start = f.clock.cycle
+            f.attack(guard)
+            assertEquals(beforeProjectiles + 1, f.projectiles().size)
+            val projectile = f.projectiles().last()
+            assertEquals(capture.spotanim, projectile.spotanim)
+            assertEquals(capture.source, projectile.startCoord)
+            assertEquals(guard.slotId + 1, projectile.sourceIndex)
+            assertEquals(capture.target, projectile.endCoord)
+            assertEquals(-(f.player.slotId + 1), projectile.targetIndex)
+            assertEquals(51, projectile.startTime)
+            assertEquals(capture.endTime, projectile.endTime)
+            assertEquals(16, projectile.angle)
+            assertEquals(64, projectile.progress)
+            assertEquals(172, projectile.startHeight)
+            assertEquals(capture.endHeight, projectile.endHeight)
+            val (delay, hit) = f.hits().single()
+            assertEquals(capture.hitDelay, delay, "Retain the existing magic_spell queued delay")
+            assertEquals(capture.hitDelay, projectile.serverCycles)
+            assertEquals(20, hit.damage)
+            assertEquals(HitType.Magic, hit.type)
+            assertEquals(1979, guard.pendingSequence.id)
+            assertEquals(start + 5, guard.actionDelay)
+            val rolls = f.accuracyRolls
+
+            f.attack(guard)
+            f.tick(4)
+            f.attack(guard)
+            assertEquals(
+                beforeProjectiles + 1,
+                f.projectiles().size,
+                "Cooldown cannot emit another projectile",
+            )
+            assertEquals(1, f.hits().size)
+            assertEquals(rolls, f.accuracyRolls)
+            f.tick()
+            f.attack(guard)
+            assertEquals(beforeProjectiles + 2, f.projectiles().size)
+            assertEquals(projectile, f.projectiles().last())
+            assertEquals(2, f.hits().size)
+            assertEquals(start + 10, guard.actionDelay)
             framework().clearInlineMocks()
         }
     }
@@ -209,6 +291,16 @@ class NexMinionCombatCharacterizationTest {
     }
 
     private data class Sequence(val cycle: Int, val id: Int, val delay: Int)
+
+    private data class CapturedProjectile(
+        val guardId: Int,
+        val source: CoordGrid,
+        val target: CoordGrid,
+        val spotanim: Int,
+        val endTime: Int,
+        val endHeight: Int,
+        val hitDelay: Int,
+    )
 
     @AfterEach fun releaseMocks() = framework().clearInlineMocks()
 

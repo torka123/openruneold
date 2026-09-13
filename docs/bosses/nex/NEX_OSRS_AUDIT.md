@@ -82,9 +82,11 @@ checks/architecture/app assemble and three-file archive pass; commit8c858f737. T
 quantity consumption and unique-key settlement now pass11 account/72 selected checks, with2,116
 total valid results. Scoped checks/architecture/app assemble and13-file source archive pass;
 commit26452a0cf. Typed allocation balance now passes13 account/40 selected checks and2,118 valid
-results, scoped checks/architecture/app assemble and5-file archive. Ground lifetime mapping has
-identified the separate durable non-pickup retirement gap. Next: map captured Fumus/Glacies
-projectile presentation through the existing DSL parameter route; receipt-aware snapshot composition is mapped
+results, scoped checks/architecture/app assemble and5-file archive; commitff86491af. Ground lifetime
+mapping identified the separate durable non-pickup retirement gap. Captured Fumus/Glacies projectile
+presentation now passes158 Nex cases and2,119 valid results, scoped checks/architecture/app assemble
+and4-file archive. Next: map captured guard cast sounds after verifying existing native output
+defaults and duplicate prevention; receipt-aware snapshot composition is mapped
 but its unresolved-runtime policy remains unselected. Complete receipt/save reconciliation,
 complete unresolved-player handling, tracked ground quantities/lifecycle and restart policy remain gates.
 M04 cooldown/equipment, M20 general placement/clipping and normal timing evidence remain missing. All these
@@ -92,6 +94,76 @@ changes remain SOURCE ONLY; current deployment is unchanged.
 Existing timing/damage/geometry constants remain characterized under E07. Full native public/private
 sessions, other mechanics/rewards/evidence gaps below remain open; Nex is not complete.
 Existing order remains Nex ->Yama ->Doom ->DT2 ->separate Dagannoth Kings review ->ToA ->ToB ->CoX.
+
+## Completed source increment: M11 captured Fumus/Glacies projectile presentation
+
+Pre-edit mapping, September13: balance checkpoint `ff86491af` is committed/backed up at
+`backup/nex-s04-allocation-balance-20260913`. No new shared API is needed. Pinned native
+`61139e76a` ElementalSpells:431–436 uses the existing magic_spell controller/durations;
+NvPCombat:125–132 routes NPC projectiles through ProjAnim.fromNpcToPlayer and its serverCycles.
+Current MuspahAttackParameters:46–55 provides the established projectile-valued attack override.
+Nex already owns the named `NEX_MINION_TARGET_PARAMETERS` route; EffectInterpreter:74–82 forwards
+its supplied projectile while native NvPCombat:274–307 and ProjAnim:223–241 retain actor emission,
+travel and queued-hit ownership. Reuse that exact route, with no manual projectile/hit launch.
+
+| Captured behavior | Mapping and acceptance |
+| --- | --- |
+| Fumus58304 casts1979 at2913,5215;3284:9773–9780 contains outgoing390 from that exact tile to player680 at2915,5212. Fields start51/end76, angle16/progress64, heights172/124. | Select native NpcProjectile390 with existing `projanim.magic_spell` for NPC11283 in the current named parameter resolver. Native registered attack must emit that visual with NPC/player references and captured fixture fields; queued damage/delay/accuracy/prayer/cadence retain the existing path. |
+| Glacies35728 casts1979 at2913,5191;808:9837–9838/9854–9856 contains outgoing368 from that exact tile to player216 at2919,5192. Fields start51/end106, angle16/progress64, heights172/0. | Select368 with existing `projanim.magic_spell_low` for NPC11286. The controller differs from magic_spell only in endHeight124→0; raw projectiles.toml:69–87 retains delay51, angle16, progress64, adjustment−5 and multiplier10. ProjAnim:36–55 calculates queued delay solely from endTime/distance, so changing the height does not change that native delay. |
+
+Outgoing capture rows do not name a source NPC index: association is the same-frame guard cast,
+exact unique stationary guard position and target. This is captured presentation evidence, not a
+normal-speed/damage or general OSRS timing certification. Native tests at the captured positions
+will verify complete projected fields and unchanged queued delays, plus cooldown rejection without
+duplicate emission. Keep all four guards' current target/lifecycle/accuracy/prayer/max-hit checks.
+Validate390/368 and the existing low controller during normal Nex asset validation. Use startup-
+prepared projectile values in the current resolver; do not add another combat owner or per-hit hook.
+
+Umbra808:6373–6391 shows impact383 with incoming arrows; Cruor808:7615–7643 shows impact377 and no
+associated outgoing projectile. Neither sample proves universal absence, so their characterized
+1999 fallback remains. Reaver372 appears at808:6666–6672 and3284:10940–10962, but source offsets
+differ within its footprint and one target is the pre-movement tile. Its current no-projectile path
+uses native hit delay2; do not add372 or infer a launch/timing rule from these samples. All E07
+normal timing/damage and guard impact gaps stay open. Source-only; no deployment or restart.
+
+Implemented four source files: NexCombat prepares two native NpcProjectile values once at startup
+and supplies them through the existing resolver while preserving minionHitValidity. No actor/target
+is retained in the map. NexEncounterManager adds the two RSCM spot references and native low
+controller to normal validation; NexMinionSpec documents the captured overrides and remaining
+fallbacks. NexMinionCombatCharacterizationTest updates all-guard expectations and adds one two-case
+native capture fixture with complete projected fields, actor references, queued delays3/4, +4-cycle
+rejection and +5-cycle acceptance without duplicate projectiles/hits. Existing maxima/prayer/accuracy,
+Reaver delay2, lifecycle and characterizations remain. Shared NexMinionTestWorld is unchanged.
+Existing NexR240CacheAuditTest:113–126 already verifies368→1964/390→1986 and native/LIVE sequence/
+model bytes; those unchanged asset results are reused, not replaced by an invented spot getter.
+
+Independent production/test review found no actionable defect. Focused four groups pass in21s:
+`logs/nex-m11-guard-projectile-focused-20260913.log`. All158 Nex tests, scoped formatting/checks,
+architecture and app assembly pass in56s,473 tasks (15 executed,458 up-to-date):
+`logs/nex-m11-guard-projectile-checks-20260913.log`. Zero failures/errors/skips. Combined unchanged
+results remain valid for2,119 total:1,121 boss including158 Nex,522 engine/shared/weapons/app,
+68 drops and408 ToA. Only Nex was rerun for this content-only change; no shared source changed.
+Result authorities: `logs/nex-m11-guard-projectile-test-results-20260913.json` and
+`logs/nex-m11-guard-projectile-valid-test-results-20260913.json`. Four-file source selection:
+`logs/nex-m11-guard-projectile-source-files-20260913.txt`. Reopened, byte-verified source archive
+`logs/nex-m11-guard-projectile-source-20260913.zip`, SHA256
+`AD07543575F132557BD04B3B1246FA89ED3C61A6B82AE40918BB406F6EB7C84A`.
+No encoded client packet/visual acceptance, normal timing or complete projectile parity is claimed.
+
+Bounded M04 evidence check: retained `logs/nex-audit-20260909/wiki-Nex-Strategies.json`, decoded
+revision15331654 lines65/67, and [altar revision15329763](https://oldschool.runescape.wiki/w/Special:PermanentLink/15329763)
+line16 establish the ten-minute restoration description; its Pray/Teleport branches remain separate.
+[RuneLite's varbit documentation](https://static.runelite.net/runelite-api/apidocs/net/runelite/api/Varbits.html#GOD_WARS_ALTAR_COOLDOWN)
+and [timer reader](https://github.com/runelite/runelite/blob/master/runelite-client/src/main/java/net/runelite/client/plugins/timersandbuffs/TimersAndBuffsPlugin.java#L602)
+describe generic GWD player-varbit time in100-game-tick units. They do not establish Nex's offline
+decrement/deadline policy, shared-altar relationship, full-stat/rejected-interaction trigger, or
+combat restriction. The inspected timer reader has no Nex/42965/11601 reference. No cooldown
+activation follows from this check; neither persistent wall time nor online-cycle time is selected.
+
+Next independent deliverable: bounded guard cast-sound evidence/native-output mapping, including
+verification of existing attack_sound defaults before any additional emission. Ground retirement,
+full snapshot/memory reconciliation, normal M20 evidence and pending runtime/restart choices remain
+open. Deployment remains `c4fc9390f`; the source checkpoint is not deployed.
 
 ## Completed source increment: S04 typed allocation quantity observation
 

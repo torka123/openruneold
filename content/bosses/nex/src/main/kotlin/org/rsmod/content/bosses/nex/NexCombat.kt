@@ -1,10 +1,14 @@
 package org.rsmod.content.bosses.nex
 
 import dev.openrune.ServerCacheManager
+import dev.openrune.rscm.RSCM
+import dev.openrune.rscm.RSCM.asRSCM
+import dev.openrune.rscm.RSCMType
 import jakarta.inject.Inject
 import org.rsmod.api.bosses.runtime.BossCombat
 import org.rsmod.api.bosses.runtime.BossDeps
 import org.rsmod.api.combat.NpcAttackOverride
+import org.rsmod.api.combat.NpcProjectile
 import org.rsmod.api.death.NpcDeath
 import org.rsmod.api.script.onNpcQueue
 import org.rsmod.plugin.scripts.PluginScript
@@ -41,11 +45,20 @@ constructor(
             onResolveHit = encounters::resolveNpcHit,
             onImpactHit = encounters::impactNpcHit,
         )
+        // M11 captured travel visuals; the existing native attack still owns launch and hit delay.
+        val minionProjectiles =
+            mapOf(
+                11283 to minionProjectile(390, "projanim.magic_spell"),
+                11286 to minionProjectile(368, "projanim.magic_spell_low"),
+            )
         deps.extensionRegistry.registerAttackParameters(NEX_MINION_TARGET_PARAMETERS) {
             npc,
             target,
             _ ->
-            NpcAttackOverride(hitValidity = encounters.minionHitValidity(npc, target))
+            NpcAttackOverride(
+                projectile = minionProjectiles[npc.id],
+                hitValidity = encounters.minionHitValidity(npc, target),
+            )
         }
         for (reaver in listOf(false, true)) {
             BossCombat.register(
@@ -75,6 +88,12 @@ constructor(
             }
         }
     }
+
+    private fun minionProjectile(spotanim: Int, controller: String): NpcProjectile =
+        NpcProjectile(
+            requireNotNull(RSCM.getReverseMapping(RSCMType.SPOTANIM, spotanim)),
+            requireNotNull(ServerCacheManager.getProjectile(controller.asRSCM(RSCMType.PROJANIM))),
+        )
 
     private companion object {
         val NPC_IDS = (11278..11286).toList() + 11294

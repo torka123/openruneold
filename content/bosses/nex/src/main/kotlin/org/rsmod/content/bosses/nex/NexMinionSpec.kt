@@ -10,9 +10,9 @@ import org.rsmod.api.combat.commons.CombatAttack
 
 /**
  * Native attack animation identities1979/9194 are capture-backed under M11/M17 in
- * NEX_OSRS_AUDIT.md. Remaining maxima, prayer, projectile and timing values retain the
- * characterized draft and its recorded evidence gaps. Ordinary selection, cadence, accuracy and
- * hits have one native DSL owner.
+ * NEX_OSRS_AUDIT.md. NexCombat supplies captured Fumus/Glacies travel through this spec's native
+ * parameter resolver. Other projectile choices, maxima, prayer and timing retain the characterized
+ * draft and its evidence gaps. Ordinary selection, cadence, accuracy and hits have one DSL owner.
  */
 internal fun nexMinionSpec(reaver: Boolean): BossSpec {
     val maximum = if (reaver) 18 else 20

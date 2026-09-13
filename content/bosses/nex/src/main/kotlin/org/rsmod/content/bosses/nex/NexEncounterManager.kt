@@ -1538,6 +1538,8 @@ constructor(
             )
             .forEach { anim(it) }
         listOf(
+                368,
+                390,
                 1997,
                 1998,
                 1999,
@@ -1573,6 +1575,7 @@ constructor(
                 requireNotNull(ServerCacheManager.getObject(id)) { "Missing Nex location $id" }
             }
         projectileType("projanim.magic_spell")
+        projectileType("projanim.magic_spell_low")
         projectileType("projanim.arrow")
     }
 
