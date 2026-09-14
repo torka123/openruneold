@@ -483,11 +483,6 @@ internal data class AkkhaFinalStandSwap(
     val incomingBossActorKey: Int?,
 )
 
-internal enum class AkkhaMemoryVisibilityTransition {
-    HIDE,
-    REAPPEAR,
-}
-
 internal data class AkkhaStatus(
     var burnExpiresAt: Int = -1,
     var nextBurnAt: Int = -1,
@@ -566,14 +561,13 @@ internal class AkkhaEncounter(val encounterId: UUID, private val seed: Long) {
         get() = usedShadowQuadrants
 
     val memorySteps = mutableListOf<AkkhaMemoryStep>()
-    var memoryHideAt = -1
-        private set
+    val memoryHideAt: Int
+        get() = combatQueues?.visibilityHideAt ?: -1
 
-    var memoryReappearAt = -1
-        private set
+    val memoryReappearAt: Int
+        get() = combatQueues?.visibilityReappearAt ?: -1
 
     var memoryHidden = false
-        private set
 
     var detonation: AkkhaDetonation? = null
     var trailStartsAt = -1
@@ -582,9 +576,6 @@ internal class AkkhaEncounter(val encounterId: UUID, private val seed: Long) {
     val trailOrbs = mutableListOf<AkkhaTrailOrb>()
     var finalStandHitCounter = 0
     var finalStandLocationIndex = -1
-    var finalStandIntroStage = 0
-    var finalStandIntroStartedAt = -1
-    var finalStandTransitionAt = -1
     var nextFinalOrbAt = -1
     private var finalOrbKey = 0
     val finalOrbs = linkedMapOf<Int, AkkhaFinalOrb>()
@@ -624,8 +615,6 @@ internal class AkkhaEncounter(val encounterId: UUID, private val seed: Long) {
         usedShadowQuadrants.clear()
         pendingDisruptedShadow = null
         memorySteps.clear()
-        memoryHideAt = -1
-        memoryReappearAt = -1
         memoryHidden = false
         detonation = null
         trailStartsAt = -1
@@ -634,9 +623,6 @@ internal class AkkhaEncounter(val encounterId: UUID, private val seed: Long) {
         trailOrbs.clear()
         finalStandHitCounter = 0
         finalStandLocationIndex = -1
-        finalStandIntroStage = 0
-        finalStandIntroStartedAt = -1
-        finalStandTransitionAt = -1
         nextFinalOrbAt = -1
         finalOrbKey = 0
         finalOrbs.clear()
@@ -740,31 +726,9 @@ internal class AkkhaEncounter(val encounterId: UUID, private val seed: Long) {
         advanceStyleWhenSpecialFinishes = false
     }
 
-    fun scheduleMemoryLifecycle(startTick: Int, steps: List<AkkhaMemoryStep> = memorySteps) {
-        require(steps.isNotEmpty())
-        memoryHideAt = startTick + AkkhaTuning.MEMORY_HIDE_DELAY.value
-        memoryReappearAt = steps.maxOf { it.resolvesAt } + AkkhaTuning.MEMORY_REAPPEAR_DELAY.value
-        memoryHidden = false
-    }
-
-    fun pollMemoryVisibility(tick: Int): AkkhaMemoryVisibilityTransition? {
-        if (!memoryHidden && memoryHideAt >= 0 && tick >= memoryHideAt) {
-            memoryHidden = true
-            memoryHideAt = -1
-            return AkkhaMemoryVisibilityTransition.HIDE
-        }
-        if (memoryHidden && memoryReappearAt >= 0 && tick >= memoryReappearAt) {
-            memoryHidden = false
-            memoryReappearAt = -1
-            return AkkhaMemoryVisibilityTransition.REAPPEAR
-        }
-        return null
-    }
-
     fun clearMemoryLifecycle() {
         memorySteps.clear()
-        memoryHideAt = -1
-        memoryReappearAt = -1
+        combatQueues?.clearVisibility()
         memoryHidden = false
     }
 
@@ -940,38 +904,14 @@ internal class AkkhaEncounter(val encounterId: UUID, private val seed: Long) {
         shadowChargeEndsAt = -1
         finalStandHitCounter = 0
         finalStandLocationIndex = -1
-        finalStandIntroStage = 0
-        finalStandIntroStartedAt = -1
-        finalStandTransitionAt = -1
         finalStandBossActorKey = null
         finalStandDecoyActorKeys.clear()
         pendingFinalStandSwap = null
     }
 
-    fun scheduleFinalStandIntro(tick: Int) {
-        check(state == AkkhaState.FINAL_STAND_INTRO)
-        finalStandIntroStage = 0
-        finalStandIntroStartedAt = tick
-        finalStandTransitionAt = tick + AkkhaTuning.FINAL_STAND_STAGE_OFFSETS.value[1]
-    }
-
-    fun advanceFinalStandIntro(tick: Int): Int {
-        if (state != AkkhaState.FINAL_STAND_INTRO || tick < finalStandTransitionAt) return -1
-        finalStandIntroStage++
-        val offsets = AkkhaTuning.FINAL_STAND_STAGE_OFFSETS.value
-        finalStandTransitionAt =
-            if (finalStandIntroStage + 1 in offsets.indices) {
-                finalStandIntroStartedAt + offsets[finalStandIntroStage + 1]
-            } else {
-                -1
-            }
-        return finalStandIntroStage
-    }
-
     fun activateFinalStand(tick: Int) {
         check(state == AkkhaState.FINAL_STAND_INTRO)
         state = AkkhaState.FINAL_STAND
-        finalStandTransitionAt = -1
         if (finalStandLocationIndex !in AkkhaArenaLayout.finalStandAnchors.indices) {
             finalStandLocationIndex = 0
         }

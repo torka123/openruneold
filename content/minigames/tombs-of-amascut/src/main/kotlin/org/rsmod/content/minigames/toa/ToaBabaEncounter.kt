@@ -611,9 +611,18 @@ internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
     var bouldersReleasedThisSet = 0
     var nextBaboonSarcophagusAt = -1
     var baboonSarcophagusRunner: Int? = null
-    val pendingRocks = mutableListOf<BabaPendingRock>()
-    val pendingRubble = mutableListOf<BabaPendingRubble>()
-    val pendingShockwaves = mutableListOf<BabaPendingShockwave>()
+    var hazardQueues: BabaHazardQueues? = null
+        private set
+
+    val pendingRocks: List<BabaPendingRock>
+        get() = hazardQueues?.pendingRocks.orEmpty()
+
+    val pendingRubble: List<BabaPendingRubble>
+        get() = hazardQueues?.pendingRubble.orEmpty()
+
+    val pendingShockwaves: List<BabaPendingShockwave>
+        get() = hazardQueues?.pendingShockwaves.orEmpty()
+
     val rubble = linkedMapOf<Int, BabaRubble>()
     val rollingBoulders = linkedMapOf<Int, BabaRollingBoulder>()
     val destroyedBoulders = mutableSetOf<Int>()
@@ -643,6 +652,12 @@ internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
         state = BabaState.DEFEATED
     }
 
+    fun bindHazards(queues: BabaHazardQueues) {
+        check(nativePhases != null) { "Bind Ba-Ba's native encounter before its hazards." }
+        check(hazardQueues == null && !queues.isClosed)
+        hazardQueues = queues
+    }
+
     fun reset() {
         generation++
         state = BabaState.RESETTING
@@ -663,9 +678,8 @@ internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
         bouldersReleasedThisSet = 0
         nextBaboonSarcophagusAt = -1
         baboonSarcophagusRunner = null
-        pendingRocks.clear()
-        pendingRubble.clear()
-        pendingShockwaves.clear()
+        hazardQueues?.close()
+        hazardQueues = null
         rubble.clear()
         rollingBoulders.clear()
         destroyedBoulders.clear()
@@ -680,16 +694,14 @@ internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
         if (oldUid == newUid) return
         if (target == oldUid) target = newUid
         if (previousTarget == oldUid) previousTarget = newUid
-        pendingRocks.replaceAll { rock ->
-            if (rock.target == oldUid) rock.copy(target = newUid) else rock
-        }
+        hazardQueues?.rebindPlayer(oldUid, newUid)
         rollingBoulders.values.forEach { it.hitPlayers.rebindValue(oldUid, newUid) }
     }
 
     fun retirePlayer(uid: PlayerUid) {
         if (target == uid) target = null
         if (previousTarget == uid) previousTarget = null
-        pendingRocks.removeAll { it.target == uid }
+        hazardQueues?.retirePlayer(uid)
         rollingBoulders.values.forEach { it.hitPlayers.remove(uid) }
     }
 

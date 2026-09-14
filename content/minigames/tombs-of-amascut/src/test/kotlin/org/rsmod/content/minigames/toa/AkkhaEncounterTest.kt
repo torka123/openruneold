@@ -450,19 +450,6 @@ class AkkhaEncounterTest {
     }
 
     @Test
-    fun `memory visibility lifecycle hides at four and reappears two ticks after resolution`() {
-        val state = encounter()
-        state.memorySteps += MemoryBlastController.schedule(100, 0, 4, 4) { true }
-        state.scheduleMemoryLifecycle(100)
-        assertEquals(null, state.pollMemoryVisibility(103))
-        assertEquals(AkkhaMemoryVisibilityTransition.HIDE, state.pollMemoryVisibility(104))
-        assertTrue(state.memoryHidden)
-        assertEquals(null, state.pollMemoryVisibility(125))
-        assertEquals(AkkhaMemoryVisibilityTransition.REAPPEAR, state.pollMemoryVisibility(126))
-        assertFalse(state.memoryHidden)
-    }
-
-    @Test
     fun `captured floor footprint contains exactly seventy five tiles per quadrant`() {
         AkkhaQuadrant.entries.forEach { quadrant ->
             assertEquals(75, AkkhaArenaLayout.floorTiles(setOf(quadrant)).size)
@@ -670,23 +657,16 @@ class AkkhaEncounterTest {
     }
 
     @Test
-    fun `final stand intro follows captured zero two four five tick stages`() {
+    fun `final stand activation starts the retained orb grace`() {
         val state =
             encounter().apply {
                 startIntro()
                 startNormalCombat()
                 beginFinalStand()
-                scheduleFinalStandIntro(100)
             }
-        assertEquals(-1, state.advanceFinalStandIntro(100))
-        assertEquals(-1, state.advanceFinalStandIntro(101))
-        assertEquals(1, state.advanceFinalStandIntro(102))
-        assertEquals(-1, state.advanceFinalStandIntro(103))
-        assertEquals(2, state.advanceFinalStandIntro(104))
-        assertEquals(3, state.advanceFinalStandIntro(105))
+        assertEquals(AkkhaState.FINAL_STAND_INTRO, state.state)
         state.activateFinalStand(105)
         assertEquals(AkkhaState.FINAL_STAND, state.state)
-        assertEquals(-1, state.finalStandTransitionAt)
         assertEquals(105 + AkkhaTuning.FINAL_ORB_INITIAL_GRACE.value, state.nextFinalOrbAt)
     }
 
@@ -711,14 +691,17 @@ class AkkhaEncounterTest {
     }
 
     @Test
-    fun `cleanup reset clears trail and final stand transition schedules`() {
+    fun `cleanup reset clears trail schedules and memory visibility metadata`() {
         val state = encounter()
         state.startTrailingOrbs(10)
+        state.memoryHidden = true
         state.reset()
         assertEquals(-1, state.trailStartsAt)
         assertEquals(-1, state.trailEndsAt)
-        assertEquals(-1, state.finalStandTransitionAt)
-        assertEquals(0, state.finalStandIntroStage)
+        assertFalse(state.memoryHidden)
+        assertEquals(-1, state.memoryHideAt)
+        assertEquals(-1, state.memoryReappearAt)
+        assertEquals(null, state.combatQueues)
     }
 
     @Test

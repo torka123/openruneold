@@ -12,6 +12,79 @@ import org.rsmod.game.entity.player.SessionStateEvent
 @OptIn(InternalApi::class)
 class AkkhaNativeScheduleTest {
     @Test
+    fun `memory native hide and reappearance run before tied completion and restore the body`() {
+        ToaNativeCombatFixture().use { f ->
+            val player = f.player()
+            f.start(player)
+            val raid = f.enterAkkha(player)
+            val source = f.boss(raid)
+            val state = raid.akkha
+            f.bossEncounters.of(source).akkhaSpecialHistory().previous = AkkhaSpecial.TRAILING_ORBS
+            player.coords = source.coords.translate(-1, 0)
+            repeat(8) {
+                if (source.actionDelay > f.clock.cycle)
+                    f.advance(source.actionDelay - f.clock.cycle)
+                f.attack(source, player)
+            }
+            assertEquals(setOf(AkkhaSpecial.MEMORY_BLAST), state.activeSpecials.toSet())
+            val queues = assertNotNull(state.combatQueues)
+            val hideAt = queues.visibilityHideAt
+            val reappearAt = queues.visibilityReappearAt
+            assertEquals(reappearAt, queues.completionAt)
+            f.dispatchLateCycle(hideAt - 1)
+            assertFalse(source.hidden)
+            f.advance(1)
+            f.queueProcess.process()
+            assertFalse(source.hidden, "Global dispatch cannot hide a room-owned body")
+            f.dispatchLateCycle()
+            assertTrue(source.hidden)
+            assertTrue(state.memoryHidden)
+            assertTrue(source.ignoreCombatInteractions)
+            f.dispatchLateCycle(reappearAt - 1)
+            assertTrue(source.hidden)
+            f.dispatchLateCycle(reappearAt)
+            assertFalse(source.hidden)
+            assertFalse(state.memoryHidden)
+            assertFalse(source.ignoreCombatInteractions)
+            assertEquals(AkkhaState.NORMAL_COMBAT, state.state)
+            assertEquals(-1, queues.visibilityReappearAt)
+            assertEquals(-1, queues.completionAt)
+            f.instances.terminate(raid.instance)
+            assertFalse(queues.processVisibility())
+        }
+    }
+
+    @Test
+    fun `overdue final intro advances one anchored stage per native room dispatch`() {
+        ToaNativeCombatFixture().use { f ->
+            val player = f.player()
+            f.start(player)
+            val raid = f.enterAkkha(player)
+            val source = f.boss(raid)
+            val started = f.clock.cycle
+            beginFinalStand(f, raid, source)
+            val queues = assertNotNull(raid.akkha.combatQueues)
+            f.advance(20)
+            f.queueProcess.process()
+            assertEquals(started + 2, queues.completionAt)
+            f.dispatchLateCycle()
+            assertEquals(AkkhaState.FINAL_STAND_INTRO, raid.akkha.state)
+            assertEquals(AkkhaAssets.ENRAGE_INITIAL, source.visType.id)
+            assertEquals(started + 4, queues.completionAt)
+            f.dispatchLateCycle()
+            assertEquals(AkkhaState.FINAL_STAND_INTRO, raid.akkha.state)
+            assertEquals(started + 5, queues.completionAt)
+            assertTrue(raid.akkha.finalStandDecoyActorKeys.isEmpty())
+            f.dispatchLateCycle()
+            assertEquals(AkkhaState.FINAL_STAND, raid.akkha.state)
+            assertEquals(3, raid.akkha.finalStandDecoyActorKeys.size)
+            assertEquals(-1, queues.completionAt)
+            f.dispatchLateCycle()
+            assertEquals(3, raid.akkha.finalStandDecoyActorKeys.size)
+        }
+    }
+
+    @Test
     fun `forced style retains accepted budget and blocking completion rearms overdue style only once`() {
         ToaNativeCombatFixture().use { f ->
             val player = f.player()
@@ -154,6 +227,14 @@ class AkkhaNativeScheduleTest {
     }
 
     private fun enterFinalStand(f: ToaNativeCombatFixture, raid: ToaRaidSession, source: Npc) {
+        val started = f.clock.cycle
+        beginFinalStand(f, raid, source)
+        for (offset in listOf(2, 4, 5)) f.dispatchLateCycle(started + offset)
+        assertEquals(AkkhaState.FINAL_STAND, raid.akkha.state)
+        assertEquals(3, raid.akkha.finalStandDecoyActorKeys.size)
+    }
+
+    private fun beginFinalStand(f: ToaNativeCombatFixture, raid: ToaRaidSession, source: Npc) {
         // Threshold and lure geometry are covered separately; run the real final-entry payload.
         val method =
             ToaRaidManager::class
@@ -164,11 +245,7 @@ class AkkhaNativeScheduleTest {
                     Npc::class.java,
                 )
         method.isAccessible = true
-        val started = f.clock.cycle
         method.invoke(f.manager, raid, source)
-        for (offset in listOf(2, 4, 5)) f.dispatchLateCycle(started + offset)
-        assertEquals(AkkhaState.FINAL_STAND, raid.akkha.state)
-        assertEquals(3, raid.akkha.finalStandDecoyActorKeys.size)
     }
 
     @AfterEach fun releaseMocks() = framework().clearInlineMocks()

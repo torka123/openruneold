@@ -434,7 +434,7 @@ constructor(
                 addZebakLoc(raid, ZebakAssets.BODY_BLOCKER_LOC, bodyTile),
                 addZebakLoc(raid, ZebakAssets.BODY_BLOCKER_LOC, tailTile),
             )
-        raid.zebak.start(body, tail, clock.cycle)
+        raid.zebak.start(body, tail)
         // Bind before the first player hit can lazily create the encounter with global RNG.
         val encounter = bossDeps.encounterRegistry.of(body, ZebakSelectionRandom(raid.zebak))
         val generation = raid.zebak.generation
@@ -477,6 +477,30 @@ constructor(
             }
         raid.zebak.bindAttackQueues(attackQueues)
         encounter.onCleanup(attackQueues::close)
+        val payloadQueues =
+            encounter.state("toa.zebak-payload-queues") {
+                ZebakPayloadQueues(
+                    bossDeps.worldQueues,
+                    worldQueueProcess,
+                    clock,
+                    raid.zebak,
+                    valid = {
+                        raid.zebak.generation == generation &&
+                            raid.zebak.body === body &&
+                            instances.instanceForNpc(body) == raid.instance.id &&
+                            bossDeps.encounterRegistry.isCurrent(body, encounter)
+                    },
+                )
+            }
+        raid.zebak.bindPayloadQueues(payloadQueues)
+        encounter.onCleanup(payloadQueues::close)
+        if (ZebakInvocationRules.resolve(raid.startSnapshot.invocations).bloodMagic) {
+            payloadQueues.armBlood(
+                clock.cycle + ZebakTuning.EMERGE_TICKS + ZebakTuning.BLOOD_INTERVAL
+            ) {
+                launchZebakBlood(raid, body)
+            }
+        }
         replaceOrdinaryDeadline(raid, ZebakTimeline.firstAutoAt(clock.cycle))
         faceZebakEast(raid, body)
         animateZebak(raid, body, ZebakAssets.BODY_IDLE)
@@ -1866,24 +1890,23 @@ constructor(
                         ToaNpcRole.HAZARD,
                     )
                 crocodile.maxOpRangeOverride = 32
-                state.waterCrocodiles[player.uid] =
-                    ZebakWaterCrocodileRuntime(
-                        npc = crocodile,
-                        target = player.uid,
-                        nextAttackAt = clock.cycle + ZebakTuning.WATER_CROCODILE_ATTACK_INTERVAL,
-                    )
+                val crocodileRuntime = ZebakWaterCrocodileRuntime(crocodile, player.uid)
+                state.waterCrocodiles[player.uid] = crocodileRuntime
+                state.payloadQueues?.armCrocodileBite(crocodileRuntime)
             }
         }
+        state.payloadQueues?.processCrocodileReadiness()
         state.waterCrocodiles.entries.toList().forEach { (uid, runtime) ->
             val target = uid.resolve(players)
             val swimming = state.playerState[uid]?.swimming == true
             if (uid !in activeUids || target == null || !swimming || !runtime.npc.isSlotAssigned) {
                 state.waterCrocodiles.remove(uid)
+                state.payloadQueues?.cancelCrocodile(runtime)
                 if (runtime.npc.isSlotAssigned) removeNpc(raid, runtime.npc)
                 return@forEach
             }
             if (runtime.npc.isWithinDistance(target, 1)) {
-                if (clock.cycle >= runtime.nextAttackAt) {
+                if (runtime.biteReady) {
                     queueDamage(
                         raid,
                         target,
@@ -1892,11 +1915,70 @@ constructor(
                         HitType.Melee,
                         100,
                     )
-                    runtime.nextAttackAt = clock.cycle + ZebakTuning.WATER_CROCODILE_ATTACK_INTERVAL
+                    state.payloadQueues?.armCrocodileBite(runtime)
                 }
             } else if (clock.cycle % 2 == 0) {
                 runtime.npc.walkTo(routeFactory, target.coords, passThroughEntities = false)
             }
+        }
+    }
+
+    private fun launchZebakBlood(raid: ToaRaidSession, body: Npc) {
+        val state = raid.zebak
+        val targets = activePlayers(raid)
+        val invocationRules = ZebakInvocationRules.resolve(raid.startSnapshot.invocations)
+        if (
+            bossDeps.encounterRegistry.of(body).selectZebakBlood(clock.cycle) ==
+                ZebakBloodChoice.BARRAGE
+        ) {
+            val target = targets[state.nextInt(targets.size)]
+            sendProjectile(body, target, ZebakAssets.MAGIC_PROJECTILE)
+            val radius = invocationRules.barrageRadius
+            targets
+                .filter { it.coords.chebyshevDistance(target.coords) <= radius }
+                .forEach { player ->
+                    state.body?.let { source ->
+                        raid.encounter.pendingHits +=
+                            ToaPendingHit(
+                                target = player.uid,
+                                tile = player.coords,
+                                landsAt = clock.cycle + 2,
+                                damage = scaledDamage(raid, 20),
+                                impactGraphic = ZebakAssets.MAGIC_SPLIT_VISUAL,
+                                requireTargetOnTile = false,
+                                hitType = HitType.Magic,
+                                prayerReductionPercent = ZebakTuning.RANGE_MAGIC_PRAYER_REDUCTION,
+                                generation = state.generation,
+                                zebakBloodHealing = true,
+                            )
+                    }
+                }
+            trace(raid, "blood_barrage", "target=" + target.uid + " radius=" + radius)
+        } else {
+            val count = invocationRules.bloodCloudCount
+            val offsets = listOf(-5 to 0, 5 to 0, 0 to -5)
+            repeat(count) { index ->
+                val target = targets[index % targets.size]
+                val offset = offsets[index]
+                val cloud =
+                    spawnNpc(
+                        raid,
+                        invocationRules.bloodCloudNpc,
+                        CoordGrid(
+                            target.coords.x + offset.first,
+                            target.coords.z + offset.second,
+                            target.coords.level,
+                        ),
+                        ToaNpcRole.HAZARD,
+                    )
+                cloud.baseHitpointsLvl = ZebakTuning.BLOOD_CLOUD_HITPOINTS
+                cloud.hitpoints = ZebakTuning.BLOOD_CLOUD_HITPOINTS
+                cloud.suppressHitpointsRegen = true
+                val runtime = ZebakBloodCloudRuntime(cloud, target.uid)
+                state.bloodClouds[cloud.hashCode()] = runtime
+                state.payloadQueues?.addCloud(runtime)
+            }
+            trace(raid, "blood_clouds", "count=" + count)
         }
     }
 
@@ -1905,65 +1987,9 @@ constructor(
         val targets = activePlayers(raid)
         val invocationRules = ZebakInvocationRules.resolve(raid.startSnapshot.invocations)
         if (!invocationRules.bloodMagic || targets.isEmpty()) return
-
-        if (clock.cycle >= state.nextBloodAt) {
-            state.nextBloodAt = clock.cycle + ZebakTuning.BLOOD_INTERVAL
-            if (state.nextInt(2) == 0) {
-                val target = targets[state.nextInt(targets.size)]
-                sendProjectile(body, target, ZebakAssets.MAGIC_PROJECTILE)
-                val radius = invocationRules.barrageRadius
-                targets
-                    .filter { it.coords.chebyshevDistance(target.coords) <= radius }
-                    .forEach { player ->
-                        state.body?.let { source ->
-                            raid.encounter.pendingHits +=
-                                ToaPendingHit(
-                                    target = player.uid,
-                                    tile = player.coords,
-                                    landsAt = clock.cycle + 2,
-                                    damage = scaledDamage(raid, 20),
-                                    impactGraphic = ZebakAssets.MAGIC_SPLIT_VISUAL,
-                                    requireTargetOnTile = false,
-                                    hitType = HitType.Magic,
-                                    prayerReductionPercent =
-                                        ZebakTuning.RANGE_MAGIC_PRAYER_REDUCTION,
-                                    generation = state.generation,
-                                    zebakBloodHealing = true,
-                                )
-                        }
-                    }
-                trace(raid, "blood_barrage", "target=" + target.uid + " radius=" + radius)
-            } else {
-                val count = invocationRules.bloodCloudCount
-                val offsets = listOf(-5 to 0, 5 to 0, 0 to -5)
-                repeat(count) { index ->
-                    val target = targets[index % targets.size]
-                    val offset = offsets[index]
-                    val cloud =
-                        spawnNpc(
-                            raid,
-                            invocationRules.bloodCloudNpc,
-                            CoordGrid(
-                                target.coords.x + offset.first,
-                                target.coords.z + offset.second,
-                                target.coords.level,
-                            ),
-                            ToaNpcRole.HAZARD,
-                        )
-                    cloud.baseHitpointsLvl = ZebakTuning.BLOOD_CLOUD_HITPOINTS
-                    cloud.hitpoints = ZebakTuning.BLOOD_CLOUD_HITPOINTS
-                    cloud.suppressHitpointsRegen = true
-                    state.bloodClouds[cloud.hashCode()] =
-                        ZebakBloodCloudRuntime(
-                            cloud,
-                            target.uid,
-                            clock.cycle + 40,
-                            nextContactAt = clock.cycle,
-                        )
-                }
-                trace(raid, "blood_clouds", "count=" + count)
-            }
-        }
+        state.payloadQueues?.processBlood()
+        // New clouds join this pass: decay and contact still happen in their spawn tick.
+        state.payloadQueues?.processCloudReadiness()
 
         state.bloodClouds.values.toList().forEach { runtime ->
             val cloud = runtime.npc
@@ -1971,12 +1997,10 @@ constructor(
             runtime.hitpoints -= ZebakTuning.BLOOD_CLOUD_DECAY
             if (cloud.isSlotAssigned) cloud.hitpoints = runtime.hitpoints.coerceAtLeast(0)
             if (
-                !cloud.isSlotAssigned ||
-                    target == null ||
-                    runtime.hitpoints <= 0 ||
-                    clock.cycle >= runtime.expiresAt
+                !cloud.isSlotAssigned || target == null || runtime.hitpoints <= 0 || runtime.expired
             ) {
                 state.bloodClouds.remove(cloud.hashCode())
+                state.payloadQueues?.cancelCloud(runtime)
                 if (cloud.isSlotAssigned) removeNpc(raid, cloud)
                 return@forEach
             }
@@ -1986,14 +2010,14 @@ constructor(
             val contactRadius = invocationRules.barrageRadius
             if (
                 cloud.coords.chebyshevDistance(target.coords) <= contactRadius &&
-                    clock.cycle >= runtime.nextContactAt
+                    runtime.contactReady
             ) {
                 val damage = scaledDamage(raid, 12)
                 val dealt = queueDamage(raid, target, body, damage, HitType.Magic, 100)
                 val healing =
                     ZebakInvocationRules.healAmount(dealt, invocationRules.arterialHealing)
                 body.hitpoints = (body.hitpoints + healing).coerceAtMost(body.baseHitpointsLvl)
-                runtime.nextContactAt = clock.cycle + ZebakTuning.BLOOD_CLOUD_CONTACT_INTERVAL
+                state.payloadQueues?.armCloudContact(runtime)
             }
         }
     }
@@ -2031,8 +2055,9 @@ constructor(
         runtime.swimming = false
         runtime.previousTile = landing
         player.tempMoveSpeed = null
-        raid.zebak.waterCrocodiles.remove(player.uid)?.npc?.let { crocodile ->
-            if (crocodile.isSlotAssigned) removeNpc(raid, crocodile)
+        raid.zebak.waterCrocodiles.remove(player.uid)?.let { crocodile ->
+            raid.zebak.payloadQueues?.cancelCrocodile(crocodile)
+            if (crocodile.npc.isSlotAssigned) removeNpc(raid, crocodile.npc)
         }
     }
 
@@ -2086,6 +2111,7 @@ constructor(
     }
 
     private fun cleanupZebakCombatActors(raid: ToaRaidSession) {
+        raid.zebak.payloadQueues?.close()
         raid.zebak.phases?.close()
         cleanupZebakSpecialActors(raid)
         raid.zebak.bloodClouds.values

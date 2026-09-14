@@ -190,7 +190,7 @@ internal class ToaNativeCombatFixture(nativeLifecycleFirst: Boolean = true) : Au
             objects,
             npcs,
             world,
-            mock(RouteFactory::class.java),
+            RouteFactory(collision),
             collision,
             accuracy,
             accessRandom,

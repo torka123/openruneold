@@ -5595,9 +5595,9 @@ constructor(
     private fun tickBabaEncounter(raid: ToaRaidSession) {
         val source = boss(raid) ?: return
         val state = raid.baba
-        processBabaPendingRocks(raid, source)
-        processBabaPendingRubble(raid)
-        processBabaPendingShockwaves(raid, source)
+        state.hazardQueues?.processRocks()
+        state.hazardQueues?.processRubble()
+        state.hazardQueues?.processShockwaves()
         tickBabaBananas(raid, source)
         tickBabaSarcophagi(raid, source)
         val queues = babaQueues(raid, source)
@@ -5719,7 +5719,9 @@ constructor(
                             BabaTuning.ROCKFALL_WARNING_TICKS.value,
                         )
                         world.spotanimMap(SpotanimType(BabaAssets.ROCKFALL), landingTile)
-                        state.pendingRocks +=
+                        queueBabaRock(
+                            raid,
+                            source,
                             BabaPendingRock(
                                 target.uid,
                                 landingTile,
@@ -5727,7 +5729,8 @@ constructor(
                                 scaledDamage(raid, BabaTuning.ROCKFALL_MAX_HIT.value),
                                 BabaAssets.ROCKFALL_FASTEST,
                                 thrown = false,
-                            )
+                            ),
+                        )
                     }
                     queueBabaRubble(raid, targets, count = 2)
                     BabaTuning.ROCKFALL_WARNING_TICKS.value + 2
@@ -5743,7 +5746,9 @@ constructor(
                             BabaAssets.BABA_RANGED_TRAVEL,
                             BabaTuning.ROCK_THROW_WARNING_TICKS.value,
                         )
-                        state.pendingRocks +=
+                        queueBabaRock(
+                            raid,
+                            source,
                             BabaPendingRock(
                                 target.uid,
                                 landingTile,
@@ -5751,7 +5756,8 @@ constructor(
                                 scaledDamage(raid, BabaTuning.ROCK_THROW_MAX_HIT.value),
                                 BabaAssets.EXPLOSION,
                                 thrown = true,
-                            )
+                            ),
+                        )
                     }
                     BabaTuning.ROCK_THROW_WARNING_TICKS.value + 1
                 }
@@ -5779,76 +5785,62 @@ constructor(
         return duration
     }
 
-    private fun processBabaPendingRocks(raid: ToaRaidSession, source: Npc) {
+    private fun queueBabaRock(raid: ToaRaidSession, source: Npc, pending: BabaPendingRock) {
+        requireNotNull(raid.baba.hazardQueues).queueRock(pending) {
+            resolveBabaRock(raid, source, it)
+        }
+    }
+
+    private fun resolveBabaRock(raid: ToaRaidSession, source: Npc, pending: BabaPendingRock) {
         val state = raid.baba
-        val iterator = state.pendingRocks.iterator()
-        while (iterator.hasNext()) {
-            val pending = iterator.next()
-            if (clock.cycle < pending.landsAt) continue
-            iterator.remove()
-            val target = pending.target.resolve(players) ?: continue
-            if (target !in activePlayers(raid)) continue
-            val impact = pending.tile
-            world.spotanimMap(SpotanimType(pending.graphic), impact)
-            if (pending.thrown) {
-                val cover =
-                    BabaCoverResolver.select(
-                        impact,
-                        state.rubble.values.map { it.tile },
-                        state.sarcophagi.values
-                            .filter { it.state != BabaSarcophagusState.OPEN }
-                            .map { it.tile },
-                        raid.spawnedNpcs
-                            .filter { it.id == BabaAssets.BABOON && it.isSlotAssigned }
-                            .map { it.coords },
-                    )
-                if (cover == null) {
-                    if (BabaRockImpactResolver.playerRemainsOnImpactTile(target.coords, impact)) {
-                        queueAkkhaCombatHit(
-                            target,
-                            source,
-                            pending.damage,
-                            0,
-                            HitType.Typeless,
-                            null,
-                        )
-                    } else {
-                        traceBaba(
-                            raid,
-                            source,
-                            "rock_throw_dodged",
-                            "target" to target.uid,
-                            "impact" to impact,
-                            "playerTile" to target.coords,
-                        )
-                    }
+        val target = pending.target.resolve(players) ?: return
+        if (target !in activePlayers(raid)) return
+        val impact = pending.tile
+        world.spotanimMap(SpotanimType(pending.graphic), impact)
+        if (pending.thrown) {
+            val cover =
+                BabaCoverResolver.select(
+                    impact,
+                    state.rubble.values.map { it.tile },
+                    state.sarcophagi.values
+                        .filter { it.state != BabaSarcophagusState.OPEN }
+                        .map { it.tile },
+                    raid.spawnedNpcs
+                        .filter { it.id == BabaAssets.BABOON && it.isSlotAssigned }
+                        .map { it.coords },
+                )
+            if (cover == null) {
+                if (BabaRockImpactResolver.playerRemainsOnImpactTile(target.coords, impact)) {
+                    queueAkkhaCombatHit(target, source, pending.damage, 0, HitType.Typeless, null)
                 } else {
-                    applyBabaCoverDamage(raid, cover)
                     traceBaba(
                         raid,
                         source,
-                        "rock_throw_blocked",
+                        "rock_throw_dodged",
                         "target" to target.uid,
                         "impact" to impact,
-                        "cover" to cover.first,
-                        "coverTile" to cover.second,
+                        "playerTile" to target.coords,
                     )
                 }
-                continue
+            } else {
+                applyBabaCoverDamage(raid, cover)
+                traceBaba(
+                    raid,
+                    source,
+                    "rock_throw_blocked",
+                    "target" to target.uid,
+                    "impact" to impact,
+                    "cover" to cover.first,
+                    "coverTile" to cover.second,
+                )
             }
-            when (target.coords.chebyshevDistance(pending.tile)) {
-                0 -> queueAkkhaCombatHit(target, source, pending.damage, 0, HitType.Typeless, null)
-                1 -> {
-                    queueAkkhaCombatHit(
-                        target,
-                        source,
-                        pending.damage / 2,
-                        0,
-                        HitType.Typeless,
-                        null,
-                    )
-                    pushBabaPlayer(raid, target, pending.tile, 1)
-                }
+            return
+        }
+        when (target.coords.chebyshevDistance(pending.tile)) {
+            0 -> queueAkkhaCombatHit(target, source, pending.damage, 0, HitType.Typeless, null)
+            1 -> {
+                queueAkkhaCombatHit(target, source, pending.damage / 2, 0, HitType.Typeless, null)
+                pushBabaPlayer(raid, target, pending.tile, 1)
             }
         }
     }
@@ -5870,13 +5862,16 @@ constructor(
                 emptySet()
             }
         tiles.forEach { world.spotanimMap(SpotanimType(BabaAssets.SHOCKWAVE_WARNING), it) }
-        raid.baba.pendingShockwaves +=
+        requireNotNull(raid.baba.hazardQueues).queueShockwave(
             BabaPendingShockwave(
                 tiles,
                 lethalTiles,
                 clock.cycle + warningTicks,
                 scaledDamage(raid, maximum),
             )
+        ) {
+            resolveBabaShockwave(raid, source, it)
+        }
         traceBaba(
             raid,
             source,
@@ -5889,40 +5884,26 @@ constructor(
         )
     }
 
-    private fun processBabaPendingShockwaves(raid: ToaRaidSession, source: Npc) {
-        val iterator = raid.baba.pendingShockwaves.iterator()
-        while (iterator.hasNext()) {
-            val pending = iterator.next()
-            if (clock.cycle < pending.landsAt) continue
-            iterator.remove()
-            activePlayers(raid).forEach { player ->
-                when {
-                    player.coords in pending.lethalTiles -> {
-                        pushBabaPlayer(
-                            raid,
-                            player,
-                            source.coords,
-                            BabaTuning.BOULDER_PUSH_TILES.value,
-                        )
-                        queueAkkhaCombatHit(
-                            player,
-                            source,
-                            player.hitpoints.coerceAtLeast(1),
-                            0,
-                            HitType.Typeless,
-                            null,
-                        )
-                    }
-                    player.coords in pending.tiles ->
-                        queueAkkhaCombatHit(
-                            player,
-                            source,
-                            pending.damage,
-                            0,
-                            HitType.Typeless,
-                            null,
-                        )
+    private fun resolveBabaShockwave(
+        raid: ToaRaidSession,
+        source: Npc,
+        pending: BabaPendingShockwave,
+    ) {
+        activePlayers(raid).forEach { player ->
+            when {
+                player.coords in pending.lethalTiles -> {
+                    pushBabaPlayer(raid, player, source.coords, BabaTuning.BOULDER_PUSH_TILES.value)
+                    queueAkkhaCombatHit(
+                        player,
+                        source,
+                        player.hitpoints.coerceAtLeast(1),
+                        0,
+                        HitType.Typeless,
+                        null,
+                    )
                 }
+                player.coords in pending.tiles ->
+                    queueAkkhaCombatHit(player, source, pending.damage, 0, HitType.Typeless, null)
             }
         }
     }
@@ -5939,13 +5920,16 @@ constructor(
         source.anim(BabaAssets.SHOCKWAVE)
         val tiles = under.mapTo(linkedSetOf()) { it.coords }
         tiles.forEach { world.spotanimMap(SpotanimType(BabaAssets.SHOCKWAVE_WARNING), it) }
-        raid.baba.pendingShockwaves +=
+        requireNotNull(raid.baba.hazardQueues).queueShockwave(
             BabaPendingShockwave(
                 tiles,
                 emptySet(),
                 clock.cycle + BabaTuning.FAST_STOMP_WARNING_TICKS.value,
                 scaledDamage(raid, BabaTuning.FAST_STOMP_MAX_HIT.value),
             )
+        ) {
+            resolveBabaShockwave(raid, source, it)
+        }
         traceBaba(raid, source, "under_target_stomp", "targets" to under.size)
     }
 
@@ -5985,48 +5969,45 @@ constructor(
             selected += tile
             val variant = raid.baba.nextInt(4)
             world.spotanimMap(SpotanimType(BabaAssets.ROCKFALL), tile)
-            raid.baba.pendingRubble +=
+            requireNotNull(raid.baba.hazardQueues).queueRubble(
                 BabaPendingRubble(
                     tile,
                     clock.cycle + BabaTuning.ROCKFALL_WARNING_TICKS.value,
                     variant,
                 )
+            ) {
+                resolveBabaRubble(raid, it)
+            }
         }
     }
 
-    private fun processBabaPendingRubble(raid: ToaRaidSession) {
-        val iterator = raid.baba.pendingRubble.iterator()
-        while (iterator.hasNext()) {
-            val pending = iterator.next()
-            if (clock.cycle < pending.landsAt) continue
-            iterator.remove()
-            if (raid.baba.rubble.values.any { it.tile == pending.tile }) continue
-            val ids =
-                intArrayOf(
-                    BabaAssets.RUBBLE_LARGE,
-                    BabaAssets.RUBBLE_MEDIUM,
-                    BabaAssets.RUBBLE_SMALL,
-                    BabaAssets.RUBBLE_TINY,
-                )
-            val actor =
-                spawnNpc(
-                    raid,
-                    ids[pending.variant.coerceIn(ids.indices)],
-                    pending.tile,
-                    ToaNpcRole.BOULDER,
-                )
-            actor.abortRoute()
-            actor.clearInteraction()
-            actor.mode = null
-            actor.moveRestrict = MoveRestrict.NoMove
-            actor.baseHitpointsLvl = BabaScaling.rubbleHitpoints(raid.startSnapshot.partySize)
-            actor.hitpoints = actor.baseHitpointsLvl
-            actor.suppressHitpointsRegen = true
-            actor.anim(BabaAssets.RUBBLE_FALL)
-            showBabaRubbleHeadbar(actor)
-            raid.baba.rubble[actor.hashCode()] = BabaRubble(actor.hashCode(), pending.tile)
-            traceBaba(raid, boss(raid), "rubble_land", "tile" to pending.tile, "npc" to actor.id)
-        }
+    private fun resolveBabaRubble(raid: ToaRaidSession, pending: BabaPendingRubble) {
+        if (raid.baba.rubble.values.any { it.tile == pending.tile }) return
+        val ids =
+            intArrayOf(
+                BabaAssets.RUBBLE_LARGE,
+                BabaAssets.RUBBLE_MEDIUM,
+                BabaAssets.RUBBLE_SMALL,
+                BabaAssets.RUBBLE_TINY,
+            )
+        val actor =
+            spawnNpc(
+                raid,
+                ids[pending.variant.coerceIn(ids.indices)],
+                pending.tile,
+                ToaNpcRole.BOULDER,
+            )
+        actor.abortRoute()
+        actor.clearInteraction()
+        actor.mode = null
+        actor.moveRestrict = MoveRestrict.NoMove
+        actor.baseHitpointsLvl = BabaScaling.rubbleHitpoints(raid.startSnapshot.partySize)
+        actor.hitpoints = actor.baseHitpointsLvl
+        actor.suppressHitpointsRegen = true
+        actor.anim(BabaAssets.RUBBLE_FALL)
+        showBabaRubbleHeadbar(actor)
+        raid.baba.rubble[actor.hashCode()] = BabaRubble(actor.hashCode(), pending.tile)
+        traceBaba(raid, boss(raid), "rubble_land", "tile" to pending.tile, "npc" to actor.id)
     }
 
     private fun showBabaRubbleHeadbar(actor: Npc) {
@@ -6696,9 +6677,7 @@ constructor(
     }
 
     private fun clearBabaRubbleSequence(raid: ToaRaidSession) {
-        raid.baba.pendingRocks.clear()
-        raid.baba.pendingRubble.clear()
-        raid.baba.pendingShockwaves.clear()
+        raid.baba.hazardQueues?.clear()
         raid.baba.rubble.keys.toList().forEach { key ->
             raid.spawnedNpcs.firstOrNull { it.hashCode() == key }?.let { removeNpc(raid, it) }
         }
@@ -8531,7 +8510,7 @@ constructor(
     private fun processAkkhaTimedMechanics(raid: ToaRaidSession) {
         val source = boss(raid) ?: return
         val state = raid.akkha
-        processAkkhaMemoryVisibility(raid, source)
+        processAkkhaMemoryVisibility(raid)
         when (state.state) {
             // Admission starts intro and normal combat synchronously in initializeAkkha.
             AkkhaState.INTRO -> Unit
@@ -8557,7 +8536,7 @@ constructor(
                 maintainAkkhaAggression(raid, source)
                 processAkkhaShadowCharge(raid, source)
             }
-            AkkhaState.FINAL_STAND_INTRO -> processAkkhaFinalStandIntro(raid, source)
+            AkkhaState.FINAL_STAND_INTRO -> akkhaQueues(raid).processCompletion()
             AkkhaState.NORMAL_COMBAT -> {
                 akkhaQueues(raid).processStyle()
                 maintainAkkhaAggression(raid, source)
@@ -8651,48 +8630,68 @@ constructor(
         world.soundArea(source.coords, AKKHA_STYLE_CHANGE_SOUND, radius = 14, size = source.size)
     }
 
-    private fun processAkkhaMemoryVisibility(raid: ToaRaidSession, source: Npc) {
+    private fun processAkkhaMemoryVisibility(raid: ToaRaidSession) {
         val state = raid.akkha
         if (AkkhaSpecial.MEMORY_BLAST !in state.activeSpecials) return
-        val hideAt = state.memoryHideAt
-        when (clock.cycle) {
-            hideAt - 2 ->
-                activePlayers(raid).forEach {
-                    it.mes("<col=a53fff>Sections of the room start to glow...</col>")
-                }
-            hideAt - 1 -> source.anim(AkkhaAssets.TELEPORT_DISAPPEAR_SPEAR)
-        }
-        when (state.pollMemoryVisibility(clock.cycle)) {
-            AkkhaMemoryVisibilityTransition.HIDE -> {
-                source.clearInteraction()
-                source.abortRoute()
-                source.mode = null
-                source.ignoreCombatInteractions = true
-                npcs.hide(
-                    source,
-                    akkhaMemoryRepositoryHideDuration(clock.cycle, state.memoryReappearAt),
-                )
-                traceAkkha(raid, source, "memory_hide")
-            }
-            AkkhaMemoryVisibilityTransition.REAPPEAR -> {
-                clearAkkhaMemorySymbols(raid)
-                PathingEntityCommon.telejump(
-                    source,
-                    collision,
-                    akkhaCoord(raid, AkkhaArenaLayout.CENTER_X, AkkhaArenaLayout.CENTER_Z - 2),
-                )
-                source.hidden = false
-                source.ignoreCombatInteractions = false
-                source.transmog(
-                    requireNotNull(ServerCacheManager.getNpc(state.style.npcId)),
-                    Int.MAX_VALUE,
-                )
-                source.anim(AkkhaAssets.TELEPORT_APPEAR_SPEAR)
-                source.apRangeOverride = akkhaAttackRange(state.style)
-                traceAkkha(raid, source, "memory_reappear", "tile" to source.coords)
-            }
-            null -> Unit
-        }
+        akkhaQueues(raid).processVisibility()
+    }
+
+    private fun armAkkhaMemoryVisibility(raid: ToaRaidSession, source: Npc): Int {
+        val state = raid.akkha
+        val hideAt = clock.cycle + AkkhaTuning.MEMORY_HIDE_DELAY.value
+        val reappearAt =
+            state.memorySteps.maxOf { it.resolvesAt } + AkkhaTuning.MEMORY_REAPPEAR_DELAY.value
+        state.memoryHidden = false
+        fun liveBody(): Boolean = boss(raid) === source && source.isSlotAssigned
+        akkhaQueues(raid)
+            .armVisibility(
+                hideAt,
+                reappearAt,
+                warn = {
+                    if (liveBody())
+                        activePlayers(raid).forEach {
+                            it.mes("<col=a53fff>Sections of the room start to glow...</col>")
+                        }
+                },
+                disappear = { if (liveBody()) source.anim(AkkhaAssets.TELEPORT_DISAPPEAR_SPEAR) },
+                hide = hide@{
+                        if (!liveBody()) return@hide
+                        state.memoryHidden = true
+                        source.clearInteraction()
+                        source.abortRoute()
+                        source.mode = null
+                        source.ignoreCombatInteractions = true
+                        npcs.hide(
+                            source,
+                            akkhaMemoryRepositoryHideDuration(clock.cycle, reappearAt),
+                        )
+                        traceAkkha(raid, source, "memory_hide")
+                    },
+                reappear = reappear@{
+                        if (!liveBody()) return@reappear
+                        state.memoryHidden = false
+                        clearAkkhaMemorySymbols(raid)
+                        PathingEntityCommon.telejump(
+                            source,
+                            collision,
+                            akkhaCoord(
+                                raid,
+                                AkkhaArenaLayout.CENTER_X,
+                                AkkhaArenaLayout.CENTER_Z - 2,
+                            ),
+                        )
+                        source.hidden = false
+                        source.ignoreCombatInteractions = false
+                        source.transmog(
+                            requireNotNull(ServerCacheManager.getNpc(state.style.npcId)),
+                            Int.MAX_VALUE,
+                        )
+                        source.anim(AkkhaAssets.TELEPORT_APPEAR_SPEAR)
+                        source.apRangeOverride = akkhaAttackRange(state.style)
+                        traceAkkha(raid, source, "memory_reappear", "tile" to source.coords)
+                    },
+            )
+        return reappearAt
     }
 
     private fun processAkkhaShadowCharge(raid: ToaRaidSession, source: Npc) {
@@ -9079,8 +9078,7 @@ constructor(
                         window,
                         state::nextBoolean,
                     )
-                state.scheduleMemoryLifecycle(clock.cycle, state.memorySteps)
-                (state.memoryReappearAt - clock.cycle).coerceAtLeast(1)
+                (armAkkhaMemoryVisibility(raid, source) - clock.cycle).coerceAtLeast(1)
             }
             AkkhaSpecial.TRAILING_ORBS -> {
                 source.anim(special.spearAnimation)
@@ -9307,17 +9305,37 @@ constructor(
             Int.MAX_VALUE,
         )
         source.anim(AkkhaAssets.FINAL_STAND_SPEAR)
-        state.scheduleFinalStandIntro(clock.cycle)
         // Final stand starts a new hit generation; retire its old callbacks and bind that lifetime.
         resetAkkhaQueues(raid)
+        armAkkhaFinalStandIntro(raid, source, clock.cycle, stage = 1)
         raid.nextMechanicAt = clock.cycle + 1
         traceAkkha(raid, source, "final_stand_start", "bossMaxHp" to source.baseHitpointsLvl)
         message(raid.party, "<col=ff289d>Akkha makes his final stand!</col>")
     }
 
-    private fun processAkkhaFinalStandIntro(raid: ToaRaidSession, source: Npc) {
-        val state = raid.akkha
-        when (state.advanceFinalStandIntro(clock.cycle)) {
+    private fun armAkkhaFinalStandIntro(
+        raid: ToaRaidSession,
+        source: Npc,
+        startedAt: Int,
+        stage: Int,
+    ) {
+        val deadline = startedAt + AkkhaTuning.FINAL_STAND_STAGE_OFFSETS.value[stage]
+        akkhaQueues(raid).armCompletion(deadline) {
+            if (
+                raid.akkha.state != AkkhaState.FINAL_STAND_INTRO ||
+                    boss(raid) !== source ||
+                    !source.isSlotAssigned
+            )
+                return@armCompletion
+            advanceAkkhaFinalStandIntro(raid, source, stage)
+            if (stage + 1 in AkkhaTuning.FINAL_STAND_STAGE_OFFSETS.value.indices) {
+                armAkkhaFinalStandIntro(raid, source, startedAt, stage + 1)
+            }
+        }
+    }
+
+    private fun advanceAkkhaFinalStandIntro(raid: ToaRaidSession, source: Npc, stage: Int) {
+        when (stage) {
             1 -> {
                 source.hitpoints = akkhaFinalHitpoints(source.baseHitpointsLvl)
                 source.transmog(
@@ -9857,6 +9875,16 @@ constructor(
         val encounter =
             bossDeps.encounterRegistry.of(source, ToaSpecialSelectionRandom(state::nextInt))
         state.bindNative(encounter, clock)
+        val generation = state.token()
+        state.bindHazards(
+            BabaHazardQueues(encounter, raid.instance, bossDeps.worldQueues, queueProcess, clock) {
+                raid.currentRoom == ToaRoom.BABA &&
+                    state.isCurrent(generation) &&
+                    isCurrent(raid) &&
+                    boss(raid) === source &&
+                    source.isSlotAssigned
+            }
+        )
         state.startIntro()
         val introEndsAt = clock.cycle + BabaTuning.INTRO_TICKS.value
         armBabaCompletion(raid, source, introEndsAt)
@@ -10491,7 +10519,7 @@ constructor(
     }
 
     private fun cleanupBabaPlayer(raid: ToaRaidSession, player: Player) {
-        raid.baba.pendingRocks.removeAll { it.target == player.uid }
+        raid.baba.hazardQueues?.retirePlayer(player.uid)
         if (raid.baba.target == player.uid) raid.baba.target = null
         if (raid.baba.previousTarget == player.uid) raid.baba.previousTarget = null
     }
@@ -10504,9 +10532,7 @@ constructor(
                 ?.close()
         }
         val state = raid.baba
-        state.pendingRocks.clear()
-        state.pendingRubble.clear()
-        state.pendingShockwaves.clear()
+        state.hazardQueues?.close()
         state.bananas.values.toList().forEach { pile ->
             locs
                 .findAll(pile.tile)

@@ -5,6 +5,7 @@ import kotlin.math.abs
 import kotlin.math.sign
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.player.PlayerUid
+import org.rsmod.game.queue.WorldQueueList
 import org.rsmod.map.CoordGrid
 
 /** Native revision-240 assets and raid-owned deterministic encounter rules for Zebak. */
@@ -439,10 +440,12 @@ internal data class ZebakWaveRuntime(
 
 internal data class ZebakBloodCloudRuntime(
     val npc: Npc,
-    val target: PlayerUid,
-    val expiresAt: Int,
+    var target: PlayerUid,
     var hitpoints: Int = ZebakTuning.BLOOD_CLOUD_HITPOINTS,
-    var nextContactAt: Int = 0,
+    var expired: Boolean = false,
+    var contactReady: Boolean = false,
+    var expiryTask: WorldQueueList.Cancellation? = null,
+    var contactTask: WorldQueueList.Cancellation? = null,
 )
 
 internal data class ZebakSplitProjectileRuntime(
@@ -456,8 +459,9 @@ internal data class ZebakSplitVisualRuntime(val npc: Npc, val removesAt: Int, va
 
 internal data class ZebakWaterCrocodileRuntime(
     val npc: Npc,
-    val target: PlayerUid,
-    var nextAttackAt: Int,
+    var target: PlayerUid,
+    var biteReady: Boolean = false,
+    var biteTask: WorldQueueList.Cancellation? = null,
 )
 
 internal data class ZebakPlayerRuntime(
@@ -497,7 +501,6 @@ internal class ZebakEncounter(val encounterId: UUID, private var rngState: Long)
     var primaryTarget: PlayerUid? = null
     var waveOccurrence = 0
     var waveDirection = ZebakWaveDirection.NORTH
-    var nextBloodAt = -1
     var deadBody: Npc? = null
     var deadTail: Npc? = null
     val pendingThresholds = ArrayDeque<Int>()
@@ -506,6 +509,9 @@ internal class ZebakEncounter(val encounterId: UUID, private var rngState: Long)
     val waves = linkedMapOf<Int, ZebakWaveRuntime>()
     val bloodClouds = linkedMapOf<Int, ZebakBloodCloudRuntime>()
     var attackQueues: ZebakAttackQueues? = null
+        private set
+
+    var payloadQueues: ZebakPayloadQueues? = null
         private set
 
     val splitProjectiles: List<ZebakSplitProjectileRuntime>
@@ -526,6 +532,11 @@ internal class ZebakEncounter(val encounterId: UUID, private var rngState: Long)
         attackQueues = queues
     }
 
+    fun bindPayloadQueues(queues: ZebakPayloadQueues) {
+        payloadQueues?.close()
+        payloadQueues = queues
+    }
+
     fun bindPhases(phases: ZebakCombatPhases) {
         this.phases?.close()
         this.phases = phases
@@ -543,6 +554,8 @@ internal class ZebakEncounter(val encounterId: UUID, private var rngState: Long)
     }
 
     fun reset() {
+        payloadQueues?.close()
+        payloadQueues = null
         phases?.close()
         phases = null
         attackQueues?.close()
@@ -561,7 +574,6 @@ internal class ZebakEncounter(val encounterId: UUID, private var rngState: Long)
         primaryTarget = null
         waveOccurrence = 0
         waveDirection = ZebakWaveDirection.NORTH
-        nextBloodAt = -1
         deadBody = null
         deadTail = null
         pendingThresholds.clear()
@@ -584,29 +596,34 @@ internal class ZebakEncounter(val encounterId: UUID, private var rngState: Long)
         waterCrocodiles.rebindKey(oldUid, newUid)
         waveHitAt.rebindKey(oldUid, newUid)
         playerState.rebindKey(oldUid, newUid)
-        waterCrocodiles.replaceAll { _, runtime ->
-            if (runtime.target == oldUid) runtime.copy(target = newUid) else runtime
+        waterCrocodiles.values.forEach { runtime ->
+            if (runtime.target == oldUid) runtime.target = newUid
         }
-        bloodClouds.replaceAll { _, runtime ->
-            if (runtime.target == oldUid) runtime.copy(target = newUid) else runtime
+        bloodClouds.values.forEach { runtime ->
+            if (runtime.target == oldUid) runtime.target = newUid
         }
     }
 
     fun retirePlayer(uid: PlayerUid) {
         if (completedBy == uid) completedBy = null
         if (primaryTarget == uid) primaryTarget = null
-        waterCrocodiles.remove(uid)
+        waterCrocodiles.remove(uid)?.let { payloadQueues?.cancelCrocodile(it) }
         waveHitAt.remove(uid)
         playerState.remove(uid)
-        bloodClouds.entries.removeIf { it.value.target == uid }
+        bloodClouds.entries.removeIf {
+            if (it.value.target != uid) false
+            else {
+                payloadQueues?.cancelCloud(it.value)
+                true
+            }
+        }
     }
 
-    fun start(body: Npc, tail: Npc, cycle: Int) {
+    fun start(body: Npc, tail: Npc) {
         reset()
         this.body = body
         this.tail = tail
         lifecycleState = ZebakState.EMERGING
-        nextBloodAt = cycle + ZebakTuning.EMERGE_TICKS + ZebakTuning.BLOOD_INTERVAL
     }
 
     fun queueCrossedThresholds(previousHp: Int, currentHp: Int, maximum: Int): List<Int> {

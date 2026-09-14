@@ -16,6 +16,7 @@ internal class AkkhaCombatQueues(
     private val completion = queues.createOwner()
     private val style = queues.createOwner()
     private val swap = queues.createOwner()
+    private val visibility = queues.createOwner()
     private var unregisterSession: () -> Unit = {}
     private var dispatched = false
 
@@ -26,6 +27,12 @@ internal class AkkhaCombatQueues(
         private set
 
     var swapAt: Int = -1
+        private set
+
+    var visibilityHideAt: Int = -1
+        private set
+
+    var visibilityReappearAt: Int = -1
         private set
 
     init {
@@ -59,11 +66,50 @@ internal class AkkhaCombatQueues(
         }
     }
 
+    /** Expired warnings are discarded; overdue hide and reappear still use separate snapshots. */
+    fun armVisibility(
+        hideAt: Int,
+        reappearAt: Int,
+        warn: () -> Unit,
+        disappear: () -> Unit,
+        hide: () -> Unit,
+        reappear: () -> Unit,
+    ) {
+        clearVisibility()
+        visibilityHideAt = hideAt
+        visibilityReappearAt = reappearAt
+        val warningAt = hideAt - 2
+        val disappearAt = hideAt - 1
+        visibility.add(ready = { clock.cycle >= warningAt }) {
+            if (clock.cycle == warningAt) dispatch(warn)
+        }
+        visibility.add(ready = { clock.cycle >= disappearAt }) {
+            if (clock.cycle == disappearAt) dispatch(disappear)
+        }
+        visibility.add(ready = { clock.cycle >= hideAt }) {
+            visibilityHideAt = -1
+            if (!stillAttached()) {
+                visibilityReappearAt = -1
+            } else {
+                dispatch {
+                    // Enqueue first so cleanup/rearm inside the native hide callback cancels it.
+                    visibility.add(ready = { clock.cycle >= reappearAt }) {
+                        visibilityReappearAt = -1
+                        dispatch(reappear)
+                    }
+                    hide()
+                }
+            }
+        }
+    }
+
     fun processCompletion(): Boolean = process(completion)
 
     fun processStyle(): Boolean = process(style)
 
     fun processSwap(): Boolean = process(swap)
+
+    fun processVisibility(): Boolean = process(visibility)
 
     fun clearCompletion() {
         completion.clear()
@@ -80,13 +126,22 @@ internal class AkkhaCombatQueues(
         swapAt = -1
     }
 
+    fun clearVisibility() {
+        visibility.clear()
+        visibilityHideAt = -1
+        visibilityReappearAt = -1
+    }
+
     fun close() {
         completionAt = -1
         styleAt = -1
         swapAt = -1
+        visibilityHideAt = -1
+        visibilityReappearAt = -1
         completion.close()
         style.close()
         swap.close()
+        visibility.close()
         unregisterSession()
     }
 

@@ -12,6 +12,59 @@ import org.rsmod.game.entity.player.SessionStateEvent
 @OptIn(InternalApi::class)
 class BabaNativeScheduleTest {
     @Test
+    fun `thrown rock resolves before tied new rubble and reserves rubble until native landing`() {
+        ToaNativeCombatFixture().use { f ->
+            val player = f.player()
+            f.start(player)
+            val raid = f.enterBaba(player)
+            val source = f.baba(raid)
+            startSpecial(f, raid, source, BabaSpecial.ROCKFALL)
+            val queues = assertNotNull(raid.baba.hazardQueues)
+            val rubble = raid.baba.pendingRubble.first()
+            player.coords = rubble.tile
+            queues.clearRocks()
+            queueRock(
+                f,
+                raid,
+                source,
+                BabaPendingRock(
+                    player.uid,
+                    rubble.tile,
+                    rubble.landsAt,
+                    17,
+                    BabaAssets.EXPLOSION,
+                    thrown = true,
+                ),
+            )
+            f.advance(rubble.landsAt - f.clock.cycle)
+            f.queueProcess.process()
+            assertEquals(2, raid.baba.pendingRubble.size)
+            assertTrue(raid.baba.rubble.isEmpty())
+            f.dispatchLateCycle()
+            assertTrue(raid.baba.pendingRubble.isEmpty())
+            assertTrue(raid.baba.pendingRocks.isEmpty())
+            val actor =
+                raid.spawnedNpcs.single {
+                    it.hashCode() ==
+                        raid.baba.rubble.values.first { it.tile == rubble.tile }.actorKey
+                }
+            assertEquals(
+                actor.baseHitpointsLvl,
+                actor.hitpoints,
+                "Same-tick rubble cannot block the earlier rock",
+            )
+            assertEquals(1, f.hits(player).size)
+            assertEquals(
+                1,
+                f.hits(player).single().first,
+                "Native delivery retains minimum one tick",
+            )
+            f.instances.terminate(raid.instance)
+            assertTrue(queues.isClosed)
+        }
+    }
+
+    @Test
     fun `each special completes at its retained deadline and Rockfall chains once into Rock Throw`() {
         for (special in BabaSpecial.entries) {
             ToaNativeCombatFixture().use { f ->
@@ -105,8 +158,11 @@ class BabaNativeScheduleTest {
             f.dispatchLateCycle(started + 8)
             val throwStarted = f.clock.cycle
             assertEquals(BabaState.ROCK_THROW, raid.baba.state)
-            raid.baba.pendingRocks.clear()
-            raid.baba.pendingRocks +=
+            raid.baba.hazardQueues!!.clearRocks()
+            queueRock(
+                f,
+                raid,
+                source,
                 BabaPendingRock(
                     player.uid,
                     cover.tile,
@@ -114,7 +170,8 @@ class BabaNativeScheduleTest {
                     1,
                     BabaAssets.EXPLOSION,
                     thrown = true,
-                )
+                ),
+            )
             f.dispatchLateCycle(throwStarted + 5)
             assertFalse(actor.isSlotAssigned)
             f.dispatchLateCycle(throwStarted + 6)
@@ -143,8 +200,11 @@ class BabaNativeScheduleTest {
             actor.hitpoints = BabaTuning.RUBBLE_COVER_DAMAGE.value
             f.dispatchLateCycle(started + 8)
             val thrown = f.clock.cycle
-            raid.baba.pendingRocks.clear()
-            raid.baba.pendingRocks +=
+            raid.baba.hazardQueues!!.clearRocks()
+            queueRock(
+                f,
+                raid,
+                source,
                 BabaPendingRock(
                     player.uid,
                     cover.tile,
@@ -152,7 +212,8 @@ class BabaNativeScheduleTest {
                     1,
                     BabaAssets.EXPLOSION,
                     thrown = true,
-                )
+                ),
+            )
             f.dispatchLateCycle(thrown + 6)
             assertFalse(actor.isSlotAssigned)
             f.dispatchLateCycle(thrown + 7)
@@ -198,6 +259,25 @@ class BabaNativeScheduleTest {
             assertEquals(BabaState.NORMAL_COMBAT, fresh.baba.state)
             assertEquals(BabaState.WAITING, raid.baba.state)
         }
+    }
+
+    private fun queueRock(
+        f: ToaNativeCombatFixture,
+        raid: ToaRaidSession,
+        source: Npc,
+        rock: BabaPendingRock,
+    ) {
+        val method =
+            ToaRaidManager::class
+                .java
+                .getDeclaredMethod(
+                    "queueBabaRock",
+                    ToaRaidSession::class.java,
+                    Npc::class.java,
+                    BabaPendingRock::class.java,
+                )
+        method.isAccessible = true
+        method.invoke(f.manager, raid, source, rock)
     }
 
     private fun startSpecial(

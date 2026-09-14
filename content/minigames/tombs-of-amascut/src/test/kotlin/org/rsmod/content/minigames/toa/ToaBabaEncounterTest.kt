@@ -286,19 +286,28 @@ class ToaBabaEncounterTest {
 
     @Test
     fun `encounter reset invalidates old delayed generation and clears hazards`() {
-        val state = BabaEncounter(UUID(3, 3), 88)
-        val token = state.token()
-        state.pendingRubble += BabaPendingRubble(CoordGrid(10, 10, 0), 5, 0)
-        state.pendingShockwaves += BabaPendingShockwave(emptySet(), emptySet(), 5, 20)
-        state.nextBaboonSarcophagusAt = 10
-        state.baboonSarcophagusRunner = 42
-        state.reset()
-        assertFalse(state.isCurrent(token))
-        assertTrue(state.pendingRubble.isEmpty())
-        assertTrue(state.pendingShockwaves.isEmpty())
-        assertEquals(-1, state.nextBaboonSarcophagusAt)
-        assertEquals(null, state.baboonSarcophagusRunner)
-        assertEquals(BabaState.WAITING, state.state)
+        BabaHazardQueueFixture(UUID(3, 3), 88).use { f ->
+            val state = f.state
+            val token = state.token()
+            var resolutions = 0
+            f.helper.queueRubble(BabaPendingRubble(CoordGrid(10, 10, 0), 105, 0)) { resolutions++ }
+            f.helper.queueShockwave(BabaPendingShockwave(emptySet(), emptySet(), 105, 20)) {
+                resolutions++
+            }
+            state.nextBaboonSarcophagusAt = 10
+            state.baboonSarcophagusRunner = 42
+            state.reset()
+            f.clock.cycle = 105
+            f.processAll()
+            assertEquals(0, resolutions)
+            assertEquals(0, f.nativeQueues.size)
+            assertFalse(state.isCurrent(token))
+            assertTrue(state.pendingRubble.isEmpty())
+            assertTrue(state.pendingShockwaves.isEmpty())
+            assertEquals(-1, state.nextBaboonSarcophagusAt)
+            assertEquals(null, state.baboonSarcophagusRunner)
+            assertEquals(BabaState.WAITING, state.state)
+        }
     }
 
     @Test

@@ -4,7 +4,18 @@ This is a resumable handoff, not a project-completion or full OSRS-parity claim.
 mechanic mappings, uncertainties, commands and results remain in [DSL_MIGRATION.md](DSL_MIGRATION.md).
 Update this checkpoint after each completed boss and immediately before any authorized deployment.
 
-September14 current checkpoint: Ba-Ba native phases/two-auto budget, Akkha persistent native budget
+September14 current checkpoint: Ba-Ba rocks/rubble/shockwave owners, Akkha final-intro/memory
+visibility and Zebak blood/cloud/crocodile native owners are verified. Actual native manager tests
+cover impact/visibility ordering, pause/rebind and cleanup; shared fixture uses real route requests.
+185 focused (one test base-ID assertion corrected, all6 affected schedule cases then pass), full
+ToA507, scoped checks, architecture/self-tests and app assemble pass (57s). Unchanged shared/boss/
+ToB/CoX results remain valid. Archive/backup: logs/toa-native-hazard-visibility-source-20260914.zip /
+backup/toa-native-hazard-visibility-20260914. Next: mapped Ba-Ba rolling release/cast, Zebak remaining
+jug/splash/rock/acid readiness and Wardens P2 Obelisk; then remaining ToA and ToB/CoX. Exact files,
+acceptance, evidence limits and logs are at the top of DSL_MIGRATION.md. Source only; runtime
+c4fc9390f/JVM23812 and all save/restart/deployment holds remain. Not a completion claim.
+
+Earlier September14 checkpoint: Ba-Ba native phases/two-auto budget, Akkha persistent native budget
 and completion/style/swap owners, and Zebak native special graph/preparation owners are verified.
 Fixed native empty-raid reconnect deleting retained actors via shared join(resetIfEmpty=false),
 with default behavior preserved; wired existing Akkha terminal cleanup.166 ToA/23 instance focused,

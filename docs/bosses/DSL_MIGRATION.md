@@ -2,7 +2,62 @@
 
 ## Current source increments — September 14
 
-### Current checkpoint: ToA native phase budgets, special graph and retained rejoin verified
+### Current checkpoint: Ba-Ba hazard, Akkha visibility and Zebak payload owners verified
+
+Ba-Ba rocks, rubble and shockwaves now use three native world-queue owners at their existing
+ordered LateCycle slots. Native actor/session cleanup, player retirement, queued UID rebinding and
+rolling-entry cancellation retain their exact scope. Actual manager tests verify thrown rocks
+resolve before same-tick new rubble and that hits still use the native minimum one-tick delivery.
+Akkha's anchored final-intro +2/+4/+5 stages and memory warning/disappear/hide/reappear use native
+owners. Native snapshot dispatch retains one overdue intro stage per pass; exact-tick warnings
+expire when missed. Actual manager tests verify hide, restored targeting/visibility and reappearance
+before tied special completion. The already-recorded clock-jump-beyond-both-deadlines visual gap
+remains unchanged; this is not evidence of recovery for that separate case.
+
+Zebak blood choices use a stable native Choose over the same shared RNG, retaining barrage-only
+target draws. Blood cadence, cloud expiry/contact and crocodile bite readiness use native owners;
+existing spatial loops preserve decay-before-expiry, spawn-tick contact, range retry and healing.
+Rebinding updates runtime identities in place; native deletion/session retirement closes callbacks.
+The shared test fixture now uses real RouteFactory(collision) for cloud/crocodile walk requests.
+
+Verification: the focused run executed185 cases, with184 passing and one test assertion incorrectly
+reading Akkha's base ID instead of its displayed form. Corrected only that assertion; all6 Akkha
+schedule cases then passed. Full ToA507, scoped checks, architecture/self-tests and app assemble
+pass (57s). Independent review found no actionable Ba-Ba/Akkha ordering or lifecycle regression.
+Unchanged shared/boss/ToB/CoX test results from the preceding checkpoint remain valid. The existing
+architecture detector scans boss modules, so raid acceptance is explicitly covered by native tests.
+Logs/results/selections: logs/toa-native-hazard-visibility-*20260914. Exact17 Kotlin-file manifest:
+logs/toa-native-hazard-visibility-format-20260914.txt; includes manager, Baba/Akkha/Zebak adapters,
+three new helpers, fixture and focused suites. This ledger/handoff bring the source archive to19
+files: logs/toa-native-hazard-visibility-source-20260914.zip; backup branch:
+backup/toa-native-hazard-visibility-20260914. Build passed; described behavior verified; not deployed.
+Runtime c4fc9390f/JVM23812 still listens on43594/8080/9091. Database/cache authority, inactive
+stronger replay migrations, save/restart protections and deployment holds remain unchanged.
+
+Next approved mappings reuse existing native APIs and current source as preservation evidence:
+- Ba-Ba rolling: two owned queues preserve movement -> release -> cast -> existing final drain.
+  First cast is prep completion+1; release is actual cast+2. Capture the current row/weak lane,
+  select the next lane immediately during that cast with the existing RNG, then arm the next cast
+  now+8 or Boulderdash+4. Separate owners let overdue cast eligibility observe release clearing its
+  latch. Cancel both on early/normal rolling exit and native retirement; preserve previousWeakLane
+  across thresholds and existing geometry/collision. Verify all rows/cadences/RNG, no spawn-tick
+  movement, overdue release/cast, final drain, melee early exit and cancellation before release.
+- Zebak remaining payloads: jug+1 collision readiness in jug insertion order, followed by separate
+  splash+1 cleansing; special cleanup preserves launched splashes. Rock-corpse+4 readiness is consumed
+  before wave/roar transitions. Acid readiness arms+4 per accepted exposure and cancels on off-acid
+  reset/player retirement, restoring immediate reentry. Keep actor/player identity on rebind,
+  spatial state and poison/stack ordering. Verify real pushed-jug collision/cleanse, corpse timing,
+  reentry isolation, special survival and native retirement. Existing owned queues cover every route.
+- Wardens P2 exhausted Obelisk: native owned cadence and stable Choose/Rotation retain the independent
+  converging/windmill/skull sequence on the Obelisk lifetime, before ordinary P2 body dispatch.
+  Preserve anchored advancePast cadence (one due launch per pass), entry/recovery rearming and
+  rotation across replacement bodies/cores. Do not substitute default BossCombat cadence, which
+  rebases overdue opportunities and adds a different lastAbilityTick gate. Verify missing-actor
+  cadence, no-target pause, replacement history, invocation intervals and cleanup.
+Then remaining ToA hazard/lifecycle/Wardens routes and ToB/CoX. These mappings change architecture,
+not mechanical evidence; existing OSRS evidence gaps remain. Continue approved increments.
+
+### Earlier checkpoint: ToA native phase budgets, special graph and retained rejoin verified
 
 Ba-Ba active phase identity and two-auto budget now belong to BossEncounter. Native transitions
 preserve actionDelay/lastAbilityTick; repeated rolling rows retain one phase origin, while fresh
@@ -64,6 +119,16 @@ Next approved complete increments, using current source as preservation evidence
   processing. Capture generation/body, cancel at memory completion/final entry/reset. The existing
   overdue hide-first/reappearance gap remains separately recorded; current schedule tests prove
   state/style completion, not visual recovery for a clock jump beyond both visibility deadlines.
+- Zebak remaining hazard cadence uses named native owners at its current payload slots. Blood
+  selection uses a stable native Choose branch over the shared RNG, retains its one selection draw
+  and barrage-only target draw, and rearms now+20 only after the existing invocation/target gate.
+  Cloud expiry/contact readiness preserves decay-before-expiry/movement/contact and spawn-tick
+  activity; croc bite readiness waits for range and rearms now+5 without changing native AI clocks.
+  Jug+1 collision grace, following water-splash+1, rock-corpse+4 and acid-exposure+4 readiness retain
+  actor/roster iteration and spatial order. Special cleanup preserves already-created splashes and
+  blood/cloud/croc work; death/reset cancels all. Reconnect must retain runtime identity or resolve
+  readiness by the exact NPC. Verify shared-RNG parity, empty-target pause, spawn/decay/contact,
+  water/acid exit, cancellation and stale callbacks. Existing native queues cover the mapping.
 Then remaining ToA hazard/lifecycle/Wardens routing and ToB/CoX. Native geometry/payload metadata
 is legitimate; the remaining deadline scans still need explicit migration. Retained OSRS evidence
 gaps and deployment holds are unchanged; this is not a whole-raid or whole-project completion claim.
