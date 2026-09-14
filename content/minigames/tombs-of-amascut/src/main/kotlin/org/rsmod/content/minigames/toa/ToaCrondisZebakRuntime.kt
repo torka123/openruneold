@@ -8,13 +8,18 @@ import dev.openrune.types.aconverted.SpotanimType
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlin.math.sign
+import org.rsmod.api.bosses.runtime.BossCombat
+import org.rsmod.api.bosses.runtime.BossDeps
 import org.rsmod.api.combat.commons.types.MeleeAttackType
 import org.rsmod.api.combat.formulas.AccuracyFormulae
 import org.rsmod.api.config.refs.params
 import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.invtx.invAdd
 import org.rsmod.api.mechanics.toxins.impl.PlayerPoison
+import org.rsmod.api.npc.access.StandardNpcAccessLauncher
 import org.rsmod.api.npc.clearInteractionRoute
+import org.rsmod.api.npc.events.NpcHitEvents
+import org.rsmod.api.npc.events.interact.AiPlayerEvents
 import org.rsmod.api.player.hit.modifier.NpcBypassProtectionPrayerPlayerHitModifier
 import org.rsmod.api.player.hit.modifier.NpcPartialProtectionPrayerPlayerHitModifier
 import org.rsmod.api.player.hit.queueHit
@@ -28,6 +33,7 @@ import org.rsmod.api.repo.obj.ObjRepository
 import org.rsmod.api.repo.world.WorldRepository
 import org.rsmod.api.route.RouteFactory
 import org.rsmod.api.route.walkTo
+import org.rsmod.events.EventBus
 import org.rsmod.game.MapClock
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
@@ -44,6 +50,7 @@ import org.rsmod.game.movement.MoveSpeed
 import org.rsmod.game.obj.Obj
 import org.rsmod.game.proj.ProjAnim
 import org.rsmod.map.CoordGrid
+import org.rsmod.plugin.scripts.ScriptContext
 import org.rsmod.routefinder.collision.CollisionFlagMap
 
 @Singleton
@@ -62,7 +69,71 @@ constructor(
     private val accuracy: AccuracyFormulae,
     private val random: GameRandom,
     private val supplies: ToaSupplies,
+    private val bossDeps: BossDeps,
+    private val npcAccess: StandardNpcAccessLauncher,
+    private val events: EventBus,
 ) {
+    /** A synchronous dispatch token, owned and retired by the native boss encounter. */
+    private class OrdinaryDispatch {
+        var opportunity: OrdinaryOpportunity? = null
+    }
+
+    private data class OrdinaryOpportunity(
+        val raid: ToaRaidSession,
+        val target: Player,
+        val targetCount: Int,
+        val tick: Int,
+        val generation: Int,
+    )
+
+    fun registerOrdinaryCombat(
+        context: ScriptContext,
+        onModifyHit: NpcHitEvents.Modify.() -> Unit,
+    ) {
+        bossDeps.extensionRegistry.register(TOA_ZEBAK_ORDINARY_LAUNCH) { _, npc, target, params ->
+            val encounter = bossDeps.encounterRegistry.of(npc)
+            val opportunity = checkNotNull(ordinaryOpportunity(npc, target))
+            launchZebakOrdinary(opportunity, npc, params as ZebakAttackStyle)
+            encounter.attackRateOverride = ordinaryAttackRate(opportunity.raid)
+        }
+        BossCombat.register(
+            context,
+            zebakBossSpec(),
+            bossDeps,
+            ownerSlug = "toa-zebak",
+            canTarget = { npc, target -> ordinaryOpportunity(npc, target) != null },
+            onModifyHit = onModifyHit,
+        )
+    }
+
+    private fun ordinaryOpportunity(npc: Npc, target: Player): OrdinaryOpportunity? {
+        val encounter = bossDeps.encounterRegistry.existing(npc) ?: return null
+        val dispatch = encounter.stateOrNull<OrdinaryDispatch>(TOA_ZEBAK_DISPATCH) ?: return null
+        return dispatch.opportunity?.takeIf {
+            it.target === target &&
+                it.tick == clock.cycle &&
+                it.raid.zebak.body === npc &&
+                it.generation == it.raid.zebak.generation &&
+                instances.instanceForNpc(npc) == it.raid.instance.id &&
+                bossDeps.encounterRegistry.isCurrent(npc, encounter)
+        }
+    }
+
+    private fun ordinaryAttackRate(raid: ToaRaidSession): Int =
+        ZebakTuning.attackInterval(
+            raid.pathLevels[ToaPath.CRONDIS] ?: 0,
+            raid.zebak.enrageTriggered,
+        )
+
+    /** Special transitions replace the old deadline, including when recovery shortens it. */
+    private fun replaceOrdinaryDeadline(raid: ToaRaidSession, deadline: Int) {
+        val body = raid.zebak.body ?: return
+        val encounter = bossDeps.encounterRegistry.of(body)
+        encounter.attackRateOverride = ordinaryAttackRate(raid)
+        encounter.lastAbilityTick = deadline - encounter.expectedAttackRate()
+        body.actionDelay = deadline
+    }
+
     private val crondisGroundObjects = mutableMapOf<Any, MutableList<Obj>>()
     private val zebakAcidLocs = mutableMapOf<Any, MutableList<LocInfo>>()
     private val zebakBodyLocs = mutableMapOf<Any, MutableList<LocInfo>>()
@@ -362,6 +433,9 @@ constructor(
                 addZebakLoc(raid, ZebakAssets.BODY_BLOCKER_LOC, tailTile),
             )
         raid.zebak.start(body, tail, clock.cycle)
+        // Bind before the first player hit can lazily create the encounter with global RNG.
+        bossDeps.encounterRegistry.of(body, ZebakSelectionRandom(raid.zebak))
+        replaceOrdinaryDeadline(raid, ZebakTimeline.firstAutoAt(clock.cycle))
         faceZebakEast(raid, body)
         animateZebak(raid, body, ZebakAssets.BODY_IDLE)
         message(raid, "Zebak surges out of the water!")
@@ -461,7 +535,7 @@ constructor(
             state.state = ZebakState.NORMAL
             animateZebak(raid, body, ZebakAssets.BODY_IDLE)
             faceZebakEast(raid, body)
-            trace(raid, "emerge_complete", "first_auto=${state.nextAttackAt}")
+            trace(raid, "emerge_complete", "first_auto=${body.actionDelay}")
             return null
         }
         if (body.defenceLvl < ZebakTuning.MINIMUM_DRAINED_DEFENCE) {
@@ -507,9 +581,9 @@ constructor(
                     ZebakState.PREP_ROAR,
                     ZebakState.PREP_WAVES,
                     ZebakState.WAVES,
-                ) && clock.cycle >= state.nextAttackAt
+                )
         ) {
-            performZebakAuto(raid, body)
+            dispatchZebakOrdinary(raid, body)
         }
         return null
     }
@@ -937,10 +1011,12 @@ constructor(
             clock.cycle +
                 if (special == ZebakSpecial.WAVES) ZebakTuning.WAVE_CALL_DELAY
                 else ZebakTuning.ROAR_START_DELAY
-        state.nextAttackAt =
+        replaceOrdinaryDeadline(
+            raid,
             clock.cycle +
                 if (special == ZebakSpecial.WAVES) ZebakTuning.WAVE_FIRST_AUTO_DELAY
-                else ZebakTuning.ROAR_FIRST_AUTO_DELAY
+                else ZebakTuning.ROAR_FIRST_AUTO_DELAY,
+        )
         state.hazardLaunchAt = ZebakTimeline.hazardLaunchAt(clock.cycle)
         state.hazardLandAt = ZebakTimeline.hazardLandAt(clock.cycle)
         state.preparationIncludesRocks = special == ZebakSpecial.ROAR
@@ -1305,11 +1381,14 @@ constructor(
         }
     }
 
-    private fun performZebakAuto(raid: ToaRaidSession, body: Npc) {
+    private fun dispatchZebakOrdinary(raid: ToaRaidSession, body: Npc) {
+        if (clock.cycle < body.actionDelay) return
+        val encounter = bossDeps.encounterRegistry.of(body)
+        if (clock.cycle - encounter.lastAbilityTick < encounter.expectedAttackRate()) return
         val state = raid.zebak
         val targets = zebakCombatTargets(raid)
         if (targets.isEmpty()) {
-            state.nextAttackAt = clock.cycle + 1
+            replaceOrdinaryDeadline(raid, clock.cycle + 1)
             return
         }
         val meleeTargets = targets.filter { body.isWithinDistance(it, 1) }
@@ -1318,15 +1397,27 @@ constructor(
                 ?: state.primaryTarget?.resolve(players)?.takeIf { it in targets }
                 ?: targets.minByOrNull { it.coords.chebyshevDistance(body.coords) }!!
         state.primaryTarget = target.uid
-        val style =
-            if (target in meleeTargets) {
-                ZebakAttackStyle.MELEE
-            } else if (state.nextInt(2) == 0) {
-                ZebakAttackStyle.RANGED
-            } else {
-                ZebakAttackStyle.MAGIC
-            }
-        state.attackCounter++
+        val dispatch = encounter.state(TOA_ZEBAK_DISPATCH, ::OrdinaryDispatch)
+        check(dispatch.opportunity == null)
+        dispatch.opportunity =
+            OrdinaryOpportunity(raid, target, targets.size, clock.cycle, state.generation)
+        try {
+            // The stationary body has no suspended access workflow. This native launch completes
+            // synchronously; its token rejects ordinary AI events outside this LateCycle slot.
+            npcAccess.launch(body) { events.publish(this, AiPlayerEvents.Op2(target, body)) }
+        } finally {
+            dispatch.opportunity = null
+        }
+    }
+
+    private fun launchZebakOrdinary(
+        opportunity: OrdinaryOpportunity,
+        body: Npc,
+        style: ZebakAttackStyle,
+    ) {
+        val raid = opportunity.raid
+        val state = raid.zebak
+        val target = opportunity.target
         if (style == ZebakAttackStyle.MELEE) {
             animateZebak(raid, body, ZebakAssets.BODY_MELEE)
             queueDamage(
@@ -1380,13 +1471,11 @@ constructor(
                     generation = state.generation,
                 )
         }
-        trace(raid, "auto", "style=$style primary=${target.uid} partyTargets=${targets.size}")
-        state.nextAttackAt =
-            clock.cycle +
-                ZebakTuning.attackInterval(
-                    raid.pathLevels[ToaPath.CRONDIS] ?: 0,
-                    state.enrageTriggered,
-                )
+        trace(
+            raid,
+            "auto",
+            "style=$style primary=${target.uid} partyTargets=${opportunity.targetCount}",
+        )
     }
 
     private fun processZebakProjectileSplits(raid: ToaRaidSession) {
@@ -1493,8 +1582,7 @@ constructor(
         // Revision-223 level-0 packets keep the ordinary 9624/9625 attack pair after the
         // 11732 transmog. Enrage changes cadence, not the ordinary attack assets.
         animateZebak(raid, body, ZebakAssets.BODY_RANGE)
-        state.nextAttackAt =
-            clock.cycle + ZebakTuning.attackInterval(raid.pathLevels[ToaPath.CRONDIS] ?: 0, true)
+        replaceOrdinaryDeadline(raid, clock.cycle + ordinaryAttackRate(raid))
         message(raid, "Zebak becomes enraged!")
     }
 
@@ -1986,7 +2074,7 @@ constructor(
     private fun finishZebakSpecial(raid: ToaRaidSession) {
         cleanupZebakSpecialActors(raid, keepJugs = true)
         raid.zebak.state = if (raid.zebak.enrageTriggered) ZebakState.ENRAGED else ZebakState.NORMAL
-        raid.zebak.nextAttackAt = clock.cycle + ZebakTuning.SPECIAL_RECOVERY_TICKS
+        replaceOrdinaryDeadline(raid, clock.cycle + ZebakTuning.SPECIAL_RECOVERY_TICKS)
     }
 
     private fun cleanupZebakSpecialActors(raid: ToaRaidSession, keepJugs: Boolean = false) {
@@ -2041,7 +2129,7 @@ constructor(
     }
 
     private fun cleanupCrondis(raid: ToaRaidSession) {
-        resetCrondisObstacleVisuals(raid)
+        if (!raid.instance.isEnded) resetCrondisObstacleVisuals(raid)
         crondisGroundObjects.remove(raid.instance.id)?.forEach { objects.del(it, Int.MAX_VALUE) }
         raid.participants.keys
             .mapNotNull { it.resolve(players) }

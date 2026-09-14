@@ -14,6 +14,7 @@ import kotlin.random.Random
 import net.rsprot.protocol.game.outgoing.camera.CamReset
 import net.rsprot.protocol.game.outgoing.camera.CamShake
 import org.rsmod.api.bossbar.plugin.BossHpBarScript
+import org.rsmod.api.bosses.runtime.BossDeps
 import org.rsmod.api.combat.commons.CombatEffects
 import org.rsmod.api.config.constants
 import org.rsmod.api.config.refs.params
@@ -28,8 +29,10 @@ import org.rsmod.api.instances.RaidRewardClaimResult
 import org.rsmod.api.mechanics.toxins.NpcPoisonEffectService
 import org.rsmod.api.mechanics.toxins.impl.PlayerPoison
 import org.rsmod.api.mechanics.toxins.impl.PlayerVenom
+import org.rsmod.api.npc.access.StandardNpcAccessLauncher
 import org.rsmod.api.npc.apPlayer2
 import org.rsmod.api.npc.clearInteractionRoute
+import org.rsmod.api.npc.events.interact.AiPlayerEvents
 import org.rsmod.api.npc.interact.AiPlayerInteractions
 import org.rsmod.api.player.bonus.WornBonuses
 import org.rsmod.api.player.clearInteractionRoute
@@ -59,6 +62,7 @@ import org.rsmod.api.route.walkTo
 import org.rsmod.api.specials.energy.SpecialAttackEnergy
 import org.rsmod.api.specials.energy.SpecialAttackEnergyModifier
 import org.rsmod.api.specials.restriction.ConsumableRestrictionState
+import org.rsmod.events.EventBus
 import org.rsmod.game.MapClock
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
@@ -132,6 +136,9 @@ constructor(
     private val bossHpBar: BossHpBarScript,
     private val npcToxins: NpcPoisonEffectService,
     private val protectedAccess: ProtectedAccessLauncher,
+    private val bossDeps: BossDeps,
+    private val npcAccess: StandardNpcAccessLauncher,
+    private val events: EventBus,
 ) {
     private val log = InlineLogger()
     private val parties = linkedMapOf<PlayerUid, ToaParty>()
@@ -2047,7 +2054,7 @@ constructor(
                 }
                 if (!state.kephriActivated) {
                     state.kephriActivated = true
-                    raid.nextMechanicAt = clock.cycle + KephriEncounter.FIRST_ATTACK_DELAY
+                    kephriPhases(raid, npc).activate()
                     forEachOnline(raid) { it.midiSong(KephriEncounter.COMBAT_MIDI) }
                 }
                 if (
@@ -2470,10 +2477,10 @@ constructor(
         if (
             raid.currentRoom == ToaRoom.KEPHRI &&
                 role == ToaNpcRole.BOSS &&
-                raid.encounter.phase >= KephriEncounter.FINAL_PHASE &&
-                !raid.encounter.kephriDying
+                raid.encounter.phase >= KephriEncounter.FINAL_PHASE
         ) {
             val state = raid.encounter
+            if (state.kephriDying) return
             state.kephriDying = true
             state.kephriDeathHero = hero.uid
             state.kephriCompletesAt = clock.cycle + KephriEncounter.DEATH_COMPLETION_TICKS
@@ -2490,7 +2497,6 @@ constructor(
                 requireNotNull(ServerCacheManager.getNpc(KephriEncounter.DEAD)),
                 Int.MAX_VALUE,
             )
-            raid.nextMechanicAt = Int.MAX_VALUE
             return
         }
         // Zebak's living body is retained for the four-tick 9634 -> 11733 death transform.
@@ -2741,7 +2747,9 @@ constructor(
                 else -> Unit
             }
             processPendingHits(raid)
-            if (clock.cycle >= raid.nextMechanicAt && boss(raid) != null) tickBossMechanic(raid)
+            if (raid.currentRoom == ToaRoom.KEPHRI) dispatchKephriOpportunity(raid)
+            else if (clock.cycle >= raid.nextMechanicAt && boss(raid) != null)
+                tickBossMechanic(raid)
             if (clock.cycle % 5 == 0) forEachOnline(raid) { ui.sync(it, raid, clock.cycle) }
         }
     }
@@ -3794,7 +3802,6 @@ constructor(
                 raid.startSnapshot.partySize,
             )
         state.phase++
-        state.attackCounter = 0
         state.kephriBombTargets.clear()
         state.kephriBombs.clear()
         state.kephriPendingDungStrikes.clear()
@@ -3802,8 +3809,6 @@ constructor(
         state.kephriEggs.values.toList().forEach { resolveKephriEgg(raid, it) }
         if (state.phase == KephriEncounter.FINAL_PHASE) {
             state.kephriRecovering = false
-            state.kephriAttacksUntilSpecial = KephriAttackCycle.FINAL_FIRST_DUNG_BOMBS
-            state.kephriNextSpecialDung = true
             val hp =
                 ToaRules.hitpoints(
                     KephriEncounter.FINAL_HITPOINTS,
@@ -3827,7 +3832,7 @@ constructor(
                 telegraph = false,
             )
             processKephriDungStrikes(raid)
-            raid.nextMechanicAt = clock.cycle + KephriAttackCycle.DUNG_DELAY
+            kephriPhases(raid, source).resume(state.phase)
             message(raid.party, "Kephri's shield is shattered. Her final health is exposed.")
             return
         }
@@ -3861,7 +3866,7 @@ constructor(
         source.anim(KephriEncounter.STUN_ANIMATION)
         spawnKephriOverlords(raid, state.phase)
         message(raid.party, "Kephri is dazed as scarab swarms restore her shield.")
-        raid.nextMechanicAt = Int.MAX_VALUE
+        kephriPhases(raid, source).suspendCombat()
     }
 
     private fun processKephriDeath(raid: ToaRaidSession) {
@@ -5046,7 +5051,7 @@ constructor(
     private fun tickBossMechanic(raid: ToaRaidSession) {
         val source = boss(raid) ?: return
         when (raid.currentRoom) {
-            ToaRoom.KEPHRI -> tickKephri(raid, source)
+            ToaRoom.KEPHRI -> Unit // Native combat dispatch retains its own LateCycle boundary.
             ToaRoom.ZEBAK -> Unit // Zebak is driven by ToaCrondisZebakRuntime every game tick.
             ToaRoom.BABA -> Unit // Ba-Ba mechanics are driven by its per-raid state machine.
             ToaRoom.AKKHA -> tickAkkha(raid, source)
@@ -5056,49 +5061,78 @@ constructor(
         }
     }
 
-    private fun tickKephri(raid: ToaRaidSession, source: Npc) {
-        val targets = activePlayers(raid)
+    private fun kephriPhases(raid: ToaRaidSession, source: Npc): KephriCombatPhases {
+        val encounter = bossDeps.encounterRegistry.of(source)
+        return encounter.state("toa.kephri-phases") {
+            KephriCombatPhases(encounter, clock, raid.startSnapshot.seed)
+        }
+    }
+
+    private fun dispatchKephriOpportunity(raid: ToaRaidSession) {
+        val source = boss(raid) ?: return
         if (
-            targets.isEmpty() ||
-                !raid.encounter.kephriActivated ||
+            !raid.encounter.kephriActivated ||
                 raid.encounter.kephriRecovering ||
-                raid.encounter.kephriDying
+                raid.encounter.kephriDying ||
+                source.hitpoints <= 0 ||
+                source.isBusy ||
+                clock.cycle < source.actionDelay
         )
             return
-        val state = raid.encounter
+        val target = activePlayers(raid).firstOrNull() ?: return
+        val phases = kephriPhases(raid, source)
+        val agileCount =
+            raid.npcRoles.count { (npc, role) ->
+                role == ToaNpcRole.ADD &&
+                    npc.id == KephriScarabAgile.NPC &&
+                    npc.isSlotAssigned &&
+                    npc.hitpoints > 0
+            }
+        phases.prepareOpportunity(agileCount)
+        phases.dispatch(target) {
+            npcAccess.launch(source) { events.publish(this, AiPlayerEvents.Ap2(target, source)) }
+        }
+    }
+
+    fun prepareKephriOpportunity(npc: Npc, target: Player): Boolean {
+        val raid = raidFor(npc) ?: return false
+        return raid.currentRoom == ToaRoom.KEPHRI &&
+            boss(raid) === npc &&
+            raid.encounter.kephriActivated &&
+            !raid.encounter.kephriRecovering &&
+            !raid.encounter.kephriDying &&
+            npc.hitpoints > 0 &&
+            !npc.isBusy &&
+            clock.cycle >= npc.actionDelay &&
+            kephriPhases(raid, npc).ownsDispatch(target)
+    }
+
+    fun launchKephriAttack(source: Npc, target: Player, kind: KephriAttackKind, actionNumber: Int) {
+        val raid = requireNotNull(raidFor(source))
+        check(prepareKephriOpportunity(source, target))
+        val targets = activePlayers(raid)
         source.faceSquare(targets.first().coords)
-        state.attackCounter++
         val invocationRules =
             KephriInvocationRules.resolve(
                 raid.startSnapshot.invocations,
                 raid.startSnapshot.partySize,
             ) { bound ->
-                val mixed = raid.startSnapshot.seed xor state.attackCounter.toLong()
+                val mixed = raid.startSnapshot.seed xor actionNumber.toLong()
                 ((mixed and Long.MAX_VALUE) % bound).toInt()
             }
-        val decision =
-            KephriAttackCycle.next(
-                phase = state.phase,
-                attacksUntilSpecial = state.kephriAttacksUntilSpecial,
-                nextSpecialDung = state.kephriNextSpecialDung,
-                agileCount =
-                    raid.npcRoles.count { (npc, role) ->
-                        role == ToaNpcRole.ADD &&
-                            npc.id == KephriScarabAgile.NPC &&
-                            npc.isSlotAssigned &&
-                            npc.hitpoints > 0
-                    },
-            )
-        state.kephriAttacksUntilSpecial = decision.attacksUntilSpecial
-        state.kephriNextSpecialDung = decision.nextSpecialDung
-        when (decision.kind) {
+        when (kind) {
             KephriAttackKind.DUNG_STRIKE -> {
                 scheduleKephriDungStrike(raid, targets, invocationRules.dungStrikeTargets)
             }
             KephriAttackKind.MASS_INCUBATION -> {
                 source.anim(KephriEncounter.SPECIAL_ANIMATION)
                 forEachOnline(raid) { it.soundSynth(6442) }
-                scheduleKephriEggBatch(raid, source, invocationRules.massIncubationBrownEggs)
+                scheduleKephriEggBatch(
+                    raid,
+                    source,
+                    invocationRules.massIncubationBrownEggs,
+                    actionNumber,
+                )
             }
             KephriAttackKind.BOMB -> {
                 source.anim(KephriEncounter.BOMB_ANIMATION)
@@ -5114,8 +5148,6 @@ constructor(
                 }
             }
         }
-        raid.nextMechanicAt =
-            clock.cycle + ToaInvocationEffects.mechanicInterval(decision.nextDelay, raid)
     }
 
     private fun scheduleKephriDungStrike(
@@ -5243,10 +5275,15 @@ constructor(
         }
     }
 
-    private fun scheduleKephriEggBatch(raid: ToaRaidSession, source: Npc, requestedDarkEggs: Int) {
+    private fun scheduleKephriEggBatch(
+        raid: ToaRaidSession,
+        source: Npc,
+        requestedDarkEggs: Int,
+        actionNumber: Int,
+    ) {
         val state = raid.encounter
         val anchor = roomCoord(raid, ToaRoom.KEPHRI, true)
-        val rng = Random(raid.startSnapshot.seed xor state.attackCounter.toLong())
+        val rng = Random(raid.startSnapshot.seed xor actionNumber.toLong())
         val tiles =
             KephriEggs.offsets
                 .shuffled(rng)
@@ -7873,10 +7910,7 @@ constructor(
         state.kephriRecoveryTotal = 0
         state.kephriRecoveryHealCap = 0
         state.kephriRecoveryResolved = 0
-        state.kephriAttacksUntilSpecial =
-            if (state.phase == 1) 4 else KephriAttackCycle.BETWEEN_SHIELDED_SPECIALS
-        state.kephriNextSpecialDung = true
-        raid.nextMechanicAt = clock.cycle + 13
+        kephriPhases(raid, source).resume(state.phase)
         message(raid.party, "Kephri's restored shield is vulnerable again.")
     }
 
@@ -9712,6 +9746,7 @@ constructor(
 
     private fun initializeKephri(raid: ToaRaidSession, source: Npc) {
         raid.encounter.reset()
+        kephriPhases(raid, source)
         val hp =
             ToaRules.hitpoints(
                 KephriEncounter.SHIELD_HITPOINTS,

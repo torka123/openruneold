@@ -474,8 +474,6 @@ internal class ZebakEncounter(val encounterId: UUID, private var rngState: Long)
     var body: Npc? = null
     var tail: Npc? = null
     var firstSpecial = if (nextInt(2) == 0) ZebakSpecial.WAVES else ZebakSpecial.ROAR
-    var attackCounter = 0
-    var nextAttackAt = -1
     var emergesAt = -1
     var specialStartsAt = -1
     var specialEndsAt = -1
@@ -519,8 +517,6 @@ internal class ZebakEncounter(val encounterId: UUID, private var rngState: Long)
         state = ZebakState.RESET
         body = null
         tail = null
-        attackCounter = 0
-        nextAttackAt = -1
         emergesAt = -1
         specialStartsAt = -1
         specialEndsAt = -1
@@ -590,7 +586,6 @@ internal class ZebakEncounter(val encounterId: UUID, private var rngState: Long)
         this.tail = tail
         state = ZebakState.EMERGING
         emergesAt = cycle + ZebakTuning.EMERGE_TICKS
-        nextAttackAt = ZebakTimeline.firstAutoAt(cycle)
         nextBloodAt = emergesAt + ZebakTuning.BLOOD_INTERVAL
     }
 

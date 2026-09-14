@@ -270,8 +270,6 @@ internal class ToaEncounterState(
     var kephriNextBomberBombAt = -1
     var kephriMedicSpawnIndex = 0
     var kephriDungTargetCursor = 0
-    var kephriAttacksUntilSpecial = KephriAttackCycle.INITIAL_BOMBS
-    var kephriNextSpecialDung = true
     var kephriDying = false
     var kephriCompletesAt = -1
     var kephriDeathHero: PlayerUid? = null
@@ -381,8 +379,6 @@ internal class ToaEncounterState(
         kephriNextBomberBombAt = -1
         kephriMedicSpawnIndex = 0
         kephriDungTargetCursor = 0
-        kephriAttacksUntilSpecial = KephriAttackCycle.INITIAL_BOMBS
-        kephriNextSpecialDung = true
         kephriDying = false
         kephriCompletesAt = -1
         kephriDeathHero = null

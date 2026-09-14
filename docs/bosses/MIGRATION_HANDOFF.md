@@ -4,7 +4,18 @@ This is a resumable handoff, not a project-completion or full OSRS-parity claim.
 mechanic mappings, uncertainties, commands and results remain in [DSL_MIGRATION.md](DSL_MIGRATION.md).
 Update this checkpoint after each completed boss and immediately before any authorized deployment.
 
-September14 current checkpoint: ToA Ba-Ba ordinary combat and native session ownership are verified.
+September14 current checkpoint: ToA Akkha/Kephri/Zebak ordinary routes are verified. Native styles,
+selector/cadence, accepted RNG counters, phase/recovery and split timing are covered by41 focused
+groups and449 full ToA cases. Scoped checks, architecture/self-tests and app assemble pass (62s);
+1,998 cases with retained results. Fixed duplicate Kephri completion and ended-session Crondis
+cosmetic cleanup. Test admission/hit corrections did not change production targeting or persistence.
+Archive/backup: logs/toa-akkha-kephri-zebak-source-20260914.zip /
+backup/toa-akkha-kephri-zebak-20260914. Next: mapped native Zebak split owners, Ba-Ba deadline owners,
+Ba-Ba/Akkha choices and Wardens P2, then remaining ToA scheduling and ToB/CoX. Exact mappings, files,
+results and unresolved scope are at the top of DSL_MIGRATION.md. Source only; deployed c4fc9390f/
+JVM23812 and all holds unchanged. Do not claim complete raid routing or full OSRS parity.
+
+Earlier September14 checkpoint: ToA Ba-Ba ordinary combat and native session ownership are verified.
 Native BossSpec preserves six-tick cadence/gates/callbacks; typed session ownership preserves party
 admission, reconnect, native death/spectator, reward-leave and cleanup in either logout order.
 Kephri native cycle support is verified but awaits manager integration.18 focused/426 full ToA cases,

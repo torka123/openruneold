@@ -55,6 +55,7 @@ constructor(
     private val death: NpcDeath,
     private val players: PlayerList,
     private val deps: BossDeps,
+    private val crondisZebak: ToaCrondisZebakRuntime,
 ) : PluginScript() {
     override fun ScriptContext.startup() {
         deps.extensionRegistry.registerAttackParameters(TOA_BABA_ATTACK_PARAMETERS) { npc, _, _ ->
@@ -73,8 +74,52 @@ constructor(
                 if (player == null) hit.damage = 0 else raids.modifyNpcHit(player, npc, hit)
             },
         )
+        deps.extensionRegistry.registerAttackParameters(TOA_AKKHA_ATTACK_PARAMETERS) { npc, _, data
+            ->
+            akkhaAttackParameters(npc, data as ToaCombatStyle)
+        }
+        BossCombat.register(
+            this,
+            toaAkkhaBossSpec(),
+            deps,
+            ownerSlug = "toa-akkha",
+            canTarget = ::prepareAkkhaOpportunity,
+            onModifyHit = {
+                val player =
+                    if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players)
+                    else null
+                if (player == null) hit.damage = 0 else raids.modifyNpcHit(player, npc, hit)
+            },
+        )
+        registerKephriBossCombat(
+            this,
+            deps,
+            canTarget = raids::prepareKephriOpportunity,
+            launch = raids::launchKephriAttack,
+            modifyHit = {
+                val player =
+                    if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players)
+                    else null
+                if (player == null) hit.damage = 0 else raids.modifyNpcHit(player, npc, hit)
+            },
+        )
+        crondisZebak.registerOrdinaryCombat(
+            this,
+            onModifyHit = {
+                val player =
+                    if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players)
+                    else null
+                if (player == null) hit.damage = 0 else raids.modifyNpcHit(player, npc, hit)
+            },
+        )
         ToaNpcs.allCombat.forEach { id ->
-            if (id in TOA_BABA_BOSS_FORMS) return@forEach
+            if (
+                id in TOA_BABA_BOSS_FORMS ||
+                    id in ToaNpcs.akkhaBossForms ||
+                    id in KephriEncounter.ACTIVE..KephriEncounter.DEAD ||
+                    id in TOA_ZEBAK_BOSS_FORMS
+            )
+                return@forEach
             val type = ServerCacheManager.getNpc(id) ?: return@forEach
             onAiOpPlayer2(type) { attack(it.target) }
             onAiApPlayer2(type) { attack(it.target) }
@@ -148,6 +193,41 @@ constructor(
         )
     }
 
+    private fun prepareAkkhaOpportunity(npc: Npc, target: Player): Boolean {
+        if (!raids.attackTargetValid(target, npc)) {
+            npc.resetMode()
+            return false
+        }
+        val tick = deps.mapClock.cycle
+        if (npc.actionDelay > tick) return false
+        val specialDelay = raids.performAkkhaSpecialIfDue(npc, target)
+        if (specialDelay != null) {
+            npc.actionDelay = tick + specialDelay
+            return false
+        }
+        if (raids.suppressAkkhaNormalAttacks(npc)) {
+            npc.resetMode()
+            return false
+        }
+        val profile = raids.combatProfile(npc)
+        if (profile == null) {
+            npc.resetMode()
+            return false
+        }
+        if (profile.style == ToaCombatStyle.MELEE && !npc.isWithinDistance(target, 1)) return false
+        val encounter = deps.encounterRegistry.of(npc)
+        val phase = toaAkkhaCombatPhase(profile.style)
+        if (encounter.currentPhaseName != phase) encounter.transitionTo(phase, tick)
+        // Preserve the emission-time face, including native target rejection after this point.
+        npc.faceSquare(target.coords)
+        if (!target.isValidTarget()) {
+            npc.resetMode()
+            return false
+        }
+        encounter.initializeDecisionSeed(0)
+        return true
+    }
+
     private fun StandardNpcAccess.attack(target: Player) {
         if (!raids.attackTargetValid(target, npc)) {
             resetMode()
@@ -159,41 +239,18 @@ constructor(
             actionDelay = mapClock + 1
             return
         }
-        if (raids.isAkkhaBoss(npc)) {
-            if (actionDelay > mapClock) return
-            val specialDelay = raids.performAkkhaSpecialIfDue(npc, target)
-            if (specialDelay != null) {
-                actionDelay = mapClock + specialDelay
-                return
-            }
-            if (raids.suppressAkkhaNormalAttacks(npc)) {
-                resetMode()
-                return
-            }
-        }
         val profile =
             raids.combatProfile(npc)
                 ?: run {
                     resetMode()
                     return
                 }
-        if (
-            raids.isAkkhaBoss(npc) &&
-                profile.style == ToaCombatStyle.MELEE &&
-                !npc.isWithinDistance(target, 1)
-        ) {
-            return
-        }
         val attack =
             when (profile.style) {
                 ToaCombatStyle.MELEE -> CombatAttack.NpcMelee(MeleeAttackType.Crush)
                 ToaCombatStyle.RANGED -> CombatAttack.NpcRanged(RangedAttackType.Standard)
                 ToaCombatStyle.MAGIC -> CombatAttack.NpcMagic(profile.maxHit)
             }
-        // Interaction state can survive an Akkha teleport or style transform while its cached
-        // facing remains on the previous tile. Face the live target on the emission tick so the
-        // visible spear animation and the authoritative hit always agree.
-        if (raids.isAkkhaBoss(npc)) npc.faceSquare(target.coords)
         combat.attack(this, target, attack, attackOverride(npc, profile))
     }
 
@@ -272,50 +329,42 @@ constructor(
                 onImpact = raids::onPrayerMitigatedImpact,
             )
         }
-        if (!raids.isAkkhaBoss(npc)) {
-            return NpcAttackOverride(
-                maxHit = profile.maxHit,
-                attackRate = profile.rate,
-                hitModifier = prayerModifier(npc),
-                onImpact = raids::onPrayerMitigatedImpact,
-            )
-        }
-        val animation =
-            sequence(
-                when (profile.style) {
-                    ToaCombatStyle.MELEE -> AkkhaAssets.ATTACK_MELEE_SPEAR
-                    ToaCombatStyle.RANGED -> AkkhaAssets.ATTACK_RANGE_SPEAR
-                    ToaCombatStyle.MAGIC -> AkkhaAssets.ATTACK_MAGIC_SPEAR
-                }
-            )
+        return NpcAttackOverride(
+            maxHit = profile.maxHit,
+            attackRate = profile.rate,
+            hitModifier = prayerModifier(npc),
+            onImpact = raids::onPrayerMitigatedImpact,
+        )
+    }
+
+    private fun akkhaAttackParameters(npc: Npc, style: ToaCombatStyle): NpcAttackOverride {
+        val profile = requireNotNull(raids.combatProfile(npc))
+        check(profile.style == style)
         val projectile =
-            when (profile.style) {
+            when (style) {
                 ToaCombatStyle.MELEE -> null
                 ToaCombatStyle.RANGED -> projectile(ToaAssets.AKKHA_RANGE)
                 ToaCombatStyle.MAGIC -> projectile(ToaAssets.AKKHA_MAGIC)
             }
         val prayerReduction =
-            when (profile.style) {
+            when (style) {
                 ToaCombatStyle.MELEE -> 75
                 ToaCombatStyle.RANGED,
                 ToaCombatStyle.MAGIC -> 85
             }
         return NpcAttackOverride(
-            attackAnimation = animation,
             maxHit = profile.maxHit,
             projectile = projectile,
-            impactDelay = akkhaImpactDelay(profile.style),
-            attackRate = profile.rate,
             hitModifier =
                 NpcPartialProtectionPrayerPlayerHitModifier(
                     raids.prayerReduction(npc, prayerReduction)
                 ),
             onAttack = { attackedTarget ->
-                raids.recordAkkhaStandardAttack(npc, attackedTarget, profile.style)
+                raids.recordAkkhaStandardAttack(npc, attackedTarget, style)
             },
             onImpact = { source, impact ->
                 raids.onPrayerMitigatedImpact(source, impact)
-                if (profile.style == ToaCombatStyle.MAGIC) {
+                if (style == ToaCombatStyle.MAGIC) {
                     (impact.target as? Player)?.spotanim(AkkhaAssets.MAGIC_IMPACT)
                 }
             },

@@ -2,6 +2,7 @@ package org.rsmod.content.minigames.toa
 
 import org.rsmod.api.bosses.runtime.BossEncounter
 import org.rsmod.game.MapClock
+import org.rsmod.game.entity.Player
 
 /** Native phase/clock adapter; no private attack count, selector cursor or due-cycle field. */
 internal class KephriCombatPhases(
@@ -9,6 +10,21 @@ internal class KephriCombatPhases(
     private val clock: MapClock,
     seed: Long,
 ) {
+    private var dispatchTarget: Player? = null
+
+    fun ownsDispatch(target: Player): Boolean = dispatchTarget === target
+
+    /** Only the synchronous native LateCycle AI event may consume this spatial observation. */
+    fun dispatch(target: Player, action: () -> Unit) {
+        check(dispatchTarget == null)
+        dispatchTarget = target
+        try {
+            action()
+        } finally {
+            dispatchTarget = null
+        }
+    }
+
     init {
         encounter.initializeDecisionSeed(seed)
     }

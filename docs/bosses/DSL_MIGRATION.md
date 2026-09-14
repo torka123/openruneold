@@ -2,7 +2,61 @@
 
 ## Current source increments — September 14
 
-### Current checkpoint: ToA Ba-Ba ordinary combat and native session ownership verified
+### Current checkpoint: ToA Akkha, Kephri and Zebak ordinary routes verified
+
+Akkha's three ordinary styles now use native BossSpec/NpcAttack phases and six-tick cadence,
+preserving special admission precedence, accepted callbacks before RNG, launch prayers, impact
+invocations and source-death/deletion validity. Kephri's verified native cycle is integrated at
+the retained LateCycle boundary: first Modify+4, shield/recovery+13, bomb/special counts and Agile
+override, invocation and egg-layout seeds from the accepted action count. Hazards and pending hits
+still precede ordinary dispatch. A repeated final Kephri kill callback now preserves the original
+three-tick completion deadline instead of falling through to early completion.
+
+Zebak ordinary targeting/selection and cadence now use native BossCombat and actionDelay. The
+existing encounter RNG remains shared with hazards and split-time damage. Initial+10, path/enrage
+rates, replacing special deadlines, empty-target retry, and preparation/wave eligibility are
+preserved. Existing fixed-anchor launch, split+4 fanout and original launch+8 impact remain intact.
+No duplicate generic AI/Modify registration remains for these migrated boss forms.
+
+Real runtime integration exposed one session-cleanup defect: native termination ends session
+coordinate authority before content cleanup. Crondis now skips only its cosmetic room reset for
+an ended session; actor/item/supply/state cleanup remains unconditional. Retained native session
+termination and reclaim tests now exercise this real runtime. No persistence policy changed.
+
+All41 focused groups pass, including23 new groups (Akkha6, Kephri5, Zebak12, with32 path/seed
+differential scenarios). Full ToA449, scoped formatting/checks, architecture/self-tests and app
+assemble pass (62s). Logs/selections/results: logs/toa-akkha-kephri-zebak-*20260914; passing focus
+is focus-lifecycle. Earlier failures were a missing test import, a value-returning BeforeAll,
+invalid zero-tick test hit, players left in Zebak's waiting area, and the real cleanup defect above.
+Test corrections use native one-tick hits and arena telejump; production targeting is unchanged.
+Independent Kephri source review found no actionable regression. With retained shared/DT2/Doom/
+other-boss results,1,998 cases remain valid, not a scope percentage. Detector still scans boss
+modules only; raid routing is explicitly reviewed and tested, not certified by that detector alone.
+
+Changed: ToaCombat/RaidManager/Domain, KephriCombatPhases, CrondisZebakRuntime/ZebakEncounter;
+new Akkha/Zebak specs and three native suites; native fixture and existing Kephri reset test;
+this ledger/handoff. Archive: logs/toa-akkha-kephri-zebak-source-20260914.zip;
+backup/toa-akkha-kephri-zebak-20260914. Build passed; listed behavior verified; not deployed.
+Runtime remains c4fc9390f/JVM23812 on43594/8080/9091; database/cache authority and all holds remain.
+
+Exact next mapped increments, using existing APIs and current source as the preservation oracle:
+- Zebak split launch and helper expiry use separate native owned queues at their existing LateCycle
+  positions (DoomAttackQueues precedent). Preserve fanout-time targets/RNG and original impact time;
+  preparation/enrage retain them, death/deletion/full cleanup cancel them. Shared pending-hit order
+  stays intact. Its special graph and hazard deadlines follow separately.
+- Ba-Ba intro/special/rolling preparation/return and forced Rockfall use separate native completion
+  and forced owners (Whisperer/Duke precedent), retaining return-after-transition and tied priority.
+  Ba-Ba/Akkha special choices use native stable Choose branches with wrappers over their existing
+  shared RNG (Vardorvis precedent); forced/chain choices preserve logical history. Geometry stays.
+- Wardens P2 body uses declared modulo phases, native cadence and exact base-tile distance input.
+  Fourteen static count-offset phases preserve the seventh-special/parity sequence across native
+  replacement bodies without a new history-restoration API. Session metadata retains the accepted
+  count for that replacement; independent Obelisk dispatch remains first. Initial+5/recovery+4 and
+  god7/8 or Acceleration4 are preserved. No approximation to native entity-bounds distance.
+Then remaining ToA special/lifecycle/owned scheduling and Wardens, followed by ToB/CoX. These are
+architecture mappings, not new OSRS evidence; previously recorded mechanics/replay gaps remain.
+
+### Earlier checkpoint: ToA Ba-Ba ordinary combat and native session ownership verified
 
 Ba-Ba forms11778-11780 now use BossSpec/NpcAttack and native accepted-launch cadence. Retained
 six-tick Crush, two-auto special/rolling gate precedence, target reset order, callback-before-RNG

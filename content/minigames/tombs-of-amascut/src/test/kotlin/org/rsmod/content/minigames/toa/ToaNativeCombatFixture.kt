@@ -2,6 +2,7 @@ package org.rsmod.content.minigames.toa
 
 import com.google.inject.AbstractModule
 import com.google.inject.Guice
+import dev.openrune.types.ObjectServerType
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import org.mockito.Answers
@@ -24,11 +25,15 @@ import org.rsmod.api.instances.region.InstanceAreaResolver
 import org.rsmod.api.mechanics.toxins.NpcPoisonEffectService
 import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.api.npc.access.StandardNpcAccessContext
+import org.rsmod.api.npc.access.StandardNpcAccessContextFactory
+import org.rsmod.api.npc.access.StandardNpcAccessLauncher
 import org.rsmod.api.npc.events.interact.AiPlayerEvents
 import org.rsmod.api.npc.hit.modifier.StandardNpcHitModifier
 import org.rsmod.api.npc.hit.processor.StandardNpcHitProcessor
+import org.rsmod.api.npc.hit.queueHit
 import org.rsmod.api.npc.interact.AiPlayerInteractions
 import org.rsmod.api.player.bonus.WornBonuses
+import org.rsmod.api.player.hit.DeferredPlayerHit
 import org.rsmod.api.player.hit.processor.StandardPlayerHitProcessor
 import org.rsmod.api.player.hook.PlayerPostTickHook
 import org.rsmod.api.player.hook.PlayerTeleportHooks
@@ -54,7 +59,11 @@ import org.rsmod.game.entity.NpcList
 import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
 import org.rsmod.game.hit.Hit
+import org.rsmod.game.hit.HitType
+import org.rsmod.game.loc.LocAngle
+import org.rsmod.game.loc.LocEntity
 import org.rsmod.game.loc.LocInfo
+import org.rsmod.game.loc.LocShape
 import org.rsmod.game.queue.EngineQueueCache
 import org.rsmod.game.queue.WorldQueueList
 import org.rsmod.game.region.Region
@@ -64,6 +73,7 @@ import org.rsmod.map.zone.ZoneKey
 import org.rsmod.plugin.scripts.PluginScript
 import org.rsmod.plugin.scripts.ScriptContext
 import org.rsmod.routefinder.collision.CollisionFlagMap
+import org.rsmod.routefinder.loc.LocLayerConstants
 
 /** Real raid admission, native actor ownership, registered combat and protected hit processing. */
 @OptIn(InternalApi::class)
@@ -106,8 +116,22 @@ internal class ToaNativeCombatFixture(nativeLifecycleFirst: Boolean = true) : Au
         )
     val locs =
         mock(LocRepository::class.java) { call ->
-            if (call.method.name.startsWith("findAll")) emptySequence<LocInfo>()
-            else Answers.RETURNS_DEFAULTS.answer(call)
+            when {
+                call.method.name.startsWith("findAll") -> emptySequence<LocInfo>()
+                call.method.name.startsWith("add") &&
+                    call.arguments.getOrNull(1) is ObjectServerType -> {
+                    val coords = CoordGrid(call.arguments[0] as Int)
+                    val type = call.arguments[1] as ObjectServerType
+                    val angle = call.arguments[3] as LocAngle
+                    val shape = call.arguments[4] as LocShape
+                    LocInfo(
+                        LocLayerConstants.of(shape.id),
+                        coords,
+                        LocEntity(type.id, shape.id, angle.id),
+                    )
+                }
+                else -> Answers.RETURNS_DEFAULTS.answer(call)
+            }
         }
     val world = mock(WorldRepository::class.java)
     val supplies = mock(ToaSupplies::class.java)
@@ -134,6 +158,47 @@ internal class ToaNativeCombatFixture(nativeLifecycleFirst: Boolean = true) : Au
     val bossEncounters = EncounterRegistry(selectionRandom)
     val worldQueues = WorldQueueList()
     val queueProcess = WorldQueueListProcess(worldQueues)
+    val deps =
+        BossDeps(
+            selectionRandom,
+            accuracy,
+            world,
+            npcs,
+            players,
+            clock,
+            worldQueues,
+            collision,
+            bossEncounters,
+            BossExtensionRegistry(),
+            nativeCombat,
+        )
+    val nativeAccess =
+        StandardNpcAccessLauncher(
+            StandardNpcAccessContextFactory(
+                accessRandom,
+                StandardNpcHitModifier(events),
+                StandardNpcHitProcessor(players, events, emptySet()),
+            )
+        )
+    val objects = mock(ObjRepository::class.java)
+    val crondisZebak =
+        ToaCrondisZebakRuntime(
+            clock,
+            players,
+            instances,
+            locs,
+            objects,
+            npcs,
+            world,
+            mock(RouteFactory::class.java),
+            collision,
+            accuracy,
+            accessRandom,
+            supplies,
+            deps,
+            nativeAccess,
+            events,
+        )
     private val protectedContext =
         mock(ProtectedAccessContext::class.java) { call ->
             when (call.method.name) {
@@ -176,7 +241,7 @@ internal class ToaNativeCombatFixture(nativeLifecycleFirst: Boolean = true) : Au
             collision,
             rewards,
             supplies,
-            mock(ToaCrondisZebakRuntime::class.java),
+            crondisZebak,
             mock(ToaScabarasIntegration::class.java),
             mock(ToaHetOpenRuneBridge::class.java),
             mock(ToaHetPickaxeStorage::class.java),
@@ -186,6 +251,9 @@ internal class ToaNativeCombatFixture(nativeLifecycleFirst: Boolean = true) : Au
             hpBar,
             mock(NpcPoisonEffectService::class.java),
             protectedAccess,
+            deps,
+            nativeAccess,
+            events,
         )
     val death =
         NpcDeath(
@@ -219,21 +287,9 @@ internal class ToaNativeCombatFixture(nativeLifecycleFirst: Boolean = true) : Au
         with(instanceScript) { context.startup() }
         with(ToaLifecycle(manager)) { context.startup() }
         if (!nativeLifecycleFirst) with(lifecycle) { context.startup() }
-        val deps =
-            BossDeps(
-                selectionRandom,
-                accuracy,
-                world,
-                npcs,
-                players,
-                clock,
-                worldQueues,
-                collision,
-                bossEncounters,
-                BossExtensionRegistry(),
-                nativeCombat,
-            )
-        with(ToaCombat(nativeCombat, manager, death, players, deps)) { context.startup() }
+        with(ToaCombat(nativeCombat, manager, death, players, deps, crondisZebak)) {
+            context.startup()
+        }
     }
 
     private fun allocateRegion(): Region {
@@ -300,8 +356,21 @@ internal class ToaNativeCombatFixture(nativeLifecycleFirst: Boolean = true) : Au
         return raid
     }
 
-    fun baba(raid: ToaRaidSession): Npc =
+    fun baba(raid: ToaRaidSession): Npc = boss(raid)
+
+    fun boss(raid: ToaRaidSession): Npc =
         raid.npcRoles.entries.single { it.value == ToaNpcRole.BOSS }.key
+
+    fun enterAkkha(player: Player): ToaRaidSession = enterRoom(player, "akkha")
+
+    fun enterKephri(player: Player): ToaRaidSession = enterRoom(player, "kephri")
+
+    fun enterZebak(player: Player): ToaRaidSession = enterRoom(player, "zebak")
+
+    private fun enterRoom(player: Player, room: String): ToaRaidSession {
+        assertTrue(manager.devEnterRoom(player, room))
+        return assertNotNull(manager.raidFor(player))
+    }
 
     fun advance(cycles: Int) {
         require(cycles >= 0)
@@ -356,6 +425,30 @@ internal class ToaNativeCombatFixture(nativeLifecycleFirst: Boolean = true) : Au
 
     fun processHit(player: Player, hit: Hit) {
         protectedAccess.launchLenient(player) { with(StandardPlayerHitProcessor) { process(hit) } }
+    }
+
+    fun deferredHits(player: Player): List<Pair<Int, DeferredPlayerHit>> {
+        val iterator = player.queueList.iterator() ?: return emptyList()
+        return try {
+            buildList {
+                while (iterator.hasNext()) {
+                    val entry = iterator.next()
+                    (entry.args as? DeferredPlayerHit)?.let { add(entry.remainingCycles to it) }
+                }
+            }
+        } finally {
+            iterator.cleanUp()
+        }
+    }
+
+    /** Native launch modification now, then attribution and impact processing one tick later. */
+    fun hitNpc(player: Player, npc: Npc, damage: Int, type: HitType = HitType.Melee): Hit {
+        val hit = npc.queueHit(player, 1, type, damage, StandardNpcHitModifier(events))
+        advance(1)
+        nativeAccess.launch(npc) {
+            with(StandardNpcHitProcessor(players, events, emptySet())) { process(hit) }
+        }
+        return hit
     }
 
     /**
