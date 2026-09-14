@@ -208,6 +208,12 @@ internal enum class DoomAttackStyle {
     MAGIC,
 }
 
+internal enum class DoomPrimaryAttack {
+    STANDARD,
+    TONGUE,
+    ROCKS,
+}
+
 internal data class DoomArenaDefinition(val regionId: Int, val regionX: Int, val regionZ: Int)
 
 internal fun arenaForDelve(delve: Int): DoomArenaDefinition =

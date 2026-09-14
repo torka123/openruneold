@@ -24,6 +24,34 @@ constructor(
     private val deps: BossDeps,
 ) : PluginScript() {
     override fun ScriptContext.startup() {
+        registerDukeBossCombat(
+            this,
+            deps,
+            canTarget = encounters::prepareDukeOpportunity,
+            launch = encounters::launchDukeAction,
+            modifyHit = {
+                val player =
+                    if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players)
+                    else null
+                if (player == null) hit.damage = 0 else encounters.modifyNpcHit(player, npc, hit)
+            },
+        )
+        deps.extensionRegistry.register(LEVIATHAN_ORDINARY_ATTACK) { access, npc, target, _ ->
+            encounters.launchLeviathanOrdinary(access, npc, target)
+        }
+        BossCombat.register(
+            this,
+            leviathanBossSpec(),
+            deps,
+            ownerSlug = "leviathan",
+            canTarget = encounters::prepareLeviathanOpportunity,
+            onModifyHit = {
+                val player =
+                    if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players)
+                    else null
+                if (player == null) hit.damage = 0 else encounters.modifyNpcHit(player, npc, hit)
+            },
+        )
         deps.extensionRegistry.registerAttackParameters(WHISPERER_ATTACK_PARAMETERS) {
             npc,
             target,
@@ -63,7 +91,17 @@ constructor(
             },
         )
         encounters.combatNpcTypes().forEach { type ->
-            if (type.id !in setOf(12203, 12204, 12205, Dt2Boss.VARDORVIS.normalNpcId)) {
+            if (
+                type.id !in
+                    setOf(
+                        12203,
+                        12204,
+                        12205,
+                        Dt2Boss.VARDORVIS.normalNpcId,
+                        Dt2Boss.LEVIATHAN.normalNpcId,
+                        Dt2Boss.DUKE.normalNpcId,
+                    )
+            ) {
                 onAiApPlayer2(type) { encounters.attack(this, it.target) }
                 onModifyNpcHit(type) {
                     val player =

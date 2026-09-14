@@ -78,16 +78,17 @@ class DoomNativeDslTest {
         for (delve in 1..9) for (style in DoomAttackStyle.entries) {
             if (delve == 1 && style == DoomAttackStyle.MELEE) continue
             Fixture(delve, standardSeed(delve, style)).use { f ->
-                val before = f.run.attackFlowState
+                val before = f.oracleState
                 val expected = DoomAttackFlow.next(delve, before, adjacent = false)
-                val stateDuringRoll = mutableListOf<DoomAttackFlowState>()
-                f.random.beforeRoll = { stateDuringRoll += f.run.attackFlowState }
+                val countsBefore = f.decisionCounts()
+                val stateDuringRoll = mutableListOf<List<Long>>()
+                f.random.beforeRoll = { stateDuringRoll += f.decisionCounts() }
                 f.attack()
 
-                assertEquals(expected.nextState, f.run.attackFlowState, "delve=$delve style=$style")
+                f.assertTurn(expected)
                 assertTrue(stateDuringRoll.isNotEmpty())
                 assertTrue(
-                    stateDuringRoll.all { it == before },
+                    stateDuringRoll.all { it == countsBefore },
                     "Commit must follow native damage RNG",
                 )
                 assertEquals(100 + DoomRules.attackRate(delve), f.npc.actionDelay)
@@ -104,7 +105,7 @@ class DoomNativeDslTest {
                     hit.type,
                 )
                 assertEquals(1, f.projectiles().size)
-                assertNull(f.run.preparedAttack)
+                assertNull(f.run.launchedPrimary)
                 f.attack()
                 assertEquals(1, f.hits().size, "Same-cycle AI cannot launch twice")
             }
@@ -115,10 +116,10 @@ class DoomNativeDslTest {
     fun `tongue substitution and next distant attack use their own native rates without consuming seed`() {
         for (delve in listOf(1, 4, 8, 9)) {
             Fixture(delve, standardSeed(delve, DoomAttackStyle.RANGED)).use { f ->
-                val before = f.run.attackFlowState
+                val before = f.oracleState
                 f.player.coords = f.npc.coords.translateX(5)
                 f.attack()
-                assertEquals(before, f.run.attackFlowState)
+                f.assertTurn(DoomAttackFlow.next(delve, before, adjacent = true))
                 assertEquals(100 + DoomRules.tongueAttackRate(delve), f.npc.actionDelay)
                 assertEquals(HitType.Melee, f.hits().single().second.type)
                 assertTrue(f.projectiles().isEmpty())
@@ -134,10 +135,7 @@ class DoomNativeDslTest {
                     f.registry.of(f.npc).recentAbilityCommitTicks(),
                 )
                 assertEquals(secondTick + DoomRules.attackRate(delve), f.npc.actionDelay)
-                assertEquals(
-                    DoomAttackFlow.next(delve, before, adjacent = false).nextState,
-                    f.run.attackFlowState,
-                )
+                f.assertTurn(DoomAttackFlow.next(delve, before, adjacent = false))
                 assertEquals(1, f.projectiles().size)
             }
         }
@@ -146,7 +144,7 @@ class DoomNativeDslTest {
     @Test
     fun `native and encounter rejection cannot consume streams or commit abilities`() {
         val f = Fixture(4, standardSeed(4, DoomAttackStyle.RANGED))
-        val before = f.run.attackFlowState
+        val before = f.decisionCounts()
         f.npc.actionDelay = 101
         f.attack()
         f.npc.actionDelay = 0
@@ -161,15 +159,15 @@ class DoomNativeDslTest {
         f.player.pendingLogout = false
         f.npc.mode = NpcMode.None
         f.attack()
-        assertEquals(before, f.run.attackFlowState)
-        assertNull(f.registry.existing(f.npc))
+        assertEquals(before, f.decisionCounts())
+        assertTrue(f.registry.of(f.npc).recentAbilityCommitTicks().isEmpty())
         assertTrue(f.hits().isEmpty())
         assertTrue(f.projectiles().isEmpty())
         f.npc.mode = NpcMode.ApPlayer2
         f.run.nextAttackNotBeforeCycle = 105
         f.attack()
         assertEquals(105, f.npc.actionDelay)
-        assertNull(f.registry.existing(f.npc))
+        assertTrue(f.registry.of(f.npc).recentAbilityCommitTicks().isEmpty())
         f.at(105)
         f.attack()
         assertEquals(1, f.registry.of(f.npc).recentAbilityCommitTicks().size)
@@ -179,13 +177,15 @@ class DoomNativeDslTest {
     fun `forced and seeded rock abilities keep their spatial handler and commit rules`() {
         for (delve in listOf(1, 4, 8)) {
             Fixture(delve, standardSeed(delve, DoomAttackStyle.RANGED)).use { forced ->
-                val before = forced.run.attackFlowState
+                val before = forced.oracleState
                 forced.run.shockwavePreparing = true
                 forced.run.forceRockBeforeShockwave = true
                 forced.run.preShockwaveAttacksRemaining = 2
                 forced.player.coords = forced.npc.coords.translateX(5)
                 forced.attack()
-                assertEquals(before, forced.run.attackFlowState)
+                forced.assertTurn(
+                    DoomAttackFlow.next(delve, before, adjacent = true, forceRock = true)
+                )
                 assertEquals(1, forced.run.fallingRocks.size)
                 assertEquals(DoomRules.rockSets(delve) - 1, forced.run.rockVolleysRemaining)
                 assertEquals(1, forced.run.preShockwaveAttacksRemaining)
@@ -202,9 +202,9 @@ class DoomNativeDslTest {
                         turn.primary == DoomPrimaryAttack.ROCKS && turn.startMeleeCharge == charge
                     }
                 Fixture(delve, seed).use { free ->
-                    val expected = DoomAttackFlow.next(delve, free.run.attackFlowState, false)
+                    val expected = DoomAttackFlow.next(delve, free.oracleState, false)
                     free.attack()
-                    assertEquals(expected.nextState, free.run.attackFlowState)
+                    free.assertTurn(expected)
                     assertEquals(
                         if (charge) 102 else Int.MAX_VALUE,
                         free.run.pendingMeleeChargeCycle,
@@ -289,14 +289,14 @@ class DoomNativeDslTest {
             assertTrue(assertNotNull(f.instanceSpecs.get(DOOM_INSTANCE_KEY)).destroyWhenEmpty)
             f.attack()
             val hit = f.hits().single().second
-            f.run.preparedAttack = DoomAttackFlow.next(8, f.run.attackFlowState, false)
+            f.run.launchedPrimary = DoomPrimaryAttack.STANDARD
             f.player.lootDropDuration = 100
             SpecialAttackEnergyRegeneration.pause(f.player)
             f.events.publish(SessionStateEvent.Logout(f.player))
 
             assertTrue(f.run.retired)
             assertEquals(DoomState.INVALIDATED, f.run.state)
-            assertNull(f.run.preparedAttack)
+            assertNull(f.run.launchedPrimary)
             assertFalse(f.manager.isActive(f.player))
             assertFalse(f.npc.isSlotAssigned)
             assertFalse(hit.isValidNow())
@@ -460,7 +460,120 @@ class DoomNativeDslTest {
         }
     }
 
-    private class Fixture(val delve: Int, seed: Long) : AutoCloseable {
+    @Test
+    fun `native decision sequences match retained oracle across delves substitutions and car interleaving`() {
+        var repeatedRock = false
+        var suppressedRock = false
+        var chargedRock = false
+        var rejectedStandard = false
+        for (delve in 1..9) for (seed in listOf(1L, 42L, 99L, Long.MIN_VALUE)) {
+            Fixture(delve, seed).use { f ->
+                repeat(24) { step ->
+                    if (delve >= 5 && step in setOf(6, 17)) {
+                        f.run.state = DoomState.BURROWING
+                        val tick = f.clock.cycle
+                        val actionDelay = f.npc.actionDelay
+                        val trace = f.registry.of(f.npc).recentAbilityCommitTicks()
+                        val primaryBefore = f.registry.of(f.npc).decisionResult(DOOM_PRIMARY_STREAM)
+                        val expectedStyle = f.carProjectile()
+                        assertEquals(expectedStyle, f.run.pendingHits.last().style)
+                        assertEquals(tick, f.clock.cycle)
+                        assertEquals(actionDelay, f.npc.actionDelay)
+                        assertEquals(trace, f.registry.of(f.npc).recentAbilityCommitTicks())
+                        assertEquals(
+                            primaryBefore,
+                            f.registry.of(f.npc).decisionResult(DOOM_PRIMARY_STREAM),
+                        )
+                        f.run.pendingHits.clear()
+                        f.run.state = DoomState.ACTIVE
+                    }
+                    val adjacent = step % 8 == 2
+                    val forced = step % 9 == 5
+                    val suppressed = step % 4 == 3 || forced
+                    f.player.coords = f.npc.coords.translateX(if (adjacent) 5 else 8)
+                    f.run.shockwavePreparing = suppressed
+                    f.run.preShockwaveAttacksRemaining = if (suppressed) 10 else 0
+                    f.run.forceRockBeforeShockwave = forced
+                    val expected =
+                        DoomAttackFlow.next(delve, f.oracleState, adjacent, forced, suppressed)
+                    if (expected.primary == DoomPrimaryAttack.STANDARD && step % 3 == 0) {
+                        val counts = f.decisionCounts()
+                        val trace = f.registry.of(f.npc).recentAbilityCommitTicks()
+                        val actionDelay = f.npc.actionDelay
+                        val mode = f.npc.mode
+                        val interaction = f.npc.interaction
+                        // Visibility is reversible; logout retires the player's native HitScope.
+                        f.player.hidden = true
+                        f.attack()
+                        assertEquals(counts, f.decisionCounts())
+                        assertEquals(trace, f.registry.of(f.npc).recentAbilityCommitTicks())
+                        assertEquals(actionDelay, f.npc.actionDelay)
+                        assertEquals(mode, f.npc.mode)
+                        assertEquals(interaction, f.npc.interaction)
+                        f.player.hidden = false
+                        rejectedStandard = true
+                    }
+                    repeat(step % 3) { f.random.of(999) }
+                    val previous = f.oracleState.lastFreePrimary
+                    f.attack()
+                    f.assertTurn(expected)
+                    assertEquals(
+                        if (expected.spawnLarvae) DoomRules.profile(delve).outsideLarvaCount else 0,
+                        f.run.larvae.size,
+                        "Larvae must follow accepted free selections only: delve=$delve seed=$seed step=$step",
+                    )
+                    if (expected.consumesRotation && expected.primary == DoomPrimaryAttack.ROCKS) {
+                        repeatedRock = repeatedRock || previous == DoomPrimaryAttack.ROCKS
+                        suppressedRock = suppressedRock || suppressed
+                        chargedRock = chargedRock || expected.startMeleeCharge
+                    }
+                    assertEquals(
+                        if (expected.startMeleeCharge) f.clock.cycle + 2 else Int.MAX_VALUE,
+                        f.run.pendingMeleeChargeCycle,
+                    )
+                    // Complete the independent spatial mechanics before the next ordinary turn.
+                    f.run.larvae.keys.toList().forEach { f.npcs.del(it, Int.MAX_VALUE) }
+                    f.run.larvae.clear()
+                    f.run.fallingRocks.clear()
+                    f.run.rockVolleysRemaining = 0
+                    f.run.pendingMeleeChargeCycle = Int.MAX_VALUE
+                    f.at(maxOf(f.clock.cycle + 1, f.npc.actionDelay))
+                }
+            }
+        }
+        assertTrue(repeatedRock)
+        assertTrue(suppressedRock)
+        assertTrue(chargedRock)
+        assertTrue(rejectedStandard)
+    }
+
+    @Test
+    fun `coincident impact substitutes declared style after consuming original seeded draw`() {
+        Fixture(4, standardSeed(4, DoomAttackStyle.RANGED)).use { f ->
+            val expected = DoomAttackFlow.next(4, f.oracleState, adjacent = false)
+            f.run.pendingHits +=
+                DoomEncounterManager.PendingStyleHit(
+                    impactCycle = 100 + DoomRules.standardProjectileTravelTicks(4),
+                    style = DoomAttackStyle.MAGIC,
+                    maxHit = 1,
+                )
+            f.attack()
+            f.assertTurn(expected)
+            val decision = assertNotNull(f.registry.of(f.npc).decisionResult(DOOM_STYLE_STREAM))
+            assertEquals(DoomAttackStyle.RANGED.name, decision.rolledChoice)
+            assertEquals(DoomAttackStyle.MAGIC.name, decision.choice)
+            assertEquals(HitType.Magic, f.hits().single().second.type)
+            f.run.pendingHits.clear()
+            f.at(f.npc.actionDelay)
+            val following = DoomAttackFlow.next(4, f.oracleState, adjacent = false)
+            f.attack()
+            f.assertTurn(following)
+        }
+    }
+
+    private class Fixture(val delve: Int, val seed: Long) : AutoCloseable {
+        var oracleState = DoomAttackFlow.initial(delve, seed)
+        private val oracleCounts = longArrayOf(0, 0, 0)
         val clock = MapClock().apply { cycle = 100 }
         val random = MaximumRandom()
         val collision = CollisionFlagMap()
@@ -571,7 +684,7 @@ class DoomNativeDslTest {
                 instances,
                 npcs,
                 locs,
-                mock(AiPlayerInteractions::class.java),
+                AiPlayerInteractions(events, players),
                 collision,
                 random,
                 registry,
@@ -631,6 +744,9 @@ class DoomNativeDslTest {
             instances.finalizeEntry(player, session, clock.cycle)
             npcs.add(npc, 10000)
             instances.attachNpc(session.id, npc)
+            with(DoomCombat(manager, mock(NpcDeath::class.java), players, npcList, deps)) {
+                scripts.startup()
+            }
             manager.javaClass
                 .getDeclaredMethod("attachRun", DoomEncounterManager.Run::class.java)
                 .let {
@@ -638,9 +754,6 @@ class DoomNativeDslTest {
                     it.invoke(manager, run)
                 }
             with(PlayerHitScript()) { scripts.startup() }
-            with(DoomCombat(manager, mock(NpcDeath::class.java), players, npcList, deps)) {
-                scripts.startup()
-            }
         }
 
         fun attack() {
@@ -657,6 +770,66 @@ class DoomNativeDslTest {
                     )
                 events.publish(access, AiPlayerEvents.Ap2(player, npc))
             }
+        }
+
+        fun decisionCounts(): List<Long> =
+            listOf(DOOM_PRIMARY_STREAM, DOOM_STYLE_STREAM, DOOM_CHARGE_STREAM).map {
+                registry.existing(npc)?.decisionDrawCount(it) ?: 0L
+            }
+
+        fun assertTurn(expected: DoomAttackTurn) {
+            val encounter = registry.of(npc)
+            val next = expected.nextState
+            val advanced =
+                listOf(
+                    next.primaryRandomState != oracleState.primaryRandomState,
+                    next.styleRandomState != oracleState.styleRandomState,
+                    next.chargeRandomState != oracleState.chargeRandomState,
+                )
+            advanced.forEachIndexed { index, changed -> if (changed) oracleCounts[index]++ }
+            assertEquals(
+                oracleCounts.toList(),
+                decisionCounts(),
+                "delve=$delve seed=$seed turn=${next.scheduledTurn}",
+            )
+            val primary = encounter.decisionResult(DOOM_PRIMARY_STREAM)
+            val style = encounter.decisionResult(DOOM_STYLE_STREAM)
+            val charge = encounter.decisionResult(DOOM_CHARGE_STREAM)
+            if (expected.consumesRotation) {
+                assertEquals(expected.primary.name, assertNotNull(primary).choice)
+                assertTrue(primary.drew)
+                if (expected.primary == DoomPrimaryAttack.STANDARD) {
+                    assertEquals(expected.standardStyle.name, assertNotNull(style).rolledChoice)
+                    assertTrue(style.drew)
+                    assertNull(charge)
+                } else {
+                    assertNull(style)
+                    assertEquals(
+                        if (expected.startMeleeCharge) DOOM_CHARGE else DOOM_NO_CHARGE,
+                        assertNotNull(charge).choice,
+                    )
+                    assertEquals(advanced[2], charge.drew)
+                }
+            } else {
+                assertNull(primary)
+                assertNull(style)
+                assertNull(charge)
+            }
+            oracleState = next
+        }
+
+        fun carProjectile(): DoomAttackStyle {
+            val roll = DoomAttackDecision.chooseStyle(oracleState.styleRandomState, delve)
+            manager.javaClass
+                .getDeclaredMethod("launchCarProjectile", DoomEncounterManager.Run::class.java)
+                .let {
+                    it.isAccessible = true
+                    it.invoke(manager, run)
+                }
+            oracleState = oracleState.copy(styleRandomState = roll.nextState)
+            oracleCounts[1]++
+            assertEquals(oracleCounts.toList(), decisionCounts())
+            return roll.value
         }
 
         fun at(cycle: Int) {

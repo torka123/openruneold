@@ -11,9 +11,8 @@ import org.rsmod.api.combat.commons.types.MeleeAttackType
 import org.rsmod.api.combat.commons.types.RangedAttackType
 
 /**
- * Retains DoomRules' characterized constants and the existing three-stream selection policy.
- * Ordinary launches and their cadence are native DSL effects; spatial rock volleys stay owned by
- * the encounter handler. This does not assert new OSRS timing or damage evidence.
+ * Characterized three-stream decisions and ordinary launches use native selectors/effects. Spatial
+ * rock volleys retain their established handler. This is not a new OSRS fidelity claim.
  */
 internal fun doomBossSpec(): BossSpec {
     val abilities = linkedMapOf<String, Effect>()
@@ -81,6 +80,45 @@ internal fun doomBossSpec(): BossSpec {
                     Effect.External(DOOM_ROCK_ATTACK),
                 )
             )
+        val rock = abilities.getValue(doomAbility(delve, DoomPrimaryAttack.ROCKS))
+        val styleChoice =
+            Effect.Choose(
+                selector = doomStyleSelector(delve),
+                branches =
+                    DoomAttackStyle.entries.associate { style ->
+                        style.name to
+                            abilities.getValue(
+                                doomAbility(delve, DoomPrimaryAttack.STANDARD, style)
+                            )
+                    },
+            )
+        val chargeChoice =
+            Effect.Choose(
+                selector =
+                    Selector.SeededWeighted(
+                        stream = DOOM_CHARGE_STREAM,
+                        salt = 0x5A5A5A5AL,
+                        entries = listOf(WeightedRef(DOOM_CHARGE), WeightedRef(DOOM_NO_CHARGE)),
+                        preparedChoice =
+                            PreparedChoice(DOOM_CHARGE_INPUT, drawBeforeOverride = false),
+                    ),
+                branches = mapOf(DOOM_CHARGE to rock, DOOM_NO_CHARGE to rock),
+            )
+        abilities[doomOrdinaryAbility(delve)] =
+            Effect.Choose(
+                selector =
+                    Selector.SeededWeighted(
+                        stream = DOOM_PRIMARY_STREAM,
+                        salt = 0x13579BDFL,
+                        entries = listOf(WeightedRef("ROCKS", 1), WeightedRef("STANDARD", 3)),
+                        entriesAfterPrevious =
+                            mapOf(
+                                "ROCKS" to
+                                    listOf(WeightedRef("ROCKS", 1), WeightedRef("STANDARD", 7))
+                            ),
+                    ),
+                branches = mapOf("STANDARD" to styleChoice, "ROCKS" to chargeChoice),
+            )
     }
     return BossSpec(
         npcTypes =
@@ -89,8 +127,24 @@ internal fun doomBossSpec(): BossSpec {
             },
         stats = BossStats(attackRate = 1),
         abilities = abilities,
-        // Only the existing encounter's admitted, prepared turn can force a named ability.
-        phases = mapOf("active" to PhaseSpec("active", lockMovement = true)),
+        phases =
+            (1..8).associate { delve ->
+                val name = doomPhase(delve)
+                name to
+                    PhaseSpec(
+                        name,
+                        lockMovement = true,
+                        selector =
+                            Selector.Conditional(
+                                branches =
+                                    listOf(
+                                        Condition.WithinMeleeRange to
+                                            doomAbility(delve, DoomPrimaryAttack.TONGUE)
+                                    ),
+                                fallback = doomOrdinaryAbility(delve),
+                            ),
+                    )
+            },
         triggers = emptyList(),
     )
 }
@@ -105,6 +159,28 @@ internal fun doomAbility(
 
 internal const val DOOM_ATTACK_PARAMETERS = "doom.native-launch"
 internal const val DOOM_ROCK_ATTACK = "doom.rock-volley"
+internal const val DOOM_PRIMARY_STREAM = "doom.primary"
+internal const val DOOM_STYLE_STREAM = "doom.style"
+internal const val DOOM_CHARGE_STREAM = "doom.charge"
+internal const val DOOM_STYLE_INPUT = "doom.coincident-style"
+internal const val DOOM_CHARGE_INPUT = "doom.charge-suppression"
+internal const val DOOM_CHARGE = "charge"
+internal const val DOOM_NO_CHARGE = "plain"
+
+internal fun doomPhase(delve: Int): String = "delve.${delve.coerceIn(1, 8)}"
+
+private fun doomOrdinaryAbility(delve: Int): String = "${delve.coerceIn(1, 8)}.ordinary"
+
+internal fun doomStyleSelector(delve: Int): Selector.SeededWeighted =
+    Selector.SeededWeighted(
+        stream = DOOM_STYLE_STREAM,
+        salt = 0x2468ACE0L,
+        entries =
+            (if (delve == 1) listOf(DoomAttackStyle.RANGED, DoomAttackStyle.MAGIC)
+                else listOf(DoomAttackStyle.MAGIC, DoomAttackStyle.RANGED, DoomAttackStyle.MELEE))
+                .map { WeightedRef(it.name) },
+        preparedChoice = PreparedChoice(DOOM_STYLE_INPUT, drawBeforeOverride = true),
+    )
 
 private fun doomSequence(id: Int) = requireNotNull(RSCM.getReverseMapping(RSCMType.SEQ, id))
 

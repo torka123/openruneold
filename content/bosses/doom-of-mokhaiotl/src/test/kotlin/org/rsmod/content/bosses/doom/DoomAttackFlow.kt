@@ -188,9 +188,3 @@ internal data class DoomAttackTurn(
     val consumesRotation: Boolean,
     val advancesPhaseCounters: Boolean,
 )
-
-internal enum class DoomPrimaryAttack {
-    STANDARD,
-    TONGUE,
-    ROCKS,
-}

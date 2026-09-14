@@ -2,12 +2,13 @@
 
 ## Current source increments — September 14
 
-### Active increment: shared Doom decisions and remaining DT2 routes
+### Verified checkpoint: shared Doom decisions, Leviathan and Duke
 
 Leviathan's registered native opportunity/cadence route passes its first focused run with
 Whisperer/Vardorvis fixture regressions (`logs/leviathan-focus-20260914.log`). Six new groups
 cover every-attempt style RNG, 3/2/1 cadence, shadow stun and roar resumes, native deferred
-prayer/impact callbacks and retirement. Full-module integration is pending; source only.
+prayer/impact callbacks and retirement. Full-module/application integration now passes below;
+these changes remain source only.
 
 Doom's demonstrated selector gap uses the user's conditional shared-API approval. Existing
 WeightedRandom, Rotation, RepeatSelected, MeleeOverrideRotation and Conditional cannot express
@@ -32,23 +33,50 @@ pass scoped `check`: **1,023 cases**, zero failures/errors/skips, in
 `logs/seeded-shared-boss-regression-20260914.log`; counts
 `logs/seeded-shared-boss-regression-results-20260914.json`. Existing selector semantics remain
 unchanged. No engine combat hook was added; the acceptance observer composes the existing native
-`onAttack` callback. Application integration and Doom's differential content matrix remain pending.
+`onAttack` callback. The integrated application build and Doom content matrix now pass below.
 Shared changed files are under `api/bosses`: Selector, BossEncounter, BossCombat,
 EffectInterpreter, SpecValidator, new SeededDecisionState and BossSeededDecisionTest. Archive:
 `logs/seeded-boss-selector-source-20260914.zip`; backup `backup/seeded-boss-selector-20260914`.
 
-Duke's first native scheduling increment also passes its four new groups plus existing runtime and
-DT2 native-combat regressions (`logs/duke-native-focus-20260914.log`). It retains StartCycle through
-the existing native access launcher/event dispatcher and uses native actionDelay/5-or-4 cadence.
-The active follow-up lifts deterministic DukeRotation into declared gas-interval rotations, using
-existing Choose/HP conditions/phase transitions; no new API. Test ordering is being aligned to the
-actual StartCycle-before-NPC-clock boundary. DT2 session ownership remains pending.
+Doom production now composes the shared primary/style/charge selectors through Conditional/Choose.
+The old DoomAttackFlow/Decision moved into test sources as the oracle. Fourteen native groups pass,
+including delves1-9/four seeds/24 opportunities, positional and forced substitutions, skipped charge
+draws, larvae, extra hazard RNG and interleaved car projectiles. An immutable native hit-validity
+snapshot preserves the former standard/tongue admission gate before NvP resetMode, without tying
+fired projectiles to later combat mode. Same-opportunity rejection/retry preserves mode, interaction,
+cadence and streams. The matrix initially exposed an invalid reversible-logout fixture and that
+prelaunch-admission regression; visibility-based rejection and the native snapshot correct both.
+Final focus: `logs/doom-native-gate-focus-20260914.log`; full Doom **129 cases** pass.
+
+Duke retains StartCycle through the existing native access launcher/event dispatcher and native
+actionDelay. Its 27 declared interval phases use existing Rotation/Conditional/Choose/SetAttackRate/
+TransitionTo to own gaze priority, the standard after gaze, first gas after8 standards, and latched
+3/4/5-standard intervals. DukeRotation is test-only; no forceNextAbility or private nextAttack remains.
+Seven native groups include 900-tick normal/awakened oracle runs, damage/healing without cursor reset,
+4/5 cadence, special deadlines, busy gating, retaliation and cleanup. The fixture now uses the real
+StartCycle-before-NPC-clock order. A finite native delay expiring this cycle defers to the next
+StartCycle, as required by StandardNpcAccessLauncher; ignoreCombatInteractions protects cadence
+from pursuit/retaliation and retains ordinary incoming damage (the admin one-hit helper excludes
+that flag). Specialized hit geometry/timeline remain explicit adapters. Final focus:
+`logs/duke-declarative-focus-20260914.log`; full **DT2 158 cases** pass, including Leviathan,
+Whisperer/Vardorvis and existing Duke runtime/rules. DT2 session ownership remains pending.
+
+Integration: `logs/doom-duke-leviathan-integration-20260914.log` passes scoped Doom/DT2 checks,
+**287 cases**, architecture detector/self-tests and `:server:app:assemble`; counts are in the
+matching `...-results-20260914.json`. Combined with the unchanged 1,023-case shared/boss run above,
+this checkpoint has **1,310 verified cases** (1,184 boss / 126 shared). Changed content files are
+the two modules' spec/manager/combat/config or rules files and native fixtures/oracles described
+above. Source archive `logs/doom-duke-leviathan-source-20260914.zip`, backup
+`backup/doom-duke-leviathan-20260914`. **Build passed; listed behavior verified; not deployed.**
 
 Doom's selector/session work does not finish its phase architecture: Run.state and fixed phase
 deadlines still need native ownership. Its LateCycle spatial processing must retain its ordering;
 STARTING visibility and post-native-death session outcomes cannot be blindly converted into a
 live phase clock. The next bounded phase increment is the two-tick shield activation, with
-processing-before-activation acceptance. No deployment or persistence change.
+processing-before-activation acceptance, using the established native readiness queue pattern.
+DT2 typed native session ownership/cleanup is the parallel next increment. Then finish remaining
+phase/specialized scheduling debt and proceed ToA, ToB and CoX. Nex evidence/replay holds remain
+separate. No deployment or persistence change.
 
 Runtime remains `c4fc9390f` (JVM23812); these increments are **source only**. Existing
 deployment holds, native save protections and inactive V43/V44/V45 migrations remain in force.

@@ -21,6 +21,7 @@ import org.rsmod.api.npc.hit.modifier.StandardNpcHitModifier
 import org.rsmod.api.npc.hit.processor.StandardNpcHitProcessor
 import org.rsmod.api.npc.interact.AiPlayerInteractions
 import org.rsmod.api.npc.owner.assignSpawnOwner
+import org.rsmod.api.player.hit.DeferredPlayerHit
 import org.rsmod.api.player.music.MusicPlayer
 import org.rsmod.api.random.GameRandom
 import org.rsmod.api.repo.loc.LocRepository
@@ -35,6 +36,7 @@ import org.rsmod.game.entity.npc.NoopNpcInfo
 import org.rsmod.game.entity.player.PlayerUid
 import org.rsmod.game.hit.Hit
 import org.rsmod.game.hit.HitScope
+import org.rsmod.game.proj.ProjAnim
 import org.rsmod.game.queue.EngineQueueCache
 import org.rsmod.game.queue.WorldQueueList
 import org.rsmod.map.CoordGrid
@@ -56,7 +58,11 @@ internal class Dt2NativeCombatFixture(
             uuid = 1L
             assignUid()
             coords =
-                if (bossKind == Dt2Boss.WHISPERER) CoordGrid(2654, 6368) else CoordGrid(1126, 3419)
+                when (bossKind) {
+                    Dt2Boss.WHISPERER -> CoordGrid(2654, 6368)
+                    Dt2Boss.LEVIATHAN -> CoordGrid(2075, 6377)
+                    else -> CoordGrid(1126, 3419)
+                }
             for (stat in listOf("hitpoints", "prayer", "defence")) {
                 statMap.setBaseLevel("stat.$stat", 99)
                 statMap.setCurrentLevel("stat.$stat", 99)
@@ -73,7 +79,11 @@ internal class Dt2NativeCombatFixture(
                         else bossKind.normalNpcId
                     )
                 ),
-                if (bossKind == Dt2Boss.WHISPERER) CoordGrid(2655, 6368) else CoordGrid(1127, 3419),
+                when (bossKind) {
+                    Dt2Boss.WHISPERER -> CoordGrid(2655, 6368)
+                    Dt2Boss.LEVIATHAN -> CoordGrid(2078, 6369)
+                    else -> CoordGrid(1127, 3419)
+                },
             )
             .apply {
                 slotId = 1
@@ -114,7 +124,14 @@ internal class Dt2NativeCombatFixture(
             if (call.method.name.startsWith("roll")) accurate
             else Answers.RETURNS_DEFAULTS.answer(call)
         }
-    private val world = mock(WorldRepository::class.java)
+    val projectiles = mutableListOf<ProjAnim>()
+    private val world =
+        mock(WorldRepository::class.java) { call ->
+            if (call.method.name == "projAnim") {
+                projectiles += call.arguments[0] as ProjAnim
+                null
+            } else Answers.RETURNS_DEFAULTS.answer(call)
+        }
     private val native = NvPCombat(accuracy, mock(MaxHitFormulae::class.java), world)
     private val collision = CollisionFlagMap()
     private var nextNpcSlot = 2
@@ -151,18 +168,25 @@ internal class Dt2NativeCombatFixture(
         }
     val run =
         Dt2EncounterManager.Run(
-            player,
-            session,
-            1,
-            bossKind,
-            difficulty,
-            boss,
-            if (bossKind == Dt2Boss.WHISPERER) Dt2State.PREPARING else Dt2State.ACTIVE,
-            Dt2SeededRng(42),
-            42,
-            100,
-            100,
-        )
+                player,
+                session,
+                1,
+                bossKind,
+                difficulty,
+                boss,
+                if (bossKind in setOf(Dt2Boss.WHISPERER, Dt2Boss.LEVIATHAN)) Dt2State.PREPARING
+                else Dt2State.ACTIVE,
+                Dt2SeededRng(42),
+                42,
+                100,
+                100,
+            )
+            .apply {
+                if (bossKind == Dt2Boss.LEVIATHAN) {
+                    attackCounter =
+                        Dt2Rules.leviathanInitialAttackCounter(difficulty == Dt2Difficulty.AWAKENED)
+                }
+            }
     val registry = EncounterRegistry(random)
     val manager =
         Dt2EncounterManager(
@@ -204,6 +228,11 @@ internal class Dt2NativeCombatFixture(
         @Suppress("UNCHECKED_CAST")
         val runs = field.get(manager) as MutableMap<PlayerUid, Dt2EncounterManager.Run>
         runs[player.uid] = run
+        // Real entry allocates Run.generation with the manager's post-incrementing counter.
+        Dt2EncounterManager::class.java.getDeclaredField("generation").apply {
+            isAccessible = true
+            setLong(manager, run.generation + 1)
+        }
         val context = ScriptContext(events, CheatCommandMap(), EngineQueueCache())
         with(Dt2Combat(manager, mock(NpcDeath::class.java), players, deps)) { context.startup() }
     }
@@ -212,6 +241,14 @@ internal class Dt2NativeCombatFixture(
         check(run.bossKind == Dt2Boss.WHISPERER)
         run.state = Dt2State.STARTING
         run.startStage = 1
+        run.startReadyCycle = clock.cycle
+        manager.tick(player)
+    }
+
+    fun activateLeviathan() {
+        check(run.bossKind == Dt2Boss.LEVIATHAN)
+        run.state = Dt2State.STARTING
+        run.startStage = 0
         run.startReadyCycle = clock.cycle
         manager.tick(player)
     }
@@ -245,6 +282,20 @@ internal class Dt2NativeCombatFixture(
                 while (iterator.hasNext()) {
                     val queue = iterator.next()
                     (queue.args as? Hit)?.let { add(queue.remainingCycles to it) }
+                }
+            }
+        } finally {
+            iterator.cleanUp()
+        }
+    }
+
+    fun deferredHits(): List<Pair<Int, DeferredPlayerHit>> {
+        val iterator = player.queueList.iterator() ?: return emptyList()
+        return try {
+            buildList {
+                while (iterator.hasNext()) {
+                    val queue = iterator.next()
+                    (queue.args as? DeferredPlayerHit)?.let { add(queue.remainingCycles to it) }
                 }
             }
         } finally {

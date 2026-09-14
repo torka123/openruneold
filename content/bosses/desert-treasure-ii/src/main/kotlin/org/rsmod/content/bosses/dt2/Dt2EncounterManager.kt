@@ -407,7 +407,7 @@ constructor(
         when (run.bossKind) {
             Dt2Boss.WHISPERER -> Unit
             Dt2Boss.VARDORVIS -> Unit
-            Dt2Boss.LEVIATHAN -> attackLeviathan(access, run)
+            Dt2Boss.LEVIATHAN -> Unit
             Dt2Boss.DUKE -> Unit // Duke's clock-driven state machine owns every attack.
         }
     }
@@ -509,6 +509,7 @@ constructor(
             run.boss.clearInteraction()
             run.boss.anim(10280)
             run.boss.actionDelay = run.specialEndCycle
+            syncLeviathanCombat(run)
             run.player.mes("The Leviathan is stunned. Strike the exposed wound from behind!")
             run.player.actionDelay = clock.cycle
             return
@@ -613,7 +614,10 @@ constructor(
         run.generation = generation++
         run.state = Dt2State.DYING
         if (run.bossKind == Dt2Boss.WHISPERER) syncWhispererCombat(run)
-        if (run.bossKind == Dt2Boss.LEVIATHAN) run.leviathanAction = LeviathanAction.DYING
+        if (run.bossKind == Dt2Boss.LEVIATHAN) {
+            run.leviathanAction = LeviathanAction.DYING
+            syncLeviathanCombat(run)
+        }
         if (run.bossKind == Dt2Boss.VARDORVIS) {
             run.boss.anim(Dt2Assets.VARDORVIS_DEATH_ANIM)
             setVardorvisExitLocked(run, locked = false)
@@ -801,6 +805,19 @@ constructor(
         if (run.bossKind != Dt2Boss.DUKE) return
         if (locId in setOf(47522, 47524, 47528)) dukeEncounter.gather(run, access, locId, tile)
         else dukeEncounter.ingredient(run, player, locId, tile)
+    }
+
+    fun prepareDukeOpportunity(npc: Npc, target: Player): Boolean {
+        val run = runs[target.uid] ?: return false
+        return run.bossKind == Dt2Boss.DUKE &&
+            run.boss === npc &&
+            dukeEncounter.prepareOpportunity(run)
+    }
+
+    fun launchDukeAction(npc: Npc, target: Player, action: DukeAction) {
+        val run = runs[target.uid] ?: return
+        check(run.bossKind == Dt2Boss.DUKE && run.boss === npc)
+        dukeEncounter.launchAction(run, action)
     }
 
     fun inspectDukeVat(player: Player, tile: CoordGrid, empty: Boolean) {
@@ -1164,6 +1181,7 @@ constructor(
         run.specialStartCycle = Int.MAX_VALUE
         run.specialEndCycle = Int.MAX_VALUE
         run.boss.actionDelay = clock.cycle + 1
+        syncLeviathanCombat(run)
         run.boss.apPlayer2(run.player, interactions)
     }
 
@@ -1210,6 +1228,7 @@ constructor(
             if (run.bossKind in setOf(Dt2Boss.WHISPERER, Dt2Boss.LEVIATHAN)) Int.MAX_VALUE
             else clock.cycle + normalSpecialDelay(run)
         if (run.bossKind == Dt2Boss.WHISPERER) syncWhispererCombat(run)
+        if (run.bossKind == Dt2Boss.LEVIATHAN) syncLeviathanCombat(run)
         run.boss.apPlayer2(run.player, interactions)
     }
 
@@ -1228,6 +1247,7 @@ constructor(
         run.boss.clearInteraction()
         run.boss.anim(contract.startAnimation)
         run.boss.actionDelay = clock.cycle + contract.duration
+        syncLeviathanCombat(run)
         run.activeSpecial = LeviathanSpecial.VOLLEY_ROAR
         run.specialStartCycle = clock.cycle
         run.specialEndCycle = clock.cycle + contract.duration
@@ -1562,6 +1582,7 @@ constructor(
         run.specialEndCycle = clock.cycle + contract.duration
         run.boss.clearInteraction()
         run.boss.actionDelay = run.specialEndCycle
+        syncLeviathanCombat(run)
         run.boss.anim(contract.startAnimation)
         when (special) {
             LeviathanSpecial.LIGHTNING_BARRAGE -> {
@@ -1865,6 +1886,7 @@ constructor(
             run.nextSpecialCycle = clock.cycle + normalSpecialDelay(run)
         }
         run.boss.actionDelay = clock.cycle + 2
+        syncLeviathanCombat(run)
         run.boss.apPlayer2(run.player, interactions)
     }
 
@@ -2578,13 +2600,74 @@ constructor(
         locs.change(current, target, Int.MAX_VALUE)
     }
 
-    private fun attackLeviathan(access: StandardNpcAccess, run: Run) {
+    /**
+     * Native AI retries still sample the content RNG before NvPCombat rejects actionDelay. Prepare
+     * on BossCombat's pre-scheduler callback so cooldown attempts, bites and subsequent debris all
+     * retain their original RNG order. Only the named launch adapter consumes this descriptor;
+     * preparing it never increments accepted attacks or schedules damage.
+     */
+    fun prepareLeviathanOpportunity(npc: Npc, target: Player): Boolean {
+        val run = runs[target.uid] ?: return false
+        run.leviathanOpportunity = null
+        if (
+            run.bossKind != Dt2Boss.LEVIATHAN ||
+                run.boss !== npc ||
+                run.state !in setOf(Dt2State.ACTIVE, Dt2State.ENRAGED) ||
+                run.leviathanAction != LeviathanAction.STANDARD_VOLLEY
+        )
+            return false
         val tier = Dt2Rules.leviathanVolleyTier(run.attackCounter)
-        val bite =
-            Dt2Rules.leviathanAdjacentToFootprint(run.player.coords, run.boss.coords, run.boss.size)
+        val bite = Dt2Rules.leviathanAdjacentToFootprint(target.coords, npc.coords, npc.size)
         val style =
             if (bite) Dt2AttackStyle.MELEE
             else Dt2Rules.leviathanStyle(tier, run.enraged, run.rng.nextInt(Int.MAX_VALUE))
+        run.leviathanOpportunity =
+            LeviathanOpportunity(style, bite, tier, run.attackCounter, run.generation, clock.cycle)
+        return target.isValidTarget() && npc.isInCombat() && npc.hitpoints > 0
+    }
+
+    private fun syncLeviathanCombat(run: Run) {
+        run.leviathanOpportunity = null
+        val phase =
+            if (
+                run.state in setOf(Dt2State.ACTIVE, Dt2State.ENRAGED) &&
+                    run.leviathanAction == LeviathanAction.STANDARD_VOLLEY
+            ) {
+                leviathanOrdinaryPhase(
+                    Dt2Rules.leviathanAttackRate(
+                        Dt2Rules.leviathanVolleyTier(run.attackCounter),
+                        run.enraged,
+                        run.difficulty == Dt2Difficulty.AWAKENED,
+                    )
+                )
+            } else LEVIATHAN_INACTIVE
+        val movementLocked = run.boss.movementLocked
+        val encounter = bossEncounters.of(run.boss)
+        encounter.transitionTo(phase, clock.cycle)
+        if (phase == LEVIATHAN_INACTIVE) run.boss.movementLocked = movementLocked
+        encounter.lastAbilityTick =
+            max(clock.cycle, run.boss.actionDelay) - encounter.expectedAttackRate()
+    }
+
+    /**
+     * Existing native orb/bite launch and impact mechanics, after the DSL accepts an opportunity.
+     */
+    fun launchLeviathanOrdinary(access: StandardNpcAccess, npc: Npc, target: Player) {
+        val run = runs[target.uid] ?: return
+        val prepared = run.leviathanOpportunity ?: return
+        run.leviathanOpportunity = null
+        check(
+            run.boss === npc &&
+                access.npc === npc &&
+                prepared.cycle == clock.cycle &&
+                prepared.generation == run.generation &&
+                prepared.attackCounter == run.attackCounter
+        ) {
+            "Stale Leviathan launch descriptor"
+        }
+        val tier = prepared.tier
+        val bite = prepared.bite
+        val style = prepared.style
         val contract = Dt2Rules.leviathanAttackContract(style, bite, run.attackCounter)
         val attackRate =
             Dt2Rules.leviathanAttackRate(
@@ -3324,6 +3407,7 @@ constructor(
         run.whispererMeleeEndCycle = Int.MAX_VALUE
         run.whispererSpecialPerfect = true
         run.leviathanRoarCycle = Int.MAX_VALUE
+        run.leviathanOpportunity = null
         run.leviathanAction = LeviathanAction.DORMANT
         run.leviathanStunDamage = 0
         run.leviathanSuccessfulStuns = 0
@@ -3431,6 +3515,7 @@ constructor(
     }
 
     private fun cleanupTransientHazards(run: Run) {
+        run.leviathanOpportunity = null
         run.dangerTiles.clear()
         run.pendingWhispererShots.clear()
         run.pendingWhispererTentacles.clear()
@@ -3552,6 +3637,7 @@ constructor(
         var startStage: Int = 0,
         var stunCount: Int = 0,
         var leviathanRoarCycle: Int = Int.MAX_VALUE,
+        var leviathanOpportunity: LeviathanOpportunity? = null,
         var poisonDoses: Int = 0,
         var duke: DukeState = DukeState(0),
         var sanity: Int = 100,
@@ -3638,6 +3724,15 @@ constructor(
         val npc: Npc,
         val target: CoordGrid,
         val impactCycle: Int,
+    )
+
+    internal data class LeviathanOpportunity(
+        val style: Dt2AttackStyle,
+        val bite: Boolean,
+        val tier: Int,
+        val attackCounter: Int,
+        val generation: Long,
+        val cycle: Int,
     )
 
     internal data class WhispererSeedState(

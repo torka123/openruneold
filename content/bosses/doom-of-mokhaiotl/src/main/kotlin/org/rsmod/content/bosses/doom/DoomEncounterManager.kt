@@ -68,6 +68,7 @@ import org.rsmod.game.hit.Hit
 import org.rsmod.game.hit.HitBuilder
 import org.rsmod.game.hit.HitImpactHandler
 import org.rsmod.game.hit.HitType
+import org.rsmod.game.hit.HitValidity
 import org.rsmod.game.hit.Hitmark
 import org.rsmod.game.inv.isType
 import org.rsmod.game.loc.LocAngle
@@ -135,6 +136,11 @@ constructor(
         check(run.session.state(RUN_STATE) { run } === run)
         // Session teardown removes the native indexes and typed state before invoking this closure.
         run.session.onCleanup { retire(run) }
+        bossEncounters.of(run.boss).apply {
+            initializeDecisionSeed(run.generation)
+            transitionTo(doomPhase(run.delve), clock.cycle)
+            lastAbilityTick = clock.cycle - expectedAttackRate()
+        }
     }
 
     fun validateAssets() {
@@ -543,7 +549,7 @@ constructor(
     fun prepareAttack(npc: Npc, target: Player): Boolean {
         val run = run(target) ?: return false
         if (run.boss !== npc || run.state != DoomState.ACTIVE) return false
-        if (!DoomAttackFlow.canStartTurn(npc.actionDelay, clock.cycle)) return false
+        if (npc.actionDelay > clock.cycle) return false
         if (clock.cycle < run.nextAttackNotBeforeCycle) {
             npc.actionDelay = run.nextAttackNotBeforeCycle
             return false
@@ -554,78 +560,76 @@ constructor(
         val forceRock =
             (run.shockwavePreparing && run.forceRockBeforeShockwave) ||
                 (run.postShockwaveAttacksRemaining > 0 && run.forceRockAfterShockwave)
-        val turn =
-            DoomAttackFlow.next(
-                delve = run.delve,
-                state = run.attackFlowState,
-                adjacent = DoomCarGeometry.distanceToFootprint(run.boss.coords, target.coords) <= 1,
-                forceRock = forceRock,
-                suppressMeleeCharge =
-                    run.shockwavePreparing || run.postShockwaveAttacksRemaining > 0,
-            )
-        // Mirror NvPCombat's launch gate before the DSL commits an ordinary opportunity.
-        // Rock volleys retain their existing encounter-only admission and spatial handler.
+        val encounter = bossEncounters.existing(npc) ?: return false
+        encounter.prepareDecisionInputs(
+            clock.cycle,
+            buildMap {
+                coincidentStandardStyle(run)?.let { put(DOOM_STYLE_INPUT, it.name) }
+                if (run.shockwavePreparing || run.postShockwaveAttacksRemaining > 0) {
+                    put(DOOM_CHARGE_INPUT, DOOM_NO_CHARGE)
+                }
+            },
+        )
         if (
-            turn.primary != DoomPrimaryAttack.ROCKS &&
-                (!target.isValidTarget() || !npc.isInCombat())
+            forceRock &&
+                !encounter.forceNextAbility(doomAbility(run.delve, DoomPrimaryAttack.ROCKS))
         )
             return false
-        val style =
-            if (turn.primary == DoomPrimaryAttack.STANDARD)
-                synchronizedStandardStyle(run, turn.standardStyle)
-            else turn.standardStyle
-        val encounter =
-            bossEncounters.existing(npc)
-                ?: bossEncounters.of(npc).also {
-                    it.lastAbilityTick = clock.cycle - it.expectedAttackRate()
-                }
-        if (!encounter.forceNextAbility(doomAbility(run.delve, turn.primary, style))) return false
-        run.preparedAttack = turn
-        run.preparedForceRock = forceRock
-        run.attackLaunched = false
+        run.launchedPrimary = null
         npc.facePlayer(target)
         return true
     }
 
     fun attackParameters(npc: Npc, target: Player, primary: DoomPrimaryAttack): NpcAttackOverride {
         val run = checkNotNull(run(target))
-        check(run.boss === npc && run.preparedAttack?.primary == primary)
+        check(run.boss === npc)
+        // Retain the former admission gate without tying an already-fired hit to combat mode.
+        val launchAllowed = target.isValidTarget() && npc.isInCombat()
         return NpcAttackOverride(
             applyModifierOnImpact = primary == DoomPrimaryAttack.STANDARD,
             hitModifier = StandardPlayerHitModifier,
-            onAttack = { run.attackLaunched = true },
+            hitValidity = HitValidity { launchAllowed },
+            onAttack = { run.launchedPrimary = primary },
         )
     }
 
     fun rockAttack(access: StandardNpcAccess, target: Player) {
         val run = run(target) ?: return
-        if (run.boss !== access.npc || run.preparedAttack?.primary != DoomPrimaryAttack.ROCKS)
-            return
+        if (run.boss !== access.npc || run.state != DoomState.ACTIVE) return
         beginRockAttack(access, run)
-        run.attackLaunched = true
+        run.launchedPrimary = DoomPrimaryAttack.ROCKS
+        bossEncounters.existing(access.npc)?.markDecisionLaunchAccepted()
     }
 
     fun afterAttack(npc: Npc, target: Player) {
         val run = run(target) ?: return
         if (run.boss !== npc) return
-        val turn = run.preparedAttack ?: return
-        run.preparedAttack = null
-        // The combat pipeline can reject an attack before it launches. Do not consume the
-        // deterministic rotation or trigger its larvae/charge side effects in that case.
-        if (!run.attackLaunched) return
-
-        run.attackFlowState = turn.nextState
-        if (turn.spawnLarvae) spawnLarvae(run)
+        val primary = run.launchedPrimary ?: return
+        run.launchedPrimary = null
+        val encounter = bossEncounters.existing(npc) ?: return
+        val freeAttack = encounter.decisionResult(DOOM_PRIMARY_STREAM)?.drew == true
+        val count = encounter.decisionDrawCount(DOOM_PRIMARY_STREAM)
+        val cadence =
+            when {
+                run.delve <= 2 -> 6
+                run.delve <= 4 -> 5
+                run.delve <= 6 -> 4
+                else -> 3
+            }
+        val spawn = freeAttack && count >= 4 && (count - 4) % cadence == 0L
+        if (spawn) spawnLarvae(run)
+        val charge = encounter.decisionResult(DOOM_CHARGE_STREAM)?.choice == DOOM_CHARGE
         if (DOOM_COMBAT_DEBUG) {
             log.info {
                 "[DoomCombat] generation=${run.generation} delve=${run.delve} " +
-                    "state=${run.state} turn=${run.attackFlowState.scheduledTurn} " +
-                    "primary=${turn.primary} consumed=${turn.consumesRotation} " +
-                    "larvae=${turn.spawnLarvae} meleeCharge=${turn.startMeleeCharge}"
+                    "state=${run.state} turn=$count primary=$primary consumed=$freeAttack " +
+                    "larvae=$spawn meleeCharge=$charge"
             }
         }
-        if (turn.startMeleeCharge) run.pendingMeleeChargeCycle = clock.cycle + 2
-        recordRotationAttack(run, turn.primary, run.preparedForceRock, turn.advancesPhaseCounters)
+        if (charge) run.pendingMeleeChargeCycle = clock.cycle + 2
+        val forcedRock =
+            encounter.lastAbilityName == doomAbility(run.delve, DoomPrimaryAttack.ROCKS)
+        recordRotationAttack(run, primary, forcedRock, primary != DoomPrimaryAttack.TONGUE)
     }
 
     fun modifyNpcHit(player: Player, npc: Npc, hit: HitBuilder) {
@@ -1110,10 +1114,7 @@ constructor(
             run.boss.apPlayer2(run.player, interactions)
     }
 
-    private fun synchronizedStandardStyle(
-        run: Run,
-        scheduledStyle: DoomAttackStyle,
-    ): DoomAttackStyle {
+    private fun coincidentStandardStyle(run: Run): DoomAttackStyle? {
         val enabledStyles =
             if (run.delve == 1) {
                 listOf(DoomAttackStyle.RANGED, DoomAttackStyle.MAGIC)
@@ -1127,7 +1128,7 @@ constructor(
                 rockStylesByImpact = scheduledRockStyles(run),
                 normalImpactCycle = impactCycle,
             )
-        return if (scheduledStyle in candidates) scheduledStyle else candidates.first()
+        return candidates.singleOrNull()
     }
 
     private fun scheduledRockStyles(run: Run): List<Pair<Int, DoomAttackStyle>> = buildList {
@@ -3056,10 +3057,11 @@ constructor(
     }
 
     private fun launchCarProjectile(run: Run) {
-        val styleRoll =
-            DoomAttackDecision.chooseStyle(run.attackFlowState.styleRandomState, run.delve)
-        run.attackFlowState = run.attackFlowState.copy(styleRandomState = styleRoll.nextState)
-        val style = styleRoll.value
+        val encounter = bossEncounters.existing(run.boss) ?: return
+        val decision =
+            encounter.selectScheduledDecision(doomStyleSelector(run.delve), clock.cycle, run.player)
+                ?: return
+        val style = DoomAttackStyle.valueOf(decision.choice)
         val graphic =
             if (style == DoomAttackStyle.MAGIC) DoomAssets.GFX_MAGIC_PROJECTILE
             else if (style == DoomAttackStyle.RANGED) DoomAssets.GFX_RANGED_PROJECTILE
@@ -3581,9 +3583,7 @@ constructor(
         if (run.retired) return
         run.retired = true
         run.state = DoomState.INVALIDATED
-        run.preparedAttack = null
-        run.preparedForceRock = false
-        run.attackLaunched = false
+        run.launchedPrimary = null
         cleanupHazards(run)
         prepare(run.player)
         run.player.lootDropDuration = null
@@ -3793,13 +3793,10 @@ constructor(
         val debug: Boolean = false,
         val runId: String,
         val chainStartCycle: Int,
-        var attackFlowState: DoomAttackFlowState = DoomAttackFlow.initial(delve, generation),
         val playerUid: PlayerUid = player.uid,
         var retired: Boolean = false,
         var deathRecorded: Boolean = false,
-        var preparedAttack: DoomAttackTurn? = null,
-        var preparedForceRock: Boolean = false,
-        var attackLaunched: Boolean = false,
+        var launchedPrimary: DoomPrimaryAttack? = null,
         var shockwaveStarted: Boolean = false,
         var nextShockwaveCycle: Int,
         var shockwaveRemaining: Int = 0,
