@@ -151,21 +151,38 @@ object BossCombat {
         if (ticksSinceLastAttack < attackRate) return
 
         val phase = encounter.currentPhase ?: return
-        val abilityName =
-            encounter.consumeForcedAbility()
-                ?: encounter.selectAbility(phase.selector, tick, target)
-                ?: return
-        val effect = spec.abilities[abilityName] ?: return
+        val phaseRevision = encounter.phaseRevision
+        val staged = encounter.beginDecisionOpportunity(tick)
+        try {
+            val abilityName =
+                encounter.consumeForcedAbility()
+                    ?: encounter.selectAbility(phase.selector, tick, target)
+                    ?: return
+            val effect = spec.abilities[abilityName] ?: return
 
-        encounter.recordAbilityCommit(tick, abilityName, attackRate)
+            if (!staged) encounter.recordAbilityCommit(tick, abilityName, attackRate)
 
-        val interpreter = EffectInterpreter(npc, target, spec, encounter, deps)
-        interpreter.run(this, effect)
-        if (deps.encounterRegistry.isCurrent(npc, encounter)) {
-            // NvPCombat must enter before this lock is armed; specials need the same native lock.
-            npc.actionDelay = maxOf(npc.actionDelay, tick + encounter.expectedAttackRate())
+            val interpreter = EffectInterpreter(npc, target, spec, encounter, deps)
+            interpreter.run(this, effect)
+            val current = deps.encounterRegistry.isCurrent(npc, encounter)
+            if (staged) {
+                if (!encounter.finishDecisionOpportunity(current)) return
+                encounter.recordAcceptedDecisionCommit(
+                    tick,
+                    abilityName,
+                    encounter.expectedAttackRate(),
+                    phaseRevision,
+                )
+            }
+            if (current) {
+                // NvPCombat must enter before this lock is armed; specials need the same native
+                // lock.
+                npc.actionDelay = maxOf(npc.actionDelay, tick + encounter.expectedAttackRate())
+            }
+            onAbilityCommitted?.invoke(npc, target, encounter)
+        } finally {
+            if (staged) encounter.finishDecisionOpportunity(false)
         }
-        onAbilityCommitted?.invoke(npc, target, encounter)
     }
 
     private suspend fun checkTriggers(

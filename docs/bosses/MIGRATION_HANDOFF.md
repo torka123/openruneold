@@ -4,7 +4,14 @@ This is a resumable handoff, not a project-completion or full OSRS-parity claim.
 mechanic mappings, uncertainties, commands and results remain in [DSL_MIGRATION.md](DSL_MIGRATION.md).
 Update this checkpoint after each completed boss and immediately before any authorized deployment.
 
-September14 continuation: the current section of `DSL_MIGRATION.md` records native Yama/Doom
+September14 active continuation: the top of `DSL_MIGRATION.md` records the shared seeded selector
+and eleven native acceptance groups. Boss API72/instances54 and 25 other boss modules897 pass
+scoped checks (1,023 cases). Doom differential integration and Duke's declarative selector lift
+are active; Leviathan and Duke's first cadence increments pass focused tests. DT2 ownership and
+Doom phase deadlines remain explicit next increments, followed by the approved raid order.
+Runtime and deployment holds are unchanged. Read the current section before the prior checkpoint.
+
+Earlier September14 checkpoint: the current section of `DSL_MIGRATION.md` records native Yama/Doom
 session ownership (124/127 cases), Whisperer/Vardorvis (145 DT2 cases), and the three Dagannoth
 Kings (14 cases). The integrated 511-case selection, scoped checks, architecture and application
 assemble pass. Source archive/backup and exact retained adapter/selector boundaries are recorded

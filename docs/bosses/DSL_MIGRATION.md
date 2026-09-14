@@ -2,6 +2,54 @@
 
 ## Current source increments — September 14
 
+### Active increment: shared Doom decisions and remaining DT2 routes
+
+Leviathan's registered native opportunity/cadence route passes its first focused run with
+Whisperer/Vardorvis fixture regressions (`logs/leviathan-focus-20260914.log`). Six new groups
+cover every-attempt style RNG, 3/2/1 cadence, shadow stun and roar resumes, native deferred
+prayer/impact callbacks and retirement. Full-module integration is pending; source only.
+
+Doom's demonstrated selector gap uses the user's conditional shared-API approval. Existing
+WeightedRandom, Rotation, RepeatSelected, MeleeOverrideRotation and Conditional cannot express
+independent encounter-seeded streams with commit after native acceptance. The existing extension
+registry provides effects/attack parameters, not selectors; pinned upstream
+`61139e76a216592d66c2b20366ef26d48609875d` has no matching seeded/staged stream route. Mapping:
+`Selector.SeededWeighted` declares primary 1:3 / after-rock 1:7, ordered styles and charge 1:1;
+existing Conditional/Choose compose tongue/ordinary/nested choices. Tick-scoped choice names
+represent existing spatial overrides, including a consumed style roll and a skipped suppressed
+charge roll. Native `NpcAttackOverride.onAttack` acknowledges launch; the named rock launcher
+acknowledges explicitly. BossEncounter stages and commits only these opt-in streams after the
+interpreter succeeds on the current encounter, before the completion callback; rejected launches
+do not commit cadence/counters. Already-due car projectiles consume the same declared style
+stream synchronously at their retained LateCycle point, without entering ordinary cadence.
+Evidence is the retained DoomAttackFlow/Decision characterization and native NvP acceptance
+path; calibration weights are preserved assumptions, not newly verified OSRS probabilities.
+Shared verification: eleven focused native groups pass (`logs/doom-seeded-focus-20260914.log`),
+including exact seeded outcomes, rejected/accepted launches, committed-only callback/RNG reads,
+phase changes, override restoration, suppressed components, scheduled stream sharing, substitutions,
+exceptions and native retirement. Full boss API72 / instances54 plus the other 25 boss modules897
+pass scoped `check`: **1,023 cases**, zero failures/errors/skips, in
+`logs/seeded-shared-boss-regression-20260914.log`; counts
+`logs/seeded-shared-boss-regression-results-20260914.json`. Existing selector semantics remain
+unchanged. No engine combat hook was added; the acceptance observer composes the existing native
+`onAttack` callback. Application integration and Doom's differential content matrix remain pending.
+Shared changed files are under `api/bosses`: Selector, BossEncounter, BossCombat,
+EffectInterpreter, SpecValidator, new SeededDecisionState and BossSeededDecisionTest. Archive:
+`logs/seeded-boss-selector-source-20260914.zip`; backup `backup/seeded-boss-selector-20260914`.
+
+Duke's first native scheduling increment also passes its four new groups plus existing runtime and
+DT2 native-combat regressions (`logs/duke-native-focus-20260914.log`). It retains StartCycle through
+the existing native access launcher/event dispatcher and uses native actionDelay/5-or-4 cadence.
+The active follow-up lifts deterministic DukeRotation into declared gas-interval rotations, using
+existing Choose/HP conditions/phase transitions; no new API. Test ordering is being aligned to the
+actual StartCycle-before-NPC-clock boundary. DT2 session ownership remains pending.
+
+Doom's selector/session work does not finish its phase architecture: Run.state and fixed phase
+deadlines still need native ownership. Its LateCycle spatial processing must retain its ordering;
+STARTING visibility and post-native-death session outcomes cannot be blindly converted into a
+live phase clock. The next bounded phase increment is the two-tick shield activation, with
+processing-before-activation acceptance. No deployment or persistence change.
+
 Runtime remains `c4fc9390f` (JVM23812); these increments are **source only**. Existing
 deployment holds, native save protections and inactive V43/V44/V45 migrations remain in force.
 The [Nex ledger](nex/NEX_OSRS_AUDIT.md) records native personal kill hooks/KC and altar restoration,

@@ -82,6 +82,25 @@ object SpecValidator {
         errors: MutableList<ValidationError>,
     ) {
         when (selector) {
+            is Selector.SeededWeighted -> {
+                val entries = selector.entries + selector.entriesAfterPrevious.values.flatten()
+                for (ref in entries) {
+                    if (ref.ability !in abilityNames) {
+                        errors +=
+                            ValidationError(
+                                "Seeded selector in '$context' references ability '${ref.ability}' which does not exist."
+                            )
+                    }
+                }
+                for (previous in selector.entriesAfterPrevious.keys) {
+                    if (previous !in entries.map { it.ability }) {
+                        errors +=
+                            ValidationError(
+                                "Seeded selector in '$context' has unknown previous outcome '$previous'."
+                            )
+                    }
+                }
+            }
             is Selector.RepeatSelected -> {
                 for (name in listOf(selector.repeatedAbility, selector.ineligibleAbility)) {
                     if (name !in abilityNames) {

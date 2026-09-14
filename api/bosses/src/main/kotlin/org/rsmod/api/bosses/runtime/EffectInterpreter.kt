@@ -84,6 +84,10 @@ class EffectInterpreter(
                             if (effect.protectionPrayer == ProtectionPrayer.Standard)
                                 supplied.hitModifier
                             else protectionModifier(effect.protectionPrayer),
+                        onAttack = {
+                            encounter.markDecisionLaunchAccepted()
+                            supplied.onAttack?.invoke(this, it)
+                        },
                         onImpact = { source, impact ->
                             supplied.onImpact?.invoke(source, impact)
                             effect.impact?.let { target.spotanim(it) }

@@ -30,12 +30,19 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
     var phaseAbilityCount: Int = 0
         private set
 
+    internal var phaseRevision: Long = 0
+        private set
+
     /** Official upstream override; native attacks and ability readiness use the same cadence. */
-    var attackRateOverride: Int? = null
+    private var attackRate: Int? = null
+    var attackRateOverride: Int?
+        get() = attackRate
         set(value) {
             require(value == null || value > 0) { "Attack rate must be positive." }
-            field = value
-            attackTraces.lastOrNull()?.expectedRate = expectedAttackRate()
+            attackRate = value
+            if (decisions?.isActive != true) {
+                attackTraces.lastOrNull()?.expectedRate = expectedAttackRate()
+            }
         }
 
     internal val firedTriggers = mutableSetOf<Int>()
@@ -87,6 +94,8 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
     private var forcedAbility: String? = null
     private val cleanupActions = mutableListOf<() -> Unit>()
     private val encounterState = mutableMapOf<String, Any>()
+    private var decisions: SeededDecisionState? = null
+    private var decisionAttackRate: Int? = null
     private var phaseClock: (() -> Unit)? = null
     private var cancelPhaseDeadline: (() -> Unit)? = null
     internal val hasPhaseClock: Boolean
@@ -133,6 +142,7 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
         val actions = cleanupActions.toList()
         cleanupActions.clear()
         encounterState.clear()
+        decisions?.clear()
         phaseSelection.clear()
         branchSelections.clear()
         var failure: Throwable? = null
@@ -203,11 +213,86 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
 
     fun consumeForcedAbility(): String? = forcedAbility.also { forcedAbility = null }
 
-    fun recordAbilityCommit(tick: Int, ability: String, expectedRate: Int) {
-        phaseAbilityCount++
+    /** Opts into accepted-launch decision commits; calling again cannot reseed a live encounter. */
+    fun initializeDecisionSeed(seed: Long) {
+        check(!isEnded) { "Encounter has ended." }
+        val existing = decisions
+        require(existing == null || existing.seed == seed) {
+            "Encounter decision seed is already initialized."
+        }
+        if (existing == null) decisions = SeededDecisionState(seed)
+    }
+
+    /** Immutable names from spatial checks, used only by an opportunity starting on [tick]. */
+    fun prepareDecisionInputs(tick: Int, choices: Map<String, String>) {
+        check(!isEnded) { "Encounter has ended." }
+        checkNotNull(decisions) { "Initialize the encounter decision seed first." }
+            .prepare(tick, choices)
+    }
+
+    /**
+     * Native NpcAttack marks this automatically; a named spatial launcher acknowledges explicitly.
+     */
+    fun markDecisionLaunchAccepted() {
+        if (!isEnded) decisions?.accept()
+    }
+
+    /** Results describe the last accepted opportunity; rejected attempts leave them unchanged. */
+    fun decisionResult(stream: String): DecisionResult? = decisions?.result(stream)
+
+    fun decisionDrawCount(stream: String): Long = decisions?.drawCount(stream) ?: 0
+
+    /**
+     * An already-due spatial mechanic consumes one declared stream immediately. This does not
+     * select a phase ability, arm cadence, consume prepared inputs or replace ordinary results.
+     */
+    fun selectScheduledDecision(
+        selector: Selector.SeededWeighted,
+        tick: Int,
+        target: Player? = null,
+    ): DecisionResult? {
+        if (isEnded) return null
+        return checkNotNull(decisions) { "Initialize the encounter decision seed first." }
+            .selectScheduled(selector, tick) { evaluate(it, target) }
+    }
+
+    internal fun beginDecisionOpportunity(tick: Int): Boolean {
+        val state = decisions ?: return false
+        decisionAttackRate = attackRate
+        state.begin(tick)
+        return true
+    }
+
+    internal fun finishDecisionOpportunity(eligible: Boolean): Boolean {
+        val state = decisions ?: return false
+        if (!state.isActive) return false
+        val committed = state.finish(eligible && !isEnded)
+        if (!committed) attackRate = decisionAttackRate
+        return committed
+    }
+
+    fun recordAbilityCommit(tick: Int, ability: String, expectedRate: Int) =
+        recordAbilityCommit(tick, ability, expectedRate, countForPhase = true)
+
+    internal fun recordAcceptedDecisionCommit(
+        tick: Int,
+        ability: String,
+        expectedRate: Int,
+        selectedPhaseRevision: Long,
+    ) = recordAbilityCommit(tick, ability, expectedRate, phaseRevision == selectedPhaseRevision)
+
+    private fun recordAbilityCommit(
+        tick: Int,
+        ability: String,
+        expectedRate: Int,
+        countForPhase: Boolean,
+    ) {
+        if (countForPhase) phaseAbilityCount++
         if (
-            currentPhase?.forceAbilities?.any { it.attackMin == null && it.ability == ability } ==
-                true
+            countForPhase &&
+                currentPhase?.forceAbilities?.any {
+                    it.attackMin == null && it.ability == ability
+                } == true
         ) {
             forcedTickLastFired[ability] = tick
         }
@@ -247,6 +332,7 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
         attackRateOverride ?: currentPhase?.attackRate ?: spec.stats.attackRate
 
     fun transitionTo(phaseName: String, tick: Int) {
+        phaseRevision++
         cancelPhaseDeadline?.invoke()
         cancelPhaseDeadline = null
         val from = currentPhaseName
@@ -340,6 +426,9 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
     ): String? =
         when (selector) {
             is Selector.WeightedRandom -> selectWeightedRandom(selector, tick, target, state)
+            is Selector.SeededWeighted ->
+                checkNotNull(decisions) { "Initialize the encounter decision seed first." }
+                    .select(selector, tick) { evaluate(it, target) }
             is Selector.Rotation -> selectRotation(selector, state)
             is Selector.RepeatSelected -> selectContinuation(selector, tick, target, state)
             is Selector.MeleeOverrideRotation ->
