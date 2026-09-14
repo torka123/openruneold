@@ -298,7 +298,6 @@ class ToaBabaEncounterTest {
             f.helper.queueShockwave(BabaPendingShockwave(emptySet(), emptySet(), 105, 20)) {
                 resolutions++
             }
-            state.nextBaboonSarcophagusAt = 10
             state.baboonSarcophagusRunner = 42
             state.reset()
             f.clock.cycle = 105
@@ -308,7 +307,6 @@ class ToaBabaEncounterTest {
             assertFalse(state.isCurrent(token))
             assertTrue(state.pendingRubble.isEmpty())
             assertTrue(state.pendingShockwaves.isEmpty())
-            assertEquals(-1, state.nextBaboonSarcophagusAt)
             assertEquals(null, state.baboonSarcophagusRunner)
             assertEquals(BabaState.WAITING, state.state)
         }

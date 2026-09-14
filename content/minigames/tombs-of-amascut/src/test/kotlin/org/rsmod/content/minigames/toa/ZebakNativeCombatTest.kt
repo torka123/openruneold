@@ -546,16 +546,19 @@ class ZebakNativeCombatTest {
                 assertTrue(queues.pendingVisuals.isEmpty(), retirement)
                 assertFalse(visual.npc.isSlotAssigned, retirement)
                 assertFalse(raid.npcRoles.containsKey(visual.npc), retirement)
+                val retainedHits = raid.encounter.pendingHits.size
+                assertEquals(if (retirement == "delete") 1 else 0, retainedHits, retirement)
                 assertEquals(
-                    if (retirement == "reset") 1 else 0,
+                    (if (retirement == "reset") 1 else 0) + retainedHits,
                     f.worldQueues.size,
-                    "Only a reset's fresh emergence edge may remain: $retirement",
+                    "Native raid hits retain their separate dispatch boundary: $retirement",
                 )
                 f.advance(20)
                 f.queueProcess.process()
                 queues.processSplits()
                 queues.processVisuals()
                 assertEquals(projectileCount, projectiles(f).size, retirement)
+                assertEquals(retainedHits, raid.encounter.pendingHits.size, retirement)
                 if (retirement == "reset") {
                     val fresh = assertNotNull(raid.zebak.attackQueues)
                     assertNotSame(queues, fresh)

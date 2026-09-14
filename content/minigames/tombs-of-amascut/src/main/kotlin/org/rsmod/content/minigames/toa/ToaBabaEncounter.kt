@@ -301,7 +301,6 @@ internal data class BabaSarcophagusRuntime(
     val tile: CoordGrid,
     var hitpoints: Int = BabaTuning.SARCOPHAGUS_HITPOINTS.value,
     var state: BabaSarcophagusState = BabaSarcophagusState.CLOSED,
-    var nextEnergyAt: Int = -1,
 )
 
 internal object BabaArenaLayout {
@@ -620,7 +619,15 @@ internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
     var previousWeakLane = -1
     var underTargetTicks = 0
     var bouldersReleasedThisSet = 0
-    var nextBaboonSarcophagusAt = -1
+    val nextBaboonSarcophagusAt: Int
+        get() = sarcophagusQueues?.runnerAt ?: -1
+
+    var sarcophagusQueues: BabaSarcophagusQueues? = null
+        private set
+
+    var bananaQueues: BabaBananaQueues? = null
+        private set
+
     var baboonSarcophagusRunner: Int? = null
     var hazardQueues: BabaHazardQueues? = null
         private set
@@ -637,7 +644,9 @@ internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
     val rubble = linkedMapOf<Int, BabaRubble>()
     val rollingBoulders = linkedMapOf<Int, BabaRollingBoulder>()
     val destroyedBoulders = mutableSetOf<Int>()
-    val bananas = linkedMapOf<CoordGrid, BabaBananaPile>()
+    val bananas: Map<CoordGrid, BabaBananaPile>
+        get() = bananaQueues?.piles.orEmpty()
+
     val sarcophagi = linkedMapOf<CoordGrid, BabaSarcophagusRuntime>()
     val trace = BabaDebugTrace()
     private var random = Random(seed)
@@ -675,6 +684,16 @@ internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
         rollingQueues = queues
     }
 
+    fun bindBananas(queues: BabaBananaQueues) {
+        check(nativePhases != null && bananaQueues == null && !queues.isClosed)
+        bananaQueues = queues
+    }
+
+    fun bindSarcophagi(queues: BabaSarcophagusQueues) {
+        check(nativePhases != null && sarcophagusQueues == null && !queues.isClosed)
+        sarcophagusQueues = queues
+    }
+
     fun reset() {
         generation++
         state = BabaState.RESETTING
@@ -691,14 +710,16 @@ internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
         previousWeakLane = -1
         underTargetTicks = 0
         bouldersReleasedThisSet = 0
-        nextBaboonSarcophagusAt = -1
+        sarcophagusQueues?.close()
+        sarcophagusQueues = null
+        bananaQueues?.close()
+        bananaQueues = null
         baboonSarcophagusRunner = null
         hazardQueues?.close()
         hazardQueues = null
         rubble.clear()
         rollingBoulders.clear()
         destroyedBoulders.clear()
-        bananas.clear()
         sarcophagi.clear()
         trace.clear()
         random = Random(seed xor generation.toLong())

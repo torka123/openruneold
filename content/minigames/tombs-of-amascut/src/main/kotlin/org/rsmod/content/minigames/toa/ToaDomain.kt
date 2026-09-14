@@ -362,7 +362,14 @@ internal class ToaEncounterState(
     var wardenDeathBossBarCleared = false
     var wardenDeathLightOpened = false
     var wardenAkkhaPhantomStyle = 0
-    val pendingHits = mutableListOf<ToaPendingHit>()
+    var pendingHitQueues: ToaPendingHitQueues? = null
+    val pendingHits: List<ToaPendingHit>
+        get() = pendingHitQueues?.pending.orEmpty()
+
+    fun queuePendingHit(hit: ToaPendingHit) {
+        requireNotNull(pendingHitQueues) { "Bind the native raid hit owner before scheduling." }
+            .schedule(hit)
+    }
 
     fun reset() {
         attackCounter = 0
@@ -464,7 +471,7 @@ internal class ToaEncounterState(
         wardenPhantomNextAttackAt.clear()
         wardenPhantomsSpawned = 0
         wardenAkkhaPhantomStyle = 0
-        pendingHits.clear()
+        pendingHitQueues?.clear()
         wardenDeathStartedAt = -1
         wardenDeathSource = -1
         wardenDeathBossRemoved = false
@@ -487,9 +494,7 @@ internal class ToaEncounterState(
         kephriArcanes.replaceAll { _, runtime ->
             if (runtime.target == oldUid) runtime.copy(target = newUid) else runtime
         }
-        pendingHits.replaceAll { hit ->
-            if (hit.target == oldUid) hit.copy(target = newUid) else hit
-        }
+        pendingHitQueues?.rebindPlayer(oldUid, newUid)
     }
 
     fun retirePlayer(uid: PlayerUid) {
@@ -499,7 +504,7 @@ internal class ToaEncounterState(
         kephriBombTargets.removeAll { it.target == uid }
         kephriPendingDungStrikes.removeAll { it.target == uid }
         kephriArcanes.values.forEach { if (it.target == uid) it.target = null }
-        pendingHits.removeAll { it.target == uid }
+        pendingHitQueues?.removeIf { it.target == uid }
     }
 }
 

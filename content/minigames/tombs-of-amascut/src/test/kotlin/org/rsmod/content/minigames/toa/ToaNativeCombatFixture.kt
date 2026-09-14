@@ -77,7 +77,10 @@ import org.rsmod.routefinder.loc.LocLayerConstants
 
 /** Real raid admission, native actor ownership, registered combat and protected hit processing. */
 @OptIn(InternalApi::class)
-internal class ToaNativeCombatFixture(nativeLifecycleFirst: Boolean = true) : AutoCloseable {
+internal class ToaNativeCombatFixture(
+    nativeLifecycleFirst: Boolean = true,
+    private val trackLocs: Boolean = false,
+) : AutoCloseable {
     val clock = MapClock(100)
     val collision = CollisionFlagMap()
     val events = EventBus()
@@ -114,10 +117,20 @@ internal class ToaNativeCombatFixture(nativeLifecycleFirst: Boolean = true) : Au
             collision,
             npcList,
         )
+    val placedLocs = mutableListOf<LocInfo>()
     val locs =
         mock(LocRepository::class.java) { call ->
             when {
-                call.method.name.startsWith("findAll") -> emptySequence<LocInfo>()
+                call.method.name.startsWith("findAll") ->
+                    if (trackLocs)
+                        placedLocs
+                            .filter { it.coords == CoordGrid(call.arguments[0] as Int) }
+                            .asSequence()
+                    else emptySequence<LocInfo>()
+                call.method.name.startsWith("del") && call.arguments.firstOrNull() is LocInfo -> {
+                    if (trackLocs) placedLocs.remove(call.arguments[0] as LocInfo)
+                    Answers.RETURNS_DEFAULTS.answer(call)
+                }
                 call.method.name.startsWith("add") &&
                     call.arguments.getOrNull(1) is ObjectServerType -> {
                     val coords = CoordGrid(call.arguments[0] as Int)
@@ -125,10 +138,11 @@ internal class ToaNativeCombatFixture(nativeLifecycleFirst: Boolean = true) : Au
                     val angle = call.arguments[3] as LocAngle
                     val shape = call.arguments[4] as LocShape
                     LocInfo(
-                        LocLayerConstants.of(shape.id),
-                        coords,
-                        LocEntity(type.id, shape.id, angle.id),
-                    )
+                            LocLayerConstants.of(shape.id),
+                            coords,
+                            LocEntity(type.id, shape.id, angle.id),
+                        )
+                        .also { if (trackLocs) placedLocs += it }
                 }
                 else -> Answers.RETURNS_DEFAULTS.answer(call)
             }
@@ -238,7 +252,7 @@ internal class ToaNativeCombatFixture(nativeLifecycleFirst: Boolean = true) : Au
             npcs,
             AiPlayerInteractions(events, players),
             world,
-            mock(RouteFactory::class.java),
+            RouteFactory(collision),
             collision,
             rewards,
             supplies,

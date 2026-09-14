@@ -4,7 +4,17 @@ This is a resumable handoff, not a project-completion or full OSRS-parity claim.
 mechanic mappings, uncertainties, commands and results remain in [DSL_MIGRATION.md](DSL_MIGRATION.md).
 Update this checkpoint after each completed boss and immediately before any authorized deployment.
 
-September14 current checkpoint: Ba-Ba rolling cast/release, Zebak jug/splash/rock/acid owners and
+September14 current checkpoint: generic raid hits and Ba-Ba banana/sarcophagus owners verified.
+Actual manager tests cover native impacts, pause/rejoin, banana arming/expiry/LOC cleanup and
+sarcophagus order/cadence/runner loss.159 focused cases (one old aggregate queue assertion updated;
+all16 affected cases then pass), full ToA558, scoped checks, architecture/self-tests and app assemble
+pass (57s). Archive/backup: logs/toa-native-hit-banana-sarc-source-20260914.zip /
+backup/toa-native-hit-banana-sarc-20260914. Next: mapped Kephri bombs/bomber and Akkha memory/detonate/
+final-orb owners, remaining ToA scheduling and ToB/CoX. Exact files/results/mapping at the top of
+DSL_MIGRATION.md. Source only; runtime c4fc9390f/JVM23812 remains online; all deployment holds,
+save/restart protections and cache/database authority remain. Continue approved increments.
+
+Earlier September14 checkpoint: Ba-Ba rolling cast/release, Zebak jug/splash/rock/acid owners and
 native Wardens P2 Obelisk rotation/cadence are verified. Full ten-row/Boulderdash timelines, actual
 native melee exit, hazard/rejoin/retirement, anchored Obelisk timing/core-history and retained movement
 lock are tested.211 focus and12 final Wardens focus pass; full ToA530, scoped checks, architecture/

@@ -172,6 +172,18 @@ constructor(
 
     private fun attachRaid(raid: ToaRaidSession) {
         check(raid.instance.state(RAID_STATE) { raid } === raid)
+        check(raid.encounter.pendingHitQueues == null)
+        raid.encounter.pendingHitQueues =
+            ToaPendingHitQueues(
+                raid.instance,
+                bossDeps.worldQueues,
+                queueProcess,
+                clock,
+                stale = {
+                    raid.currentRoom == ToaRoom.ZEBAK && it.generation != raid.zebak.generation
+                },
+                deliver = { source, pending -> resolvePendingHit(raid, source, pending) },
+            )
         // Native teardown removes its indexes and content state before invoking this callback.
         raid.instance.onCleanup {
             if (raid.state == ToaRaidState.COMPLETE) completeRaid(raid, terminateInstance = false)
@@ -4431,7 +4443,7 @@ constructor(
         val state = raid.encounter
         state.wardenStage = ToaWardenStage.CORE
         state.wardenAreaPulses.clear()
-        state.pendingHits.clear()
+        state.pendingHitQueues?.clear()
         state.wardenCoreReturnsAt = -1
         state.wardenCoreProjectileAt = clock.cycle + 5
         state.wardenCoreSpawnsAt = clock.cycle + 7
@@ -4807,7 +4819,7 @@ constructor(
         state.wardenDeathLightOpened = false
         state.wardenPendingSlam = null
         state.wardenAreaPulses.clear()
-        state.pendingHits.clear()
+        state.pendingHitQueues?.clear()
         state.wardenPhantomNextAttackAt.clear()
         state.wardenNextFloorBreakAt = Int.MAX_VALUE
         state.wardenNextLightningAt = Int.MAX_VALUE
@@ -5601,8 +5613,8 @@ constructor(
         state.hazardQueues?.processRocks()
         state.hazardQueues?.processRubble()
         state.hazardQueues?.processShockwaves()
-        tickBabaBananas(raid, source)
-        tickBabaSarcophagi(raid, source)
+        tickBabaBananas(raid)
+        tickBabaSarcophagi(raid)
         val queues = babaQueues(raid, source)
         if (queues.processForced()) return
         if (queues.processCompletion()) return
@@ -6090,8 +6102,7 @@ constructor(
             maintainBabaBaboonAggression(raid, baboon)
         }
         if (raid.baba.baboonSarcophagusRunner == null) {
-            raid.baba.nextBaboonSarcophagusAt =
-                clock.cycle + BabaTuning.BABOON_SARCOPHAGUS_DELAY.value
+            armBabaSarcophagusRunner(raid, clock.cycle + BabaTuning.BABOON_SARCOPHAGUS_DELAY.value)
         }
         traceBaba(raid, source, "baboon_discharge", "count" to count)
     }
@@ -6148,7 +6159,7 @@ constructor(
                     }
                     ?.let { loc ->
                         val open = loc.id == BabaAssets.OPEN_SARCOPHAGUS_LOC
-                        state.sarcophagi[tile] =
+                        val sarc =
                             BabaSarcophagusRuntime(
                                 tile = tile,
                                 hitpoints = if (open) 0 else BabaTuning.SARCOPHAGUS_HITPOINTS.value,
@@ -6156,6 +6167,9 @@ constructor(
                                     if (open) BabaSarcophagusState.OPEN
                                     else BabaSarcophagusState.CLOSED,
                             )
+                        state.sarcophagi[tile] = sarc
+                        // A room already containing an open sarcophagus was immediately eligible.
+                        if (open) armBabaSarcophagusEnergy(raid, sarc, clock.cycle)
                     }
             }
         }
@@ -6208,52 +6222,64 @@ constructor(
         actor.mode = null
         sarc.hitpoints = 0
         sarc.state = BabaSarcophagusState.OPEN
-        sarc.nextEnergyAt = clock.cycle + 3
+        armBabaSarcophagusEnergy(raid, sarc, clock.cycle + 3)
         traceBaba(raid, boss(raid), "sarcophagus_open", "tile" to sarc.tile)
     }
 
-    private fun tickBabaSarcophagi(raid: ToaRaidSession, source: Npc) {
-        val state = raid.baba
-        val liveBaboons =
-            raid.spawnedNpcs.filter {
-                it.id == BabaAssets.BABOON && it.isSlotAssigned && it.hitpoints > 0
-            }
-        var runner =
-            state.baboonSarcophagusRunner?.let { key ->
-                liveBaboons.firstOrNull { it.hashCode() == key }
-            }
-        if (state.baboonSarcophagusRunner != null && runner == null) {
-            state.baboonSarcophagusRunner = null
-            state.nextBaboonSarcophagusAt =
-                if (liveBaboons.isEmpty()) -1
-                else clock.cycle + BabaTuning.BABOON_SARCOPHAGUS_DELAY.value
+    private fun liveBabaBaboons(raid: ToaRaidSession): List<Npc> =
+        raid.spawnedNpcs.filter {
+            it.id == BabaAssets.BABOON && it.isSlotAssigned && it.hitpoints > 0
         }
-        val closedSarcophagi =
-            state.sarcophagi.values.filter {
-                it.state in setOf(BabaSarcophagusState.CLOSED, BabaSarcophagusState.DAMAGED)
-            }
-        if (
-            BabaBaboonDischargePolicy.runnerDue(
-                clock.cycle,
-                state.nextBaboonSarcophagusAt,
-                state.baboonSarcophagusRunner,
-                liveBaboons.isNotEmpty(),
-                closedSarcophagi.isNotEmpty(),
-            )
+
+    private fun closedBabaSarcophagi(raid: ToaRaidSession): List<BabaSarcophagusRuntime> =
+        raid.baba.sarcophagi.values.filter {
+            it.state in setOf(BabaSarcophagusState.CLOSED, BabaSarcophagusState.DAMAGED)
+        }
+
+    private fun armBabaSarcophagusRunner(raid: ToaRaidSession, deadline: Int) {
+        val state = raid.baba
+        requireNotNull(state.sarcophagusQueues).armRunner(
+            deadline,
+            eligible = {
+                state.baboonSarcophagusRunner == null &&
+                    liveBabaBaboons(raid).isNotEmpty() &&
+                    closedBabaSarcophagi(raid).isNotEmpty()
+            },
         ) {
-            runner = liveBaboons.first()
+            val runner = liveBabaBaboons(raid).first()
             state.baboonSarcophagusRunner = runner.hashCode()
-            state.nextBaboonSarcophagusAt = -1
-            val target = closedSarcophagi.minBy { it.tile.chebyshevDistance(runner.coords) }
+            val target =
+                closedBabaSarcophagi(raid).minBy { it.tile.chebyshevDistance(runner.coords) }
             directBaboonToSarcophagus(raid, runner, target)
             traceBaba(
                 raid,
-                source,
+                boss(raid),
                 "baboon_sarcophagus_runner",
                 "baboon" to runner.hashCode(),
                 "target" to target.tile,
             )
         }
+    }
+
+    private fun tickBabaSarcophagi(raid: ToaRaidSession) {
+        val state = raid.baba
+        val queues = requireNotNull(state.sarcophagusQueues)
+        val liveBaboons = liveBabaBaboons(raid)
+        val runner =
+            state.baboonSarcophagusRunner?.let { key ->
+                liveBaboons.firstOrNull { it.hashCode() == key }
+            }
+        if (state.baboonSarcophagusRunner != null && runner == null) {
+            state.baboonSarcophagusRunner = null
+            if (liveBaboons.isEmpty()) queues.clearRunner()
+            else
+                armBabaSarcophagusRunner(
+                    raid,
+                    clock.cycle + BabaTuning.BABOON_SARCOPHAGUS_DELAY.value,
+                )
+        }
+        val closedSarcophagi = closedBabaSarcophagi(raid)
+        queues.processRunner()
         liveBaboons.forEach { baboon ->
             if (baboon.hashCode() != state.baboonSarcophagusRunner) {
                 maintainBabaBaboonAggression(raid, baboon)
@@ -6262,8 +6288,10 @@ constructor(
             val target = closedSarcophagi.minByOrNull { it.tile.chebyshevDistance(baboon.coords) }
             if (target == null) {
                 state.baboonSarcophagusRunner = null
-                state.nextBaboonSarcophagusAt =
-                    clock.cycle + BabaTuning.BABOON_SARCOPHAGUS_DELAY.value
+                armBabaSarcophagusRunner(
+                    raid,
+                    clock.cycle + BabaTuning.BABOON_SARCOPHAGUS_DELAY.value,
+                )
                 maintainBabaBaboonAggression(raid, baboon)
             } else if (baboon.coords.chebyshevDistance(target.tile) <= 2) {
                 baboon.abortRoute()
@@ -6278,46 +6306,50 @@ constructor(
                 directBaboonToSarcophagus(raid, baboon, target)
             }
         }
-        raid.baba.sarcophagi.values
+        // Each owner is consumed in the existing room-map order, regardless of opening order.
+        state.sarcophagi.values
             .filter { it.state == BabaSarcophagusState.OPEN }
-            .forEach { sarc ->
-                if (clock.cycle < sarc.nextEnergyAt) return@forEach
-                val target = activePlayers(raid).randomOrNull() ?: return@forEach
-                val actor =
-                    raid.spawnedNpcs.firstOrNull {
-                        it.id == BabaAssets.SARCOPHAGUS && it.coords == sarc.tile
-                    } ?: source
-                sendProjectile(actor, target, BabaAssets.SARCOPHAGUS_ENERGY)
-                val faith = ToaInvocation.GOTTA_HAVE_FAITH in raid.startSnapshot.invocations
-                val damage =
-                    if (faith) BabaTuning.GOTTA_HAVE_FAITH_DAMAGE.value
-                    else BabaTuning.SARCOPHAGUS_ENERGY_DAMAGE.value
-                queueAkkhaCombatHit(
-                    target,
-                    actor,
-                    scaledDamage(raid, damage),
-                    2,
-                    HitType.Magic,
-                    null,
-                )
-                sarc.nextEnergyAt =
-                    clock.cycle +
-                        if (faith) BabaTuning.GOTTA_HAVE_FAITH_INTERVAL.value
-                        else BabaTuning.SARCOPHAGUS_ENERGY_INTERVAL.value
-            }
+            .forEach { queues.processEnergy(it) }
+    }
+
+    private fun armBabaSarcophagusEnergy(
+        raid: ToaRaidSession,
+        sarc: BabaSarcophagusRuntime,
+        deadline: Int,
+    ) {
+        requireNotNull(raid.baba.sarcophagusQueues).armEnergy(
+            sarc,
+            deadline,
+            eligible = {
+                sarc.state == BabaSarcophagusState.OPEN && activePlayers(raid).isNotEmpty()
+            },
+        ) {
+            val target = activePlayers(raid).randomOrNull() ?: return@armEnergy
+            val source = boss(raid) ?: return@armEnergy
+            val actor =
+                raid.spawnedNpcs.firstOrNull {
+                    it.id == BabaAssets.SARCOPHAGUS && it.coords == sarc.tile
+                } ?: source
+            sendProjectile(actor, target, BabaAssets.SARCOPHAGUS_ENERGY)
+            val faith = ToaInvocation.GOTTA_HAVE_FAITH in raid.startSnapshot.invocations
+            val damage =
+                if (faith) BabaTuning.GOTTA_HAVE_FAITH_DAMAGE.value
+                else BabaTuning.SARCOPHAGUS_ENERGY_DAMAGE.value
+            queueAkkhaCombatHit(target, actor, scaledDamage(raid, damage), 2, HitType.Magic, null)
+            val interval =
+                if (faith) BabaTuning.GOTTA_HAVE_FAITH_INTERVAL.value
+                else BabaTuning.SARCOPHAGUS_ENERGY_INTERVAL.value
+            armBabaSarcophagusEnergy(raid, sarc, clock.cycle + interval)
+        }
     }
 
     private fun handleBabaBaboonDeath(raid: ToaRaidSession, tile: CoordGrid) {
         if (ToaInvocation.JUNGLE_JAPES !in raid.startSnapshot.invocations) return
         world.spotanimMap(SpotanimType(BabaAssets.EXPLOSION), tile)
         val bananaType = requireNotNull(ServerCacheManager.getObject(BabaAssets.BANANA_PILE_LOC))
+        val queues = requireNotNull(raid.baba.bananaQueues)
         listOf(tile, CoordGrid(tile.x + 1, tile.z, tile.level)).forEach { bananaTile ->
-            raid.baba.bananas.remove(bananaTile)?.let { old ->
-                locs
-                    .findAll(old.tile)
-                    .filter { it.id == BabaAssets.BANANA_PILE_LOC }
-                    .forEach { locs.del(it, Int.MAX_VALUE) }
-            }
+            queues.remove(bananaTile)?.let(::clearBabaBananaLoc)
             locs.add(
                 bananaTile,
                 bananaType,
@@ -6325,48 +6357,58 @@ constructor(
                 LocAngle.North,
                 LocShape.CentrepieceStraight,
             )
-            raid.baba.bananas[bananaTile] =
+            val pile =
                 BabaBananaPile(
                     bananaTile,
                     clock.cycle + 1,
                     clock.cycle + BabaTuning.BANANA_LIFETIME.value,
                 )
+            queues.schedule(
+                pile,
+                canTrigger = { banana ->
+                    activePlayers(raid).any {
+                        it.coords == banana.tile || it.lastProcessedCoord == banana.tile
+                    }
+                },
+            ) { banana, expired ->
+                resolveBabaBanana(raid, banana, expired)
+            }
         }
     }
 
-    private fun tickBabaBananas(raid: ToaRaidSession, source: Npc) {
-        val iterator = raid.baba.bananas.iterator()
-        while (iterator.hasNext()) {
-            val (_, pile) = iterator.next()
-            if (clock.cycle >= pile.expiresAt) {
-                locs
-                    .findAll(pile.tile)
-                    .filter { it.id == BabaAssets.BANANA_PILE_LOC }
-                    .forEach { locs.del(it, Int.MAX_VALUE) }
-                iterator.remove()
-                continue
-            }
-            if (clock.cycle < pile.armedAt) continue
-            val player =
-                activePlayers(raid).firstOrNull {
-                    it.coords == pile.tile || it.lastProcessedCoord == pile.tile
-                } ?: continue
-            locs
-                .findAll(pile.tile)
-                .filter { it.id == BabaAssets.BANANA_PILE_LOC }
-                .forEach { locs.del(it, Int.MAX_VALUE) }
-            iterator.remove()
-            CombatEffects.bind(player, BabaTuning.BABOON_STUN_TICKS.value)
-            queueAkkhaCombatHit(
-                player,
-                source,
-                scaledDamage(raid, BabaTuning.BANANA_DAMAGE.value),
-                0,
-                HitType.Typeless,
-                null,
-            )
-            traceBaba(raid, source, "banana_trigger", "target" to player.uid, "tile" to pile.tile)
+    private fun clearBabaBananaLoc(pile: BabaBananaPile) {
+        locs
+            .findAll(pile.tile)
+            .filter { it.id == BabaAssets.BANANA_PILE_LOC }
+            .toList()
+            .forEach { locs.del(it, Int.MAX_VALUE) }
+    }
+
+    private fun tickBabaBananas(raid: ToaRaidSession) {
+        raid.baba.bananaQueues?.process()
+    }
+
+    private fun resolveBabaBanana(raid: ToaRaidSession, pile: BabaBananaPile, expired: Boolean) {
+        if (expired) {
+            clearBabaBananaLoc(pile)
+            return
         }
+        val player =
+            activePlayers(raid).firstOrNull {
+                it.coords == pile.tile || it.lastProcessedCoord == pile.tile
+            } ?: return
+        val source = boss(raid) ?: return
+        clearBabaBananaLoc(pile)
+        CombatEffects.bind(player, BabaTuning.BABOON_STUN_TICKS.value)
+        queueAkkhaCombatHit(
+            player,
+            source,
+            scaledDamage(raid, BabaTuning.BANANA_DAMAGE.value),
+            0,
+            HitType.Typeless,
+            null,
+        )
+        traceBaba(raid, source, "banana_trigger", "target" to player.uid, "tile" to pile.tile)
     }
 
     private fun beginBabaRollingPhase(raid: ToaRaidSession, source: Npc) {
@@ -7295,7 +7337,7 @@ constructor(
                             )
                         }
                     }
-                    state.pendingHits +=
+                    state.queuePendingHit(
                         ToaPendingHit(
                             target.uid,
                             target.coords,
@@ -7305,6 +7347,7 @@ constructor(
                             radius = 1,
                             requireTargetOnTile = true,
                         )
+                    )
                 }
                 message(
                     raid.party,
@@ -7486,7 +7529,7 @@ constructor(
                     WardenPhaseTwoMechanics.STONE_PROJECTILE,
                     travelTicks = 3,
                 )
-                state.pendingHits +=
+                state.queuePendingHit(
                     ToaPendingHit(
                         target = target.uid,
                         tile = target.coords,
@@ -7496,6 +7539,7 @@ constructor(
                         requireTargetOnTile = true,
                         wardenImpact = WardenImpact.IMPRISONMENT,
                     )
+                )
             }
         } else {
             val attack = WardenPhaseTwoMechanics.basicAttack(WardenBasicAttack.valueOf(kind.name))
@@ -9304,7 +9348,7 @@ constructor(
     private fun beginAkkhaFinalStand(raid: ToaRaidSession, source: Npc) {
         val state = raid.akkha
         state.beginFinalStand()
-        raid.encounter.pendingHits.clear()
+        raid.encounter.pendingHitQueues?.clear()
         clearAkkhaShadows(raid)
         source.abortRoute()
         source.mode = null
@@ -9578,7 +9622,7 @@ constructor(
         wardenImpact: WardenImpact? = null,
     ) {
         sendProjectile(source, target, graphic)
-        raid.encounter.pendingHits +=
+        raid.encounter.queuePendingHit(
             ToaPendingHit(
                 target.uid,
                 target.coords,
@@ -9589,6 +9633,7 @@ constructor(
                 requireTargetOnTile = true,
                 wardenImpact = wardenImpact,
             )
+        )
     }
 
     private fun scheduleTrackingHit(
@@ -9604,7 +9649,7 @@ constructor(
         impactGraphic: Int? = graphic,
     ) {
         sendProjectile(source, target, graphic)
-        raid.encounter.pendingHits +=
+        raid.encounter.queuePendingHit(
             ToaPendingHit(
                 target.uid,
                 target.coords,
@@ -9616,6 +9661,7 @@ constructor(
                 prayerReductionPercent = prayerReductionPercent,
                 wardenImpact = wardenImpact,
             )
+        )
     }
 
     private fun sendKephriOverheadProjectile(source: Npc) {
@@ -9741,64 +9787,57 @@ constructor(
     }
 
     private fun processPendingHits(raid: ToaRaidSession) {
-        val source = boss(raid)
-        val iterator = raid.encounter.pendingHits.iterator()
-        while (iterator.hasNext()) {
-            val pending = iterator.next()
-            if (raid.currentRoom == ToaRoom.ZEBAK && pending.generation != raid.zebak.generation) {
-                iterator.remove()
-                continue
-            }
-            if (clock.cycle < pending.landsAt) continue
-            iterator.remove()
-            pending.impactGraphic?.let { world.spotanimMap(SpotanimType(it), pending.tile) }
-            val target = pending.target.resolve(players) ?: continue
-            if (source == null || target !in activePlayers(raid)) continue
-            if (
-                pending.requireTargetOnTile &&
-                    target.coords.chebyshevDistance(pending.tile) > pending.radius
-            ) {
-                continue
-            }
-            val zebakBloodImpact =
-                if (pending.zebakBloodHealing) {
-                    HitImpactHandler { impact ->
-                        val body = raid.zebak.body
-                        if (
-                            impact.damage > 0 &&
-                                raid.currentRoom == ToaRoom.ZEBAK &&
-                                pending.generation == raid.zebak.generation &&
-                                body === source &&
-                                body.isSlotAssigned &&
-                                body.hitpoints > 0
-                        ) {
-                            val rules = ZebakInvocationRules.resolve(raid.startSnapshot.invocations)
-                            if (rules.bloodMagic) {
-                                val healing =
-                                    ZebakInvocationRules.healAmount(
-                                        impact.damage,
-                                        rules.arterialHealing,
-                                    )
-                                body.hitpoints =
-                                    (body.hitpoints + healing).coerceAtMost(body.baseHitpointsLvl)
-                            }
+        requireNotNull(raid.encounter.pendingHitQueues).process(boss(raid))
+    }
+
+    private fun resolvePendingHit(raid: ToaRaidSession, source: Npc?, pending: ToaPendingHit) {
+        pending.impactGraphic?.let { world.spotanimMap(SpotanimType(it), pending.tile) }
+        val target = pending.target.resolve(players) ?: return
+        if (source == null || target !in activePlayers(raid)) return
+        if (
+            pending.requireTargetOnTile &&
+                target.coords.chebyshevDistance(pending.tile) > pending.radius
+        ) {
+            return
+        }
+        val zebakBloodImpact =
+            if (pending.zebakBloodHealing) {
+                HitImpactHandler { impact ->
+                    val body = raid.zebak.body
+                    if (
+                        impact.damage > 0 &&
+                            raid.currentRoom == ToaRoom.ZEBAK &&
+                            pending.generation == raid.zebak.generation &&
+                            body === source &&
+                            body.isSlotAssigned &&
+                            body.hitpoints > 0
+                    ) {
+                        val rules = ZebakInvocationRules.resolve(raid.startSnapshot.invocations)
+                        if (rules.bloodMagic) {
+                            val healing =
+                                ZebakInvocationRules.healAmount(
+                                    impact.damage,
+                                    rules.arterialHealing,
+                                )
+                            body.hitpoints =
+                                (body.hitpoints + healing).coerceAtMost(body.baseHitpointsLvl)
                         }
                     }
-                } else {
-                    null
                 }
-            queueAkkhaCombatHit(
-                player = target,
-                source = source,
-                damage = pending.damage,
-                delay = 1,
-                type = pending.hitType,
-                prayerReductionPercent = pending.prayerReductionPercent,
-                additionalImpactHandler = zebakBloodImpact,
-            )
-            pending.akkhaElement?.let { applyAkkhaElement(raid, target, source, it) }
-            pending.wardenImpact?.let { applyWardenImpact(raid, target, it) }
-        }
+            } else {
+                null
+            }
+        queueAkkhaCombatHit(
+            player = target,
+            source = source,
+            damage = pending.damage,
+            delay = 1,
+            type = pending.hitType,
+            prayerReductionPercent = pending.prayerReductionPercent,
+            additionalImpactHandler = zebakBloodImpact,
+        )
+        pending.akkhaElement?.let { applyAkkhaElement(raid, target, source, it) }
+        pending.wardenImpact?.let { applyWardenImpact(raid, target, it) }
     }
 
     private fun applyWardenImpact(raid: ToaRaidSession, target: Player, impact: WardenImpact) {
@@ -9897,6 +9936,37 @@ constructor(
         )
         state.bindRolling(
             BabaRollingQueues(encounter, raid.instance, bossDeps.worldQueues, queueProcess, clock) {
+                raid.currentRoom == ToaRoom.BABA &&
+                    state.isCurrent(generation) &&
+                    isCurrent(raid) &&
+                    boss(raid) === source &&
+                    source.isSlotAssigned
+            }
+        )
+        state.bindBananas(
+            BabaBananaQueues(
+                encounter,
+                raid.instance,
+                bossDeps.worldQueues,
+                queueProcess,
+                clock,
+                cleanupPile = ::clearBabaBananaLoc,
+            ) {
+                raid.currentRoom == ToaRoom.BABA &&
+                    state.isCurrent(generation) &&
+                    isCurrent(raid) &&
+                    boss(raid) === source &&
+                    source.isSlotAssigned
+            }
+        )
+        state.bindSarcophagi(
+            BabaSarcophagusQueues(
+                encounter,
+                raid.instance,
+                bossDeps.worldQueues,
+                queueProcess,
+                clock,
+            ) {
                 raid.currentRoom == ToaRoom.BABA &&
                     state.isCurrent(generation) &&
                     isCurrent(raid) &&
@@ -10553,14 +10623,8 @@ constructor(
         val state = raid.baba
         state.hazardQueues?.close()
         state.rollingQueues?.close()
-        state.bananas.values.toList().forEach { pile ->
-            locs
-                .findAll(pile.tile)
-                .filter { it.id == BabaAssets.BANANA_PILE_LOC }
-                .toList()
-                .forEach { locs.del(it, Int.MAX_VALUE) }
-        }
-        state.bananas.clear()
+        state.bananaQueues?.close()
+        state.sarcophagusQueues?.close()
         state.sarcophagi.values.toList().forEach { sarc ->
             sarc.state = BabaSarcophagusState.RESETTING
             val opened =
@@ -10696,14 +10760,14 @@ constructor(
             .toList()
             .forEach { removeTrailActor(raid, it) }
         raid.akkha.retirePlayer(player.uid)
-        raid.encounter.pendingHits.removeAll { it.target == player.uid }
+        raid.encounter.pendingHitQueues?.removeIf { it.target == player.uid }
     }
 
     private fun cleanupAkkha(raid: ToaRaidSession) {
         forEachOnline(raid) { player -> cleanupAkkhaPlayer(raid, player) }
         raid.akkha.combatQueues?.close()
         if (!raid.instance.isEnded) clearAkkhaMemorySymbols(raid)
-        raid.encounter.pendingHits.clear()
+        raid.encounter.pendingHitQueues?.clear()
         raid.akkha.reset()
     }
 
@@ -10981,7 +11045,7 @@ constructor(
         het.cleanup(raid)
         crondisZebak.cleanup(raid)
         cleanupKephri(raid)
-        raid.encounter.pendingHits.clear()
+        raid.encounter.pendingHitQueues?.clear()
         raid.encounter.kephriBombs.clear()
         raid.encounter.kephriSwarms.clear()
         if (raid.currentRoom == ToaRoom.AKKHA) cleanupAkkha(raid)
@@ -11033,7 +11097,7 @@ constructor(
         raid.encounter.wardenPhantomAttackCounter = 0
         raid.encounter.wardenChargeBalls.clear()
         clearWardenChargeCircle(raid)
-        raid.encounter.pendingHits.clear()
+        raid.encounter.pendingHitQueues?.clear()
     }
 
     private fun prepareNpcRemoval(npc: Npc) {

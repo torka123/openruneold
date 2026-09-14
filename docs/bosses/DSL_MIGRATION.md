@@ -2,7 +2,54 @@
 
 ## Current source increments — September 14
 
-### Current checkpoint: Ba-Ba rolling, Zebak remaining payloads and Wardens Obelisk verified
+### Current checkpoint: native raid hits and Ba-Ba banana/sarcophagus scheduling verified
+
+Generic raid hits now use a session-owned native queue at the existing late dispatch boundary.
+Insertion/identity, stale future generations, UID replacement, one source snapshot, graphics before
+target rejection and existing native impact/prayer/blood handlers are preserved. Room reset clears
+and reuses the owner; terminal session cleanup closes it. Actual manager tests cover source-less
+graphics, reset, deleted hit source and pause/rejoin. No shared engine or persistence changes.
+
+Ba-Ba bananas use native expiry/armed-contact readiness. Expiry wins at+50; current/previous tiles
+remain eligible at+1 with native delay1 hits and nonstacking bind. Native NPC deletion now also
+removes the persistent banana objects before later manager cleanup. Sarcophagus runner+8 and
+opening+3/recurring+6 or+4 energy deadlines are native; energy dispatch preserves room-map order,
+no-target pause and missing-actor boss fallback. Global cycle%4 runner alignment remains native
+spatial action gating. Discovered already-open sarcophagi retain immediate initial eligibility.
+
+Verification:159 focused cases ran,158 passed; the older Zebak aggregate queue-size assertion
+needed to include the formerly list-owned generic hit retained after direct NPC deletion. Its
+updated16-case native suite passes. The first compile attempt only lacked a test stat extension
+import. Full ToA558, scoped checks, architecture/self-tests and application assemble pass (57s).
+Unchanged shared/boss/ToB/CoX results remain valid. Logs/selections/results:
+logs/toa-native-hit-banana-sarc-*20260914. Exact16 Kotlin files are in the format manifest; plus
+ledger/handoff, the18-file archive is logs/toa-native-hit-banana-sarc-source-20260914.zip and backup
+branch backup/toa-native-hit-banana-sarc-20260914. Build passed; described behavior verified; source
+only. Runtime c4fc9390f/JVM23812 still listens on43594/8080/9091. Cache/database authority, stronger
+inactive replay migrations, save/restart protections and deployment holds remain unchanged.
+
+Next approved mappings, using existing native owned queues and retained source as timing evidence:
+- Kephri bombs: lock batch(+3) -> hit preparation batch(actual lock+3) -> landing batch(lock+4),
+  preserving removal of all due locks before callbacks, all hit preparation before any landing,
+  and one landing sound per batch. Launch damage rolls retain original target coordinates; lock
+  follows current target tile. Keep native impact-time radius/prayer handlers. Aerial bomber has
+  its separate later dispatch, first+8 then actual+12, advancing even with zero active targets
+  while the raid itself ticks. Rebind unlocked targets; retirement preserves locked tile bombs.
+  Shield break/death clears bombs; recovery completion cancels bomber cadence but preserves
+  launched bombs. Native encounter/session cleanup; no new API. Verify these order, movement,
+  prayer, pause, rebind and cleanup boundaries against the actual manager.
+- Akkha memory/detonate/final orb: separate native reveal, render and resolution owners preserve
+  all reveals before all renders before all due removals/hits, plus first-reveal sound semantics.
+  Detonation keeps cast participant identity and resolves their current tile after the existing
+  telegraph, before trailing/status effects. Clear/rebind/retire through the native session owner.
+  Final orb recurrence dispatches after swap and movement, starts activation+3 and rearms actual+3
+  only below the existing actor cap; no spawn-tick movement. Keep current tuning/evidence labels
+  and spatial/native hit adapters. Verify overdue batches, memory replacement/completion,
+  detonation movement/rejoin, cap/retry and final-stand generation/session cleanup.
+Then remaining ToA shadow/trailing/status, Kephri helpers and Wardens routes, followed by ToB/CoX.
+These are native-route preservation increments, not new OSRS-parity claims.
+
+### Earlier checkpoint: Ba-Ba rolling, Zebak remaining payloads and Wardens Obelisk verified
 
 Ba-Ba rolling cast/release now use two native owners in movement -> release -> cast -> existing
 final-drain order. The current row is captured before next-row weak-lane RNG. First cast remains

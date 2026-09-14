@@ -1542,7 +1542,7 @@ constructor(
             sendZebakSplitProjectile(split.tile, player, splitGraphic)
             player.spotanim(impactGraphic, delay = 90, height = 90)
             player.soundSynth(ZebakSounds.IMPACT, delay = 90)
-            raid.encounter.pendingHits +=
+            raid.encounter.queuePendingHit(
                 ToaPendingHit(
                     target = player.uid,
                     tile = landingTile,
@@ -1563,6 +1563,7 @@ constructor(
                     prayerReductionPercent = ZebakTuning.RANGE_MAGIC_PRAYER_REDUCTION,
                     generation = state.generation,
                 )
+            )
         }
         trace(
             raid,
@@ -1946,7 +1947,7 @@ constructor(
                 .filter { it.coords.chebyshevDistance(target.coords) <= radius }
                 .forEach { player ->
                     state.body?.let { source ->
-                        raid.encounter.pendingHits +=
+                        raid.encounter.queuePendingHit(
                             ToaPendingHit(
                                 target = player.uid,
                                 tile = player.coords,
@@ -1959,6 +1960,7 @@ constructor(
                                 generation = state.generation,
                                 zebakBloodHealing = true,
                             )
+                        )
                     }
                 }
             trace(raid, "blood_barrage", "target=" + target.uid + " radius=" + radius)
@@ -2082,7 +2084,7 @@ constructor(
         state.beginDeath()
         state.completedBy = hero.uid
         state.completesAt = ZebakTimeline.deathTransformAt(clock.cycle)
-        raid.encounter.pendingHits.removeAll { it.generation == state.generation }
+        raid.encounter.pendingHitQueues?.removeIf { it.generation == state.generation }
         cleanupZebakCombatActors(raid)
         val body = state.body?.takeIf { it.isSlotAssigned }
         val tail = state.tail?.takeIf { it.isSlotAssigned }
@@ -2159,7 +2161,7 @@ constructor(
 
     private fun cleanupZebak(raid: ToaRaidSession) {
         val state = raid.zebak
-        raid.encounter.pendingHits.removeAll { it.generation == state.generation }
+        raid.encounter.pendingHitQueues?.removeIf { it.generation == state.generation }
         cleanupZebakCombatActors(raid)
         listOfNotNull(state.body, state.tail, state.deadBody, state.deadTail).distinct().forEach {
             if (it.isSlotAssigned) removeNpc(raid, it)
