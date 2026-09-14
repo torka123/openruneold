@@ -2,7 +2,57 @@
 
 ## Current source increments — September 14
 
-### Current shared checkpoint: native owned world-queue dispatch verified
+### Current checkpoint: Duke native queues and Doom charge readiness verified
+
+Duke's production `DukeTimeline` is removed. One native world-queue owner is attached to the native
+session; `DukeEncounter.tick` dispatches it after existing pool damage and before that run's
+ordinary attack, preserving snapshot/RNG order. Reset invalidates captured hit revisions; preparing
+a fresh life closes/unregisters the old owner. Death eyes +2 and scenery +4 survive native boss
+deletion, while session departure closes all pending work. Two new native groups verify tied bile/
+ordinary deadlines, first-drip deferral, pool damage/rotation/expiry RNG, actual NPC deletion, +23
+replacement and session termination. Existing busy/reset tests use the new owner. The obsolete
+private timeline test and waiver are removed. Changed DT2 files: DukeEncounter, DukeRules,
+DukeBossCombatTest, DukeRuntimeTest, DukeRulesTest and Dt2NativeLifecycleFixture. Focus **45** passes
+first run (`logs/duke-native-owner-focus-20260914.log`); full DT2 **171** passes.
+
+Doom's accepted charged-rock +2 start and 13/17/20 beam deadlines now use independent native
+cancellable readiness owned by BossEncounter state/cleanup. Incoming native positive-melee and
+demonbane callbacks cancel/rearm readiness at the same positions; car movement and the independent
+warning edge are preserved. Beam completion still waits for removal of the exact native queued Hit.
+Six new groups cover all deadlines, damage/style/recoil rejection, the queued weapon snapshot, car
+movement and pending-hit reset protection, overdue warning after beam interruption, and retirement.
+Changed Doom files: CombatPhases, EncounterManager, NativeDslTest. Initial focus caught a test
+incorrectly banning the retained acid spray on melee interruption; it now requires acid-only output
+and no beam. All **31** native groups pass in `logs/doom-charge-retry-20260914.log`; full Doom **146**
+passes. Independent production reviews found no further defect.
+
+Full affected checks, architecture/self-tests and application assemble pass in
+`logs/duke-owner-doom-charge-integration-20260914.log` (1m3s). Matching results JSON records **317**
+cases, zero failures/errors/skips. The unchanged 1,592 shared/other-boss/ToA cases below remain valid:
+**1,909 verified cases**. Archive `logs/duke-owner-doom-charge-source-20260914.zip`, backup
+`backup/duke-owner-doom-charge-20260914`. Build passed; listed behavior verified; **not deployed**.
+Runtime c4fc9390f/JVM23812 and all evidence/replay/deployment holds remain unchanged.
+
+Exact next work: finish Doom's complete car graph (all zooms and dynamic edges), then the remaining
+DT2 special ownership. Car mapping: declared TRANSFORM_WAIT/ROCK_WAIT/EYE_WAIT/DASH_WAIT/DASHING/
+PROJECTILES/SLAM_WAIT/RECOVERY per zoom, with native nextPhase owning repetition. Existing
+DoomCarZoomSchedule supplies the preserved dynamic deadlines; encounter-owned queues mark readiness
+only. Retain trample -> charge -> due projectiles -> one phase handler at LateCycle, odd-cycle
+projectiles, exact-move segment/player-arrival snapshots, and movement locking at the existing
+boundaries. Native identity replaces burrowStage/stateCycle/remaining-zoom polling. Test all delve
+tiers, odd/even starts, segment counts, zooms/emergence, overlapping output and retirement. No API gap.
+
+DT2 closure review found explicit remaining debt rather than treating detector budgets as completion:
+Leviathan STUNNED/ROAR/LIGHTNING/SMOKE and completion polling; Whisperer special selection/completion
+and pending secondary-volley scheduling; Vardorvis special opportunity/selection and respawn
+deadlines; shared start/respawn progression. Session membership is already native. Preserve named
+geometry and parameter adapters. The next bounded DT2 mapping is Leviathan phase identity and
+native completion readiness at its existing LateCycle position. Vardorvis uses session-owned
+environmental opportunities and post-delete respawn; do not invent an ordinary phase clock for
+those. Its existing RNG stream must survive selector migration. Continue ToA, ToB and CoX after
+these boss routing increments; Nex's recorded unavailable evidence/replay work remains separate.
+
+### Verified shared checkpoint: native owned world-queue dispatch
 
 The Duke gap/mapping below is implemented in the existing `WorldQueueList` and
 `WorldQueueListProcess`. An owner adds entries to the same native list, with clear/revision/close
@@ -25,7 +75,7 @@ Duke adoption and Doom charge readiness are active, unverified content increment
 tests and final application/architecture integration are next. Shared build/check passed;
 the listed queue behavior is verified; **not deployed**. Existing holds/runtime are unchanged.
 
-### Current checkpoint: DT2 protected instances and Doom shockwave graph
+### Verified checkpoint: DT2 protected instances and Doom shockwave graph
 
 Four concrete DT2 `InstanceScript` owners now register entry, exit and keyed lifecycle callbacks.
 Immutable session entry inputs precede native `completeInstanceEntry`; only successful keyed join

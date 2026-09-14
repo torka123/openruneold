@@ -4,7 +4,16 @@ This is a resumable handoff, not a project-completion or full OSRS-parity claim.
 mechanic mappings, uncertainties, commands and results remain in [DSL_MIGRATION.md](DSL_MIGRATION.md).
 Update this checkpoint after each completed boss and immediately before any authorized deployment.
 
-September14 current shared checkpoint: the existing native world queue now supports owned dispatch
+September14 current checkpoint: Duke's private timeline is replaced with the native owned queue,
+and Doom's +2 charge start /13/17/20 beam readiness is native. Focused behavioral checks, full
+DT2 171/Doom 146, architecture/self-tests and application assemble pass. With the unchanged
+1,592 shared/other-boss/ToA cases below: **1,909 verified cases**. Archive/backup:
+`logs/duke-owner-doom-charge-source-20260914.zip` / `backup/duke-owner-doom-charge-20260914`.
+Next: Doom's complete car graph and remaining DT2 special/secondary-volley/start/respawn ownership,
+then ToA/ToB/CoX. Detailed pre-edit car mapping and exact DT2 debt are at the top of
+`DSL_MIGRATION.md`. Source only; runtime c4fc9390f/JVM23812 and all holds remain unchanged.
+
+Earlier September14 shared checkpoint: the existing native world queue now supports owned dispatch
 at an established lifecycle boundary. Seven new behavioral groups and full shared/25-boss/ToA
 regression checks pass: **1,592 cases**. ToB/CoX compile/check pass with no test cases. Archive/backup:
 `logs/native-owned-queue-source-20260914.zip` / `backup/native-owned-queue-20260914`.

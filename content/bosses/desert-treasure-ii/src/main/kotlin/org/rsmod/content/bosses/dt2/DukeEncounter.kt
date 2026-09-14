@@ -10,6 +10,7 @@ import org.rsmod.api.combat.commons.magic.ArceuusSpellState
 import org.rsmod.api.combat.commons.types.MeleeAttackType
 import org.rsmod.api.combat.formulas.AccuracyFormulae
 import org.rsmod.api.config.refs.BaseParams
+import org.rsmod.api.game.process.world.WorldQueueListProcess
 import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.invtx.invAdd
 import org.rsmod.api.invtx.invDel
@@ -42,6 +43,7 @@ import org.rsmod.game.hit.HitValidity
 import org.rsmod.game.loc.LocEntity
 import org.rsmod.game.loc.LocInfo
 import org.rsmod.game.proj.ProjAnim
+import org.rsmod.game.queue.WorldQueueList
 import org.rsmod.map.CoordGrid
 import org.rsmod.routefinder.collision.CollisionFlagMap
 
@@ -59,6 +61,8 @@ constructor(
     private val bossEncounters: EncounterRegistry,
     private val accessLauncher: StandardNpcAccessLauncher,
     private val eventBus: EventBus,
+    private val worldQueues: WorldQueueList,
+    private val queueProcess: WorldQueueListProcess,
 ) {
     fun configureNpc(npc: Npc, awakened: Boolean) {
         npc.respawns = false
@@ -82,7 +86,11 @@ constructor(
     fun prepare(run: Run, preserveVats: Boolean = false) {
         val vats = if (preserveVats) run.duke.preparation.vats.toMap() else emptyMap()
         clear(run)
-        run.duke = DukeState(clock.cycle)
+        run.duke.taskOwner?.close()
+        run.duke.unregisterTaskCleanup?.invoke()
+        val taskOwner = worldQueues.createOwner()
+        run.duke = DukeState(clock.cycle, taskOwner)
+        run.duke.unregisterTaskCleanup = run.session.onCleanup(taskOwner::close)
         run.boss.actionDelay = Int.MAX_VALUE
         run.duke.preparation.vats.putAll(vats)
         run.boss.mode = NpcMode.None
@@ -112,7 +120,8 @@ constructor(
         if (valid(run)) run.boss.ignoreCombatInteractions = true
         val state = run.duke
         if (valid(run)) pulsePools(run)
-        state.timeline.pulse(clock.cycle, run.generation)
+        // New drips follow existing pool damage; due effects precede this run's ordinary action.
+        state.taskOwner?.let(queueProcess::processOwned)
         if (!valid(run)) return
         if (run.state == Dt2State.PREPARING) {
             prepHazards(run)
@@ -491,10 +500,14 @@ constructor(
     fun beginDeath(run: Run) {
         val generation = run.generation
         run.boss.transmog(requireNotNull(ServerCacheManager.getNpc(12192)), Int.MAX_VALUE)
-        run.duke.timeline.at(clock.cycle + 2, generation) {
+        val taskOwner = requireNotNull(run.duke.taskOwner)
+        val eyesTick = clock.cycle + 2
+        val sceneryTick = clock.cycle + 4
+        // Presentation belongs to the live session, including after native boss deletion.
+        taskOwner.add(ready = { clock.cycle >= eyesTick }) {
             if (present(run) && run.generation == generation) eyes(run, dead = true)
         }
-        run.duke.timeline.at(clock.cycle + 4, generation) {
+        taskOwner.add(ready = { clock.cycle >= sceneryTick }) {
             if (present(run) && run.generation == generation) {
                 scene(run, 47567, 3034, 6434, 1)
                 scene(run, 47568, 3044, 6434, 1)
@@ -631,7 +644,7 @@ constructor(
     }
 
     fun clear(run: Run, keepScene: Boolean = false) {
-        run.duke.timeline.clear()
+        run.duke.taskOwner?.clear()
         bossEncounters.remove(run.boss)
         run.boss.ignoreCombatInteractions = false
         run.duke.pools.values.forEach { locs.del(it, Int.MAX_VALUE) }
@@ -681,7 +694,8 @@ constructor(
 
     private fun schedule(run: Run, delay: Int, action: () -> Unit) {
         val generation = run.generation
-        run.duke.timeline.at(clock.cycle + delay, generation) {
+        val deadline = clock.cycle + delay
+        requireNotNull(run.duke.taskOwner).add(ready = { clock.cycle >= deadline }) {
             if (valid(run) && generation == run.generation) action()
         }
     }
@@ -697,8 +711,8 @@ constructor(
         ward: Boolean = false,
     ) {
         val generation = run.generation
-        val timeline = run.duke.timeline
-        val epoch = timeline.epoch
+        val taskOwner = requireNotNull(run.duke.taskOwner)
+        val revision = taskOwner.revision
         run.player.queueImpactHit(
             run.boss,
             1,
@@ -707,7 +721,7 @@ constructor(
             modifier =
                 PlayerHitModifier { target ->
                     validity = HitValidity {
-                        valid(run) && generation == run.generation && timeline.epoch == epoch
+                        valid(run) && generation == run.generation && taskOwner.revision == revision
                     }
                     if (!validity!!.isValid()) damage = 0
                     else {
@@ -780,8 +794,8 @@ constructor(
     }
 }
 
-internal class DukeState(val prepStart: Int) {
-    val timeline = DukeTimeline()
+internal class DukeState(val prepStart: Int, val taskOwner: WorldQueueList.Owner? = null) {
+    var unregisterTaskCleanup: (() -> Unit)? = null
     val preparation = DukePreparation()
     val scene = mutableMapOf<CoordGrid, LocInfo>()
     val poisonTiles = mutableMapOf<CoordGrid, Int>()

@@ -14,6 +14,7 @@ internal class DoomCombatPhases(
 ) {
     private val readiness = encounter.state("doom.shield-readiness") { ShieldReadiness() }
     private val shockwave = encounter.state("doom.shockwave-readiness") { ShockwaveReadiness() }
+    private val charge = encounter.state("doom.charge-readiness") { ChargeReadiness() }
 
     var state: DoomState
         get() =
@@ -56,6 +57,86 @@ internal class DoomCombatPhases(
         shockwave.cancelDue?.invoke()
         shockwave.cancelDue = null
         shockwave.due = false
+        cancelMeleeCharge()
+        stopBeamCharge()
+    }
+
+    val pendingMeleeChargeCycle: Int
+        get() = charge.startAt
+
+    val beamFireCycle: Int
+        get() = charge.fireAt
+
+    /** Last LateCycle observation, retained during beam travel just like the original status. */
+    val chargeProgress: Int
+        get() = charge.progress
+
+    fun armMeleeChargeAt(tick: Int) {
+        cancelMeleeCharge()
+        charge.startAt = tick
+        var unregister: () -> Unit = {}
+        val cancellation =
+            queues.addCancellable(0, ready = { clock.cycle >= tick - 1 }) {
+                unregister()
+                charge.cancelStart = null
+                if (!encounter.isEnded && stillAttached()) charge.startReady = true
+            }
+        unregister = encounter.onCleanup(cancellation::cancel)
+        charge.cancelStart = {
+            cancellation.cancel()
+            unregister()
+        }
+    }
+
+    fun consumeMeleeChargeReady(): Boolean {
+        if (!charge.startReady) return false
+        cancelMeleeCharge()
+        return true
+    }
+
+    fun cancelMeleeCharge() {
+        charge.cancelStart?.invoke()
+        charge.cancelStart = null
+        charge.startAt = Int.MAX_VALUE
+        charge.startReady = false
+    }
+
+    /** Beam charging is independent of car movement and the fifteen-tick warning phase. */
+    fun resetBeamCharge() {
+        stopBeamCharge()
+        charge.startedAt = clock.cycle
+        val tick = DoomCombatTimeline.beamFireCycle(clock.cycle, state)
+        charge.fireAt = tick
+        var unregister: () -> Unit = {}
+        val cancellation =
+            queues.addCancellable(0, ready = { clock.cycle >= tick - 1 }) {
+                unregister()
+                charge.cancelFire = null
+                if (!encounter.isEnded && stillAttached()) charge.fireReady = true
+            }
+        unregister = encounter.onCleanup(cancellation::cancel)
+        charge.cancelFire = {
+            cancellation.cancel()
+            unregister()
+        }
+    }
+
+    fun observeChargeProgress() {
+        charge.progress = (clock.cycle - charge.startedAt).coerceAtLeast(0)
+    }
+
+    fun consumeBeamReady(): Boolean {
+        if (!charge.fireReady) return false
+        charge.fireReady = false
+        return true
+    }
+
+    fun stopBeamCharge(clearProgress: Boolean = true) {
+        charge.cancelFire?.invoke()
+        charge.cancelFire = null
+        charge.fireAt = Int.MAX_VALUE
+        charge.fireReady = false
+        if (clearProgress) charge.progress = 0
     }
 
     var shockwavePreparing: Boolean
@@ -176,6 +257,17 @@ internal class DoomCombatPhases(
         var cancelDue: (() -> Unit)? = null,
         var nextPacket: String? = null,
         var cancelEdge: (() -> Unit)? = null,
+    )
+
+    private class ChargeReadiness(
+        var startAt: Int = Int.MAX_VALUE,
+        var startReady: Boolean = false,
+        var cancelStart: (() -> Unit)? = null,
+        var startedAt: Int = 0,
+        var fireAt: Int = Int.MAX_VALUE,
+        var fireReady: Boolean = false,
+        var cancelFire: (() -> Unit)? = null,
+        var progress: Int = 0,
     )
 }
 

@@ -629,7 +629,7 @@ constructor(
                     "larvae=$spawn meleeCharge=$charge"
             }
         }
-        if (charge) run.pendingMeleeChargeCycle = clock.cycle + 2
+        if (charge) run.phases.armMeleeChargeAt(clock.cycle + 2)
         val forcedRock =
             encounter.lastAbilityName == doomAbility(run.delve, DoomPrimaryAttack.ROCKS)
         recordRotationAttack(run, primary, forcedRock, primary != DoomPrimaryAttack.TONGUE)
@@ -1201,12 +1201,7 @@ constructor(
                 launchRockVolley(run)
             }
         }
-        if (
-            run.pendingMeleeChargeCycle != Int.MAX_VALUE &&
-                clock.cycle >= run.pendingMeleeChargeCycle &&
-                run.state == DoomState.ACTIVE
-        ) {
-            run.pendingMeleeChargeCycle = Int.MAX_VALUE
+        if (run.state == DoomState.ACTIVE && run.phases.consumeMeleeChargeReady()) {
             beginMeleeCharge(run)
         }
 
@@ -1533,7 +1528,6 @@ constructor(
 
     private fun beginMeleeCharge(run: Run) {
         run.state = DoomState.MELEE_CHARGE
-        run.stateCycle = clock.cycle
         run.meleeChargeAttackClaimed = false
         run.boss.movementLocked = true
         run.boss.anim(anim(DoomAssets.ANIM_BEAM_CHARGE))
@@ -1547,7 +1541,7 @@ constructor(
         if (run.pendingBeamImpactCycle != Int.MAX_VALUE) return
         run.boss.anim(anim(DoomAssets.ANIM_BEAM_CHARGE_LOOP))
         run.boss.spotanim(spotInternal(DoomAssets.GFX_BEAM_CHARGE))
-        run.chargeProgress = (clock.cycle - run.chargeStartCycle).coerceAtLeast(0)
+        run.phases.observeChargeProgress()
         if (run.state == DoomState.SHIELDED && clock.cycle >= run.nextShieldLarvaCycle) {
             spawnLarvae(run, shieldPhase = true)
             val interval = random.of(DoomRules.shieldLarvaIntervalRange(run.delve))
@@ -1558,15 +1552,13 @@ constructor(
                     intervalTicks = interval,
                 )
         }
-        if (clock.cycle >= run.beamFireCycle) finishCharge(run)
+        if (run.phases.consumeBeamReady()) finishCharge(run)
     }
 
     private fun resetCharge(run: Run) {
-        run.pendingMeleeChargeCycle = Int.MAX_VALUE
+        run.phases.cancelMeleeCharge()
         run.meleeChargeAttackClaimed = false
-        run.chargeStartCycle = clock.cycle
-        run.chargeProgress = 0
-        run.beamFireCycle = DoomCombatTimeline.beamFireCycle(clock.cycle, run.state)
+        run.phases.resetBeamCharge()
         showChargeHeadbar(run)
     }
 
@@ -1605,10 +1597,9 @@ constructor(
     }
 
     private fun interruptCharge(run: Run, resume: DoomState) {
-        run.pendingMeleeChargeCycle = Int.MAX_VALUE
+        run.phases.cancelMeleeCharge()
         run.meleeChargeAttackClaimed = false
-        run.chargeProgress = 0
-        run.beamFireCycle = Int.MAX_VALUE
+        run.phases.stopBeamCharge()
         cancelPendingBeam(run)
         clearChargeHeadbar(run)
         run.boss.anim(anim(DoomAssets.ANIM_BEAM_CANCEL))
@@ -1617,7 +1608,7 @@ constructor(
 
     private fun finishCharge(run: Run) {
         if (run.pendingBeamImpactCycle != Int.MAX_VALUE) return
-        run.pendingMeleeChargeCycle = Int.MAX_VALUE
+        run.phases.cancelMeleeCharge()
         run.meleeChargeAttackClaimed = false
         val firingState = run.state
         run.boss.anim(anim(DoomAssets.ANIM_BEAM_FIRE))
@@ -1628,7 +1619,7 @@ constructor(
         run.pendingBeamMaxHit = maximum
         run.pendingBeamState = firingState
         run.pendingBeamHit = mechanicFixedHit(run, maximum, delay = travel)
-        run.beamFireCycle = Int.MAX_VALUE
+        run.phases.stopBeamCharge(clearProgress = false)
     }
 
     private fun launchBeamSegments(run: Run): Int {
@@ -1677,8 +1668,7 @@ constructor(
         run.pendingBeamState = null
         run.pendingBeamHit = null
         world.spotanimMap(SpotanimType(DoomAssets.GFX_BEAM_IMPACT), run.player.coords)
-        run.chargeProgress = 0
-        run.beamFireCycle = Int.MAX_VALUE
+        run.phases.stopBeamCharge()
         if (!run.boss.isSlotAssigned) return
         when (firingState) {
             DoomState.SHIELDED ->
@@ -1726,7 +1716,6 @@ constructor(
         run.boss.suppressHitpointHeadbar = false
         run.boss.movementLocked = true
         run.state = DoomState.ACTIVE
-        run.stateCycle = clock.cycle
         keepAggressive(run)
     }
 
@@ -1751,9 +1740,9 @@ constructor(
                 run.state == DoomState.SHIELD_TRANSITION
         }
         syncShieldBossHud(run)
-        run.pendingMeleeChargeCycle = Int.MAX_VALUE
+        run.phases.cancelMeleeCharge()
         run.meleeChargeAttackClaimed = false
-        run.beamFireCycle = Int.MAX_VALUE
+        run.phases.stopBeamCharge(clearProgress = false)
         clearChargeHeadbar(run)
         run.boss.scriptedDamageGate = true
         run.boss.movementLocked = true
@@ -1797,8 +1786,7 @@ constructor(
         run.shieldHitpoints = 0
         run.nextShieldLarvaCycle = Int.MAX_VALUE
         run.shieldLarvaStream = null
-        run.chargeProgress = 0
-        run.beamFireCycle = Int.MAX_VALUE
+        run.phases.stopBeamCharge()
         if (DoomRules.profile(run.delve).carEnabled) beginBurrow(run) else restoreNormal(run)
         syncNormalBossHud(run)
     }
@@ -2826,8 +2814,7 @@ constructor(
         }
         run.state = DoomState.BURROWING
         run.burrowRemaining = profile.carZoomCount
-        run.chargeProgress = 0
-        run.beamFireCycle = Int.MAX_VALUE
+        run.phases.stopBeamCharge()
         run.burrowStage = CAR_STAGE_TRANSFORM_WAIT
         run.stateCycle = clock.cycle + CAR_TRANSFORM_DELAY_TICKS
         run.burrowHazardGraceUntilCycle = clock.cycle + DoomRules.BURROW_HAZARD_GRACE_TICKS
@@ -2975,8 +2962,8 @@ constructor(
     private fun updateBurrowCharge(run: Run) {
         if (run.beamFireCycle == Int.MAX_VALUE) return
         run.boss.spotanim(spotInternal(DoomAssets.GFX_BURROW_CHARGE))
-        run.chargeProgress = (clock.cycle - run.chargeStartCycle).coerceAtLeast(0)
-        if (clock.cycle >= run.beamFireCycle) finishCharge(run)
+        run.phases.observeChargeProgress()
+        if (run.phases.consumeBeamReady()) finishCharge(run)
     }
 
     private fun processCarDashSegment(run: Run) {
@@ -3181,8 +3168,7 @@ constructor(
         run.boss.transmog(requireNpc(DoomAssets.BOSS), Int.MAX_VALUE)
         run.boss.anim(anim(DoomAssets.ANIM_BURROW_EMERGE))
         run.boss.spotanim(spotInternal(DoomAssets.GFX_BURROW_EMERGE))
-        run.chargeProgress = 0
-        run.beamFireCycle = Int.MAX_VALUE
+        run.phases.stopBeamCharge()
         run.boss.movementLocked = true
         run.burrowStage = CAR_STAGE_TRANSFORM_WAIT
         run.state = DoomState.ACTIVE
@@ -3602,11 +3588,9 @@ constructor(
         run.boss.pendingExactMove = null
         run.rockVolleysRemaining = 0
         run.rockMagic = null
-        run.pendingMeleeChargeCycle = Int.MAX_VALUE
+        run.phases.cancelMeleeCharge()
         run.meleeChargeAttackClaimed = false
-        run.chargeStartCycle = 0
-        run.chargeProgress = 0
-        run.beamFireCycle = Int.MAX_VALUE
+        run.phases.stopBeamCharge()
         run.activeShockwaves.clear()
         cancelPendingBeam(run)
         clearChargeHeadbar(run)
@@ -3784,10 +3768,6 @@ constructor(
         var deathRecorded: Boolean = false,
         var launchedPrimary: DoomPrimaryAttack? = null,
         val activeShockwaves: MutableList<ActiveShockwave> = mutableListOf(),
-        var chargeProgress: Int = 0,
-        var chargeStartCycle: Int = 0,
-        var beamFireCycle: Int = Int.MAX_VALUE,
-        var pendingMeleeChargeCycle: Int = Int.MAX_VALUE,
         var meleeChargeAttackClaimed: Boolean = false,
         var shieldTriggered: Boolean = false,
         var shieldAttacksRemaining: Int = -1,
@@ -3843,6 +3823,15 @@ constructor(
     ) {
         lateinit var phases: DoomCombatPhases
         private var outcome: DoomSessionOutcome? = DoomSessionOutcome.STARTING
+
+        val pendingMeleeChargeCycle: Int
+            get() = phases.pendingMeleeChargeCycle
+
+        val beamFireCycle: Int
+            get() = phases.beamFireCycle
+
+        val chargeProgress: Int
+            get() = phases.chargeProgress
 
         val shockwavePreparing: Boolean
             get() = phases.shockwavePreparing

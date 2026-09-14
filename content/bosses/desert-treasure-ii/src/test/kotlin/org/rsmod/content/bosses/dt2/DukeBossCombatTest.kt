@@ -13,6 +13,8 @@ import org.rsmod.api.npc.interact.AiPlayerInteractions
 import org.rsmod.game.entity.npc.NpcStateEvents
 import org.rsmod.game.hit.HitBuilder
 import org.rsmod.game.hit.HitType
+import org.rsmod.game.loc.LocEntity
+import org.rsmod.game.loc.LocInfo
 
 @OptIn(InternalApi::class)
 class DukeBossCombatTest {
@@ -137,15 +139,17 @@ class DukeBossCombatTest {
     }
 
     @Test
-    fun `busy native access defers only the ordinary opportunity while the mechanic timeline pulses`() {
+    fun `busy native access defers only the ordinary opportunity while owned mechanic queues dispatch`() {
         val f = DukeFixture()
         f.wake()
         f.tick(4)
-        var timelineRan = false
-        f.run.duke.timeline.at(105, f.run.generation) { timelineRan = true }
+        var effectRan = false
+        requireNotNull(f.run.duke.taskOwner).add(ready = { f.clock.cycle >= 105 }) {
+            effectRan = true
+        }
         f.boss.delay = 1000
         f.tick()
-        assertTrue(timelineRan)
+        assertTrue(effectRan)
         assertEquals(0, f.run.attackCounter)
         assertEquals(105, f.boss.actionDelay)
         assertTrue(f.registry.of(f.boss).recentAbilityCommitTicks().isEmpty())
@@ -218,6 +222,120 @@ class DukeBossCombatTest {
         f.encounter.clear(f.run)
         assertFalse(f.boss.ignoreCombatInteractions, "Content cleanup also restores the default")
         assertNull(f.registry.existing(f.boss))
+    }
+
+    @Test
+    fun `owned bile deadline precedes ordinary and pool damage precedes drips with exact RNG`() {
+        val f = DukeFixture(awakened = true)
+        val oracle = Dt2SeededRng(42)
+        f.wake()
+        f.run.state = Dt2State.ACTIVE
+        f.boss.hitpoints = 1000
+        f.boss.delay = 1000
+        // Invoke the existing gas launcher while ordinary native access is busy. Its four spits
+        // reserve +11 for bile; the protected pillar avoids every vent and slam damage roll.
+        f.encounter.launchAction(f.run, DukeAction.GAS)
+        f.tick(10)
+        assertEquals(111, f.boss.actionDelay)
+        f.boss.delay = 0
+        f.tick()
+        assertEquals(116, f.boss.actionDelay, "Due bile must reserve the ordinary slot first")
+        assertEquals(0, f.run.attackCounter)
+        assertTrue(f.run.duke.pools.isEmpty(), "Bile's newly queued first drip waits one cycle")
+        f.boss.delay = 1000
+        f.tick()
+        val first = f.player.coords
+        val firstRotation = oracle.nextInt(4)
+        assertEquals(
+            LocInfo(2, first, LocEntity(30032, 10, firstRotation)),
+            f.run.duke.pools[first],
+        )
+        assertEquals(121, f.run.duke.poisonTiles[first])
+        assertTrue(f.hits.isEmpty(), "The first drip follows this cycle's pool damage check")
+        f.tick(3)
+        repeat(3) { oracle.nextInt(4) }
+        f.hits.clear()
+        f.player.previousCoords = f.tile(3034, 6449)
+        val middle = f.tile(3034, 6450)
+        f.player.lastProcessedCoord = middle
+        f.boss.delay = 0
+        val expectedDamage = 9 + oracle.nextInt(4)
+        val middleRotation = oracle.nextInt(4)
+        oracle.nextInt(10000) // Ordinary melee accuracy follows pool damage and new pool rotation.
+        f.tick()
+        assertEquals(116, f.clock.cycle)
+        assertEquals(expectedDamage, f.hits.single().damage)
+        assertEquals(
+            LocInfo(2, middle, LocEntity(30032, 10, middleRotation)),
+            f.run.duke.pools[middle],
+        )
+        assertEquals(1, f.run.attackCounter)
+        assertEquals(listOf(116), f.registry.of(f.boss).recentAbilityCommitTicks())
+        f.tick(4)
+        repeat(4) { oracle.nextInt(4) }
+        f.hits.clear()
+        val renewedRotation = oracle.nextInt(4)
+        oracle.nextInt(10000)
+        f.tick()
+        assertEquals(121, f.clock.cycle)
+        assertTrue(f.hits.isEmpty(), "Expiry occurs before a tied drip and ordinary launch")
+        assertEquals(130, f.run.duke.poisonTiles[first])
+        assertEquals(
+            LocInfo(2, first, LocEntity(30032, 10, renewedRotation)),
+            f.run.duke.pools[first],
+        )
+        assertEquals(2, f.run.attackCounter)
+        assertEquals(oracle.nextInt(Int.MAX_VALUE), f.run.rng.nextInt(Int.MAX_VALUE))
+    }
+
+    @Test
+    fun `native session retains Duke death presentation after NPC delete then closes replaced owners`() {
+        Dt2NativeLifecycleFixture(Dt2Boss.DUKE).use { f ->
+            val run = f.enter()
+            val boss = run.boss
+            val owner = assertNotNull(run.duke.taskOwner)
+            fun tile(x: Int, z: Int) = boss.coords.translate(x - 3036, z - 6452)
+            fun tick(count: Int = 1) =
+                repeat(count) {
+                    f.clock.tick()
+                    f.events.publish(GameLifecycle.StartCycle)
+                    f.queueProcess.process()
+                }
+            assertSame(run, f.manager.beginBossDeath(boss))
+            assertSame(owner, run.duke.taskOwner)
+            assertEquals(2, owner.size)
+            f.npcs.del(boss, Int.MAX_VALUE)
+            assertFalse(boss.isSlotAssigned)
+            f.manager.finishBossDeath(boss, run)
+            assertEquals(Dt2State.RESPAWNING, run.state)
+            assertFalse(owner.isClosed, "The session still owns death scenery after boss deletion")
+            tick()
+            assertNull(run.duke.scene[tile(3028, 6445)])
+            tick()
+            assertEquals(47550, run.duke.scene[tile(3028, 6445)]?.id)
+            assertEquals(1, owner.size)
+            tick()
+            assertNull(run.duke.scene[tile(3039, 6433)])
+            tick()
+            assertEquals(47566, run.duke.scene[tile(3039, 6433)]?.id)
+            assertEquals(0, owner.size)
+            tick(DukeRules.RESPAWN_TICKS - 4)
+            assertEquals(Dt2State.PREPARING, run.state)
+            assertNotSame(boss, run.boss)
+            assertTrue(owner.isClosed)
+            val nextOwner = assertNotNull(run.duke.taskOwner)
+            assertNotSame(owner, nextOwner)
+            assertFalse(nextOwner.isClosed)
+            var staleCallback = false
+            nextOwner.add { staleCallback = true }
+            f.instances.terminate(run.session)
+            assertTrue(nextOwner.isClosed)
+            assertEquals(0, nextOwner.size)
+            f.queueProcess.processOwned(nextOwner)
+            assertFalse(staleCallback)
+            assertFailsWith<IllegalStateException> { nextOwner.add {} }
+            assertEquals(0, f.worldQueues.size)
+        }
     }
 
     @AfterTest

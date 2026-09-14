@@ -33,6 +33,7 @@ import org.rsmod.api.npc.access.StandardNpcAccessLauncher
 import org.rsmod.api.npc.events.interact.AiPlayerEvents
 import org.rsmod.api.npc.hit.modifier.StandardNpcHitModifier
 import org.rsmod.api.npc.hit.processor.StandardNpcHitProcessor
+import org.rsmod.api.npc.hit.queueHit
 import org.rsmod.api.npc.interact.AiPlayerInteractions
 import org.rsmod.api.player.bonus.WornBonuses
 import org.rsmod.api.player.events.PlayerMovementEvent
@@ -41,6 +42,7 @@ import org.rsmod.api.player.hit.modifier.StandardPlayerHitModifier
 import org.rsmod.api.player.protect.ProtectedAccessContext
 import org.rsmod.api.player.protect.ProtectedAccessContextFactory
 import org.rsmod.api.player.protect.ProtectedAccessLauncher
+import org.rsmod.api.player.righthand
 import org.rsmod.api.player.stat.hitpoints
 import org.rsmod.api.player.vars.VarPlayerIntMapSetter
 import org.rsmod.api.random.GameRandom
@@ -60,8 +62,13 @@ import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
 import org.rsmod.game.entity.npc.NpcStateEvents
 import org.rsmod.game.entity.player.SessionStateEvent
+import org.rsmod.game.entity.util.PathingEntityCommon
 import org.rsmod.game.hit.Hit
+import org.rsmod.game.hit.HitAttribution
+import org.rsmod.game.hit.HitContext
+import org.rsmod.game.hit.HitOrigin
 import org.rsmod.game.hit.HitType
+import org.rsmod.game.inv.InvObj
 import org.rsmod.game.proj.ProjAnim
 import org.rsmod.game.queue.EngineQueueCache
 import org.rsmod.game.queue.WorldQueueList
@@ -542,7 +549,7 @@ class DoomNativeDslTest {
                     f.run.larvae.clear()
                     f.run.fallingRocks.clear()
                     f.run.rockVolleysRemaining = 0
-                    f.run.pendingMeleeChargeCycle = Int.MAX_VALUE
+                    f.run.phases.cancelMeleeCharge()
                     f.at(maxOf(f.clock.cycle + 1, f.npc.actionDelay))
                 }
             }
@@ -688,7 +695,7 @@ class DoomNativeDslTest {
                 assertEquals(103, f.clock.cycle)
                 assertEquals(DoomState.SHIELDED, f.run.state)
                 assertEquals(epoch, f.run.shieldEpoch)
-                assertTrue(f.worldQueues.isEmpty)
+                assertEquals(1, f.worldQueues.size, "Shield activation owns one beam deadline")
             }
         }
     }
@@ -992,6 +999,267 @@ class DoomNativeDslTest {
         }
     }
 
+    @Test
+    fun `native beam deadlines preserve thirteen seventeen and twenty ticks and exact queued completion`() {
+        for (state in listOf(DoomState.MELEE_CHARGE, DoomState.SHIELDED, DoomState.BURROWING)) {
+            Fixture(if (state == DoomState.BURROWING) 5 else 4, 42).use { f ->
+                f.startCharge(state)
+                val duration = DoomRules.chargeTicks(state)
+                val fire = f.clock.cycle + duration
+                assertEquals(fire, f.run.beamFireCycle)
+                assertEquals(1, f.worldQueues.size)
+                f.at(fire - 2)
+                f.worldPreInput()
+                f.lateCycle()
+                assertTrue(f.projectiles().isEmpty())
+                assertEquals(duration - 1, f.run.chargeProgress)
+                f.worldPreInput()
+                assertTrue(f.worldQueues.isEmpty, "The native queue marks readiness before input")
+                assertNull(f.run.pendingBeamHit)
+                f.lateCycle()
+                assertEquals(fire, f.clock.cycle)
+                assertEquals(5, f.projectiles().size)
+                val pending = assertNotNull(f.run.pendingBeamHit)
+                assertEquals(state, f.run.pendingBeamState)
+                assertEquals(Int.MAX_VALUE, f.run.beamFireCycle)
+                assertEquals(duration, f.run.chargeProgress)
+                assertTrue(DoomBeamQueue.containsIdentity(f.player.queueList, pending))
+
+                f.at(f.run.pendingBeamImpactCycle)
+                f.callRun("processPendingBeam")
+                assertSame(
+                    pending,
+                    f.run.pendingBeamHit,
+                    "Elapsed time cannot finish an unprocessed native hit",
+                )
+                f.processCurrentPlayerHits()
+                assertFalse(DoomBeamQueue.containsIdentity(f.player.queueList, pending))
+                assertEquals(99 - DoomRules.beamMaxHit(f.delve), f.player.hitpoints)
+                f.manager.tick(f.player)
+                assertNull(f.run.pendingBeamHit)
+                assertEquals(
+                    if (state == DoomState.BURROWING) DoomState.BURROWING else DoomState.ACTIVE,
+                    f.run.state,
+                )
+                assertEquals(0, f.run.chargeProgress)
+                if (state == DoomState.BURROWING) {
+                    assertEquals(f.clock.cycle + 20, f.run.beamFireCycle)
+                    assertEquals(1, f.worldQueues.size)
+                }
+                assertEquals(listOf(0L, 0L, 0L), f.decisionCounts())
+            }
+        }
+    }
+
+    @Test
+    fun `ready melee beam is interrupted only by positive native player melee impact`() {
+        for (kind in listOf("melee", "zero", "ranged", "recoil")) {
+            Fixture(4, 42).use { f ->
+                f.startCharge(DoomState.MELEE_CHARGE)
+                val fire = f.run.beamFireCycle
+                f.at(fire - 1)
+                f.worldPreInput()
+                assertTrue(f.worldQueues.isEmpty, "$kind native beam deadline")
+                val queued =
+                    when (kind) {
+                        "melee" -> f.queueBossHit(1, HitType.Melee)
+                        "zero" -> f.queueBossHit(0, HitType.Melee)
+                        "ranged" -> f.queueBossHit(1, HitType.Ranged)
+                        else -> f.queueRecoil()
+                    }
+                f.processBossHits()
+                f.lateCycle()
+                if (kind == "melee") {
+                    assertTrue(queued.damage > 0, "$kind native damage")
+                    assertEquals(DoomState.ACTIVE, f.run.state, "$kind interruption")
+                    // The retained positive-impact hook sprays acid before cancelling the beam.
+                    assertTrue(f.projectiles().isNotEmpty(), "$kind retained acid spray")
+                    assertTrue(
+                        f.projectiles().all { it.spotanim == DoomAssets.GFX_ACID_PROJECTILE },
+                        "$kind emits acid only, with no beam segments",
+                    )
+                    assertNull(f.run.pendingBeamHit, "$kind pending beam")
+                    assertEquals(Int.MAX_VALUE, f.run.beamFireCycle, "$kind retired deadline")
+                    assertEquals(
+                        (fire - 1) + DoomRules.meleePunishDelay(4),
+                        f.run.nextAttackNotBeforeCycle,
+                        "$kind punishment delay",
+                    )
+                } else {
+                    assertEquals(0, queued.damage, "$kind native damage")
+                    assertEquals(DoomState.MELEE_CHARGE, f.run.state, "$kind retains charge")
+                    assertEquals(
+                        listOf(
+                            DoomAssets.GFX_BEAM_HEAD,
+                            DoomAssets.GFX_BEAM_MIDDLE,
+                            DoomAssets.GFX_BEAM_MIDDLE,
+                            DoomAssets.GFX_BEAM_MIDDLE,
+                            DoomAssets.GFX_BEAM_END,
+                        ),
+                        f.projectiles().map { it.spotanim },
+                        "$kind releases all five beam segments",
+                    )
+                    assertNotNull(f.run.pendingBeamHit, "$kind pending beam")
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `ready shield beam rearm uses the queued demonbane weapon snapshot`() {
+        for (demonbane in listOf(false, true)) {
+            Fixture(4, 42).use { f ->
+                f.startCharge(DoomState.SHIELDED)
+                val fire = f.run.beamFireCycle
+                val phase = f.registry.of(f.npc).currentPhaseName
+                f.at(fire - 1)
+                f.worldPreInput()
+                if (demonbane) f.player.righthand = InvObj("obj.arclight")
+                val queued = f.queueBossHit(7, HitType.Melee)
+                f.player.righthand = null
+                f.processBossHits()
+                assertEquals(phase, f.registry.of(f.npc).currentPhaseName)
+                f.lateCycle()
+                if (demonbane) {
+                    assertEquals(7, queued.damage)
+                    assertEquals(DoomRules.SHIELD_HITPOINTS - 7, f.run.shieldHitpoints)
+                    assertEquals(fire - 1 + 17, f.run.beamFireCycle)
+                    assertTrue(f.projectiles().isEmpty())
+                    assertEquals(1, f.worldQueues.size)
+                } else {
+                    assertEquals(0, queued.damage)
+                    assertEquals(DoomRules.SHIELD_HITPOINTS, f.run.shieldHitpoints)
+                    assertEquals(5, f.projectiles().size)
+                    assertNotNull(f.run.pendingBeamHit)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `car beam reset preserves exact movement and refuses rearm while its hit is pending`() {
+        Fixture(5, 42).use { f ->
+            f.startCharge(DoomState.BURROWING)
+            f.npc.movementLocked = false
+            PathingEntityCommon.exactMove(
+                f.npc,
+                f.npc.coords,
+                f.npc.coords.translateX(1),
+                0,
+                30,
+                0,
+                f.collision,
+            )
+            val movement = f.npc.pendingExactMove
+            val location = f.npc.coords
+            val phase = f.registry.of(f.npc).currentPhaseName
+            f.at(f.run.beamFireCycle - 1)
+            f.worldPreInput()
+            f.queueBossHit(1)
+            f.processBossHits()
+            val fire = f.clock.cycle + 20
+            assertEquals(fire, f.run.beamFireCycle)
+            assertEquals(movement, f.npc.pendingExactMove)
+            assertEquals(location, f.npc.coords)
+            assertFalse(f.npc.movementLocked)
+            assertEquals(phase, f.registry.of(f.npc).currentPhaseName)
+            f.lateCycle()
+            assertTrue(f.projectiles().isEmpty())
+            f.at(fire - 1)
+            f.worldPreInput()
+            f.lateCycle()
+            val pending = assertNotNull(f.run.pendingBeamHit)
+            assertEquals(5, f.projectiles().size)
+            f.queueBossHit(1)
+            f.processBossHits()
+            assertSame(pending, f.run.pendingBeamHit)
+            assertEquals(Int.MAX_VALUE, f.run.beamFireCycle)
+            assertEquals(movement, f.npc.pendingExactMove)
+            assertFalse(f.npc.movementLocked)
+        }
+    }
+
+    @Test
+    fun `overdue warning resumes once after native melee interruption cancels the fired beam`() {
+        val seed =
+            (1L..10000L).first {
+                DoomAttackFlow.next(4, DoomAttackFlow.initial(4, it), adjacent = false)
+                    .startMeleeCharge
+            }
+        Fixture(4, seed).use { f ->
+            f.attack()
+            f.run.fallingRocks.clear()
+            f.run.rockVolleysRemaining = 0
+            f.callRun("beginShockwavePreparation")
+            repeat(2) {
+                f.worldPreInput()
+                f.lateCycle()
+            }
+            assertEquals(102, f.clock.cycle)
+            assertEquals(115, f.run.beamFireCycle)
+            f.at(114)
+            f.worldPreInput()
+            f.lateCycle()
+            assertEquals(DoomState.MELEE_CHARGE, f.run.state)
+            assertTrue(f.run.shockwavePreparing)
+            val beam = assertNotNull(f.run.pendingBeamHit)
+            assertTrue(DoomBeamQueue.containsIdentity(f.player.queueList, beam))
+            f.queueBossHit(1, HitType.Melee)
+            f.processBossHits()
+            assertEquals(DoomState.ACTIVE, f.run.state)
+            assertFalse(DoomBeamQueue.containsIdentity(f.player.queueList, beam))
+            assertNull(f.run.pendingBeamHit)
+            f.worldPreInput()
+            f.npc.pendingSequence = EntitySeq.NULL
+            f.lateCycle()
+            assertEquals(116, f.clock.cycle)
+            assertEquals(DoomShockwavePacket.PREPARE, f.run.phases.shockwavePacket)
+            assertEquals(DoomAssets.ANIM_SHOCKWAVE_PREPARE, f.npc.pendingSequence.id)
+            val entered = f.registry.of(f.npc).phaseEnteredTick
+            f.worldPreInput()
+            f.lateCycle()
+            assertEquals(DoomShockwavePacket.PREPARE, f.run.phases.shockwavePacket)
+            assertEquals(entered, f.registry.of(f.npc).phaseEnteredTick)
+            assertEquals(99, f.player.hitpoints)
+        }
+    }
+
+    @Test
+    fun `native death and departure retire pending melee starts and beam deadlines`() {
+        val seed =
+            (1L..10000L).first {
+                DoomAttackFlow.next(4, DoomAttackFlow.initial(4, it), adjacent = false)
+                    .startMeleeCharge
+            }
+        for (started in listOf(false, true)) for (departure in listOf(false, true)) {
+            Fixture(4, seed).use { f ->
+                f.attack()
+                f.run.fallingRocks.clear()
+                f.run.rockVolleysRemaining = 0
+                if (started)
+                    repeat(2) {
+                        f.worldPreInput()
+                        f.lateCycle()
+                    }
+                assertEquals(1, f.worldQueues.size)
+                val projectiles = f.projectiles().size
+                if (departure) f.events.publish(SessionStateEvent.Logout(f.player))
+                else {
+                    f.npc.hitpoints = 0
+                    assertNotNull(f.manager.beginNpcDeath(f.npc))
+                }
+                assertTrue(f.worldQueues.isEmpty)
+                assertEquals(Int.MAX_VALUE, f.run.pendingMeleeChargeCycle)
+                assertEquals(Int.MAX_VALUE, f.run.beamFireCycle)
+                f.at(300)
+                f.worldPreInput()
+                f.manager.tick(f.player)
+                assertEquals(projectiles, f.projectiles().size)
+                assertNull(f.run.pendingBeamHit)
+            }
+        }
+    }
+
     private class Fixture(val delve: Int, val seed: Long, active: Boolean = true) : AutoCloseable {
         var oracleState = DoomAttackFlow.initial(delve, seed)
         private val oracleCounts = longArrayOf(0, 0, 0)
@@ -1287,6 +1555,44 @@ class DoomNativeDslTest {
         }
 
         fun processBossHits() = npcQueues.process(npc)
+
+        fun processCurrentPlayerHits() {
+            player.currentMapClock = clock.cycle
+            player.processedMapClock = clock.cycle
+            playerQueues.process(player)
+        }
+
+        fun queueRecoil(): Hit =
+            npc.queueHit(
+                source = player,
+                delay = 1,
+                type = HitType.Typeless,
+                damage = 5,
+                modifier = StandardNpcHitModifier(events),
+                context = HitContext.of(HitAttribution(HitOrigin.Recoil, player.uuid)),
+            )
+
+        fun startCharge(state: DoomState) {
+            when (state) {
+                DoomState.MELEE_CHARGE -> callRun("beginMeleeCharge")
+                DoomState.SHIELDED -> {
+                    beginShield()
+                    repeat(2) {
+                        worldPreInput()
+                        lateCycle()
+                    }
+                    // This fixture isolates the beam clock from the separately tested larva
+                    // cadence.
+                    run.nextShieldLarvaCycle = Int.MAX_VALUE
+                }
+                DoomState.BURROWING -> {
+                    run.state = state
+                    callRun("transformBurrow")
+                    run.stateCycle = Int.MAX_VALUE
+                }
+                else -> error("No charge in $state")
+            }
+        }
 
         fun beginShield() {
             run.shieldAttacksRemaining = 0

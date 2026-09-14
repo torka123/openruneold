@@ -121,37 +121,6 @@ internal enum class DukeAction {
     GAS,
 }
 
-/** Each pending operation carries its owning run generation. No wall-clock tasks are used. */
-internal class DukeTimeline {
-    private data class Event(val tick: Int, val generation: Long, val action: () -> Unit)
-
-    private val events = mutableListOf<Event>()
-    var epoch = 0L
-        private set
-
-    val size
-        get() = events.size
-
-    fun at(tick: Int, generation: Long, action: () -> Unit) {
-        events += Event(tick, generation, action)
-    }
-
-    fun pulse(tick: Int, generation: Long) {
-        val pulseEpoch = epoch
-        val due = events.filter { it.tick <= tick }
-        events.removeAll(due.toSet())
-        for (event in due) {
-            if (epoch != pulseEpoch) break
-            if (event.generation == generation) event.action()
-        }
-    }
-
-    fun clear() {
-        epoch++
-        events.clear()
-    }
-}
-
 internal class DukePreparation {
     var tolerance = 0
     val mushroomsPicked = mutableMapOf<Int, Int>()

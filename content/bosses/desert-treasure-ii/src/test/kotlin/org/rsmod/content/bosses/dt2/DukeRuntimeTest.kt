@@ -13,6 +13,7 @@ import org.rsmod.api.combat.commons.types.MeleeAttackType
 import org.rsmod.api.combat.formulas.AccuracyFormulae
 import org.rsmod.api.combat.formulas.MaxHitFormulae
 import org.rsmod.api.game.process.GameLifecycle
+import org.rsmod.api.game.process.world.WorldQueueListProcess
 import org.rsmod.api.instances.*
 import org.rsmod.api.instances.region.InstanceAreaResolver
 import org.rsmod.api.inv.storage.PlayerItemStorage
@@ -275,7 +276,10 @@ class DukeRuntimeTest {
         f.tick(5)
         val hit = f.hits.single()
         assertTrue(hit.isValidNow())
-        f.encounter.clear(f.run)
+        val owner = requireNotNull(f.run.duke.taskOwner)
+        f.encounter.prepare(f.run)
+        assertTrue(owner.isClosed)
+        assertNotSame(owner, f.run.duke.taskOwner)
         assertFalse(hit.isValidNow())
     }
 
@@ -318,7 +322,7 @@ class DukeRuntimeTest {
         f.encounter.clear(f.run)
         assertTrue(f.run.duke.pools.isEmpty())
         assertTrue(f.run.helpers.isEmpty())
-        assertEquals(0, f.run.duke.timeline.size)
+        assertEquals(0, requireNotNull(f.run.duke.taskOwner).size)
     }
 
     @Test
@@ -484,6 +488,8 @@ internal class DukeFixture(awakened: Boolean = false, val offsetX: Int = 0, val 
     val players = PlayerList().apply { this[1] = player }
     private val random = DefaultGameRandom(42)
     val registry = EncounterRegistry(random)
+    val worldQueues = WorldQueueList()
+    val queueProcess = WorldQueueListProcess(worldQueues)
     val deps =
         BossDeps(
             random,
@@ -492,7 +498,7 @@ internal class DukeFixture(awakened: Boolean = false, val offsetX: Int = 0, val 
             npcs,
             players,
             clock,
-            WorldQueueList(),
+            worldQueues,
             collision,
             registry,
             BossExtensionRegistry(),
@@ -518,6 +524,8 @@ internal class DukeFixture(awakened: Boolean = false, val offsetX: Int = 0, val 
             registry,
             launcher,
             events,
+            worldQueues,
+            queueProcess,
         )
     val hits = mutableListOf<Hit>()
     val launchClocks = mutableListOf<Pair<Int, Int>>()
@@ -579,6 +587,7 @@ internal class DukeFixture(awakened: Boolean = false, val offsetX: Int = 0, val 
             clock.tick()
             // GameCycle publishes StartCycle before NpcPreTick and NpcMain update these clocks.
             events.publish(GameLifecycle.StartCycle)
+            queueProcess.process()
             boss.currentMapClock = clock.cycle
             boss.processedMapClock = clock.cycle
             val iterator = player.queueList.iterator()

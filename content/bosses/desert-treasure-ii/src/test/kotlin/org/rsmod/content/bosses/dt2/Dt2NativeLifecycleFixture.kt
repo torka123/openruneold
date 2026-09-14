@@ -17,6 +17,7 @@ import org.rsmod.api.combat.NvPCombat
 import org.rsmod.api.combat.formulas.AccuracyFormulae
 import org.rsmod.api.combat.formulas.MaxHitFormulae
 import org.rsmod.api.death.NpcDeath
+import org.rsmod.api.game.process.world.WorldQueueListProcess
 import org.rsmod.api.instances.BossInstanceRegistry
 import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.instances.InstanceSession
@@ -116,6 +117,8 @@ internal class Dt2NativeLifecycleFixture(val bossKind: Dt2Boss = Dt2Boss.VARDORV
         }
     private val combat = NvPCombat(accuracy, mock(MaxHitFormulae::class.java), world)
     val bossEncounters = EncounterRegistry(random)
+    val worldQueues = WorldQueueList()
+    val queueProcess = WorldQueueListProcess(worldQueues)
     private val npcAccess =
         StandardNpcAccessLauncher(
             StandardNpcAccessContextFactory(
@@ -136,6 +139,8 @@ internal class Dt2NativeLifecycleFixture(val bossKind: Dt2Boss = Dt2Boss.VARDORV
             bossEncounters,
             npcAccess,
             events,
+            worldQueues,
+            queueProcess,
         )
     val manager =
         Dt2EncounterManager(
@@ -219,7 +224,7 @@ internal class Dt2NativeLifecycleFixture(val bossKind: Dt2Boss = Dt2Boss.VARDORV
                 npcs,
                 players,
                 clock,
-                WorldQueueList(),
+                worldQueues,
                 collision,
                 bossEncounters,
                 BossExtensionRegistry(),
