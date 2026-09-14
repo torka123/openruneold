@@ -9,12 +9,13 @@ import dev.openrune.types.aconverted.SpotanimType
 import jakarta.inject.Inject
 import java.util.WeakHashMap
 import org.rsmod.annotations.InternalApi
+import org.rsmod.api.bosses.runtime.BossCombat
+import org.rsmod.api.bosses.runtime.BossDeps
 import org.rsmod.api.combat.NpcAttackOverride
 import org.rsmod.api.combat.NpcProjectile
 import org.rsmod.api.combat.NvPCombat
 import org.rsmod.api.combat.commons.CombatAttack
 import org.rsmod.api.combat.commons.CombatEffects
-import org.rsmod.api.combat.commons.types.MeleeAttackType
 import org.rsmod.api.combat.commons.types.RangedAttackType
 import org.rsmod.api.combat.formulas.AccuracyFormulae
 import org.rsmod.api.death.NpcDeath
@@ -34,6 +35,7 @@ import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
 import org.rsmod.game.entity.npc.NpcStateEvents
 import org.rsmod.game.hit.HitType
+import org.rsmod.game.hit.HitValidity
 import org.rsmod.game.inv.isType
 import org.rsmod.plugin.scripts.PluginScript
 import org.rsmod.plugin.scripts.ScriptContext
@@ -42,6 +44,7 @@ import org.rsmod.plugin.scripts.ScriptContext
 internal class DagannothKingsCombat
 @Inject
 constructor(
+    private val deps: BossDeps,
     private val combat: NvPCombat,
     private val accuracy: AccuracyFormulae,
     private val players: PlayerList,
@@ -84,14 +87,18 @@ constructor(
         // Map-spawned permanent NPCs use the definition's respawn rate in the generic death flow.
         kingTypes.forEach { it.respawnRate = DagannothKingsRules.RESPAWN_TICKS }
 
-        val supreme = requireNpc(DagannothKingsAssets.SUPREME)
-        val prime = requireNpc(DagannothKingsAssets.PRIME)
-        val rex = requireNpc(DagannothKingsAssets.REX)
-        onAiApPlayer2(prime) { attackPrime(this, it.target) }
-        onAiApPlayer2(supreme) { attackSupreme(this, it.target) }
-        onAiApPlayer2(rex) { attackRex(this, it.target) }
+        deps.extensionRegistry.registerAttackParameters(DKS_PRIME_PARAMETERS) { npc, target, _ ->
+            primeParameters(npc, target)
+        }
+        for (type in DagannothKingsAssets.kings) {
+            BossCombat.register(
+                this,
+                dagannothKingSpec(type),
+                deps,
+                ownerSlug = type.removePrefix("npc."),
+            )
+        }
         activeSpinolyps.forEach { type -> onAiApPlayer2(type) { attackSpinolyp(this, it.target) } }
-
         kingTypes.forEach { type ->
             onNpcQueue(type, "queue.death") {
                 death.deathWithDrops(
@@ -120,7 +127,7 @@ constructor(
         onEvent<NpcStateEvents.Delete> { submergedTicks.remove(npc) }
     }
 
-    private fun attackPrime(access: StandardNpcAccess, target: Player) {
+    private fun primeParameters(npc: Npc, target: Player): NpcAttackOverride {
         val center = target.coords
         val splashTargets =
             players.filter { other ->
@@ -135,64 +142,27 @@ constructor(
                         other.coords.z,
                     )
             }
-        combat.attack(
-            access,
-            target,
-            CombatAttack.NpcMagic(DagannothKingsRules.PRIME_MAX_HIT),
-            NpcAttackOverride(
-                attackAnimation = DagannothKingsAssets.PRIME_ATTACK_ANIMATION,
-                maxHit = DagannothKingsRules.PRIME_MAX_HIT,
-                attackRate = DagannothKingsRules.ATTACK_RATE_TICKS,
-                projectile =
-                    NpcProjectile(
-                        DagannothKingsAssets.PRIME_PROJECTILE,
-                        DagannothKingsAssets.primeProjectileType,
-                    ),
-                onAttack = {
-                    splashTargets.forEach { other ->
-                        val accurate = accuracy.rollMagicAccuracy(npc, other, random)
-                        val damage =
-                            if (accurate) random.of(DagannothKingsRules.PRIME_MAX_HIT + 1) else 0
-                        other.queueHit(
-                            source = npc,
-                            delay = PRIME_SPLASH_DELAY,
-                            type = HitType.Magic,
-                            damage = damage,
-                        )
-                    }
-                },
-            ),
-        )
-    }
-
-    private fun attackSupreme(access: StandardNpcAccess, target: Player) {
-        combat.attack(
-            access,
-            target,
-            CombatAttack.NpcRanged(RangedAttackType.Standard),
-            NpcAttackOverride(
-                attackAnimation = DagannothKingsAssets.SUPREME_ATTACK_ANIMATION,
-                maxHit = DagannothKingsRules.SUPREME_MAX_HIT,
-                attackRate = DagannothKingsRules.ATTACK_RATE_TICKS,
-                projectile =
-                    NpcProjectile(
-                        DagannothKingsAssets.SUPREME_PROJECTILE,
-                        DagannothKingsAssets.supremeProjectileType,
-                    ),
-            ),
-        )
-    }
-
-    private fun attackRex(access: StandardNpcAccess, target: Player) {
-        combat.attack(
-            access,
-            target,
-            CombatAttack.NpcMelee(MeleeAttackType.Slash),
-            NpcAttackOverride(
-                attackAnimation = DagannothKingsAssets.REX_ATTACK_ANIMATION,
-                maxHit = DagannothKingsRules.REX_MAX_HIT,
-                attackRate = DagannothKingsRules.ATTACK_RATE_TICKS,
-            ),
+        val encounter = deps.encounterRegistry.of(npc)
+        return NpcAttackOverride(
+            onAttack = {
+                splashTargets.forEach { other ->
+                    val uid = other.uid
+                    val accurate = accuracy.rollMagicAccuracy(npc, other, random)
+                    val damage =
+                        if (accurate) random.of(DagannothKingsRules.PRIME_MAX_HIT + 1) else 0
+                    other.queueHit(
+                        source = npc,
+                        delay = PRIME_SPLASH_DELAY,
+                        type = HitType.Magic,
+                        damage = damage,
+                        validity =
+                            HitValidity {
+                                deps.encounterRegistry.isAttached(npc, encounter) &&
+                                    uid.resolve(players) === other
+                            },
+                    )
+                }
+            }
         )
     }
 

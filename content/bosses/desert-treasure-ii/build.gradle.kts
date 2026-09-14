@@ -4,6 +4,7 @@ dependencies {
     implementation(libs.guice)
     implementation(project(":api:boss-hp-bar-plugin"))
     implementation(projects.api.attr)
+    implementation(projects.api.bosses)
     implementation(projects.api.combat.combatCommons)
     implementation(projects.api.combat.combatFormulas)
     implementation(projects.api.combat.combatScripts)
@@ -31,6 +32,8 @@ dependencies {
     testImplementation(kotlin("test"))
     testImplementation(projects.api.registry)
     testImplementation(projects.api.invStorage)
+    testImplementation(projects.engine.coroutine)
+    testImplementation(projects.engine.events)
     testImplementation("org.mockito:mockito-core:5.18.0")
 }
 

@@ -2,6 +2,7 @@ plugins { id("base-conventions") }
 
 dependencies {
     implementation(libs.guice)
+    implementation(projects.api.bosses)
     implementation(projects.api.combat.combatCommons)
     implementation(projects.api.combat.combatFormulas)
     implementation(projects.api.combat.combatScripts)
@@ -21,4 +22,11 @@ dependencies {
     implementation(projects.content.skills.slayer)
     testImplementation(projects.api.collectionLog)
     testImplementation(kotlin("test"))
+    testImplementation("org.mockito:mockito-core:5.18.0")
+    testImplementation(projects.engine.coroutine)
+}
+
+tasks.withType<Test>().configureEach {
+    workingDir = rootProject.projectDir
+    systemProperty("junit.jupiter.execution.parallel.enabled", "false")
 }

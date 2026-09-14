@@ -6,8 +6,9 @@ Update this checkpoint after each completed boss and immediately before any auth
 
 September14 continuation: the current section of `DSL_MIGRATION.md` records Yama's verified native
 cadence/count-based specials (117 module cases), Doom's native primary attacks (121 cases),
-retained adapter boundaries, and the next DT2/Dagannoth Kings deliverables. No deployment of
-these changes is claimed.
+Vardorvis (137 DT2 cases), and the three Dagannoth Kings (14 cases), with retained adapter
+boundaries. Next: Whisperer and remaining DT2 routes, then ToA/ToB/CoX. No deployment of these
+changes is claimed.
 The current Nex ledger's top section records deferred native kill hooks,
 generic personal KC (manual increment removed), and the boosted-Prayer altar guard.166 Nex cases
 and installed KC metadata pass;16 death/68 drop results remain valid. SERVER NPC11278 metadata is

@@ -332,7 +332,8 @@ constructor(
     }
 
     fun tickAll(dukeOnly: Boolean = false) {
-        val activePlayers = runs.values.filter { (it.bossKind == Dt2Boss.DUKE) == dukeOnly }.map { it.player }
+        val activePlayers =
+            runs.values.filter { (it.bossKind == Dt2Boss.DUKE) == dukeOnly }.map { it.player }
         activePlayers.forEach { player ->
             try {
                 tick(player)
@@ -397,10 +398,6 @@ constructor(
             run.bossKind == Dt2Boss.LEVIATHAN &&
                 run.leviathanAction != LeviathanAction.STANDARD_VOLLEY
         ) {
-            return
-        }
-        if (run.bossKind == Dt2Boss.VARDORVIS) {
-            attackVardorvisAccurate(access, run)
             return
         }
         when (run.bossKind) {
@@ -642,7 +639,10 @@ constructor(
                 "${Dt2Rules.formatTicks(run.killTicks)}.</col>"
         )
         run.state = Dt2State.RESPAWNING
-        if (run.bossKind == Dt2Boss.DUKE) { dukeEncounter.showCorpse(run); return }
+        if (run.bossKind == Dt2Boss.DUKE) {
+            dukeEncounter.showCorpse(run)
+            return
+        }
         if (run.bossKind == Dt2Boss.LEVIATHAN) {
             run.leviathanAction = LeviathanAction.RESPAWNING
         }
@@ -815,8 +815,9 @@ constructor(
     fun feedDuke(player: Player, npc: Npc) {
         val run = runs[player.uid] ?: return
         if (run.bossKind != Dt2Boss.DUKE || run.boss !== npc) return
-        val item = listOf(Dt2Assets.ARDER_MUSCA_POISON, Dt2Assets.ARDER_POWDER, Dt2Assets.MUSCA_POWDER)
-            .firstOrNull { player.inv.count(requireItem(it).internalName) > 0 }
+        val item =
+            listOf(Dt2Assets.ARDER_MUSCA_POISON, Dt2Assets.ARDER_POWDER, Dt2Assets.MUSCA_POWDER)
+                .firstOrNull { player.inv.count(requireItem(it).internalName) > 0 }
         if (item == null) player.mes("You need arder-musca poison or mushroom powder.")
         else dukeEncounter.feed(run, item)
     }
@@ -904,7 +905,8 @@ constructor(
         val run = runs[player.uid] ?: return RaidLeaveResult.Unhandled
         if (
             run.session.id != expected ||
-                run.bossKind !in setOf(Dt2Boss.VARDORVIS, Dt2Boss.LEVIATHAN, Dt2Boss.WHISPERER, Dt2Boss.DUKE)
+                run.bossKind !in
+                    setOf(Dt2Boss.VARDORVIS, Dt2Boss.LEVIATHAN, Dt2Boss.WHISPERER, Dt2Boss.DUKE)
         ) {
             return RaidLeaveResult.Unhandled
         }
@@ -1564,7 +1566,6 @@ constructor(
         }
     }
 
-
     private fun tickSpecial(run: Run) {
         if (run.bossKind == Dt2Boss.WHISPERER) tickWhispererSpecial(run)
         when (run.activeSpecial) {
@@ -1974,30 +1975,32 @@ constructor(
         run.boss.defenceLvl = defence
     }
 
-    private fun attackVardorvisAccurate(access: StandardNpcAccess, run: Run) {
-        combat.attack(
-            access,
-            run.player,
-            CombatAttack.NpcMelee(MeleeAttackType.Slash),
-            NpcAttackOverride(
-                attackAnimation = animation(Dt2Assets.VARDORVIS_MELEE_ANIM),
-                maxHit = Dt2Rules.vardorvisNormalMaxHit(run.boss.hitpoints),
-                attackRate = Dt2Rules.VARDORVIS_NORMAL_ATTACK_TICKS,
-                hitModifier = NpcPartialProtectionPrayerPlayerHitModifier(75),
-                onAttack = {
-                    run.attackCounter++
-                    if (run.vardorvisEnragePending && !run.enraged) {
-                        run.enraged = true
-                        run.state = Dt2State.ENRAGED
-                        run.vardorvisEnragePending = false
-                        run.player.mes("Vardorvis enters an enraged frenzy!")
-                    }
-                    if (run.attackCounter % Dt2Rules.VARDORVIS_AXE_ATTACK_INTERVAL == 0) {
-                        beginVardorvisAxes(run)
-                    }
-                },
-                onImpact = { _, impact -> healVardorvis(run, impact.damage) },
-            ),
+    fun canAttackVardorvis(npc: Npc, target: Player): Boolean =
+        runs[target.uid]?.let {
+            it.bossKind == Dt2Boss.VARDORVIS &&
+                it.boss === npc &&
+                it.state in setOf(Dt2State.ACTIVE, Dt2State.ENRAGED)
+        } == true
+
+    /** Computes per-launch parameters; BossSpec and NvPCombat own selection, launch and cadence. */
+    fun vardorvisAttackParameters(npc: Npc, target: Player): NpcAttackOverride {
+        val run = requireNotNull(runs[target.uid])
+        check(run.bossKind == Dt2Boss.VARDORVIS && run.boss === npc)
+        return NpcAttackOverride(
+            maxHit = Dt2Rules.vardorvisNormalMaxHit(run.boss.hitpoints),
+            onAttack = {
+                run.attackCounter++
+                if (run.vardorvisEnragePending && !run.enraged) {
+                    run.enraged = true
+                    run.state = Dt2State.ENRAGED
+                    run.vardorvisEnragePending = false
+                    run.player.mes("Vardorvis enters an enraged frenzy!")
+                }
+                if (run.attackCounter % Dt2Rules.VARDORVIS_AXE_ATTACK_INTERVAL == 0) {
+                    beginVardorvisAxes(run)
+                }
+            },
+            onImpact = { _, impact -> healVardorvis(run, impact.damage) },
         )
     }
 
@@ -2676,7 +2679,6 @@ constructor(
                     Dt2AttackStyle.MELEE -> "varbit.prayer_protectfrommelee"
                 }] == 1
 
-
     private fun checkWhispererThreshold(run: Run, after: Int) {
         if (run.enraged || run.state !in setOf(Dt2State.ACTIVE, Dt2State.ENRAGED)) return
         val threshold =
@@ -2748,7 +2750,6 @@ constructor(
             }
         if (next != null) tornado.walk(next)
     }
-
 
     private fun spawnTentaclePattern(run: Run) {
         val target = run.player.coords

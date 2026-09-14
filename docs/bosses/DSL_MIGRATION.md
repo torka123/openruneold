@@ -60,8 +60,49 @@ including the backed-up SERVER-only NPC11278 metadata preparation; LIVE is uncha
   encounter lifecycle are not claimed migrated here. Archive `logs/doom-dsl-source-20260914.zip`,
   backup `backup/doom-dsl-20260914`. Source only; shared/application integration follows.
 
-Next concrete deliverables: checkpoint DT2's Vardorvis and the three Dagannoth Kings;
-continue DT2, then ToA, ToB and CoX in the approved order. Nex M04/M20
+### Vardorvis: native ordinary melee verified
+
+- Mapping: registered `BossSpec`/`BossCombat`, `Selector.Rotation`, `Effect.NpcAttack` with
+  existing five-tick cadence, Slash, animation10340, HP-derived max32–43 and 75% prayer reduction.
+  Named native parameters retain accepted-launch enrage/counters/every-third-attack axes and
+  healing from actual impact damage. Existing action-delay extensions, QTE/dash deadlines,
+  native death/drop route and specialized mechanics remain unchanged. Evidence: `Dt2Rules`,
+  existing DT2 tests and retained capture3285 in `docs/dt2-capture-validation.md`.
+- Changed files: DT2 module `build.gradle.kts`, `VardorvisBossSpec.kt`, `Dt2Combat.kt`,
+  `Dt2EncounterManager.kt`, `VardorvisBossCombatTest.kt`. No shared API change.
+- Four focused groups run the actual manager/registered AI/native combat for cadence, dynamic
+  maximum/prayer, axes/enrage callbacks, lock extensions, misses/actual-damage healing and
+  death/delete/departure. Full DT2 tests and scoped `check` pass: **137 cases**. Fixture-only
+  failures exposed missing RNG-range and value-class coordinate mock handling; both corrected.
+  Native melee still rejects zero-HP sources. No new mechanic fidelity claim.
+
+### Dagannoth Kings: three native boss routes verified
+
+- Mapping: Prime/Supreme/Rex each use `BossCombat`, one rotation ability and `Effect.NpcAttack`,
+  preserving four ticks, Magic50/Ranged30/Slash26, existing animations/projectiles and native
+  death/drop/150-tick respawn. Prime's named parameters retain secondary target snapshot,
+  access RNG order (splash before main), one-tick splash and native prayer processing. Existing
+  registry identity checks retire pending scoped work on deletion/respawn; fired magic/ranged
+  survive the retained corpse, while native melee still rejects a dead source.
+- Changed files: DKS module `build.gradle.kts`, `DagannothKingsSpec.kt`,
+  `DagannothKingsCombat.kt`, `DagannothKingsNativeDslTest.kt`. Spinolyps retain their current
+  native combat/timer path; moving their RNG through a different DSL selection provider was
+  rejected during mapping. Evidence: retained `DagannothKingsRules`, capture3433 references,
+  original combat callbacks and native death/repository/player-hit source trace.
+- Four focused groups cover all kings' launch/cadence, Prime RNG/splash, scope replacement on
+  respawn and departure. Full DKS tests and scoped `check` pass: **14 cases**. Independent
+  regression review found no production regression. Lifetime tests inspect actual queued-hit
+  validity with native events; the full corpse path was source-traced, not live-play verified.
+  Early fixture mode/RNG-order/Rex-max assumptions were corrected against production source.
+
+Both increments: `logs/doom-check-dks-vardorvis-focus2-20260914.log` and
+`logs/dks-vardorvis-dsl-checks-20260914.log` pass; counts are in
+`logs/dks-vardorvis-dsl-test-results-20260914.json` (151 cases, zero failures/errors/skips).
+Archive `logs/dks-vardorvis-dsl-source-20260914.zip`, backup `backup/dks-vardorvis-dsl-20260914`.
+Source only. Existing specialized handlers and full lifecycle debt remain explicit.
+
+Next concrete deliverable: Whisperer's native ordinary/volley selection and phase cadence,
+then remaining DT2 routes, ToA, ToB and CoX in the approved order. Nex M04/M20
 evidence and stronger S04 replay remain separately open, without blocking independent routing.
 
 ## Authority and preservation

@@ -2,6 +2,8 @@ package org.rsmod.content.bosses.dt2
 
 import dev.openrune.ServerCacheManager
 import jakarta.inject.Inject
+import org.rsmod.api.bosses.runtime.BossCombat
+import org.rsmod.api.bosses.runtime.BossDeps
 import org.rsmod.api.death.NpcDeath
 import org.rsmod.api.droptable.NpcKillRewardContext
 import org.rsmod.api.droptable.NpcKillRewardContexts
@@ -19,15 +21,38 @@ constructor(
     private val encounters: Dt2EncounterManager,
     private val death: NpcDeath,
     private val players: PlayerList,
+    private val deps: BossDeps,
 ) : PluginScript() {
     override fun ScriptContext.startup() {
-        encounters.combatNpcTypes().forEach { type ->
-            onAiApPlayer2(type) { encounters.attack(this, it.target) }
-            onModifyNpcHit(type) {
+        deps.extensionRegistry.registerAttackParameters(VARDORVIS_ATTACK_PARAMETERS) {
+            npc,
+            target,
+            _ ->
+            encounters.vardorvisAttackParameters(npc, target)
+        }
+        BossCombat.register(
+            this,
+            vardorvisBossSpec(),
+            deps,
+            ownerSlug = "vardorvis",
+            canTarget = encounters::canAttackVardorvis,
+            onModifyHit = {
                 val player =
                     if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players)
                     else null
                 if (player == null) hit.damage = 0 else encounters.modifyNpcHit(player, npc, hit)
+            },
+        )
+        encounters.combatNpcTypes().forEach { type ->
+            if (type.id != Dt2Boss.VARDORVIS.normalNpcId) {
+                onAiApPlayer2(type) { encounters.attack(this, it.target) }
+                onModifyNpcHit(type) {
+                    val player =
+                        if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players)
+                        else null
+                    if (player == null) hit.damage = 0
+                    else encounters.modifyNpcHit(player, npc, hit)
+                }
             }
             onNpcQueue(type, "queue.death") {
                 val run = encounters.beginBossDeath(npc)
@@ -41,20 +66,27 @@ constructor(
                                 rewardEligible = true,
                                 awakened = run.difficulty == Dt2Difficulty.AWAKENED,
                                 perfectKill =
-                                    (run.bossKind == Dt2Boss.LEVIATHAN && run.leviathanPerfectKill) ||
+                                    (run.bossKind == Dt2Boss.LEVIATHAN &&
+                                        run.leviathanPerfectKill) ||
                                         (run.bossKind == Dt2Boss.DUKE && run.duke.perfect),
                                 eventId = "${run.eventToken}:reward",
                             ),
                         )
                         try {
                             encounters.prepareDropForm(npc, run)
-                            death.deathWithDrops(this, encounters.rewardTile(run),
-                                if (run.bossKind == Dt2Boss.DUKE) DukeRules.DEATH else null)
+                            death.deathWithDrops(
+                                this,
+                                encounters.rewardTile(run),
+                                if (run.bossKind == Dt2Boss.DUKE) DukeRules.DEATH else null,
+                            )
                         } finally {
                             NpcKillRewardContexts.clear(npc)
                         }
                     } else {
-                        death.deathNoDrops(this, if (run.bossKind == Dt2Boss.DUKE) DukeRules.DEATH else null)
+                        death.deathNoDrops(
+                            this,
+                            if (run.bossKind == Dt2Boss.DUKE) DukeRules.DEATH else null,
+                        )
                     }
                     encounters.finishBossDeath(npc)
                 }
