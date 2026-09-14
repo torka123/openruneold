@@ -4,7 +4,15 @@ This is a resumable handoff, not a project-completion or full OSRS-parity claim.
 mechanic mappings, uncertainties, commands and results remain in [DSL_MIGRATION.md](DSL_MIGRATION.md).
 Update this checkpoint after each completed boss and immediately before any authorized deployment.
 
-September14 current checkpoint: DT2's four protected native instance owners and Doom's declared
+September14 current shared checkpoint: the existing native world queue now supports owned dispatch
+at an established lifecycle boundary. Seven new behavioral groups and full shared/25-boss/ToA
+regression checks pass: **1,592 cases**. ToB/CoX compile/check pass with no test cases. Archive/backup:
+`logs/native-owned-queue-source-20260914.zip` / `backup/native-owned-queue-20260914`.
+Duke adoption and Doom charge readiness are currently being implemented; their focused checks and
+final application/architecture integration are next. Source only, runtime/holds unchanged.
+Read the current section and mapping in `DSL_MIGRATION.md` before historical checkpoints below.
+
+September14 verified content checkpoint: DT2's four protected native instance owners and Doom's declared
 shockwave graph/readiness pass full DT2 170/Doom 140, scoped checks, application assemble and
 architecture/self-tests. The retained 1,023 shared/other-boss cases remain valid: **1,333 total**.
 Archive/backup: `logs/dt2-entry-doom-shockwave-source-20260914.zip` /

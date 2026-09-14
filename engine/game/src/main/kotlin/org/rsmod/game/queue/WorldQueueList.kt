@@ -27,11 +27,81 @@ public class WorldQueueList {
         remainingCycles: Int,
         ready: () -> Boolean,
         action: () -> Unit,
+    ): Cancellation = enqueue(remainingCycles, ready, action, owner = null)
+
+    private fun enqueue(
+        remainingCycles: Int,
+        ready: () -> Boolean,
+        action: () -> Unit,
+        owner: Owner?,
     ): Cancellation {
-        val queue = Queue(action, remainingCycles, ready)
+        val queue = Queue(action, remainingCycles, ready, owner)
         val node = Node(queue, prev = last)
         add(node)
         return Cancellation { remove(node) }
+    }
+
+    /**
+     * Owns entries on this same native list for explicit dispatch at an established game-thread
+     * boundary. Normal world processing does not advance these entries. Content must close the
+     * owner from its native session/encounter cleanup.
+     */
+    public fun createOwner(): Owner = Owner(this)
+
+    public class Owner internal constructor(internal val queues: WorldQueueList) {
+        public var revision: Long = 0
+            private set
+
+        public var isClosed: Boolean = false
+            private set
+
+        public val size: Int
+            get() = queues.ownedNodes(this).size
+
+        public fun add(
+            remainingCycles: Int = 0,
+            ready: () -> Boolean = { true },
+            action: () -> Unit,
+        ): Cancellation {
+            check(!isClosed) { "World queue owner is closed." }
+            return queues.enqueue(remainingCycles, ready, action, this)
+        }
+
+        /** Cancels pending entries and invalidates effects captured before this reset. */
+        public fun clear() {
+            if (isClosed) return
+            revision++
+            queues.ownedNodes(this).forEach(queues::remove)
+        }
+
+        public fun close() {
+            if (isClosed) return
+            clear()
+            isClosed = true
+        }
+    }
+
+    /**
+     * Used by the native processor for an owner's due batch. Keep nodes linked until their turn:
+     * clearing or cancelling from an earlier callback must still suppress a later due callback.
+     * Snapshot before evaluating readiness so additions during this dispatch wait for the next one.
+     */
+    public fun dispatchOwned(owner: Owner, ready: (Queue) -> Boolean) {
+        require(owner.queues === this) { "World queue owner belongs to another list." }
+        val due = ownedNodes(owner).filter { it.linked && ready(it.queue) }
+        for (node in due) {
+            if (!node.linked) continue
+            remove(node)
+            node.queue.action()
+        }
+    }
+
+    private fun ownedNodes(owner: Owner): List<Node> = buildList {
+        var node = first
+        while (node != null) {
+            if (node.queue.owner === owner) add(node)
+            node = node.next
+        }
     }
 
     public class Cancellation internal constructor(private var cancelAction: (() -> Unit)?) {
@@ -90,10 +160,11 @@ public class WorldQueueList {
         val action: () -> Unit,
         var remainingCycles: Int,
         val ready: () -> Boolean = { true },
+        val owner: Owner? = null,
     )
 
-    public fun iterator(): QueueIterator {
-        iterator.reset(first)
+    public fun iterator(includeOwned: Boolean = true): QueueIterator {
+        iterator.reset(first, includeOwned)
         return iterator
     }
 
@@ -102,13 +173,14 @@ public class WorldQueueList {
     public inner class QueueIterator {
         private var next: Node? = null
         private var curr: Node? = null
+        private var includeOwned: Boolean = true
 
         public fun hasNext(): Boolean = next != null
 
         public fun next(): Queue {
             val node = next ?: throw NoSuchElementException()
             curr = node
-            next = node.next
+            next = eligible(node.next)
             return node.queue
         }
 
@@ -123,13 +195,20 @@ public class WorldQueueList {
         }
 
         internal fun onRemoved(node: Node) {
-            if (next === node) next = node.next
+            if (next === node) next = eligible(node.next)
             if (curr === node) curr = null
         }
 
-        internal fun reset(first: Node?) {
-            this.next = first
+        internal fun reset(first: Node?, includeOwned: Boolean) {
+            this.includeOwned = includeOwned
+            this.next = eligible(first)
             this.curr = null
+        }
+
+        private fun eligible(start: Node?): Node? {
+            var node = start
+            while (!includeOwned && node != null && node.queue.owner != null) node = node.next
+            return node
         }
     }
 }

@@ -2,6 +2,29 @@
 
 ## Current source increments — September 14
 
+### Current shared checkpoint: native owned world-queue dispatch verified
+
+The Duke gap/mapping below is implemented in the existing `WorldQueueList` and
+`WorldQueueListProcess`. An owner adds entries to the same native list, with clear/revision/close
+and explicit `processOwned` at an established lifecycle boundary. Native dispatch snapshots due
+entries in insertion order; newly added work waits, and cancelled later entries stay suppressed.
+Default iteration filters owned nodes before selecting its next pointer, preserving the native
+tail-dependent append behavior even when owned entries are interspersed. No GameCycle hook or
+second queue/clock was added. Native session cleanup remains the content integration owner.
+
+Seven new groups in `WorldQueueOwnedDispatchTest` plus six existing deadline/cancellation cases
+pass first run (`logs/native-owned-queue-focus-20260914.log`). Full engine/game **133**,
+game-process **28**, boss API **72**, instances **54**, 25 other boss modules **897** and existing
+ToA **408** pass scoped checks: **1,592 cases**, zero failures/errors/skips, in
+`logs/native-owned-queue-regression-20260914.log` (2m24s), with the matching results JSON.
+ToB/CoX compile/check also pass but currently contribute no test cases. These are regression
+results, not raid conversion or full mechanical acceptance. Independent linked-node/iterator
+review found no further defect. Shared source archive:
+`logs/native-owned-queue-source-20260914.zip`; backup `backup/native-owned-queue-20260914`.
+Duke adoption and Doom charge readiness are active, unverified content increments; their focused
+tests and final application/architecture integration are next. Shared build/check passed;
+the listed queue behavior is verified; **not deployed**. Existing holds/runtime are unchanged.
+
 ### Current checkpoint: DT2 protected instances and Doom shockwave graph
 
 Four concrete DT2 `InstanceScript` owners now register entry, exit and keyed lifecycle callbacks.
