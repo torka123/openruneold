@@ -5,6 +5,8 @@ import dev.openrune.rscm.RSCM
 import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
 import jakarta.inject.Inject
+import org.rsmod.api.bosses.runtime.BossCombat
+import org.rsmod.api.bosses.runtime.BossDeps
 import org.rsmod.api.combat.NpcAttackOverride
 import org.rsmod.api.combat.NpcProjectile
 import org.rsmod.api.combat.NvPCombat
@@ -14,6 +16,7 @@ import org.rsmod.api.combat.commons.types.RangedAttackType
 import org.rsmod.api.death.NpcDeath
 import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.api.player.hit.modifier.NpcPartialProtectionPrayerPlayerHitModifier
+import org.rsmod.api.player.isValidTarget
 import org.rsmod.api.script.onAiApPlayer2
 import org.rsmod.api.script.onAiOpPlayer2
 import org.rsmod.api.script.onModifyNpcHit
@@ -51,9 +54,27 @@ constructor(
     private val raids: ToaRaidManager,
     private val death: NpcDeath,
     private val players: PlayerList,
+    private val deps: BossDeps,
 ) : PluginScript() {
     override fun ScriptContext.startup() {
+        deps.extensionRegistry.registerAttackParameters(TOA_BABA_ATTACK_PARAMETERS) { npc, _, _ ->
+            babaAttackParameters(npc)
+        }
+        BossCombat.register(
+            this,
+            toaBabaBossSpec(),
+            deps,
+            ownerSlug = "toa-baba",
+            canTarget = ::prepareBabaOpportunity,
+            onModifyHit = {
+                val player =
+                    if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players)
+                    else null
+                if (player == null) hit.damage = 0 else raids.modifyNpcHit(player, npc, hit)
+            },
+        )
         ToaNpcs.allCombat.forEach { id ->
+            if (id in TOA_BABA_BOSS_FORMS) return@forEach
             val type = ServerCacheManager.getNpc(id) ?: return@forEach
             onAiOpPlayer2(type) { attack(it.target) }
             onAiApPlayer2(type) { attack(it.target) }
@@ -69,10 +90,8 @@ constructor(
                 "Missing Wardens Energy Siphon ${WardenEnergySiphons.ACTIVE}"
             }
         onNpcQueue(activeSiphon, "queue.death") {
-            if (
-                toaSiphonDeathRoute(raids.raidFor(npc) != null) ==
-                    ToaNpcDeathRoute.STANDARD_DROPS
-            ) {
+            val raid = raids.captureNpcDeath(npc)
+            if (toaSiphonDeathRoute(raid != null) == ToaNpcDeathRoute.STANDARD_DROPS) {
                 death.deathWithDrops(this)
             } else {
                 // ToA owns Siphon progression and rewards. Run the normal death animation but
@@ -80,9 +99,53 @@ constructor(
                 // deathNoDrops deliberately skips the global NpcDeathKillHook.
                 val hero = npc.findHero(players)
                 death.deathNoDrops(this)
-                if (hero != null) raids.handleNpcKill(hero, npc)
+                if (hero != null) raids.handleNpcKill(hero, npc, raid)
             }
         }
+    }
+
+    private fun prepareBabaOpportunity(npc: Npc, target: Player): Boolean {
+        if (!raids.attackTargetValid(target, npc)) {
+            npc.resetMode()
+            return false
+        }
+        val tick = deps.mapClock.cycle
+        if (npc.actionDelay > tick) return false
+        if (raids.isBabaBoss(npc)) {
+            val specialDelay = raids.performBabaSpecialIfDue(npc)
+            if (specialDelay != null) {
+                npc.actionDelay = tick + specialDelay
+                return false
+            }
+            if (raids.suppressBabaNormalAttacks(npc)) {
+                npc.resetMode()
+                return false
+            }
+        }
+        if (raids.combatProfile(npc) == null) {
+            npc.resetMode()
+            return false
+        }
+        // Preserve NvP's reset for invalid targets before the interpreter's hit-validity gate.
+        if (!target.isValidTarget()) {
+            npc.resetMode()
+            return false
+        }
+        // The established native option defers cadence commits until NvP accepts the launch.
+        // This singleton rotation has no decision or combat RNG draw.
+        deps.encounterRegistry.of(npc).initializeDecisionSeed(0)
+        return true
+    }
+
+    private fun babaAttackParameters(npc: Npc): NpcAttackOverride {
+        val profile = requireNotNull(raids.combatProfile(npc))
+        return NpcAttackOverride(
+            maxHit = profile.maxHit,
+            hitModifier =
+                NpcPartialProtectionPrayerPlayerHitModifier(raids.babaPrayerReduction(npc)),
+            onAttack = { target -> raids.recordBabaStandardAttack(npc, target) },
+            onImpact = raids::onPrayerMitigatedImpact,
+        )
     }
 
     private fun StandardNpcAccess.attack(target: Player) {
@@ -104,18 +167,6 @@ constructor(
                 return
             }
             if (raids.suppressAkkhaNormalAttacks(npc)) {
-                resetMode()
-                return
-            }
-        }
-        if (raids.isBabaBoss(npc)) {
-            if (actionDelay > mapClock) return
-            val specialDelay = raids.performBabaSpecialIfDue(npc)
-            if (specialDelay != null) {
-                actionDelay = mapClock + specialDelay
-                return
-            }
-            if (raids.suppressBabaNormalAttacks(npc)) {
                 resetMode()
                 return
             }
@@ -147,17 +198,6 @@ constructor(
     }
 
     private fun attackOverride(npc: Npc, profile: ToaCombatProfile): NpcAttackOverride {
-        if (raids.isBabaBoss(npc)) {
-            return NpcAttackOverride(
-                attackAnimation = sequence(BabaAssets.MELEE_ATTACK),
-                maxHit = profile.maxHit,
-                attackRate = profile.rate,
-                hitModifier =
-                    NpcPartialProtectionPrayerPlayerHitModifier(raids.babaPrayerReduction(npc)),
-                onAttack = { target -> raids.recordBabaStandardAttack(npc, target) },
-                onImpact = raids::onPrayerMitigatedImpact,
-            )
-        }
         if (raids.isBabaBaboon(npc)) {
             return NpcAttackOverride(
                 attackAnimation = sequence(BabaAssets.BABOON_RANGED),

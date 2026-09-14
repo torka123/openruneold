@@ -5,6 +5,7 @@ dependencies {
     implementation(projects.api.attr)
     implementation(projects.api.db)
     implementation(projects.api.collectionLog)
+    implementation(projects.api.bosses)
     implementation(project(":api:boss-hp-bar-plugin"))
     implementation(projects.api.combat.combatCommons)
     implementation(projects.api.combat.combatFormulas)
@@ -37,8 +38,14 @@ dependencies {
     implementation(libs.rsprot.api)
     implementation("com.michael-bull.kotlin-inline-logger:kotlin-inline-logger:1.0.6")
     testImplementation(kotlin("test"))
+    testImplementation(projects.api.registry)
+    testImplementation(projects.api.areaChecker)
+    testImplementation(projects.engine.annotations)
+    testImplementation(projects.engine.coroutine)
+    testImplementation("org.mockito:mockito-core:5.18.0")
 }
 
 tasks.withType<Test>().configureEach {
     workingDir = rootProject.projectDir
+    systemProperty("junit.jupiter.execution.parallel.enabled", "false")
 }

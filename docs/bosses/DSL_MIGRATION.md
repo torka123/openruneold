@@ -2,7 +2,49 @@
 
 ## Current source increments — September 14
 
-### Current checkpoint: Whisperer native integration verified; ToA begins
+### Current checkpoint: ToA Ba-Ba ordinary combat and native session ownership verified
+
+Ba-Ba forms11778-11780 now use BossSpec/NpcAttack and native accepted-launch cadence. Retained
+six-tick Crush, two-auto special/rolling gate precedence, target reset order, callback-before-RNG
+retargeting, launch-time prayer and impact invocation callbacks. Removed duplicate generic AI/Modify
+registration for these forms. Native source-death validity matches the existing melee processor.
+The scoped review found no actionable regression; arbitrary membership-only removal without normal
+leave/queue cleanup is not a newly claimed cancellation boundary.
+
+ToA uses source-defined InstanceScript and typed native session state instead of raid/account maps.
+All joins still validate before teleports; connected membership and eligible account reconnect are
+separate. Native lifecycle handles leave/logout/reclaim; content cleanup runs once in either logout
+listener order. Native death retains spectator membership; delayed wipe still runs at its existing
+LateCycle boundary. Post-delete kill lookup and captured Siphon continuation are guarded by the exact
+live session/actor. Reward Busy/storage fallback, native supply suspension and cleanup are unchanged.
+Pre-instance party/applicant metadata remains. No new engine API or persistence policy was added.
+
+Kephri native spec/phase support is also verified against its retained cycle oracle, including
+all shield counts, Agile override, no added RNG, accepted count,6/13 cadence, reset and retirement.
+Its manager integration is next; the support tests do not establish live Kephri routing yet.
+
+All18 new native groups pass (Ba-Ba6, session8, Kephri support4). Full ToA426, scoped checks,
+architecture/self-tests and application assemble pass in66s. Focus/integration selections and
+results are logs/toa-native-session-baba-{focus,integration}-*-20260914; passing focused log is
+logs/toa-native-session-baba-death-replay-retry-20260914.log. Initial compilation needed test-only
+annotations/area dependencies and stat setters. Two death-test assumptions were corrected: existing
+completion cleanup resets Ba-Ba to WAITING, and a replayed kill callback must not delete an already
+unassigned NPC. The actual suspended native death, Delete, completion and replay now pass unchanged.
+With retained DT2/Doom/shared/other-boss checks,1,975 cases remain valid; this is not a scope percentage.
+Architecture detector currently scans content/bosses; raid source also received the explicit review
+above. Do not imply detector passage alone certified raids.
+
+Changed: ToA build dependencies, Combat, RaidManager, Lifecycle; new ToaInstanceScript,
+ToaBabaBossSpec, KephriBossSpec/CombatPhases; new ToaNativeCombatFixture, ToaBabaNativeCombatTest,
+ToaNativeSessionTest and KephriBossSpecTest; this ledger/current handoff. Archive/backup:
+logs/toa-native-session-baba-source-20260914.zip / backup/toa-native-session-baba-20260914.
+Build passed; listed behavior verified; not deployed. JVM23812 remains online on43594/8080/9091,
+deployed c4fc9390f; all cache/database authority and evidence/replay/deployment holds remain unchanged.
+Exact next: integrate the verified Kephri native selector/cadence at the retained manager LateCycle
+boundary; migrate Akkha ordinary styles and Zebak ordinary selection/cadence using the mappings below,
+then remaining ToA special/lifecycle routing and Wardens, followed by ToB/CoX. No re-audit of drops.
+
+### Earlier checkpoint: Whisperer native integration verified; ToA begins
 
 Whisperer's manager now uses its verified native special selector/phases and three owned queues
 for secondary shots, special completion and independent 13-tick melee expiry. Forced requests
@@ -37,6 +79,33 @@ accepted-auto count and callback order, prayer/hit delivery, death/departure and
 Evidence is the current source path and retained docs/raids/toa/apmeken-baba-level-zero-audit.md;
 this is a source-preserving architecture increment, not new timing evidence. Raid session ownership
 and remaining boss/form routes follow, then ToB and CoX. Do not restart generic persistence research.
+
+Active ToA session mapping (no new API): source-defined InstanceScript with unchanged settings;
+typed InstanceSession state replaces global raid/account indexes. Preserve all-party join validation
+before teleport/finalizeEntry, separate attached-player lookup from eligible account reconnect,
+and retain ToA's native death-membership policy. Keyed leave resolves the captured instance ID after
+native index removal. Native cleanup captures raid state directly. Ordinary post-delete kill hooks
+use explicit retained-actor lookup over live native sessions; Siphon captures its raid before the
+native death suspension and validates it afterward. Tests cover admission failure, reconnect UID
+replacement, death/wipe, post-delete progression, stale callbacks and native reclaim.
+
+The next Kephri mapping uses the existing BossCombat/StandardNpcAccessLauncher at its current
+LateCycle dispatch point. Native phases/ForcedAbility own first bomb counts 3/4/5 and shielded
+repeat5; final first5/repeat2. A native Choose rotation preserves Dung/Incubation, with the existing
+Agile limit6 supplied as a declared prepared choice. SetAttackRate preserves6/13 cadence. Native
+actionDelay owns initial+4 and restored/final+13; the immediate final-transition Dung stays outside
+the ordinary count. Native accepted count preserves the existing invocation seed counter. Existing
+named bomb/dung/egg geometry remains; no substitute ordinary NvP hit is introduced. Kephri's
+helper/spec/tests are being prepared independently; manager integration follows the first ToA check.
+Evidence: current KephriAttackCycle/tickKephri/finishKephriRecovery and retained Kephri audit.
+
+Remaining ToA routes are mapped, not yet implemented: Akkha's three six-tick native attacks retain
+special gates, face-before-emission, +1/+3 impacts and accepted callbacks; Zebak retains staged split
+projectiles at the final LateCycle auto boundary, preparation/wave autos and its own path cadence;
+Wardens retain independently due Obelisk/body/phantom owners and actor-replacement presentation.
+Current ordinary rate helper floors at2, mechanicInterval at3; neither applies invocations. Preserve
+Zebak's and Wardens' separate rate formulas. Existing raid ledgers retain mechanical uncertainty;
+in particular use the Wardens checklist's 2026-08-29 reconciliation, not its older status claims.
 
 ### Earlier checkpoint: Doom duplicate attack clock removed; Whisperer integration active
 

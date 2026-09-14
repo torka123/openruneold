@@ -4,7 +4,18 @@ This is a resumable handoff, not a project-completion or full OSRS-parity claim.
 mechanic mappings, uncertainties, commands and results remain in [DSL_MIGRATION.md](DSL_MIGRATION.md).
 Update this checkpoint after each completed boss and immediately before any authorized deployment.
 
-September14 current checkpoint: Whisperer native manager integration is verified. Special slots,
+September14 current checkpoint: ToA Ba-Ba ordinary combat and native session ownership are verified.
+Native BossSpec preserves six-tick cadence/gates/callbacks; typed session ownership preserves party
+admission, reconnect, native death/spectator, reward-leave and cleanup in either logout order.
+Kephri native cycle support is verified but awaits manager integration.18 focused/426 full ToA cases,
+scoped checks, architecture/self-tests and application assemble pass;1,975 cases with retained results.
+Archive/backup: logs/toa-native-session-baba-source-20260914.zip /
+backup/toa-native-session-baba-20260914. Next: Kephri manager integration, Akkha/Zebak native ordinary
+routes, remaining ToA specialized scheduling/Wardens, then ToB/CoX. Current DSL_MIGRATION.md has exact
+scope, test-only corrections and next mappings. Source only; deployed c4fc9390f/JVM23812 and all holds
+remain unchanged. Do not claim complete raid routing or full OSRS parity from this checkpoint.
+
+Earlier September14 checkpoint: Whisperer native manager integration is verified. Special slots,
 phases, completion, secondary shots and independent melee expiry now use native routes, preserving
 RNG/prayer/snapshot and cleanup ordering.37 focused/207 full DT2 cases, scoped checks, architecture
 self-tests and application assemble pass.1,957 valid cases with retained Doom/shared results.

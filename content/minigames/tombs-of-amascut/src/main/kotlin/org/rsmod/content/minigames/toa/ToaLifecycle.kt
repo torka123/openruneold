@@ -13,7 +13,6 @@ import org.rsmod.api.death.PlayerDeathHandling
 import org.rsmod.api.death.PlayerDeathHook
 import org.rsmod.api.death.UntradeableHandling
 import org.rsmod.api.game.process.GameLifecycle
-import org.rsmod.api.instances.events.InstancePlayerExternalTeleportEvent
 import org.rsmod.api.instances.events.RaidLeaveRequestEvent
 import org.rsmod.api.instances.events.instanceEventId
 import org.rsmod.api.script.onEvent
@@ -70,9 +69,6 @@ internal class ToaLifecycle @Inject constructor(private val raids: ToaRaidManage
             result = raids.leaveFromLogoutTab(player, instanceId)
         }
         onEvent<GameLifecycle.LateCycle> { raids.tick() }
-        onEvent<InstancePlayerExternalTeleportEvent> {
-            if (key == TOA_INSTANCE_KEY) raids.externalTeleport(player, instanceId)
-        }
         onPlayerLogout { raids.logout(player) }
     }
 }

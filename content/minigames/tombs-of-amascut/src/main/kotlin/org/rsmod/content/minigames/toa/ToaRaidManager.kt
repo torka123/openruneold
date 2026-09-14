@@ -21,7 +21,8 @@ import org.rsmod.api.death.NpcAttackValidateResult
 import org.rsmod.api.instances.InstanceAccess
 import org.rsmod.api.instances.InstanceId
 import org.rsmod.api.instances.InstanceManager
-import org.rsmod.api.instances.InstanceSettings
+import org.rsmod.api.instances.InstanceSession
+import org.rsmod.api.instances.InstanceStateKey
 import org.rsmod.api.instances.RaidLeaveResult
 import org.rsmod.api.instances.RaidRewardClaimResult
 import org.rsmod.api.mechanics.toxins.NpcPoisonEffectService
@@ -136,8 +137,7 @@ constructor(
     private val parties = linkedMapOf<PlayerUid, ToaParty>()
     private val membership = mutableMapOf<PlayerUid, ToaParty>()
     private val viewedParties = mutableMapOf<PlayerUid, java.util.UUID>()
-    private val raids = mutableMapOf<InstanceId, ToaRaidSession>()
-    private val participantRaids = mutableMapOf<Long, ToaRaidSession>()
+    private val RAID_STATE = InstanceStateKey<ToaRaidSession>("tombs-of-amascut-raid")
     private val devSeedOverrides = ToaDevSeedOverrides()
     private val pendingResets = mutableMapOf<InstanceId, Int>()
     private val wardenFloorOriginalLocs = WardenFloorLocJournal<InstanceId, CoordGrid, LocInfo?>()
@@ -148,6 +148,61 @@ constructor(
     private val apmekenPlayerSlots = mutableMapOf<InstanceId, LinkedHashMap<PlayerUid, Int>>()
     private val apmekenNpcs = mutableMapOf<InstanceId, MutableMap<Long, Npc>>()
     private val apmekenNpcKeys = java.util.IdentityHashMap<Npc, Long>()
+
+    private fun sessionRaid(id: InstanceId): ToaRaidSession? =
+        instances.sessionForId(id)?.takeIf { it.key == TOA_INSTANCE_KEY }?.stateOrNull(RAID_STATE)
+
+    private fun activeRaids(): List<ToaRaidSession> =
+        instances
+            .sessionsForKey(TOA_INSTANCE_KEY)
+            .mapNotNull { it.stateOrNull(RAID_STATE) }
+            .filterNot { it.cleanupStarted }
+
+    private fun isCurrent(raid: ToaRaidSession): Boolean =
+        instances.sessionForId(raid.instance.id) === raid.instance &&
+            raid.instance.stateOrNull(RAID_STATE) === raid &&
+            !raid.cleanupStarted
+
+    private fun attachRaid(raid: ToaRaidSession) {
+        check(raid.instance.state(RAID_STATE) { raid } === raid)
+        // Native teardown removes its indexes and content state before invoking this callback.
+        raid.instance.onCleanup {
+            if (raid.state == ToaRaidState.COMPLETE) completeRaid(raid, terminateInstance = false)
+            else abort(raid, "the instance ended", terminateInstance = false)
+        }
+    }
+
+    fun onJoin(player: Player, session: InstanceSession) {
+        if (instances.sessionForPlayer(player) !== session) return
+        val raid = session.stateOrNull(RAID_STATE) ?: return
+        val participant = raid.participant(player.accountHash) ?: return
+        if (participant.uid != player.uid || participant.uid.resolve(players) !== player) return
+        participant.connected = true
+    }
+
+    /** Native membership has already gone; retain the account's reconnect/reward eligibility. */
+    fun onLeave(player: Player, instanceId: InstanceId) {
+        val raid = sessionRaid(instanceId) ?: return
+        val participant = raid.participant(player.accountHash) ?: return
+        if (participant.uid != player.uid || participant.uid.resolve(players) !== player) return
+        if (!participant.connected) return
+        participant.connected = false
+        cleanupDisconnectedPlayer(raid, player)
+    }
+
+    private fun cleanupDisconnectedPlayer(raid: ToaRaidSession, player: Player) {
+        if (raid.currentRoom == ToaRoom.AKKHA) cleanupAkkhaPlayer(raid, player)
+        if (raid.currentRoom == ToaRoom.BABA) cleanupBabaPlayer(raid, player)
+        if (isWardenRoom(raid.currentRoom)) cleanupWardenPlayer(raid, player)
+        ui.close(player)
+    }
+
+    /** Lobby/reconnect lookup deliberately does not confer active combat membership. */
+    fun rejoinableRaid(player: Player): ToaRaidSession? =
+        activeRaids().firstOrNull {
+            it.state !in setOf(ToaRaidState.ABANDONED, ToaRaidState.COMPLETE) &&
+                it.participant(player.accountHash)?.rewardEligible == true
+        }
 
     fun validateAssets() {
         val requiredLocs =
@@ -232,7 +287,7 @@ constructor(
 
     fun openLobby(player: Player): Boolean {
         hetPickaxeStorage.sync(player)
-        raidFor(player)?.let {
+        (raidFor(player) ?: rejoinableRaid(player))?.let {
             return rejoin(player, it)
         }
         syncRewardNiche(player)
@@ -244,7 +299,7 @@ constructor(
     }
 
     fun teleportLobby(player: Player): Boolean {
-        if (raidFor(player) != null) {
+        if (raidFor(player) != null || rejoinableRaid(player) != null) {
             player.mes("Leave or complete your active Tombs raid before returning to the lobby.")
             return false
         }
@@ -683,7 +738,10 @@ constructor(
             player.mes("Only the party leader can start the raid.")
             return false
         }
-        if (party.activeSession != null || raidFor(player) != null) return false
+        if (
+            party.activeSession != null || raidFor(player) != null || rejoinableRaid(player) != null
+        )
+            return false
         val resolved = party.members.associateWith { it.resolve(players) }
         val offline = resolved.filterValues { it == null }.keys
         if (offline.isNotEmpty()) {
@@ -715,16 +773,7 @@ constructor(
             return false
         }
         val level = ToaInvocationCatalog.raidLevel(lockedInvocations)
-        val settings =
-            InstanceSettings(
-                    maxPlayers = TOA_MAX_PARTY_SIZE,
-                    reclaimTicks = 2_000,
-                    graceTicks = 10,
-                    destroyWhenEmpty = false,
-                    description = "Tombs of Amascut level=$level party=${party.id}",
-                    timeLimitTicks = null,
-                )
-                .withArea(ToaInstanceLayout.area(), settingsRowId = 0)
+        val settings = toaInstanceSpec("Tombs of Amascut level=$level party=${party.id}")
         val created =
             instances.create(
                 player,
@@ -783,7 +832,7 @@ constructor(
                 )
             )
         }
-        raids[created.session.id] = raid
+        attachRaid(raid)
         party.activeSession = raid
         syncWardensEntrance(raid, unlocked = false)
         online.forEach { member ->
@@ -792,7 +841,6 @@ constructor(
             applyRaidRestrictions(member, raid)
             PathingEntityCommon.telejump(member, collision, entry)
             instances.finalizeEntry(member, created.session, clock.cycle)
-            participantRaids[member.accountHash] = raid
             supplies.sanitizeStaleLogin(member)
             supplies.begin(member, raid)
             raid.participant(member.accountHash)?.currentRoom = ToaRoom.LOBBY
@@ -807,6 +855,7 @@ constructor(
     }
 
     fun rejoin(player: Player, raid: ToaRaidSession): Boolean {
+        if (!isCurrent(raid)) return false
         if (raid.state in setOf(ToaRaidState.ABANDONED, ToaRaidState.COMPLETE)) return false
         val participant = raid.participant(player.accountHash)
         if (participant == null || !participant.rewardEligible) {
@@ -834,7 +883,6 @@ constructor(
         PathingEntityCommon.telejump(player, collision, destination)
         instances.finalizeEntry(player, raid.instance, clock.cycle)
         participant.connected = true
-        participantRaids[player.accountHash] = raid
         rewards.sync(player, raid)
         if (raid.state == ToaRaidState.REWARDS) {
             recordCompletion(player, raid, participant)
@@ -2399,7 +2447,18 @@ constructor(
     }
 
     fun handleNpcKill(hero: Player, npc: Npc) {
-        val raid = raidFor(npc) ?: return
+        // Native drops/kill hooks run after deletion has detached the native NPC index. Retained
+        // actor membership is scoped to a still-live native session, never a global raid map.
+        val raid =
+            raidFor(npc) ?: activeRaids().firstOrNull { it.owns(npc) || scabaras.owns(it, npc) }
+        handleNpcKill(hero, npc, raid)
+    }
+
+    fun captureNpcDeath(npc: Npc): ToaRaidSession? = raidFor(npc)
+
+    fun handleNpcKill(hero: Player, npc: Npc, raid: ToaRaidSession?) {
+        if (raid == null || !isCurrent(raid) || (!raid.owns(npc) && !scabaras.owns(raid, npc)))
+            return
         if (scabaras.owns(raid, npc)) {
             val result = scabaras.onNpcKill(raid, hero, npc)
             if (result.challengeCompleted) completeScabarasChallenge(raid)
@@ -2544,8 +2603,8 @@ constructor(
     }
 
     fun respawnAfterDeath(player: Player) {
-        val raid = partyFor(player)?.activeSession ?: return
-        participantRaids[player.accountHash] = raid
+        // The native raid death policy retains instance membership while the player spectates.
+        val raid = raidFor(player) ?: return
         raid.participant(player.accountHash)?.connected = true
         PathingEntityCommon.telejump(player, collision, roomCoord(raid, raid.currentRoom))
         ui.open(player, raid, clock.cycle)
@@ -2557,27 +2616,31 @@ constructor(
     }
 
     fun logout(player: Player) {
-        val raid = raidFor(player)
-        if (raid == null) {
-            participantRaids.remove(player.accountHash)
-            return
-        }
+        // Native logout may publish first and detach membership. Its deferred reclaim leaves the
+        // exact session/roster available to this supply observer in either subscription order.
+        val raid =
+            raidFor(player)
+                ?: activeRaids().firstOrNull {
+                    it.participant(player.accountHash)?.uid == player.uid &&
+                        player.uid.resolve(players) === player
+                }
+                ?: return
         // A disconnect is not the Leave action. Keep the party slot, participant state, path
         // progress, and pending reward so the grouping obelisk can call rejoin on next login.
         supplies.suspendForDisconnect(player, raid)
-        instances.leaveForLogout(player, clock.cycle)
-        raid.participant(player.accountHash)?.connected = false
-        if (raid.currentRoom == ToaRoom.AKKHA) cleanupAkkhaPlayer(raid, player)
-        if (raid.currentRoom == ToaRoom.BABA) cleanupBabaPlayer(raid, player)
-        if (isWardenRoom(raid.currentRoom)) cleanupWardenPlayer(raid, player)
-        ui.close(player)
+        raid.participant(player.accountHash)?.let { participant ->
+            if (participant.connected) {
+                participant.connected = false
+                cleanupDisconnectedPlayer(raid, player)
+            }
+        }
         log.info { "[ToA] disconnect player=${player.displayName} instance=${raid.instance.id}" }
     }
 
     fun externalTeleport(player: Player, instanceId: InstanceId) {
-        val raid = raidFor(player) ?: return
-        if (raid.instance.id != instanceId) return
+        val raid = sessionRaid(instanceId)?.takeUnless { it.cleanupStarted } ?: return
         val participant = raid.participant(player.accountHash) ?: return
+        if (participant.uid != player.uid || participant.uid.resolve(players) !== player) return
 
         // External teleports cannot be cancelled after the instance manager has detached the
         // player.
@@ -2616,7 +2679,7 @@ constructor(
             .keys
             .toList()
             .forEach { id ->
-                val raid = raids[id]
+                val raid = sessionRaid(id)?.takeUnless { it.cleanupStarted }
                 if (raid == null) {
                     pendingResets.remove(id)
                     return@forEach
@@ -2629,7 +2692,7 @@ constructor(
                 pendingResets.remove(id)
                 resetEncounter(raid)
             }
-        raids.values.toList().forEach { raid ->
+        activeRaids().forEach { raid ->
             if (raid.state !in setOf(ToaRaidState.ACTIVE, ToaRaidState.WARDENS)) return@forEach
             processInvocationTimer(raid)
             if (!ToaRaidPauseRules.shouldAdvance(raid.participants.values)) return@forEach
@@ -2698,10 +2761,21 @@ constructor(
     }
 
     fun raidFor(player: Player): ToaRaidSession? =
-        participantRaids[player.accountHash] ?: partyFor(player)?.activeSession
+        instances
+            .sessionForPlayer(player)
+            ?.takeIf { it.key == TOA_INSTANCE_KEY }
+            ?.stateOrNull(RAID_STATE)
+            ?.takeIf { raid ->
+                !raid.cleanupStarted &&
+                    raid.participant(player.accountHash)?.let {
+                        it.uid == player.uid && it.uid.resolve(players) === player && it.connected
+                    } == true
+            }
 
     fun raidFor(npc: Npc): ToaRaidSession? =
-        raids.values.firstOrNull { it.owns(npc) || scabaras.owns(it, npc) }
+        instances.instanceForNpc(npc)?.let(::sessionRaid)?.takeIf {
+            !it.cleanupStarted && (it.owns(npc) || scabaras.owns(it, npc))
+        }
 
     fun partyFor(player: Player): ToaParty? = membership[player.uid]
 
@@ -10864,7 +10938,6 @@ constructor(
         participant.connected = false
         participant.spectating = true
         participant.rewardEligible = false
-        participantRaids.remove(player.accountHash)
         raid.encounter.retirePlayer(player.uid)
         if (raid.currentRoom == ToaRoom.AKKHA) {
             cleanupAkkhaPlayer(raid, player)
@@ -10911,26 +10984,24 @@ constructor(
         VarPlayerIntMapSetter.set(player, varbit, if (rewards.hasStored(player)) 1 else 0)
     }
 
-    private fun completeRaid(raid: ToaRaidSession) {
+    private fun completeRaid(raid: ToaRaidSession, terminateInstance: Boolean = true) {
         if (raid.cleanupStarted) return
         raid.cleanupStarted = true
         raid.state = ToaRaidState.COMPLETE
         if (isWardenRoom(raid.currentRoom)) cleanupWardenEffects(raid)
         clearRaidNpcs(raid)
         terminalCleanupSupplies(raid)
-        raid.participants.values.forEach { participantRaids.remove(it.accountHash) }
         restoreWardenFloor(raid)
-        raids.remove(raid.instance.id)
         raid.party.activeSession = null
         pendingResets.remove(raid.instance.id)
         parties.remove(raid.party.leader)
         raid.party.applicants.clear()
         viewedParties.entries.removeIf { it.value == raid.party.id }
-        instances.terminate(raid.instance)
+        if (terminateInstance) instances.terminate(raid.instance)
         log.info { "[ToA] complete party=" + raid.party.id + " instance=" + raid.instance.id }
     }
 
-    private fun abort(raid: ToaRaidSession, reason: String) {
+    private fun abort(raid: ToaRaidSession, reason: String, terminateInstance: Boolean = true) {
         if (raid.cleanupStarted) return
         raid.cleanupStarted = true
         raid.state = ToaRaidState.ABANDONED
@@ -10945,12 +11016,10 @@ constructor(
             ui.close(player)
             player.mes("Your Tombs raid has ended: $reason.")
         }
-        raid.participants.values.forEach { participantRaids.remove(it.accountHash) }
         restoreWardenFloor(raid)
-        raids.remove(raid.instance.id)
         raid.party.activeSession = null
         pendingResets.remove(raid.instance.id)
-        instances.terminate(raid.instance)
+        if (terminateInstance) instances.terminate(raid.instance)
         log.info {
             "[ToA] abort party=${raid.party.id} instance=${raid.instance.id} reason=$reason"
         }
