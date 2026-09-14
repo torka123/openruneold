@@ -3,6 +3,7 @@ plugins { id("base-conventions") }
 dependencies {
     implementation(libs.guice)
     implementation(projects.api.attr)
+    implementation(projects.api.bosses)
     implementation(project(":api:boss-hp-bar-plugin"))
     implementation(projects.api.combat.combatCommons)
     implementation(projects.api.combat.combatScripts)
@@ -30,4 +31,12 @@ dependencies {
     implementation(projects.engine.routefinder)
     testImplementation(projects.api.combat.combatFormulas)
     testImplementation(kotlin("test"))
+    testImplementation("org.mockito:mockito-core:5.18.0")
+    testImplementation(projects.engine.coroutine)
+    testImplementation(projects.engine.events)
+}
+
+tasks.withType<Test>().configureEach {
+    workingDir = rootProject.projectDir
+    systemProperty("junit.jupiter.execution.parallel.enabled", "false")
 }

@@ -2,8 +2,9 @@ package org.rsmod.content.bosses.yama
 
 import dev.openrune.ServerCacheManager
 import jakarta.inject.Inject
+import org.rsmod.api.bosses.runtime.BossCombat
+import org.rsmod.api.bosses.runtime.BossDeps
 import org.rsmod.api.death.NpcDeath
-import org.rsmod.api.script.onAiApPlayer2
 import org.rsmod.api.script.onModifyNpcHit
 import org.rsmod.api.script.onNpcQueue
 import org.rsmod.game.entity.NpcList
@@ -22,14 +23,31 @@ constructor(
     private val death: NpcDeath,
     private val players: PlayerList,
     private val npcs: NpcList,
+    private val deps: BossDeps,
 ) : PluginScript() {
     override fun ScriptContext.startup() {
         val boss = requireNpc(YamaAssets.BOSS)
-        onAiApPlayer2(boss) { encounters.attack(this, it.target) }
-        onModifyNpcHit(boss) {
-            val player = resolveSourcePlayer(hit)
-            if (player == null) hit.damage = 0 else encounters.modifyNpcHit(player, npc, hit)
+        deps.extensionRegistry.register(YAMA_STANDARD_ATTACK) { access, _, target, _ ->
+            encounters.standardAttack(access, target)
         }
+        deps.extensionRegistry.register(YAMA_SPECIAL_ATTACK) { _, npc, target, data ->
+            encounters.specialAttack(npc, target, data as YamaSpecial)
+        }
+        deps.extensionRegistry.register(YAMA_PHASE_THREE_FOLLOWUP) { _, npc, target, _ ->
+            encounters.phaseThreeFollowup(npc, target)
+        }
+        BossCombat.register(
+            this,
+            yamaBossSpec(),
+            deps,
+            ownerSlug = "yama",
+            canTarget = encounters::canAttack,
+            onModifyHit = {
+                val player = resolveSourcePlayer(hit)
+                if (player == null) hit.damage = 0 else encounters.modifyNpcHit(player, npc, hit)
+            },
+            onAbilityCommitted = { npc, target, _ -> encounters.afterAttack(npc, target) },
+        )
         onNpcQueue(boss, "queue.death") {
             val run = encounters.beginBossDeath(npc)
             death.deathNoDrops(this)

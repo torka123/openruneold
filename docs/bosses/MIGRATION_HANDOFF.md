@@ -4,7 +4,10 @@ This is a resumable handoff, not a project-completion or full OSRS-parity claim.
 mechanic mappings, uncertainties, commands and results remain in [DSL_MIGRATION.md](DSL_MIGRATION.md).
 Update this checkpoint after each completed boss and immediately before any authorized deployment.
 
-September14 continuation: the current Nex ledger's top section records deferred native kill hooks,
+September14 continuation: the current section of `DSL_MIGRATION.md` records Yama's verified native
+cadence/count-based specials (117 module cases), retained native AoE boundary, and the next
+Doom/DT2/Dagannoth Kings deliverables. No deployment of these changes is claimed.
+The current Nex ledger's top section records deferred native kill hooks,
 generic personal KC (manual increment removed), and the boosted-Prayer altar guard.166 Nex cases
 and installed KC metadata pass;16 death/68 drop results remain valid. SERVER NPC11278 metadata is
 prepared with a verified backup; LIVE is unchanged. Runtime remains `c4fc9390f`, under existing

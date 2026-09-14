@@ -13,12 +13,13 @@ import jakarta.inject.Singleton
 import kotlin.math.abs
 import kotlin.math.max
 import org.rsmod.api.bossbar.plugin.BossHpBarScript
+import org.rsmod.api.bosses.runtime.EncounterRegistry
 import org.rsmod.api.combat.NpcAttackOverride
 import org.rsmod.api.combat.NvPCombat
 import org.rsmod.api.combat.commons.CombatAttack
 import org.rsmod.api.combat.commons.CombatEffects
-import org.rsmod.api.combat.commons.magic.MagicSpellChecks
 import org.rsmod.api.combat.commons.magic.ArceuusSpellState
+import org.rsmod.api.combat.commons.magic.MagicSpellChecks
 import org.rsmod.api.combat.commons.types.MeleeAttackType
 import org.rsmod.api.combat.commons.types.RangedAttackType
 import org.rsmod.api.combat.player.PlayerAttackRangeModifierState
@@ -38,6 +39,7 @@ import org.rsmod.api.npc.apPlayer2
 import org.rsmod.api.npc.heal
 import org.rsmod.api.npc.interact.AiPlayerInteractions
 import org.rsmod.api.npc.owner.assignSpawnOwner
+import org.rsmod.api.npc.owner.clearSpawnOwner
 import org.rsmod.api.npc.queueDeath
 import org.rsmod.api.player.bonus.PrayerBonusModifierState
 import org.rsmod.api.player.bonus.WornBonuses
@@ -112,6 +114,7 @@ constructor(
     private val burns: BurnEffectService,
     private val instantHitProcessor: InstantPlayerHitProcessor,
     private val wornBonuses: WornBonuses,
+    private val bossEncounters: EncounterRegistry,
 ) {
     private val log = InlineLogger()
     private val runs = mutableMapOf<InstanceId, Run>()
@@ -408,7 +411,6 @@ constructor(
         run.contractSupplierHash = player.accountHash
         clearPendingLobbyState(run.participants.keys)
         run.contract = contract
-        run.rotation = YamaRotation(contract)
         run.startCycle = clock.cycle
         run.observedHitpoints.clear()
         run.observedPrayer.clear()
@@ -573,6 +575,7 @@ constructor(
             run.phase = 1
             boss.movementLocked = false
             spawnGlyphs(run)
+            activateCombatPhase(run)
             openYamaBar(run, boss)
             keepAggressive(run)
         }
@@ -614,34 +617,54 @@ constructor(
         }
     }
 
-    fun attack(access: org.rsmod.api.npc.access.StandardNpcAccess, target: Player) {
-        val run = participantRuns[target.accountHash] ?: return
-        if (
-            run.boss !== access.npc ||
-                run.state !in setOf(YamaState.PHASE_ONE, YamaState.PHASE_TWO, YamaState.PHASE_THREE)
-        )
-            return
-        if (clock.cycle < run.nextAttackNotBefore) {
-            access.actionDelay = run.nextAttackNotBefore
-            return
+    fun canAttack(npc: Npc, target: Player): Boolean = combatRun(npc, target) != null
+
+    private fun combatRun(npc: Npc, target: Player): Run? {
+        val run = participantRuns[target.accountHash] ?: return null
+        return run.takeIf {
+            it.boss === npc &&
+                it.state in setOf(YamaState.PHASE_ONE, YamaState.PHASE_TWO, YamaState.PHASE_THREE)
         }
-        val special = run.rotation.next(run.phase)
-        if (run.phase == 3) {
-            standardAttack(access, run, target)
-            if (run.phaseThreeFourWavePending) {
-                startShadowWaves(run, countOverride = 4, animate = false)
-                run.phaseThreeFourWavePending = false
-                run.phaseThreeWaveSets = 0
-            }
-            if (special != null) executeSpecial(run, special, target)
-        } else if (special == null) {
-            standardAttack(access, run, target)
-        } else {
-            executeSpecial(run, special, target)
+    }
+
+    /**
+     * Native BossCombat owns cadence and action counting; this adapter preserves native AoE order.
+     */
+    fun standardAttack(access: org.rsmod.api.npc.access.StandardNpcAccess, target: Player) {
+        val run = combatRun(access.npc, target) ?: return
+        standardAttack(access, run, target)
+    }
+
+    fun specialAttack(npc: Npc, target: Player, special: YamaSpecial) {
+        val run = combatRun(npc, target) ?: return
+        executeSpecial(run, special, target)
+    }
+
+    fun phaseThreeFollowup(npc: Npc, target: Player) {
+        val run = combatRun(npc, target) ?: return
+        if (run.phase == 3 && run.phaseThreeFourWavePending) {
+            startShadowWaves(run, countOverride = 4, animate = false)
+            run.phaseThreeFourWavePending = false
+            run.phaseThreeWaveSets = 0
         }
-        run.nextAttackNotBefore = clock.cycle + YamaRules.attackRate(run.phase, run.contract)
-        access.actionDelay = run.nextAttackNotBefore
-        switchTarget(run)
+    }
+
+    fun afterAttack(npc: Npc, target: Player) {
+        combatRun(npc, target)?.let(::switchTarget)
+    }
+
+    private fun activateCombatPhase(run: Run, delay: Int = 0) {
+        val boss = run.boss ?: return
+        val encounter = bossEncounters.of(boss)
+        encounter.transitionTo(yamaCombatPhase(run.phase, run.contract), clock.cycle)
+        // Native actionDelay retains the exact return-to-combat delay, independently of rate.
+        encounter.lastAbilityTick = clock.cycle - encounter.expectedAttackRate()
+        boss.actionDelay = maxOf(boss.actionDelay, clock.cycle + delay)
+    }
+
+    private fun pauseCombat(run: Run) {
+        val boss = run.boss ?: return
+        bossEncounters.existing(boss)?.transitionTo(YAMA_INACTIVE_PHASE, clock.cycle)
     }
 
     private fun standardAttack(
@@ -1028,6 +1051,7 @@ constructor(
         clearGlyphs(run)
         online(run).forEach(Player::combatClearQueue)
         run.state = if (first) YamaState.JUDGE_ONE else YamaState.JUDGE_TWO
+        pauseCombat(run)
         run.phase = if (first) 1 else 2
         run.stateCycle = YamaCombatTimeline.judgeArrivalCycle(clock.cycle)
         run.judgeHudCloseCycle = clock.cycle + 2
@@ -1389,10 +1413,9 @@ constructor(
         run.state = if (nextPhase == 2) YamaState.PHASE_TWO else YamaState.PHASE_THREE
         boss.movementLocked = nextPhase == 3
         if (nextPhase != 3) spawnGlyphs(run)
-        run.rotation.resetForPhase(firstSpecialAfterOne = nextPhase != 3)
         run.phaseThreeWaveSets = 0
         run.phaseThreeFourWavePending = false
-        run.nextAttackNotBefore = clock.cycle + YamaCombatTimeline.PHASE_RESUME_ATTACK_DELAY
+        activateCombatPhase(run, YamaCombatTimeline.PHASE_RESUME_ATTACK_DELAY)
         openYamaBar(run, boss)
         keepAggressive(run)
     }
@@ -1527,6 +1550,7 @@ constructor(
         )
             return null
         run.state = YamaState.DYING
+        pauseCombat(run)
         npc.anim(anim(YamaAssets.ANIM_DESPAWN))
         npc.spotanim(spot(YamaAssets.GFX_DESPAWN))
         clearTransientHazards(run)
@@ -2249,6 +2273,7 @@ constructor(
             prepare(member)
         }
         run.state = YamaState.INVALIDATED
+        run.boss?.let(bossEncounters::remove)
         runs.remove(run.session.id)
         clearTransientHazards(run)
         clearGlyphs(run)
@@ -2309,6 +2334,7 @@ constructor(
                 boss.hitpoints = maxHp
                 run.phase = 1
                 run.state = YamaState.PHASE_ONE
+                activateCombatPhase(run)
             }
             2 -> {
                 boss.hitpoints = YamaRules.firstThreshold(maxHp, run.contract) - 1
@@ -2346,6 +2372,9 @@ constructor(
     private fun spawnBoss(run: Run, hitpoints: Int): Npc {
         val owner = owner(run) ?: error("Yama run ${run.generation} has no online owner")
         val boss = spawnNpc(owner, run.session, YamaAssets.BOSS, local(run.session, 29, 28))
+        // InstanceSession owns this shared actor. A single-player spawn owner blocks the duo's
+        // second participant in the native BossCombat owner gate.
+        boss.clearSpawnOwner()
         val profile = YamaRules.profile(run.contract)
         boss.baseHitpointsLvl = profile.hitpoints
         boss.hitpoints = hitpoints.coerceIn(1, profile.hitpoints)
@@ -2792,11 +2821,9 @@ constructor(
         var lastTick: Int = Int.MIN_VALUE,
         var contract: YamaContract = YamaContract.NONE,
         var contractSupplierHash: Long? = null,
-        var rotation: YamaRotation = YamaRotation(YamaContract.NONE),
         var phase: Int = 0,
         var boss: Npc? = null,
         var savedBossHitpoints: Int = 0,
-        var nextAttackNotBefore: Int = 0,
         var nextContinuousFlareCycle: Int = 0,
         var targetIndex: Int = 0,
         var nextStandardStyle: YamaAttackStyle = YamaAttackStyle.MAGIC,

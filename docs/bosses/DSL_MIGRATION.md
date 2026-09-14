@@ -1,5 +1,43 @@
 # Boss architecture migration — 9 September 2026
 
+## Current source increments — September 14
+
+Runtime remains `c4fc9390f` (JVM23812); these increments are **source only**. Existing
+deployment holds, native save protections and inactive V43/V44/V45 migrations remain in force.
+The [Nex ledger](nex/NEX_OSRS_AUDIT.md) records native personal kill hooks/KC and altar restoration,
+including the backed-up SERVER-only NPC11278 metadata preparation; LIVE is unchanged.
+
+### Yama: native cadence and counted specials verified
+
+- Mapping: `BossCombat` owns AI opportunities/action locks; `BossSpec` contract/phase selectors
+  and `ForcedAbility` own the retained special order and counts. Native `transitionTo` handles
+  Judge pauses and phase resumption, preserving the six-tick return delay. Existing named
+  extension handlers retain standard multi-recipient `NvPCombat`, specialized hazards and P3
+  followups. No new shared API. Evidence is the existing `YamaRules`, `YamaRotation` and
+  `YamaCombatTimeline` plus their retained module tests; this increment preserves characterized
+  behavior and does not establish new OSRS timing facts.
+- Behavior: 8/7-tick cadence, first-special and subsequent normal-attack counts across every
+  contract/phase; one action/target switch per opportunity; inactive Judge phases; fresh state
+  after native deletion; native two-player hit delivery before the shared action lock. Removed
+  the production rotation/cooldown fields. The native instance session retains actor ownership;
+  clearing the boss's single-player spawn owner permits its admitted duo partner through the
+  shared gate, with participant/run identity checks retained.
+- Changed files: `content/bosses/yama/build.gradle.kts`, `YamaBossSpec.kt`, `YamaCombat.kt`,
+  `YamaEncounterManager.kt`, `YamaBossCombatTest.kt` (under that module's matching source roots).
+- Verification: five focused groups and full module `check` pass: **117 cases**, no failures,
+  errors or skips. Logs: `logs/yama-dsl-focus2-20260914.log`, `logs/yama-dsl-checks-20260914.log`;
+  result manifest `logs/yama-dsl-test-results-20260914.json`. Scoped formatting passed. Initial
+  fixture retention exhausted the test heap; per-iteration mock cleanup fixed it without
+  increasing the heap. Shared/app integration checks follow the remaining stable increments.
+- Boundary: ordinary style RNG and ordered AoE remain in their native adapter. Generic
+  `Effect.NpcAttack`/`OnEach` would arm the action lock before subsequent recipients. Specialized
+  hazards and full ordinary-hit lifecycle scope are not claimed migrated by this increment.
+  Archive: `logs/yama-dsl-source-20260914.zip`; backup branch `backup/yama-dsl-20260914`.
+
+Next concrete deliverables: verify and checkpoint Doom's native attacks, DT2's Vardorvis, and
+the three Dagannoth Kings; continue DT2, then ToA, ToB and CoX in the approved order. Nex M04/M20
+evidence and stronger S04 replay remain separately open, without blocking independent routing.
+
 ## Authority and preservation
 
 Current September13 checkpoint: JVM23812 is online on sourcec4fc9390f after native legacy handover
