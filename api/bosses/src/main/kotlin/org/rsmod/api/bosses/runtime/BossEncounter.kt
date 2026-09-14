@@ -407,8 +407,12 @@ class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRa
         return selected
     }
 
-    /** A nested effect chooses a branch, not another phase attack opportunity. */
-    internal fun selectBranch(choice: Effect.Choose, tick: Int, target: Player?): String? =
+    /**
+     * Selects a declared branch without consuming ordinary phase opportunities or cadence. The
+     * interpreter and independently due native mechanics share this route. Reuse a stable choice
+     * instance: its identity owns its selection state for the lifetime of this encounter.
+     */
+    fun selectBranch(choice: Effect.Choose, tick: Int, target: Player?): String? =
         if (isEnded) null
         else
             select(

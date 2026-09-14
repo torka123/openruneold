@@ -45,7 +45,7 @@
     "boss": "doom-of-mokhaiotl",
     "rule": "direct-combat-review",
     "maximum": 10,
-    "reason": "Primary/tongue attacks, seeded decisions, live combat identities and shockwave graph use BossSpec/native selectors. Session ownership, shield/shockwave and charge readiness are native. Remaining parameter snapshots and spatial hazards use native combat/queues; car phase/deadline ownership remains explicit debt. LateCycle spatial ordering is preserved. See current DSL_MIGRATION.md."
+    "reason": "Primary/tongue attacks, seeded decisions, live identities and complete shockwave/car graphs use BossSpec/native selectors. Session ownership and shield/shockwave/charge/car readiness are native. Named spatial payloads retain LateCycle order. Remaining explicit general scheduling debt: secondary rock volleys, shield larva cadence, scheduled style-hit dispatch and accepted opportunity budgets/holds. STARTING reveal remains the documented session-presentation boundary. See current DSL_MIGRATION.md."
   },
   {
     "boss": "grotesque-guardians",

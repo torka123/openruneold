@@ -159,6 +159,8 @@ internal class Dt2NativeLifecycleFixture(val bossKind: Dt2Boss = Dt2Boss.VARDORV
             mock(RouteFactory::class.java),
             duke,
             bossEncounters,
+            worldQueues,
+            queueProcess,
         )
     val storage = LeviathanDeathStorage(manager, mock(MarketPrices::class.java))
     val instanceRegistry = BossInstanceRegistry()

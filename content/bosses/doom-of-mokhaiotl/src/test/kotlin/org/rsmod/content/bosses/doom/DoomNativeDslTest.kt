@@ -873,7 +873,12 @@ class DoomNativeDslTest {
             f.callRun("activate")
             f.at(110)
             f.run.state = DoomState.BURROWING
-            f.run.burrowRemaining = 1
+            f.registry
+                .of(f.npc)
+                .transitionTo(
+                    doomCarPhase(5, DoomCarPacket.RECOVERY, DoomRules.carZooms(5)),
+                    f.clock.cycle,
+                )
             f.callRun("completeZoom")
             assertEquals(116, f.run.nextAttackNotBeforeCycle)
             assertEquals(1, f.worldQueues.size, "The original 100-tick queue was cancelled")
@@ -1260,6 +1265,343 @@ class DoomNativeDslTest {
         }
     }
 
+    @Test
+    fun `native car graph preserves all zooms packet cadence exact moves and final emergence`() {
+        val segmentCounts = mutableSetOf<Int>()
+        for (delve in 5..9) for (start in listOf(100, 101)) {
+            for (target in listOf(CoordGrid(1304, 9502), CoordGrid(1318, 9516))) {
+                Fixture(delve, 42).use { f ->
+                    f.at(start)
+                    PathingEntityCommon.telejump(f.npc, f.collision, CoordGrid(1302, 9500))
+                    f.player.coords = target
+                    f.callRun("beginBurrow")
+                    val schedules = mutableListOf<DoomCarZoomSchedule>()
+                    var shots = 0L
+                    var moves = 0
+                    var lastSchedule: DoomCarZoomSchedule? = null
+                    while (f.run.state == DoomState.BURROWING && f.clock.cycle < start + 150) {
+                        val beforeSchedule = f.run.phases.carSchedule
+                        val beforePlan = f.run.carPlan
+                        val beforePacket = f.run.phases.carPacket
+                        val zoom = f.run.phases.carZoom
+                        val beforeProjectiles = f.projectiles().size
+                        val beforePhase = f.registry.of(f.npc).currentPhaseName
+                        // Native post-tick clears per-frame presentation before the next cycle.
+                        f.npc.pendingExactMove = null
+                        f.npc.pendingSequence = EntitySeq.NULL
+                        f.worldPreInput()
+                        assertEquals(beforePhase, f.registry.of(f.npc).currentPhaseName)
+                        assertEquals(beforeProjectiles, f.projectiles().size)
+                        assertNull(f.npc.pendingExactMove)
+                        f.attack()
+                        f.lateCycle()
+                        val cycle = f.clock.cycle
+                        val label =
+                            "delve=$delve start=$start target=$target zoom=$zoom tick=$cycle"
+                        val schedule = f.run.phases.carSchedule
+                        if (schedule != null && schedule !== lastSchedule) {
+                            lastSchedule = schedule
+                            schedules += schedule
+                            val plan = assertNotNull(f.run.carPlan, label)
+                            segmentCounts += plan.segments.size
+                            assertEquals(
+                                DoomCarTimeline.schedule(cycle, delve, plan.segments.size),
+                                schedule,
+                                label,
+                            )
+                            assertEquals(DoomCarPacket.DASH_WAIT, f.run.phases.carPacket, label)
+                        }
+                        if (cycle == start + 5) {
+                            assertEquals(DoomAssets.BURROWED, f.npc.visType.id, label)
+                            // Independent beam readiness/impact is covered by the charge matrix.
+                            f.run.phases.stopBeamCharge()
+                        }
+                        when (cycle - start) {
+                            in 1..4 ->
+                                assertEquals(
+                                    DoomCarPacket.TRANSFORM_WAIT,
+                                    f.run.phases.carPacket,
+                                    label,
+                                )
+                            5 ->
+                                assertEquals(DoomCarPacket.ROCK_WAIT, f.run.phases.carPacket, label)
+                            6,
+                            7 -> assertEquals(DoomCarPacket.EYE_WAIT, f.run.phases.carPacket, label)
+                            8 ->
+                                assertEquals(DoomCarPacket.DASH_WAIT, f.run.phases.carPacket, label)
+                        }
+                        if (cycle == start + 6)
+                            assertEquals(DoomRules.carRockCount(delve), f.run.rocks.size, label)
+                        val expectedShots =
+                            beforeSchedule?.projectileCycles?.count { it == cycle } ?: 0
+                        assertEquals(expectedShots, f.projectiles().size - beforeProjectiles, label)
+                        shots += expectedShots
+                        assertEquals(listOf(0L, shots, 0L), f.decisionCounts(), label)
+                        val segmentIndex = beforeSchedule?.exactMoveCycles?.indexOf(cycle) ?: -1
+                        if (segmentIndex >= 0) {
+                            val plan = assertNotNull(beforePlan, label)
+                            val segment = plan.segments[segmentIndex]
+                            assertNotNull(f.npc.pendingExactMove, label)
+                            assertEquals(segment.endSouthWest, f.npc.coords, label)
+                            assertEquals(
+                                segmentIndex == plan.segments.lastIndex,
+                                f.npc.movementLocked,
+                                label,
+                            )
+                            moves++
+                        } else {
+                            assertNull(f.npc.pendingExactMove, label)
+                        }
+                        if (beforeSchedule != null) {
+                            val complete =
+                                beforeSchedule.nextEyeCycle
+                                    ?: beforeSchedule.trampleImpactCycles.last()
+                            val expectedPhase =
+                                when {
+                                    cycle >= complete ->
+                                        if (zoom < DoomRules.carZooms(delve))
+                                            DoomCarPacket.DASH_WAIT
+                                        else null
+                                    cycle < beforeSchedule.dashStartCycle -> DoomCarPacket.DASH_WAIT
+                                    cycle < beforeSchedule.exactMoveCycles.last() ->
+                                        DoomCarPacket.DASHING
+                                    beforeSchedule.slamPacketCycle == null -> DoomCarPacket.RECOVERY
+                                    cycle < beforeSchedule.slamPacketCycle ->
+                                        DoomCarPacket.PROJECTILES
+                                    cycle < assertNotNull(beforeSchedule.waveCycle) ->
+                                        DoomCarPacket.SLAM_WAIT
+                                    else -> DoomCarPacket.RECOVERY
+                                }
+                            assertEquals(
+                                expectedPhase,
+                                f.run.phases.carPacket,
+                                "$label from=$beforePacket",
+                            )
+                        }
+                    }
+                    assertEquals(DoomState.ACTIVE, f.run.state)
+                    assertEquals(DoomRules.carZooms(delve), schedules.size)
+                    assertEquals(schedules.sumOf { it.exactMoveCycles.size }, moves)
+                    assertEquals(schedules.sumOf { it.projectileCycles.size }.toLong(), shots)
+                    assertEquals(DoomAssets.BOSS, f.npc.visType.id)
+                    assertEquals(CoordGrid(1309, 9507), f.npc.coords)
+                    assertEquals(f.clock.cycle + 6, f.run.nextAttackNotBeforeCycle)
+                    assertEquals(1, f.worldQueues.size, "Only post-car shockwave readiness remains")
+                    assertNull(f.run.phases.carSchedule)
+                    assertNull(f.run.pendingCarTrample)
+                }
+            }
+        }
+        assertTrue(
+            segmentCounts.containsAll(listOf(1, 2, 3, 4)),
+            "Observed exact-move sizes: $segmentCounts",
+        )
+    }
+
+    @Test
+    fun `native car overlap resolves trample then beam then style before final exact move`() {
+        Fixture(6, 42).use { f ->
+            PathingEntityCommon.telejump(f.npc, f.collision, CoordGrid(1302, 9500))
+            f.player.coords = CoordGrid(1304, 9502)
+            f.callRun("beginBurrow")
+            while (f.clock.cycle < 109) f.carTick()
+            val reset = f.queueBossHit(1)
+            f.processBossHits()
+            assertEquals(1, reset.damage)
+            assertEquals(129, f.run.beamFireCycle)
+            while (f.clock.cycle < 122) f.carTick()
+            f.player.coords = CoordGrid(1318, 9516)
+            f.carTick()
+            assertEquals(2, f.run.phases.carZoom)
+            val schedule = assertNotNull(f.run.phases.carSchedule)
+            val plan = assertNotNull(f.run.carPlan)
+            assertEquals(listOf(126, 127, 128, 129), schedule.exactMoveCycles)
+            assertEquals(listOf(127, 129), schedule.projectileCycles)
+            while (f.clock.cycle < 128) f.carTick()
+            assertFalse(f.run.trampledThisZoom)
+            val arriving = assertNotNull(f.run.pendingCarTrample)
+            assertEquals(129, arriving.impactCycle)
+            val beforeShots = f.decisionCounts()[1]
+            val observed = mutableListOf<Int>()
+            f.onProjectile = { projectile ->
+                observed += projectile.spotanim
+                assertTrue(f.run.trampledThisZoom, "Arrival is resolved before every projectile")
+                assertNull(f.run.pendingCarTrample, "Previous segment snapshot was consumed")
+                assertEquals(
+                    plan.segments[2].endSouthWest,
+                    f.npc.coords,
+                    "Final exact move follows projectiles",
+                )
+                assertEquals(DoomCarPacket.DASHING, f.run.phases.carPacket)
+                assertFalse(f.npc.movementLocked)
+                if (observed.size <= 5) assertNull(f.run.pendingBeamHit)
+                else
+                    assertNotNull(
+                        f.run.pendingBeamHit,
+                        "Beam hit queues before the style projectile",
+                    )
+            }
+            f.carTick()
+            assertEquals(129, f.clock.cycle)
+            assertEquals(
+                listOf(
+                    DoomAssets.GFX_BEAM_HEAD,
+                    DoomAssets.GFX_BEAM_MIDDLE,
+                    DoomAssets.GFX_BEAM_MIDDLE,
+                    DoomAssets.GFX_BEAM_MIDDLE,
+                    DoomAssets.GFX_BEAM_END,
+                ),
+                observed.take(5),
+            )
+            assertEquals(6, observed.size)
+            assertEquals(beforeShots + 1, f.decisionCounts()[1])
+            assertEquals(plan.targetSouthWest, f.npc.coords)
+            assertNotNull(f.npc.pendingExactMove)
+            assertTrue(f.npc.movementLocked)
+            assertEquals(DoomCarPacket.PROJECTILES, f.run.phases.carPacket)
+            assertEquals(plan.segments.last(), assertNotNull(f.run.pendingCarTrample).segment)
+            assertEquals(130, f.run.pendingCarTrample?.impactCycle)
+        }
+    }
+
+    @Test
+    fun `native car trample samples arrival and final segment shoves once before recovery`() {
+        for (arrival in listOf("leaves", "enters-edge", "enters-centre")) {
+            Fixture(5, 42).use { f ->
+                val entersAtArrival = arrival != "leaves"
+                PathingEntityCommon.telejump(f.npc, f.collision, CoordGrid(1302, 9500))
+                f.player.coords = CoordGrid(1304, 9502)
+                f.callRun("beginBurrow")
+                while (f.clock.cycle < 111) {
+                    f.carTick()
+                    if (f.clock.cycle == 105) f.run.phases.stopBeamCharge()
+                }
+                val pending = assertNotNull(f.run.pendingCarTrample)
+                assertTrue(pending.finalSegment)
+                assertEquals(112, pending.impactCycle)
+                val inside =
+                    if (arrival == "enters-centre")
+                        DoomCarGeometry.centre(pending.segment.endSouthWest)
+                    else pending.segment.endSouthWest.translate(4, 2)
+                val outside = CoordGrid(1318, 9516)
+                // Visibility of the exact-move packet must not decide arrival-time collision.
+                f.player.coords = if (entersAtArrival) outside else inside
+                f.worldPreInput()
+                f.player.coords = if (entersAtArrival) inside else outside
+                val beforeHits = f.hits().size
+                f.npc.pendingExactMove = null
+                f.lateCycle()
+                // The retained successful shove calls native combatClearQueue, which also
+                // clears the final trample just queued. A collision-denied shove retains it.
+                assertEquals(
+                    if (arrival == "enters-centre") 1 else 0,
+                    f.hits().size - beforeHits,
+                    arrival,
+                )
+                if (entersAtArrival) {
+                    if (arrival == "enters-centre") {
+                        val hit = f.hits().last().second
+                        assertEquals(DoomRules.trampleDamage(5), hit.damage)
+                        assertEquals(HitType.Typeless, hit.type)
+                        // Retained native NPC collision blocks a route through Doom's footprint.
+                        assertEquals(
+                            inside,
+                            f.player.coords,
+                            "Centre shove remains collision-gated",
+                        )
+                    } else {
+                        assertTrue(
+                            f.player.coords !in
+                                DoomCarGeometry.footprint(pending.segment.endSouthWest),
+                            arrival,
+                        )
+                    }
+                } else assertEquals(outside, f.player.coords)
+                assertTrue(f.run.bossHasRepositioned)
+                assertEquals(2, f.run.phases.carZoom)
+                assertEquals(DoomCarPacket.DASH_WAIT, f.run.phases.carPacket)
+                assertNull(f.run.pendingCarTrample)
+                val after = f.player.coords
+                val hits = f.hits().size
+                f.manager.tick(f.player)
+                assertEquals(after, f.player.coords)
+                assertEquals(hits, f.hits().size, "The consumed arrival cannot hit or shove twice")
+            }
+        }
+    }
+
+    @Test
+    fun `native car death deletion and departure retire queued and already ready zoom work`() {
+        for (packet in DoomCarPacket.entries) for (exit in listOf("death", "delete", "leave")) {
+            Fixture(6, 42).use { f ->
+                PathingEntityCommon.telejump(f.npc, f.collision, CoordGrid(1302, 9500))
+                f.player.coords = CoordGrid(1318, 9516)
+                f.callRun("beginBurrow")
+                while (f.run.phases.carPacket != packet && f.clock.cycle < 140) {
+                    f.carTick()
+                    if (f.clock.cycle == 105) f.run.phases.stopBeamCharge()
+                }
+                val label = "$packet $exit"
+                assertEquals(packet, f.run.phases.carPacket, label)
+                assertFalse(f.worldQueues.isEmpty, label)
+                // Make every outstanding native deadline ready, without delivering LateCycle.
+                f.at(300)
+                f.worldPreInput()
+                val projectiles = f.projectiles().size
+                when (exit) {
+                    "death" -> {
+                        f.npc.hitpoints = 0
+                        assertSame(f.run, f.manager.beginNpcDeath(f.npc), label)
+                    }
+                    "delete" -> f.npcs.del(f.npc, Int.MAX_VALUE)
+                    else -> f.events.publish(SessionStateEvent.Logout(f.player))
+                }
+                assertTrue(f.worldQueues.isEmpty, label)
+                assertNull(f.run.phases.carSchedule, label)
+                assertFalse(f.run.phases.consumeCarPacketReady(), label)
+                assertFalse(f.run.phases.consumeCarTrampleReady(), label)
+                assertEquals(0, f.run.phases.consumeCarProjectiles(), label)
+                f.npc.pendingExactMove = null
+                f.lateCycle()
+                assertEquals(projectiles, f.projectiles().size, label)
+                assertNull(f.npc.pendingExactMove, label)
+            }
+        }
+    }
+
+    @Test
+    fun `replacement car zoom cancels old ready phase shot and arrival edges`() {
+        Fixture(6, 42).use { f ->
+            PathingEntityCommon.telejump(f.npc, f.collision, CoordGrid(1302, 9500))
+            f.player.coords = CoordGrid(1318, 9516)
+            f.callRun("beginBurrow")
+            while (f.clock.cycle < 112) {
+                f.carTick()
+                if (f.clock.cycle == 105) f.run.phases.stopBeamCharge()
+            }
+            assertNotNull(f.run.pendingCarTrample)
+            val oldSchedule = assertNotNull(f.run.phases.carSchedule)
+            f.worldPreInput()
+            // Start the next approved zoom at this LateCycle boundary while old flags are ready.
+            f.callRun("completeZoom")
+            val replacement = assertNotNull(f.run.phases.carSchedule)
+            assertNotSame(oldSchedule, replacement)
+            assertEquals(2, f.run.phases.carZoom)
+            val shots = f.projectiles().size
+            val draws = f.decisionCounts()
+            f.npc.pendingExactMove = null
+            f.manager.tick(f.player)
+            assertEquals(shots, f.projectiles().size)
+            assertEquals(draws, f.decisionCounts())
+            assertNull(f.npc.pendingExactMove)
+            assertNull(f.run.pendingCarTrample)
+            assertEquals(DoomCarPacket.DASH_WAIT, f.run.phases.carPacket)
+            while (f.clock.cycle < replacement.dashStartCycle) f.carTick()
+            assertNotNull(f.npc.pendingExactMove)
+            assertEquals(replacement.dashStartCycle, f.clock.cycle)
+        }
+    }
+
     private class Fixture(val delve: Int, val seed: Long, active: Boolean = true) : AutoCloseable {
         var oracleState = DoomAttackFlow.initial(delve, seed)
         private val oracleCounts = longArrayOf(0, 0, 0)
@@ -1291,7 +1633,12 @@ class DoomNativeDslTest {
                 }
         val registry = EncounterRegistry(random)
         val npcList = NpcList()
-        val world = mock(WorldRepository::class.java)
+        var onProjectile: (ProjAnim) -> Unit = {}
+        val world =
+            mock(WorldRepository::class.java) { call ->
+                if (call.method.name == "projAnim") onProjectile(call.arguments[0] as ProjAnim)
+                Answers.RETURNS_DEFAULTS.answer(call)
+            }
         val npcs = NpcRepository(clock, NpcRegistry(npcList, collision, events), npcList)
         private var nextRegion = 0
         private val regions =
@@ -1404,7 +1751,6 @@ class DoomNativeDslTest {
                 generation = seed,
                 delve = delve,
                 boss = npc,
-                stateCycle = 100,
                 startCycle = 100,
                 bossRevealCycle = 100,
                 startTile = player.coords,
@@ -1546,6 +1892,13 @@ class DoomNativeDslTest {
             manager.tick(player)
         }
 
+        fun carTick() {
+            npc.pendingSequence = EntitySeq.NULL
+            npc.pendingExactMove = null
+            worldPreInput()
+            lateCycle()
+        }
+
         fun queueBossHit(damage: Int, type: HitType = HitType.Ranged): Hit {
             var queued: Hit? = null
             npcAccess.launch(npc) {
@@ -1588,7 +1941,7 @@ class DoomNativeDslTest {
                 DoomState.BURROWING -> {
                     run.state = state
                     callRun("transformBurrow")
-                    run.stateCycle = Int.MAX_VALUE
+                    run.phases.cancelCarPacket()
                 }
                 else -> error("No charge in $state")
             }

@@ -2,7 +2,45 @@
 
 ## Current source increments — September 14
 
-### Current checkpoint: Duke native queues and Doom charge readiness verified
+### Current checkpoint: Leviathan/Vardorvis special ownership and complete Doom car graph verified
+
+Leviathan now declares STUNNED/ROAR/LIGHTNING/SMOKE phases, with native owned completion at
+its retained LateCycle boundary after spatial effects. Native selectors preserve first axis choice
+and subsequent alternating specials. Vardorvis uses the existing native branch selector, with only
+its public access/KDoc changed; the original body and RNG algorithm are unchanged. An injected
+adapter preserves MAX-bound selection, jitter and geometry RNG order. Native session queues own
+QTE-deferred opportunities, forced replacement and captured post-delete +17 respawn. New tests cover
+HP/forced/random matrices, melee interleaving, special transitions, tied debris/RNG, real death,
+reset/new actor, duplicate completion and departure. Changed DT2 files: EncounterManager, Leviathan
+BossSpec/CombatPhases, VardorvisSpecialChoices and their native tests/fixtures. Initial DT2 focus32
+passed; Vard lifecycle5 passed after correcting the test to distinguish immediate queue clearing
+from session owner closure on native deferred logout reclaim. No production logout change.
+
+Doom's entire per-zoom car graph and fixed/dynamic deadlines are native. Removed private car stage,
+remaining count and deadline fields; retained geometry/arrival snapshots and LateCycle order.
+Five new groups cover all delves, parity, segment/zoom counts, overlapping outputs and retirement.
+All36 native groups pass after fixing a null Mockito matcher and characterizing the existing shove
+path: successful shove calls native combatClearQueue and clears the just-queued final trample hit;
+a blocked centre shove retains it. This baseline behavior is preserved, not asserted as OSRS parity.
+Changed Doom files: BossSpec, CombatPhases, CombatTimeline, EncounterManager and NativeDslTest.
+The waiver now records remaining general scheduling instead of claiming car completion closes Doom.
+
+Focused logs: dt2-specials-focus, vard-native-timers-reclaim-retry and doom-car-arrival-retry,
+all suffixed -20260914.log under logs/. Full boss API72, DT2 186 and Doom151 pass:409 cases,
+zero failures/errors/skips. Scoped checks, application assemble and architecture/self-tests pass
+in logs/dt2-specials-doom-car-integration-20260914.log (1m26s); matching results JSON retained.
+Including unchanged shared/other-boss/ToA results:1,929 valid cases, without double-counting API72.
+Source archive: logs/dt2-specials-doom-car-source-20260914.zip; backup:
+backup/dt2-specials-doom-car-20260914. Build passed; listed behavior verified; **not deployed**.
+JVM23812 remains online on43594/8080/9091 at c4fc9390f; caches/database and all holds unchanged.
+
+Exact next work: the mapped DT2 start/respawn and Leviathan opportunity owners, then Whisperer
+specials/secondary volleys. In parallel finish Doom secondary rock volleys, shield larva cadence,
+scheduled style-hit delivery and accepted budgets/holds using existing native queues/state; retain
+its documented native visibility/session-presentation boundary. These are bounded source-preserving
+mappings, with no new API gap. Then continue ToA, ToB and CoX. Unavailable Nex evidence and stronger
+replay/deployment holds remain separately recorded; detector success is not full-scope completion.
+### Earlier checkpoint: Duke native queues and Doom charge readiness verified
 
 Duke's production `DukeTimeline` is removed. One native world-queue owner is attached to the native
 session; `DukeEncounter.tick` dispatches it after existing pool damage and before that run's
@@ -52,7 +90,48 @@ environmental opportunities and post-delete respawn; do not invent an ordinary p
 those. Its existing RNG stream must survive selector migration. Continue ToA, ToB and CoX after
 these boss routing increments; Nex's recorded unavailable evidence/replay work remains separate.
 
+Vardorvis pre-edit mapping: reuse `EncounterRegistry.of(npc, selectionRandom)` and the existing
+native `selectBranch(Effect.Choose)` implementation, exposing that method without changing its body.
+Two stable WeightedRandom declarations own ordered darts/head/strangle eligibility (strict HP<570)
+and after-strangle exclusion. An adapter retains the old run RNG's MAX-bound draw before native
+modulo selection, including a locked one-entry choice; subsequent jitter/hazard draws stay ordered.
+Native encounter state stores logical previous choice before forced locked-HP geometry fallback.
+Recognized forced names skip the selection draw; unknown names use it; consecutive forced strangle
+still becomes darts. No phase reentry or ordinary selector/cadence/counter mutation. Bind the adapter
+at first native encounter creation for every fresh actor. Native session-owned queue dispatch replaces
+Vard special/respawn polling at the current positions: after hazards and, for live opportunities,
+after stats/route fallback. Keep QTE deferral and forced timer replacement; captured post-delete
+completion arms respawn +17. Test exact RNG and HP/forced matrices, ordinary interleaving, stale work,
+native death/respawn and session cancellation. Root owns the helper/shared access/manager integration;
+parallel Leviathan edits must freeze before root edits the common manager.
+
 ### Verified shared checkpoint: native owned world-queue dispatch
+
+Next DT2 mapping after current verification: reuse the existing native owned world queue for
+session start/respawn progression, with callbacks dispatched at the former STARTING/RESPAWNING
+switch positions. Leviathan's handhold +1 teleport/emergence then +4 activation, after-kill +3
+activation, and Whisperer's disturb +4 activation retain their named presentation callbacks.
+Duke's wake uses its existing owner before ordinary dispatch; its respawn remains after Duke's
+StartCycle dispatch, using the original death-start deadline. Other respawns retain their
+post-native-delete completion deadlines and exact actor/generation/session guard. Native cleanup
+cancels all prior-life work, while captured successful death completion can arm post-delete work.
+Remove private start-stage progression rather than moving it into another private scheduler.
+Leviathan's volley-completion roar gate and idle special opportunity get separate native owners
+at their existing before-special-effects and after-hazards dispatch points; an ineligible phase
+defers an already-due opportunity. Enrage cancels both. Test exact boundary timing, forced/stun
+replacement, death/departure cancellation, duplicate completion and fresh-actor activation.
+No API gap; this reuses Duke/Vardorvis/Leviathan owners and the verified shared queue behavior.
+
+Whisperer mapping queued after that: native scheduled singleton decisions preserve the seeded
+Seeds/Screech/Soul sequence across phase transitions. Every request consumes the next scheduled
+slot, including forced overrides; the forced output does not replace sequence history. Three
+declared phases and a native completion owner preserve 22/30/20 deadlines and early success after
+the current special spatial handler. A separate owner schedules immutable secondary shot
+descriptors at +1/+2 and dispatches at the former shot point. Keep the named native projectile/hit
+launcher so prayer, coordinates, flight and combat RNG are sampled at secondary launch, not primary
+launch. Clear/close owners through existing transient/encounter/session cleanup. Verify both seed
+bits, forced sequence, all stage recipes, same-tick success/timeout, +2 recovery and stale work.
+The existing native scheduled decision API avoids the branch selector's phase-transition reset.
 
 The Duke gap/mapping below is implemented in the existing `WorldQueueList` and
 `WorldQueueListProcess`. An owner adds entries to the same native list, with clear/revision/close

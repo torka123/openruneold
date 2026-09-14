@@ -15,6 +15,11 @@ internal class DoomCombatPhases(
     private val readiness = encounter.state("doom.shield-readiness") { ShieldReadiness() }
     private val shockwave = encounter.state("doom.shockwave-readiness") { ShockwaveReadiness() }
     private val charge = encounter.state("doom.charge-readiness") { ChargeReadiness() }
+    private val car = encounter.state("doom.car-readiness") { CarReadiness() }
+
+    init {
+        encounter.onCleanup(::retireCarZoom)
+    }
 
     var state: DoomState
         get() =
@@ -25,6 +30,7 @@ internal class DoomCombatPhases(
                     doomShockwaveWarningPhase(delve, DoomState.MELEE_CHARGE) ->
                     DoomState.MELEE_CHARGE
                 shockwavePacket != null -> DoomState.SHOCKWAVE
+                carPacket != null -> DoomState.BURROWING
                 else ->
                     DOOM_COMBAT_STATES.first { doomPhase(delve, it) == encounter.currentPhaseName }
             }
@@ -35,6 +41,7 @@ internal class DoomCombatPhases(
             val retainWarning =
                 shockwavePreparing && value in listOf(DoomState.ACTIVE, DoomState.MELEE_CHARGE)
             invalidateReadiness(cancelShockwave = !retainWarning)
+            retireCarZoom()
             encounter.transitionTo(
                 if (retainWarning) doomShockwaveWarningPhase(delve, value)
                 else doomPhase(delve, value),
@@ -59,6 +66,134 @@ internal class DoomCombatPhases(
         shockwave.due = false
         cancelMeleeCharge()
         stopBeamCharge()
+        retireCarZoom()
+    }
+
+    val carPacket: DoomCarPacket?
+        get() =
+            DoomCarPacket.entries.firstOrNull { packet ->
+                (1..DoomRules.carZooms(delve)).any { zoom ->
+                    encounter.currentPhaseName == doomCarPhase(delve, packet, zoom)
+                }
+            }
+
+    val carZoom: Int
+        get() =
+            (1..DoomRules.carZooms(delve)).first { zoom ->
+                DoomCarPacket.entries.any { packet ->
+                    encounter.currentPhaseName == doomCarPhase(delve, packet, zoom)
+                }
+            }
+
+    val carSchedule: DoomCarZoomSchedule?
+        get() = car.schedule
+
+    val inCarHazardGrace: Boolean
+        get() =
+            carPacket == DoomCarPacket.TRANSFORM_WAIT &&
+                clock.cycle < encounter.phaseEnteredTick + DoomRules.BURROW_HAZARD_GRACE_TICKS
+
+    /** The graph owns phase identity; nonfinal exact-move segments do not re-enter DASHING. */
+    fun advanceCarPhase() {
+        val next = checkNotNull(encounter.currentPhase?.nextPhase)
+        cancelCarPacket()
+        encounter.transitionTo(next, clock.cycle)
+    }
+
+    fun finishCarZoom(): Boolean {
+        val recovery =
+            encounter.spec.phases.getValue(doomCarPhase(delve, DoomCarPacket.RECOVERY, carZoom))
+        retireCarZoom()
+        encounter.transitionTo(checkNotNull(recovery.nextPhase), clock.cycle)
+        return carPacket != null
+    }
+
+    fun armCarPacket() {
+        val duration = checkNotNull(encounter.currentPhase?.exitAfter)
+        armCarPacketAt(encounter.phaseEnteredTick + duration)
+    }
+
+    fun armCarPacketAt(tick: Int) {
+        cancelCarPacket()
+        val phase = encounter.currentPhaseName
+        car.cancelEdge =
+            carDeadline(tick) {
+                car.cancelEdge = null
+                if (encounter.currentPhaseName == phase) car.packetReady = true
+            }
+    }
+
+    fun consumeCarPacketReady(): Boolean {
+        if (!car.packetReady) return false
+        car.packetReady = false
+        return true
+    }
+
+    fun cancelCarPacket() {
+        car.cancelEdge?.invoke()
+        car.cancelEdge = null
+        car.packetReady = false
+    }
+
+    /** Immutable capture-backed packet schedule; due shots can span several native car phases. */
+    fun prepareCarZoom(schedule: DoomCarZoomSchedule) {
+        retireCarZoom()
+        car.schedule = schedule
+        schedule.projectileCycles.forEach { tick ->
+            var cancel: () -> Unit = {}
+            cancel =
+                carDeadline(tick) {
+                    car.cancelProjectiles.remove(cancel)
+                    car.projectilesReady++
+                }
+            car.cancelProjectiles += cancel
+        }
+    }
+
+    fun consumeCarProjectiles(): Int = car.projectilesReady.also { car.projectilesReady = 0 }
+
+    fun armCarTrampleAt(tick: Int) {
+        car.cancelTrample?.invoke()
+        car.trampleReady = false
+        car.cancelTrample =
+            carDeadline(tick) {
+                car.cancelTrample = null
+                car.trampleReady = true
+            }
+    }
+
+    fun consumeCarTrampleReady(): Boolean {
+        if (!car.trampleReady) return false
+        car.trampleReady = false
+        return true
+    }
+
+    fun retireCarZoom() {
+        car.revision++
+        cancelCarPacket()
+        car.cancelProjectiles.toList().forEach { it() }
+        car.cancelProjectiles.clear()
+        car.cancelTrample?.invoke()
+        car.cancelTrample = null
+        car.schedule = null
+        car.projectilesReady = 0
+        car.trampleReady = false
+    }
+
+    /** Native pre-input readiness only. The retained LateCycle handlers deliver all car effects. */
+    private fun carDeadline(tick: Int, ready: () -> Unit): () -> Unit {
+        val revision = car.revision
+        var unregister: () -> Unit = {}
+        val cancellation =
+            queues.addCancellable(0, ready = { clock.cycle >= tick - 1 }) {
+                unregister()
+                if (!encounter.isEnded && stillAttached() && revision == car.revision) ready()
+            }
+        unregister = encounter.onCleanup(cancellation::cancel)
+        return {
+            cancellation.cancel()
+            unregister()
+        }
     }
 
     val pendingMeleeChargeCycle: Int
@@ -268,6 +403,17 @@ internal class DoomCombatPhases(
         var fireReady: Boolean = false,
         var cancelFire: (() -> Unit)? = null,
         var progress: Int = 0,
+    )
+
+    private class CarReadiness(
+        var revision: Long = 0,
+        var schedule: DoomCarZoomSchedule? = null,
+        var packetReady: Boolean = false,
+        var cancelEdge: (() -> Unit)? = null,
+        var projectilesReady: Int = 0,
+        val cancelProjectiles: MutableList<() -> Unit> = mutableListOf(),
+        var trampleReady: Boolean = false,
+        var cancelTrample: (() -> Unit)? = null,
     )
 }
 

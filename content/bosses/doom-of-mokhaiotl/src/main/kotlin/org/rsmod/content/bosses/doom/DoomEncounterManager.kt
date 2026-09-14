@@ -445,7 +445,6 @@ constructor(
                 generation++,
                 delve,
                 boss,
-                clock.cycle,
                 startCycle = bossRevealCycle,
                 bossRevealCycle = bossRevealCycle,
                 entryPromptFallbackCycle =
@@ -2807,24 +2806,16 @@ constructor(
     }
 
     private fun beginBurrow(run: Run) {
-        val profile = DoomRules.profile(run.delve)
         if (DoomPersistenceRules.shouldClearAcidAtCarStart(run.delve)) {
             clearAcid(run)
             run.pendingAcid.clear()
         }
         run.state = DoomState.BURROWING
-        run.burrowRemaining = profile.carZoomCount
         run.phases.stopBeamCharge()
-        run.burrowStage = CAR_STAGE_TRANSFORM_WAIT
-        run.stateCycle = clock.cycle + CAR_TRANSFORM_DELAY_TICKS
-        run.burrowHazardGraceUntilCycle = clock.cycle + DoomRules.BURROW_HAZARD_GRACE_TICKS
+        run.phases.armCarPacket()
         run.carPlan = null
-        run.carSchedule = null
         run.carSegmentIndex = 0
-        run.carProjectileIndex = 0
-        run.pendingCarTrampleSegment = null
-        run.carTrampleImpactCycle = Int.MAX_VALUE
-        run.pendingCarTrampleFinalSegment = false
+        run.pendingCarTrample = null
         run.trampledThisZoom = false
         run.boss.movementLocked = true
         run.boss.anim(anim(DoomAssets.ANIM_BURROW))
@@ -2835,8 +2826,8 @@ constructor(
         run.boss.transmog(requireNpc(DoomAssets.BURROWED), Int.MAX_VALUE)
         run.boss.movementLocked = true
         resetCharge(run)
-        run.burrowStage = CAR_STAGE_ROCK_WAIT
-        run.stateCycle = clock.cycle + CAR_ROCK_DELAY_TICKS
+        run.phases.advanceCarPhase()
+        run.phases.armCarPacket()
     }
 
     private fun activateBurrow(run: Run) {
@@ -2845,8 +2836,8 @@ constructor(
             abort(run.player, "car rock placement failed", teleport = true, clearRewards = false)
             return
         }
-        run.burrowStage = CAR_STAGE_EYE_WAIT
-        run.stateCycle = clock.cycle + CAR_EYE_DELAY_TICKS
+        run.phases.advanceCarPhase()
+        run.phases.armCarPacket()
     }
 
     private fun spawnCarRocks(run: Run, count: Int): Boolean {
@@ -2909,53 +2900,45 @@ constructor(
             abort(run.player, "invalid car path", teleport = true, clearRewards = false)
             return
         }
-        val schedule =
-            plan.segments
-                .takeIf { it.isNotEmpty() }
-                ?.let { DoomCarTimeline.schedule(clock.cycle, run.delve, it.size) }
-        run.carSchedule = schedule
+        val schedule = DoomCarTimeline.schedule(clock.cycle, run.delve, plan.segments.size)
+        run.phases.prepareCarZoom(schedule)
         run.carSegmentIndex = 0
-        run.carProjectileIndex = 0
-        run.pendingCarTrampleSegment = null
-        run.carTrampleImpactCycle = Int.MAX_VALUE
-        run.pendingCarTrampleFinalSegment = false
-        run.carDashStartCycle =
-            schedule?.dashStartCycle ?: (clock.cycle + DoomCarTimeline.WARNING_TO_DASH_TICKS)
+        run.pendingCarTrample = null
         run.trampledThisZoom = false
         run.boss.movementLocked = true
         world.spotanimMap(SpotanimType(DoomAssets.GFX_BURROW_TARGET_SPAWN), eyeTile)
         world.spotanimMap(
             SpotanimType(DoomAssets.GFX_BURROW_TARGET),
             eyeTile,
-            delay =
-                schedule?.persistentEyeClientDelay ?: DoomCarTimeline.PERSISTENT_EYE_CLIENT_DELAY,
+            delay = schedule.persistentEyeClientDelay,
         )
-        run.burrowStage = CAR_STAGE_DASH_WAIT
-        run.stateCycle = run.carDashStartCycle
+        if (run.phases.carPacket != DoomCarPacket.DASH_WAIT) run.phases.advanceCarPhase()
+        run.phases.armCarPacketAt(schedule.dashStartCycle)
     }
 
     private fun beginCarDash(run: Run) {
+        run.phases.advanceCarPhase()
         run.boss.movementLocked = false
         run.boss.anim(anim(DoomAssets.ANIM_BURROW_MOVEMENT))
         run.boss.spotanim(spotInternal(DoomAssets.GFX_BURROW_MOVEMENT))
-        run.burrowStage = CAR_STAGE_DASHING
         processCarDashSegment(run)
     }
 
     private fun processBurrow(run: Run) {
         resolveDueCarTrample(run)
-        if (run.burrowStage != CAR_STAGE_TRANSFORM_WAIT) updateBurrowCharge(run)
+        if (run.phases.carPacket != DoomCarPacket.TRANSFORM_WAIT) updateBurrowCharge(run)
         launchDueCarProjectiles(run)
-        if (clock.cycle < run.stateCycle) return
-        when (run.burrowStage) {
-            CAR_STAGE_TRANSFORM_WAIT -> transformBurrow(run)
-            CAR_STAGE_ROCK_WAIT -> activateBurrow(run)
-            CAR_STAGE_EYE_WAIT -> telegraphZoom(run)
-            CAR_STAGE_DASH_WAIT -> beginCarDash(run)
-            CAR_STAGE_DASHING -> processCarDashSegment(run)
-            CAR_STAGE_PROJECTILES -> scheduleCarSlam(run)
-            CAR_STAGE_SLAM_WAIT -> emitCarSlamWave(run)
-            CAR_STAGE_RECOVERY -> completeZoom(run)
+        if (!run.phases.consumeCarPacketReady()) return
+        when (run.phases.carPacket) {
+            DoomCarPacket.TRANSFORM_WAIT -> transformBurrow(run)
+            DoomCarPacket.ROCK_WAIT -> activateBurrow(run)
+            DoomCarPacket.EYE_WAIT -> telegraphZoom(run)
+            DoomCarPacket.DASH_WAIT -> beginCarDash(run)
+            DoomCarPacket.DASHING -> processCarDashSegment(run)
+            DoomCarPacket.PROJECTILES -> scheduleCarSlam(run)
+            DoomCarPacket.SLAM_WAIT -> emitCarSlamWave(run)
+            DoomCarPacket.RECOVERY -> completeZoom(run)
+            null -> Unit
         }
     }
 
@@ -2988,14 +2971,14 @@ constructor(
             dir = carExactMoveAngle(segment.startSouthWest, segment.endSouthWest),
             collision = collision,
         )
-        run.pendingCarTrampleSegment = segment
-        run.carTrampleImpactCycle =
-            run.carSchedule?.trampleImpactCycles?.getOrNull(run.carSegmentIndex)
+        val impactCycle =
+            run.phases.carSchedule?.trampleImpactCycles?.getOrNull(run.carSegmentIndex)
                 ?: (clock.cycle + 1)
-        run.pendingCarTrampleFinalSegment = isFinalSegment
+        run.pendingCarTrample = PendingCarTrample(segment, impactCycle, isFinalSegment)
+        run.phases.armCarTrampleAt(impactCycle)
         run.carSegmentIndex++
         if (!isFinalSegment) {
-            run.stateCycle = clock.cycle + 1
+            run.phases.armCarPacketAt(clock.cycle + 1)
             return
         }
         run.boss.movementLocked = true
@@ -3006,29 +2989,21 @@ constructor(
         run.boss.movementLocked = true
         val profile = DoomRules.profile(run.delve)
         if (!profile.carProjectilesEnabled) {
-            run.burrowStage = CAR_STAGE_RECOVERY
-            run.stateCycle =
-                run.carTrampleImpactCycle.takeUnless { it == Int.MAX_VALUE } ?: (clock.cycle + 1)
+            run.phases.advanceCarPhase()
+            run.phases.armCarPacketAt(run.pendingCarTrample?.impactCycle ?: (clock.cycle + 1))
             return
         }
-        val slamPacketCycle = run.carSchedule?.slamPacketCycle
+        val slamPacketCycle = run.phases.carSchedule?.slamPacketCycle
         if (slamPacketCycle == null) {
             completeZoom(run)
             return
         }
-        run.burrowStage = CAR_STAGE_PROJECTILES
-        run.stateCycle = slamPacketCycle.coerceAtLeast(clock.cycle)
+        run.phases.advanceCarPhase()
+        run.phases.armCarPacketAt(slamPacketCycle.coerceAtLeast(clock.cycle))
     }
 
     private fun launchDueCarProjectiles(run: Run) {
-        val schedule = run.carSchedule ?: return
-        while (
-            run.carProjectileIndex < schedule.projectileCycles.size &&
-                clock.cycle >= schedule.projectileCycles[run.carProjectileIndex]
-        ) {
-            launchCarProjectile(run)
-            run.carProjectileIndex++
-        }
+        repeat(run.phases.consumeCarProjectiles()) { launchCarProjectile(run) }
     }
 
     private fun launchCarProjectile(run: Run) {
@@ -3058,13 +3033,10 @@ constructor(
     }
 
     private fun resolveDueCarTrample(run: Run) {
-        val segment = run.pendingCarTrampleSegment ?: return
-        val impactCycle = run.carTrampleImpactCycle
-        if (clock.cycle < impactCycle) return
-        val finalSegment = run.pendingCarTrampleFinalSegment
-        run.pendingCarTrampleSegment = null
-        run.carTrampleImpactCycle = Int.MAX_VALUE
-        run.pendingCarTrampleFinalSegment = false
+        val pending = run.pendingCarTrample ?: return
+        if (!run.phases.consumeCarTrampleReady()) return
+        val (segment, impactCycle, finalSegment) = pending
+        run.pendingCarTrample = null
         removeRocksCrossedByCar(run, segment)
         if (
             DoomCarTrampleRules.shouldHitAtArrival(
@@ -3085,13 +3057,13 @@ constructor(
     }
 
     private fun scheduleCarSlam(run: Run) {
-        val schedule = run.carSchedule ?: return completeZoom(run)
+        val schedule = run.phases.carSchedule ?: return completeZoom(run)
         val clientDelay = schedule.slamClientDelay ?: return completeZoom(run)
         val waveCycle = schedule.waveCycle ?: return completeZoom(run)
         run.boss.anim(anim(DoomAssets.ANIM_BURROW_EXPLOSION), delay = clientDelay)
         run.boss.spotanim(spotInternal(DoomAssets.GFX_BURROW_EXPLOSION), delay = clientDelay)
-        run.burrowStage = CAR_STAGE_SLAM_WAIT
-        run.stateCycle = waveCycle.coerceAtLeast(clock.cycle)
+        run.phases.advanceCarPhase()
+        run.phases.armCarPacketAt(waveCycle.coerceAtLeast(clock.cycle))
     }
 
     private fun emitCarSlamWave(run: Run) {
@@ -3120,9 +3092,10 @@ constructor(
                 )
             }
         }
-        run.burrowStage = CAR_STAGE_RECOVERY
-        run.stateCycle =
-            run.carSchedule?.nextEyeCycle?.coerceAtLeast(clock.cycle) ?: (clock.cycle + 1)
+        run.phases.advanceCarPhase()
+        run.phases.armCarPacketAt(
+            run.phases.carSchedule?.nextEyeCycle?.coerceAtLeast(clock.cycle) ?: (clock.cycle + 1)
+        )
     }
 
     private fun renderCarSlamWave(origin: CoordGrid, exposedTiles: Set<CoordGrid>) {
@@ -3149,15 +3122,10 @@ constructor(
     }
 
     private fun completeZoom(run: Run) {
-        run.burrowRemaining--
         run.carPlan = null
-        run.carSchedule = null
         run.carSegmentIndex = 0
-        run.carProjectileIndex = 0
-        run.pendingCarTrampleSegment = null
-        run.carTrampleImpactCycle = Int.MAX_VALUE
-        run.pendingCarTrampleFinalSegment = false
-        if (run.burrowRemaining > 0) {
+        run.pendingCarTrample = null
+        if (run.phases.finishCarZoom()) {
             telegraphZoom(run)
             return
         }
@@ -3170,8 +3138,6 @@ constructor(
         run.boss.spotanim(spotInternal(DoomAssets.GFX_BURROW_EMERGE))
         run.phases.stopBeamCharge()
         run.boss.movementLocked = true
-        run.burrowStage = CAR_STAGE_TRANSFORM_WAIT
-        run.state = DoomState.ACTIVE
         val preparationCycle = DoomCombatTimeline.postCarShockwavePreparationCycle(clock.cycle)
         run.phases.armShockwaveAt(preparationCycle)
         run.nextAttackNotBeforeCycle = max(run.nextAttackNotBeforeCycle, preparationCycle)
@@ -3578,13 +3544,9 @@ constructor(
         run.pendingHits.clear()
         run.pendingAcid.clear()
         run.carPlan = null
-        run.carSchedule = null
+        run.phases.retireCarZoom()
         run.carSegmentIndex = 0
-        run.carProjectileIndex = 0
-        run.pendingCarTrampleSegment = null
-        run.carTrampleImpactCycle = Int.MAX_VALUE
-        run.pendingCarTrampleFinalSegment = false
-        run.carDashStartCycle = Int.MIN_VALUE
+        run.pendingCarTrample = null
         run.boss.pendingExactMove = null
         run.rockVolleysRemaining = 0
         run.rockMagic = null
@@ -3652,9 +3614,7 @@ constructor(
     }
 
     private fun inBurrowHazardGrace(run: Run): Boolean =
-        run.state == DoomState.BURROWING &&
-            run.burrowStage == CAR_STAGE_TRANSFORM_WAIT &&
-            clock.cycle < run.burrowHazardGraceUntilCycle
+        run.state == DoomState.BURROWING && run.phases.inCarHazardGrace
 
     private fun inTransitionHazardGrace(run: Run): Boolean =
         run.state == DoomState.SHIELD_TRANSITION || inBurrowHazardGrace(run)
@@ -3671,26 +3631,21 @@ constructor(
         // RSProx MapAnim 3386/3387 uses height 244 when the boulder breaks into debris.
         private const val ROCK_BREAK_SPOTANIM_HEIGHT = 244
 
-        private const val CAR_STAGE_TRANSFORM_WAIT = -1
-        private const val CAR_STAGE_ROCK_WAIT = 0
-        private const val CAR_STAGE_EYE_WAIT = 1
-        private const val CAR_STAGE_DASH_WAIT = 2
-        private const val CAR_STAGE_DASHING = 3
-        private const val CAR_STAGE_PROJECTILES = 4
-        private const val CAR_STAGE_SLAM_WAIT = 5
-        private const val CAR_STAGE_RECOVERY = 6
         private const val LARVA_REPATH_TICKS = 4
         private const val ENTRY_PROMPT_TIMEOUT_TICKS = 8
         private const val LARVA_LETHAL_CLAIM_TICKS = 10
         private const val ROCK_SPAWN_RETRY_LOG_INTERVAL = 5
         private const val ROCK_SPAWN_MAX_ATTEMPTS = 3
-        private const val CAR_TRANSFORM_DELAY_TICKS = 5
-        private const val CAR_ROCK_DELAY_TICKS = 1
-        private const val CAR_EYE_DELAY_TICKS = 2
         private const val CAR_ANGLE_SCALE = 325.94932345220167
     }
 
     internal data class ActiveAcid(val tile: CoordGrid, val endCycle: Int, val loc: LocInfo)
+
+    internal data class PendingCarTrample(
+        val segment: DoomCarExactSegment,
+        val impactCycle: Int,
+        val finalSegment: Boolean,
+    )
 
     internal data class PendingAcid(
         val tile: CoordGrid,
@@ -3754,7 +3709,6 @@ constructor(
         val generation: Long,
         val delve: Int,
         var boss: Npc,
-        var stateCycle: Int,
         var startCycle: Int,
         var bossRevealCycle: Int,
         var entryPromptFallbackCycle: Int = Int.MAX_VALUE,
@@ -3797,17 +3751,9 @@ constructor(
         var forceRockBeforeShockwave: Boolean = false,
         var postShockwaveAttacksRemaining: Int = 0,
         var forceRockAfterShockwave: Boolean = false,
-        var burrowRemaining: Int = 0,
-        var burrowStage: Int = 0,
-        var burrowHazardGraceUntilCycle: Int = Int.MIN_VALUE,
         var carPlan: DoomCarPlan? = null,
-        var carSchedule: DoomCarZoomSchedule? = null,
         var carSegmentIndex: Int = 0,
-        var carDashStartCycle: Int = Int.MIN_VALUE,
-        var carProjectileIndex: Int = 0,
-        var pendingCarTrampleSegment: DoomCarExactSegment? = null,
-        var carTrampleImpactCycle: Int = Int.MAX_VALUE,
-        var pendingCarTrampleFinalSegment: Boolean = false,
+        var pendingCarTrample: PendingCarTrample? = null,
         var trampledThisZoom: Boolean = false,
         var bossHasRepositioned: Boolean = false,
         var lastAcidHitCycle: Int = Int.MIN_VALUE,

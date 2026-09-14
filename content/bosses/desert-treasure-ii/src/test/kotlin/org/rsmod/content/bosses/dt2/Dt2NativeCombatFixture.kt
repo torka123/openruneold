@@ -11,6 +11,7 @@ import org.rsmod.api.combat.NvPCombat
 import org.rsmod.api.combat.formulas.AccuracyFormulae
 import org.rsmod.api.combat.formulas.MaxHitFormulae
 import org.rsmod.api.death.NpcDeath
+import org.rsmod.api.game.process.world.WorldQueueListProcess
 import org.rsmod.api.instances.InstanceAccess
 import org.rsmod.api.instances.InstanceId
 import org.rsmod.api.instances.InstanceManager
@@ -209,6 +210,8 @@ internal class Dt2NativeCombatFixture(
                 }
             }
     val registry = EncounterRegistry(random)
+    val worldQueues = WorldQueueList()
+    val queueProcess = WorldQueueListProcess(worldQueues)
     val manager =
         Dt2EncounterManager(
             clock,
@@ -226,6 +229,8 @@ internal class Dt2NativeCombatFixture(
             mock(RouteFactory::class.java),
             mock(DukeEncounter::class.java),
             registry,
+            worldQueues,
+            queueProcess,
         )
     private val deps =
         BossDeps(
@@ -235,7 +240,7 @@ internal class Dt2NativeCombatFixture(
             repository,
             players,
             clock,
-            WorldQueueList(),
+            worldQueues,
             collision,
             registry,
             BossExtensionRegistry(),

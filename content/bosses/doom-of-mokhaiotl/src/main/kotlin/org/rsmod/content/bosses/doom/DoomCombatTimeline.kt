@@ -82,6 +82,9 @@ internal object DoomCombatTimeline {
 
 /** Capture-backed packet schedule for one Doom car-phase zoom. */
 internal object DoomCarTimeline {
+    const val TRANSFORM_DELAY_TICKS: Int = 5
+    const val ROCK_DELAY_TICKS: Int = 1
+    const val EYE_DELAY_TICKS: Int = 2
     const val WARNING_TO_DASH_TICKS: Int = 3
     const val PERSISTENT_EYE_CLIENT_DELAY: Int = 60
     const val PROJECTILE_INTERVAL_TICKS: Int = 2

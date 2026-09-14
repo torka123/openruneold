@@ -4,7 +4,16 @@ This is a resumable handoff, not a project-completion or full OSRS-parity claim.
 mechanic mappings, uncertainties, commands and results remain in [DSL_MIGRATION.md](DSL_MIGRATION.md).
 Update this checkpoint after each completed boss and immediately before any authorized deployment.
 
-September14 current checkpoint: Duke's private timeline is replaced with the native owned queue,
+September14 current checkpoint: Leviathan special phases/completion, Vardorvis native choices and
+special/respawn queues, and Doom's complete car graph are verified. Full boss API72/DT2 186/Doom151,
+scoped checks, architecture/self-tests and application assemble pass.1,929 valid cases including
+retained shared/other-boss/ToA results. Archive/backup:
+`logs/dt2-specials-doom-car-source-20260914.zip` / `backup/dt2-specials-doom-car-20260914`.
+Next: DT2 start/respawn and Leviathan opportunity owners, Whisperer special/secondary routes;
+Doom remaining volley/helper/style-hit scheduling and budgets; then ToA/ToB/CoX. Exact mappings,
+test corrections and retained behavior/evidence limits are in the current DSL_MIGRATION.md section.
+Source only; runtime c4fc9390f/JVM23812 and all holds unchanged.
+Earlier September14 checkpoint: Duke's private timeline is replaced with the native owned queue,
 and Doom's +2 charge start /13/17/20 beam readiness is native. Focused behavioral checks, full
 DT2 171/Doom 146, architecture/self-tests and application assemble pass. With the unchanged
 1,592 shared/other-boss/ToA cases below: **1,909 verified cases**. Archive/backup:

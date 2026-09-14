@@ -152,6 +152,53 @@ internal fun doomBossSpec(): BossSpec {
                     )
                 }
                 for (delve in 1..8) {
+                    for (zoom in 1..DoomRules.carZooms(delve)) {
+                        for (packet in DoomCarPacket.entries) {
+                            val next =
+                                when (packet) {
+                                    DoomCarPacket.TRANSFORM_WAIT -> DoomCarPacket.ROCK_WAIT
+                                    DoomCarPacket.ROCK_WAIT -> DoomCarPacket.EYE_WAIT
+                                    DoomCarPacket.EYE_WAIT -> DoomCarPacket.DASH_WAIT
+                                    DoomCarPacket.DASH_WAIT -> DoomCarPacket.DASHING
+                                    DoomCarPacket.DASHING ->
+                                        if (DoomRules.profile(delve).carProjectilesEnabled)
+                                            DoomCarPacket.PROJECTILES
+                                        else DoomCarPacket.RECOVERY
+                                    DoomCarPacket.PROJECTILES -> DoomCarPacket.SLAM_WAIT
+                                    DoomCarPacket.SLAM_WAIT -> DoomCarPacket.RECOVERY
+                                    DoomCarPacket.RECOVERY -> null
+                                }
+                            val name = doomCarPhase(delve, packet, zoom)
+                            put(
+                                name,
+                                PhaseSpec(
+                                    name,
+                                    lockMovement = packet != DoomCarPacket.DASHING,
+                                    exitAfter =
+                                        when (packet) {
+                                            DoomCarPacket.TRANSFORM_WAIT ->
+                                                DoomCarTimeline.TRANSFORM_DELAY_TICKS
+                                            DoomCarPacket.ROCK_WAIT ->
+                                                DoomCarTimeline.ROCK_DELAY_TICKS
+                                            DoomCarPacket.EYE_WAIT ->
+                                                DoomCarTimeline.EYE_DELAY_TICKS
+                                            DoomCarPacket.DASH_WAIT ->
+                                                DoomCarTimeline.WARNING_TO_DASH_TICKS
+                                            else -> null
+                                        },
+                                    nextPhase =
+                                        next?.let { doomCarPhase(delve, it, zoom) }
+                                            ?: if (zoom < DoomRules.carZooms(delve))
+                                                doomCarPhase(
+                                                    delve,
+                                                    DoomCarPacket.DASH_WAIT,
+                                                    zoom + 1,
+                                                )
+                                            else doomPhase(delve),
+                                ),
+                            )
+                        }
+                    }
                     val packets =
                         listOf(
                             doomShockwavePhase(delve, DoomShockwavePacket.PREPARE),
@@ -216,6 +263,7 @@ internal fun doomPhase(delve: Int, state: DoomState = DoomState.ACTIVE): String 
         when (state) {
             DoomState.ACTIVE -> ""
             DoomState.SHOCKWAVE -> ".shockwave.prepare"
+            DoomState.BURROWING -> ".car.1.transform_wait"
             else -> ".${state.name.lowercase()}"
         }
 
@@ -225,6 +273,20 @@ internal enum class DoomShockwavePacket {
     SLAM,
     RECOVER,
 }
+
+internal enum class DoomCarPacket {
+    TRANSFORM_WAIT,
+    ROCK_WAIT,
+    EYE_WAIT,
+    DASH_WAIT,
+    DASHING,
+    PROJECTILES,
+    SLAM_WAIT,
+    RECOVERY,
+}
+
+internal fun doomCarPhase(delve: Int, packet: DoomCarPacket, zoom: Int = 1): String =
+    "delve.${delve.coerceIn(1, 8)}.car.$zoom.${packet.name.lowercase()}"
 
 internal fun doomShockwavePhase(delve: Int, packet: DoomShockwavePacket, slam: Int = 0): String =
     "delve.${delve.coerceIn(1, 8)}.shockwave.${packet.name.lowercase()}" +

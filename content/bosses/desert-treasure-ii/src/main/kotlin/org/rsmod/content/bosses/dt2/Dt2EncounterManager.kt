@@ -25,6 +25,7 @@ import org.rsmod.api.combat.commons.types.MeleeAttackType
 import org.rsmod.api.combat.commons.types.RangedAttackType
 import org.rsmod.api.combat.formulas.isSlayerTask
 import org.rsmod.api.config.refs.BaseParams
+import org.rsmod.api.game.process.world.WorldQueueListProcess
 import org.rsmod.api.instances.InstanceId
 import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.instances.InstanceSession
@@ -80,6 +81,7 @@ import org.rsmod.game.loc.LocShape
 import org.rsmod.game.map.collision.isWalkBlocked
 import org.rsmod.game.map.collision.isZoneValid
 import org.rsmod.game.proj.ProjAnim
+import org.rsmod.game.queue.WorldQueueList
 import org.rsmod.map.CoordGrid
 import org.rsmod.routefinder.collision.CollisionFlagMap
 
@@ -103,6 +105,8 @@ constructor(
     private val routeFactory: RouteFactory,
     private val dukeEncounter: DukeEncounter,
     private val bossEncounters: EncounterRegistry,
+    private val worldQueues: WorldQueueList,
+    private val queueProcess: WorldQueueListProcess,
 ) {
     private val log = InlineLogger()
     private val RUN_STATE = InstanceStateKey<Run>("desert-treasure-ii-encounter")
@@ -287,7 +291,6 @@ constructor(
     private fun startVardorvis(player: Player, session: InstanceSession, seed: Long) {
         player.lootDropDuration = DT2_DROP_DURATION
         val npc = spawnBoss(player, session, Dt2Boss.VARDORVIS, Dt2Difficulty.NORMAL)
-        npc.movementLocked = true
         npc.apRangeOverride = 1
         val run =
             Run(
@@ -306,6 +309,8 @@ constructor(
             )
         run.lastPlayerTile = player.coords
         attachRun(run)
+        initializeVardorvisOwnership(run)
+        npc.movementLocked = true
         setVardorvisExitLocked(run, locked = false)
         player.mes("You enter the ritual site.")
         player.mes("Vardorvis remains dormant until you attack him.")
@@ -362,9 +367,9 @@ constructor(
                 tickActive(run)
             }
             Dt2State.SPECIAL -> tickSpecial(run)
-            Dt2State.STUNNED -> tickLeviathanStun(run)
             Dt2State.RESPAWNING -> if (clock.cycle >= run.respawnCycle) respawn(run)
             Dt2State.PREPARING,
+            Dt2State.STUNNED,
             Dt2State.DYING,
             Dt2State.INVALIDATED -> Unit
         }
@@ -460,7 +465,7 @@ constructor(
                 Dt2Rules.isLeviathanShadowSpell(hit.secondaryType())
         if (Dt2Rules.leviathanCanStun(run.leviathanAction, run.enraged, successfulShadowHit)) {
             run.leviathanSuccessfulStuns++
-            run.leviathanAction = LeviathanAction.STUNNED
+            enterLeviathanAction(run, LeviathanAction.STUNNED)
             run.specialStartCycle = clock.cycle
             run.specialEndCycle = clock.cycle + Dt2Rules.leviathanStunTicks(run.difficulty)
             run.leviathanStunDamage = hit.damage
@@ -468,6 +473,7 @@ constructor(
             run.boss.anim(10280)
             run.boss.actionDelay = run.specialEndCycle
             syncLeviathanCombat(run)
+            armLeviathanCompletion(run)
             run.player.mes("The Leviathan is stunned. Strike the exposed wound from behind!")
             run.player.actionDelay = clock.cycle
             return
@@ -573,7 +579,6 @@ constructor(
         run.state = Dt2State.DYING
         if (run.bossKind == Dt2Boss.WHISPERER) syncWhispererCombat(run)
         if (run.bossKind == Dt2Boss.LEVIATHAN) {
-            run.leviathanAction = LeviathanAction.DYING
             syncLeviathanCombat(run)
         }
         if (run.bossKind == Dt2Boss.VARDORVIS) {
@@ -612,11 +617,20 @@ constructor(
             dukeEncounter.showCorpse(run)
             return
         }
-        if (run.bossKind == Dt2Boss.LEVIATHAN) {
-            run.leviathanAction = LeviathanAction.RESPAWNING
-        }
         if (run.bossKind == Dt2Boss.VARDORVIS) {
             run.respawnCycle = clock.cycle + VARDORVIS_RESPAWN_TICKS
+            val actor = run.boss
+            val generation = run.generation
+            val deadline = run.respawnCycle
+            requireNotNull(run.vardorvisTasks).add(ready = { clock.cycle >= deadline }) {
+                if (
+                    run(run.player) === run &&
+                        run.boss === actor &&
+                        run.generation == generation &&
+                        run.state == Dt2State.RESPAWNING
+                )
+                    respawnVardorvis(run)
+            }
             return
         }
         run.respawnCycle =
@@ -901,9 +915,6 @@ constructor(
             run.leviathanMusicRestorePoint = null
         }
         run.state = Dt2State.INVALIDATED
-        if (run.bossKind == Dt2Boss.LEVIATHAN) {
-            run.leviathanAction = LeviathanAction.INVALIDATED
-        }
         cleanupHazards(run)
         removePreparationItems(run.player)
         closeWhispererUi(run)
@@ -1034,29 +1045,34 @@ constructor(
         }
         if (run.leviathanTornadoStarted) tickLeviathanTornado(run)
         when (run.leviathanAction) {
-            LeviathanAction.STUNNED -> tickLeviathanStun(run)
-            LeviathanAction.ROAR -> {
-                if (clock.cycle >= run.specialEndCycle) {
+            LeviathanAction.STUNNED ->
+                if (clock.cycle == leviathanPhases(run).enteredTick + 3) run.boss.anim(10294)
+            LeviathanAction.LIGHTNING_BARRAGE -> tickLeviathanLightning(run)
+            LeviathanAction.SMOKE_BLAST -> tickLeviathanSmoke(run)
+            else -> Unit
+        }
+        // Current special effects and their RNG precede a tied completion, just as before.
+        run.leviathanCombatPhases?.completeDue()
+    }
+
+    private fun armLeviathanCompletion(run: Run) {
+        val action = run.leviathanAction
+        leviathanPhases(run).armCompletion(run.specialEndCycle) {
+            when (action) {
+                LeviathanAction.STUNNED -> finishLeviathanStun(run)
+                LeviathanAction.ROAR -> {
                     if (run.leviathanRetaliationPending) {
                         run.leviathanRetaliationPending = false
                         beginLeviathanSpecial(run, null)
-                    } else {
-                        finishLeviathanAction(run)
-                    }
+                    } else finishLeviathanAction(run)
                 }
-            }
-            LeviathanAction.LIGHTNING_BARRAGE -> {
-                tickLeviathanLightning(run)
-                if (clock.cycle >= run.specialEndCycle) {
+                LeviathanAction.LIGHTNING_BARRAGE -> {
                     Dt2Rules.leviathanSpecialContract(LeviathanSpecial.LIGHTNING_BARRAGE)
                         .endAnimation
                         ?.let(run.boss::anim)
                     finishLeviathanAction(run)
                 }
-            }
-            LeviathanAction.SMOKE_BLAST -> {
-                tickLeviathanSmoke(run)
-                if (clock.cycle >= run.specialEndCycle) {
+                LeviathanAction.SMOKE_BLAST -> {
                     Dt2Rules.leviathanSpecialContract(LeviathanSpecial.SMOKE_BLAST)
                         .endAnimation
                         ?.let(run.boss::anim)
@@ -1079,19 +1095,13 @@ constructor(
                     removeCurrentSmokeDebris(run)
                     finishLeviathanAction(run)
                 }
+                else -> error("No completion for Leviathan action: $action")
             }
-            else -> Unit
         }
     }
 
-    private fun tickLeviathanStun(run: Run) {
-        if (clock.cycle == run.specialStartCycle + 3) run.boss.anim(10294)
-        if (clock.cycle < run.specialEndCycle) return
-        finishLeviathanStun(run)
-    }
-
     private fun finishLeviathanStun(run: Run) {
-        run.leviathanAction = LeviathanAction.STANDARD_VOLLEY
+        enterLeviathanAction(run, LeviathanAction.STANDARD_VOLLEY)
         run.specialStartCycle = Int.MAX_VALUE
         run.specialEndCycle = Int.MAX_VALUE
         run.boss.actionDelay = clock.cycle + 1
@@ -1117,7 +1127,7 @@ constructor(
     private fun activate(run: Run) {
         run.state = Dt2State.ACTIVE
         if (run.bossKind == Dt2Boss.LEVIATHAN) {
-            run.leviathanAction = LeviathanAction.STANDARD_VOLLEY
+            enterLeviathanAction(run, LeviathanAction.STANDARD_VOLLEY)
             bossHpBar.onOpen(run.player, run.boss)
             bossHpBar.onUpdate(run.player, run.boss, run.boss.hitpoints, run.boss.baseHitpointsLvl)
             if (run.leviathanMusicRestorePoint == null) {
@@ -1157,7 +1167,7 @@ constructor(
 
     private fun beginLeviathanRoar(run: Run) {
         val contract = Dt2Rules.leviathanSpecialContract(LeviathanSpecial.VOLLEY_ROAR)
-        run.leviathanAction = LeviathanAction.ROAR
+        enterLeviathanAction(run, LeviathanAction.ROAR)
         run.boss.clearInteraction()
         run.boss.anim(contract.startAnimation)
         run.boss.actionDelay = clock.cycle + contract.duration
@@ -1168,13 +1178,16 @@ constructor(
         run.specialProgress = 0
         run.specialRequired = 1
         run.leviathanRoarCycle = Int.MAX_VALUE
+        armLeviathanCompletion(run)
         run.player.soundSynth(Dt2Assets.LEVIATHAN_ROAR_SOUND, delay = 5)
         damagePlayer(run, run.rng.nextInt(Dt2Rules.LEVIATHAN_ROAR_MAX_HIT + 1), 0)
         val axis =
             if (run.rng.nextInt(2) == 0) LeviathanDebrisAxis.EAST_WEST
             else LeviathanDebrisAxis.NORTH_SOUTH
         if (run.leviathanNextSpecial == null) {
-            run.leviathanNextSpecial = Dt2Rules.leviathanFirstSpecial(axis)
+            run.leviathanNextSpecial =
+                leviathanPhases(run)
+                    .selectSpecial(LEVIATHAN_FIRST_SPECIAL_SELECTORS.getValue(axis), run.player)
         }
         val blockerTiles = mutableListOf(run.player.coords)
         val candidates =
@@ -1486,17 +1499,20 @@ constructor(
         if (special == LeviathanSpecial.LIGHTNING_BARRAGE) {
             run.leviathanCurrentTrailTile = run.player.coords
         }
-        run.leviathanAction =
+        enterLeviathanAction(
+            run,
             when (special) {
                 LeviathanSpecial.LIGHTNING_BARRAGE -> LeviathanAction.LIGHTNING_BARRAGE
                 LeviathanSpecial.SMOKE_BLAST -> LeviathanAction.SMOKE_BLAST
                 LeviathanSpecial.VOLLEY_ROAR -> LeviathanAction.ROAR
-            }
+            },
+        )
         val contract = Dt2Rules.leviathanSpecialContract(special)
         run.specialEndCycle = clock.cycle + contract.duration
         run.boss.clearInteraction()
         run.boss.actionDelay = run.specialEndCycle
         syncLeviathanCombat(run)
+        armLeviathanCompletion(run)
         run.boss.anim(contract.startAnimation)
         when (special) {
             LeviathanSpecial.LIGHTNING_BARRAGE -> {
@@ -1588,7 +1604,7 @@ constructor(
     }
 
     private fun tickLeviathanLightning(run: Run) {
-        val elapsed = clock.cycle - run.specialStartCycle
+        val elapsed = clock.cycle - leviathanPhases(run).enteredTick
         if (elapsed !in 1..12) return
         if (elapsed == 3) {
             Dt2Rules.leviathanSpecialContract(LeviathanSpecial.LIGHTNING_BARRAGE)
@@ -1670,7 +1686,7 @@ constructor(
     }
 
     private fun tickLeviathanSmoke(run: Run) {
-        val elapsed = clock.cycle - run.specialStartCycle
+        val elapsed = clock.cycle - leviathanPhases(run).enteredTick
         if (elapsed !in 1..10) return
         if (elapsed == 2) run.boss.anim(10289)
         addLeviathanDebris(
@@ -1787,7 +1803,8 @@ constructor(
                 completed == LeviathanSpecial.SMOKE_BLAST
         ) {
             run.leviathanLastSpecial = completed
-            run.leviathanNextSpecial = Dt2Rules.leviathanNextSpecial(completed)
+            run.leviathanNextSpecial =
+                leviathanPhases(run).selectSpecial(LEVIATHAN_NEXT_SPECIAL_SELECTOR, run.player)
             run.specialIndex++
         }
         run.activeSpecial = null
@@ -1795,7 +1812,7 @@ constructor(
         run.specialRequired = 0
         run.specialStartCycle = Int.MAX_VALUE
         run.specialEndCycle = Int.MAX_VALUE
-        run.leviathanAction = LeviathanAction.STANDARD_VOLLEY
+        enterLeviathanAction(run, LeviathanAction.STANDARD_VOLLEY)
         if (!run.enraged && completed != LeviathanSpecial.VOLLEY_ROAR) {
             run.nextSpecialCycle = clock.cycle + normalSpecialDelay(run)
         }
@@ -1896,7 +1913,7 @@ constructor(
     private fun activateVardorvis(run: Run) {
         run.state = Dt2State.ACTIVE
         run.killStartCycle = clock.cycle
-        run.nextSpecialCycle = clock.cycle + Dt2Rules.vardorvisSpecialDelay(enraged = false)
+        armVardorvisSpecial(run, clock.cycle + Dt2Rules.vardorvisSpecialDelay(enraged = false))
         run.boss.movementLocked = false
         run.boss.apRangeOverride = 1
         updateVardorvisStats(run)
@@ -1917,15 +1934,13 @@ constructor(
         tickVardorvisStrangle(run)
         tickVardorvisBleed(run)
         when (run.state) {
-            Dt2State.RESPAWNING -> if (clock.cycle >= run.respawnCycle) respawnVardorvis(run)
+            Dt2State.RESPAWNING -> run.vardorvisTasks?.let(queueProcess::processOwned)
             Dt2State.ACTIVE,
             Dt2State.ENRAGED -> {
                 updateVardorvisStats(run)
                 keepAggressive(run)
                 tickVardorvisRouteFallback(run)
-                if (!run.vardorvisQteOpen && clock.cycle >= run.nextSpecialCycle) {
-                    beginVardorvisMechanic(run, null)
-                }
+                run.vardorvisTasks?.let(queueProcess::processOwned)
             }
             else -> Unit
         }
@@ -2063,29 +2078,44 @@ constructor(
             2047
     }
 
-    private fun beginVardorvisMechanic(run: Run, requested: String?) {
-        val explicit =
-            requested?.let { key ->
-                VardorvisSpecial.entries.firstOrNull { it.name.equals(key, true) }
-            }
-        val selected =
-            explicit
-                ?: Dt2Rules.vardorvisSelectSpecial(
-                    run.rng.nextInt(Int.MAX_VALUE),
-                    run.vardorvisPreviousSpecial,
-                    Dt2Rules.vardorvisHeadUnlocked(run.boss.hitpoints),
-                )
-        val special =
-            if (
-                selected == VardorvisSpecial.STRANGLE &&
-                    run.vardorvisPreviousSpecial == VardorvisSpecial.STRANGLE
-            ) {
-                VardorvisSpecial.DARTING_SPIKES
-            } else selected
-        run.vardorvisPreviousSpecial = special
-        run.activeSpecial = special
+    private fun initializeVardorvisOwnership(run: Run) {
+        if (run.vardorvisTasks == null) {
+            val owner = worldQueues.createOwner()
+            run.vardorvisTasks = owner
+            run.session.onCleanup(owner::close)
+        }
+        // Selection RNG is fixed on first creation, before native ModifyHit or ordinary AI lookup.
+        bossEncounters.of(run.boss, VardorvisSelectionRandom(run.rng))
+    }
+
+    private fun armVardorvisSpecial(run: Run, deadline: Int) {
+        run.vardorvisSpecialTask?.cancel()
         run.nextSpecialCycle =
-            clock.cycle + Dt2Rules.vardorvisSpecialDelay(run.enraged) + run.rng.nextInt(3)
+            deadline // Diagnostic/shared legacy field; never polled by Vardorvis.
+        val actor = run.boss
+        val generation = run.generation
+        run.vardorvisSpecialTask =
+            requireNotNull(run.vardorvisTasks).add(
+                ready = { clock.cycle >= deadline && !run.vardorvisQteOpen }
+            ) {
+                run.vardorvisSpecialTask = null
+                if (
+                    run(run.player) === run &&
+                        run.boss === actor &&
+                        run.generation == generation &&
+                        run.state in setOf(Dt2State.ACTIVE, Dt2State.ENRAGED)
+                )
+                    beginVardorvisMechanic(run, null)
+            }
+    }
+
+    private fun beginVardorvisMechanic(run: Run, requested: String?) {
+        val special = bossEncounters.of(run.boss).selectVardorvisSpecial(clock.cycle, requested)
+        run.activeSpecial = special
+        armVardorvisSpecial(
+            run,
+            clock.cycle + Dt2Rules.vardorvisSpecialDelay(run.enraged) + run.rng.nextInt(3),
+        )
         when (special) {
             VardorvisSpecial.AXES -> beginVardorvisAxes(run)
             VardorvisSpecial.DARTING_SPIKES -> beginVardorvisDarts(run)
@@ -2451,13 +2481,13 @@ constructor(
     }
 
     private fun resetVardorvisState(run: Run) {
+        initializeVardorvisOwnership(run)
         run.state = Dt2State.PREPARING
         run.enraged = false
         run.vardorvisEnragePending = false
         run.attackCounter = 0
         run.activeSpecial = null
         run.nextSpecialCycle = Int.MAX_VALUE
-        run.vardorvisPreviousSpecial = null
         run.vardorvisAxeRotation = 0
         run.vardorvisNextEnragedAxeCycle = Int.MAX_VALUE
         run.vardorvisBleedStartCycle = Int.MIN_VALUE
@@ -2540,25 +2570,44 @@ constructor(
         return target.isValidTarget() && npc.isInCombat() && npc.hitpoints > 0
     }
 
+    private fun leviathanRate(run: Run): Int =
+        Dt2Rules.leviathanAttackRate(
+            Dt2Rules.leviathanVolleyTier(run.attackCounter),
+            run.enraged,
+            run.difficulty == Dt2Difficulty.AWAKENED,
+        )
+
+    private fun leviathanPhases(run: Run): LeviathanCombatPhases {
+        run.leviathanCombatPhases?.let {
+            return it
+        }
+        val boss = run.boss
+        val generation = run.generation
+        return LeviathanCombatPhases(
+                bossEncounters.of(boss),
+                clock,
+                worldQueues,
+                queueProcess,
+                run.session,
+                stillAttached = {
+                    run(run.player) === run && run.boss === boss && run.generation == generation
+                },
+            )
+            .also { run.leviathanCombatPhases = it }
+    }
+
+    private fun enterLeviathanAction(run: Run, action: LeviathanAction) {
+        leviathanPhases(run).enter(action, leviathanRate(run))
+    }
+
     private fun syncLeviathanCombat(run: Run) {
         run.leviathanOpportunity = null
-        val phase =
-            if (
-                run.state in setOf(Dt2State.ACTIVE, Dt2State.ENRAGED) &&
-                    run.leviathanAction == LeviathanAction.STANDARD_VOLLEY
-            ) {
-                leviathanOrdinaryPhase(
-                    Dt2Rules.leviathanAttackRate(
-                        Dt2Rules.leviathanVolleyTier(run.attackCounter),
-                        run.enraged,
-                        run.difficulty == Dt2Difficulty.AWAKENED,
-                    )
-                )
-            } else LEVIATHAN_INACTIVE
         val movementLocked = run.boss.movementLocked
-        val encounter = bossEncounters.of(run.boss)
-        encounter.transitionTo(phase, clock.cycle)
-        if (phase == LEVIATHAN_INACTIVE) run.boss.movementLocked = movementLocked
+        val phases = leviathanPhases(run)
+        phases.align(run.leviathanAction, leviathanRate(run))
+        if (run.leviathanAction != LeviathanAction.STANDARD_VOLLEY)
+            run.boss.movementLocked = movementLocked
+        val encounter = phases.encounter
         encounter.lastAbilityTick =
             max(clock.cycle, run.boss.actionDelay) - encounter.expectedAttackRate()
     }
@@ -3322,7 +3371,7 @@ constructor(
         run.whispererSpecialPerfect = true
         run.leviathanRoarCycle = Int.MAX_VALUE
         run.leviathanOpportunity = null
-        run.leviathanAction = LeviathanAction.DORMANT
+        run.leviathanCombatPhases = null
         run.leviathanStunDamage = 0
         run.leviathanSuccessfulStuns = 0
         run.leviathanPerfectKill = true
@@ -3451,11 +3500,14 @@ constructor(
     private fun cleanupHazards(run: Run) {
         if (run.bossKind == Dt2Boss.DUKE) dukeEncounter.clear(run)
         if (run.bossKind == Dt2Boss.LEVIATHAN) {
+            run.leviathanCombatPhases?.close()
             Camera.camReset(run.player)
             run.leviathanCameraResetCycle = Int.MAX_VALUE
             run.leviathanCameraLastShakeCycle = Int.MIN_VALUE
         }
         if (run.bossKind == Dt2Boss.VARDORVIS) {
+            run.vardorvisTasks?.clear()
+            run.vardorvisSpecialTask = null
             run.vardorvisAxeSets.clear()
             run.vardorvisDarts.clear()
             run.vardorvisDashSteps.clear()
@@ -3563,7 +3615,8 @@ constructor(
         var whispererMeleeEndCycle: Int = Int.MAX_VALUE,
         var whispererSpecialPerfect: Boolean = true,
         var vardorvisEnragePending: Boolean = false,
-        var vardorvisPreviousSpecial: VardorvisSpecial? = null,
+        var vardorvisTasks: WorldQueueList.Owner? = null,
+        var vardorvisSpecialTask: WorldQueueList.Cancellation? = null,
         var vardorvisAxeRotation: Int = 0,
         var vardorvisNextEnragedAxeCycle: Int = Int.MAX_VALUE,
         var vardorvisNextPathCheckCycle: Int = Int.MAX_VALUE,
@@ -3589,7 +3642,7 @@ constructor(
         val whispererSoulKills: MutableMap<WhispererSoulGroup, Int> = mutableMapOf(),
         val whispererCompletedSoulGroups: MutableSet<WhispererSoulGroup> = linkedSetOf(),
         val permanentDebris: MutableSet<CoordGrid> = linkedSetOf(),
-        var leviathanAction: LeviathanAction = LeviathanAction.DORMANT,
+        var leviathanCombatPhases: LeviathanCombatPhases? = null,
         var leviathanStunDamage: Int = 0,
         var leviathanSuccessfulStuns: Int = 0,
         var leviathanPerfectKill: Boolean = true,
@@ -3624,6 +3677,17 @@ constructor(
         val dangerTiles: MutableList<DangerTile> = mutableListOf(),
         val movingHazards: MutableList<MovingHazard> = mutableListOf(),
     ) {
+        val leviathanAction: LeviathanAction
+            get() =
+                when (state) {
+                    Dt2State.DYING -> LeviathanAction.DYING
+                    Dt2State.RESPAWNING -> LeviathanAction.RESPAWNING
+                    Dt2State.INVALIDATED -> LeviathanAction.INVALIDATED
+                    Dt2State.PREPARING,
+                    Dt2State.STARTING -> LeviathanAction.DORMANT
+                    else -> leviathanCombatPhases?.action ?: LeviathanAction.DORMANT
+                }
+
         val playerUid: PlayerUid = player.uid
         var retired: Boolean = false
 
