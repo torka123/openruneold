@@ -28,8 +28,7 @@ class WhispererBossCombatTest {
                             bossKind = Dt2Boss.WHISPERER,
                             difficulty = difficulty,
                         )
-                    f.run.specialIndex = stage
-                    f.activateWhisperer()
+                    f.reachDistanceStage(stage)
                     VarPlayerIntMapSetter.set(f.player, "varbit.prayer_protectfrommagic", 1)
                     f.attack()
                     val primary = f.hits().single()
@@ -38,15 +37,7 @@ class WhispererBossCombatTest {
                     assertEquals(0, primary.second.damage)
                     assertEquals(110, f.boss.actionDelay)
                     assertEquals(1, f.run.attackCounter)
-                    assertEquals(
-                        when (stage) {
-                            0 -> listOf(Dt2AttackStyle.MAGIC, Dt2AttackStyle.MAGIC)
-                            1 -> listOf(Dt2AttackStyle.MAGIC, Dt2AttackStyle.RANGED)
-                            else -> listOf(Dt2AttackStyle.RANGED, Dt2AttackStyle.MAGIC)
-                        },
-                        f.run.pendingWhispererShots.map { it.style },
-                    )
-                    assertEquals(listOf(101, 102), f.run.pendingWhispererShots.map { it.fireCycle })
+                    assertEquals(2, f.phases.shotOwner.size)
                     assertEquals(if (stage >= 2) 4 else 0, f.run.pendingWhispererTentacles.size)
                     VarPlayerIntMapSetter.set(f.player, "varbit.prayer_protectfrommagic", 0)
                     assertEquals(
@@ -54,7 +45,18 @@ class WhispererBossCombatTest {
                         primary.second.damage,
                         "Primary protection was captured at launch",
                     )
-                    f.advance(9)
+                    for ((index, style) in
+                        Dt2Rules.whispererVolley(0, stage, false).styles.drop(1).withIndex()) {
+                        f.advance(1)
+                        f.manager.tick(f.player)
+                        assertEquals(101 + index, f.clock.cycle)
+                        assertEquals(
+                            if (style == Dt2AttackStyle.MAGIC) HitType.Magic else HitType.Ranged,
+                            f.hits().last().second.type,
+                        )
+                        assertEquals(1 - index, f.phases.shotOwner.size)
+                    }
+                    f.advance(7)
                     f.attack()
                     assertEquals(1, f.run.attackCounter)
                     f.advance(1)
@@ -78,17 +80,21 @@ class WhispererBossCombatTest {
         f.activateWhisperer()
         f.attack()
         assertEquals(36, f.hits().single().second.damage)
+        val firstDestination = f.projectiles.single().endCoord
+        f.player.coords = f.player.coords.translate(-3, 0)
         f.advance(1)
         VarPlayerIntMapSetter.set(f.player, "varbit.prayer_protectfrommagic", 1)
         f.manager.tick(f.player)
         assertEquals(0, f.hits().last().second.damage)
-        assertEquals(listOf(102), f.run.pendingWhispererShots.map { it.fireCycle })
+        assertEquals(f.player.coords, f.projectiles.last().endCoord)
+        assertNotEquals(firstDestination, f.projectiles.last().endCoord)
+        assertEquals(1, f.phases.shotOwner.size)
         f.advance(1)
         VarPlayerIntMapSetter.set(f.player, "varbit.prayer_protectfrommagic", 0)
         f.manager.tick(f.player)
         val expected = Dt2SeededRng(42).apply { nextInt(37) }.nextInt(37)
         assertEquals(expected, f.hits().last().second.damage)
-        assertTrue(f.run.pendingWhispererShots.isEmpty())
+        assertEquals(0, f.phases.shotOwner.size)
         assertEquals(
             listOf(37),
             f.rollBounds,
@@ -102,8 +108,11 @@ class WhispererBossCombatTest {
         f.activateWhisperer()
         f.attack()
         assertTrue(f.manager.forcePhase(f.player, WhispererSpecial.SOUL_SIPHON.name))
-        assertEquals(WHISPERER_INACTIVE, f.registry.of(f.boss).currentPhaseName)
-        assertTrue(f.run.pendingWhispererShots.isEmpty())
+        assertEquals(
+            whispererSpecialPhase(WhispererSpecial.SOUL_SIPHON),
+            f.registry.of(f.boss).currentPhaseName,
+        )
+        assertEquals(0, f.phases.shotOwner.size)
         f.attack()
         assertEquals(1, f.run.attackCounter)
         f.run.specialProgress = f.run.specialRequired
@@ -114,7 +123,7 @@ class WhispererBossCombatTest {
             f.boss.actionDelay,
             "Existing finishSpecial deadline supersedes prior ten-tick launch",
         )
-        assertEquals(113, f.run.whispererMeleeEndCycle)
+        assertEquals(1, f.phases.formOwner.size)
         assertFalse(f.boss.movementLocked)
         f.advance(1)
         f.attack()
@@ -127,9 +136,14 @@ class WhispererBossCombatTest {
         assertEquals(21, f.hits().last().second.damage)
         assertEquals(104, f.boss.actionDelay)
         assertEquals(1, f.run.attackCounter, "Melee does not advance the distance volley rotation")
-        assertEquals(103, f.run.pendingWhispererShots.single().fireCycle)
-        assertFalse(f.run.pendingWhispererShots.single().projectile)
-        f.advance(10)
+        assertEquals(1, f.phases.shotOwner.size)
+        val projectiles = f.projectiles.size
+        f.advance(1)
+        f.manager.tick(f.player)
+        assertEquals(HitType.Melee, f.hits().last().second.type)
+        assertEquals(1, f.hits().last().first)
+        assertEquals(projectiles, f.projectiles.size, "Melee followup never creates a projectile")
+        f.advance(9)
         f.manager.tick(f.player)
         f.attack()
         assertEquals(12205, f.boss.visType.id)
@@ -164,7 +178,7 @@ class WhispererBossCombatTest {
         assertEquals(0, f.damageBoss(f.boss.hitpoints).damage)
         assertTrue(f.run.enraged)
         assertEquals(140, f.boss.hitpoints)
-        assertTrue(f.run.pendingWhispererShots.isEmpty())
+        assertEquals(0, f.phases.shotOwner.size)
         assertEquals(103, f.boss.actionDelay)
         f.advance(2)
         f.attack()
@@ -178,7 +192,7 @@ class WhispererBossCombatTest {
             assertEquals(type, f.hits().last().second.type)
             assertEquals(index + 1, f.run.attackCounter)
             assertEquals(f.clock.cycle + 2, f.boss.actionDelay)
-            assertTrue(f.run.pendingWhispererShots.isEmpty())
+            assertEquals(0, f.phases.shotOwner.size)
             assertEquals(index + 1, f.run.pendingWhispererTentacles.size)
         }
     }
@@ -234,14 +248,20 @@ class WhispererBossCombatTest {
         f.activateWhisperer()
         assertTrue(f.boss.movementLocked)
         f.manager.forcePhase(f.player, WhispererSpecial.SOUL_SIPHON.name)
-        assertEquals(WHISPERER_INACTIVE, f.registry.of(f.boss).currentPhaseName)
+        assertEquals(
+            whispererSpecialPhase(WhispererSpecial.SOUL_SIPHON),
+            f.registry.of(f.boss).currentPhaseName,
+        )
         assertTrue(f.boss.movementLocked, "Distance form stays locked during a special")
         f.run.specialProgress = f.run.specialRequired
         f.manager.tick(f.player)
         assertEquals(12205, f.boss.visType.id)
         assertFalse(f.boss.movementLocked)
         f.manager.forcePhase(f.player, WhispererSpecial.SOUL_SIPHON.name)
-        assertEquals(WHISPERER_INACTIVE, f.registry.of(f.boss).currentPhaseName)
+        assertEquals(
+            whispererSpecialPhase(WhispererSpecial.SOUL_SIPHON),
+            f.registry.of(f.boss).currentPhaseName,
+        )
         assertFalse(
             f.boss.movementLocked,
             "Special entry from melee retains the native movement flag",
@@ -256,14 +276,14 @@ class WhispererBossCombatTest {
     @Test
     fun `launched primary keeps death lifetime while cleanup retires followups and deletion retires hit`() {
         val f = Dt2NativeCombatFixture(bossKind = Dt2Boss.WHISPERER)
-        f.run.specialIndex = 2
-        f.activateWhisperer()
+        f.reachDistanceStage(2)
         f.attack()
         val primary = f.hits().single().second
         f.boss.hitpoints = 0
         assertNotNull(f.manager.beginBossDeath(f.boss))
         assertTrue(primary.isValidNow())
-        assertTrue(f.run.pendingWhispererShots.isEmpty())
+        assertEquals(0, f.phases.shotOwner.size)
+        assertTrue(f.phases.shotOwner.isClosed)
         assertTrue(f.run.pendingWhispererTentacles.isEmpty())
         f.advance(10)
         f.attack()
@@ -296,6 +316,27 @@ class WhispererBossCombatTest {
         events.publish(NpcHitEvents.Modify(boss, builder))
         return builder
     }
+
+    /**
+     * Reach a volley stage through real special completion while retaining first attack tick 100.
+     */
+    private fun Dt2NativeCombatFixture.reachDistanceStage(stage: Int) {
+        clock.cycle -= stage * 13
+        activateWhisperer()
+        repeat(stage) {
+            assertTrue(manager.forcePhase(player, WhispererSpecial.SOUL_SIPHON.name))
+            run.specialProgress = run.specialRequired
+            manager.tick(player)
+            advance(13)
+            manager.tick(player)
+        }
+        assertEquals(100, clock.cycle)
+        assertEquals(stage, phases.startedSpecials)
+        assertEquals(Dt2Assets.WHISPERER_ACTIVE_ID, boss.visType.id)
+    }
+
+    private val Dt2NativeCombatFixture.phases: WhispererCombatPhases
+        get() = assertNotNull(run.whispererCombatPhases)
 
     @AfterTest
     fun releaseMocks() {

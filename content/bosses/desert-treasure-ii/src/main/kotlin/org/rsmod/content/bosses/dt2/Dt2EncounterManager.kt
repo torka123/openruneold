@@ -437,7 +437,6 @@ constructor(
         run.boss.hitpoints = if (run.difficulty == Dt2Difficulty.AWAKENED) 250 else 140
         run.enraged = true
         run.state = Dt2State.ENRAGED
-        run.activeSpecial = null
         run.specialProgress = 0
         run.specialRequired = 0
         run.attackCounter = 0
@@ -646,7 +645,7 @@ constructor(
         val run = run(npc)?.takeIf { npc in it.helpers } ?: return
         if (!run.helpers.remove(npc)) return
         val group = run.whispererSoulGroups.remove(npc)
-        if (run.activeSpecial == WhispererSpecial.SOUL_SIPHON && group != null) {
+        if (run.whispererSpecial == WhispererSpecial.SOUL_SIPHON && group != null) {
             val killed = (run.whispererSoulKills[group] ?: 0) + 1
             run.whispererSoulKills[group] = killed
             run.player.mes("A ${group.name.lowercase()} soul is freed ($killed/${group.required}).")
@@ -994,7 +993,7 @@ constructor(
         return "DT2 boss=${run.bossKind.command} difficulty=${run.difficulty} generation=${run.generation} " +
             "state=${run.state} hp=${run.boss.hitpoints}/${run.maximumHp} attacks=${run.attackCounter} " +
             "tier=${Dt2Rules.leviathanVolleyTier(run.attackCounter)} action=${run.leviathanAction} roarDue=${run.leviathanRoarCycle} " +
-            "special=${run.activeSpecial ?: "none"} progress=${run.specialProgress}/${run.specialRequired} " +
+            "special=${run.whispererSpecial ?: run.activeSpecial ?: "none"} progress=${run.specialProgress}/${run.specialRequired} " +
             "sanity=${run.sanity} shadow=${run.shadowRealm} hazards=${run.dangerTiles.size}+${run.movingHazards.size} seed=${run.seed}"
     }
 
@@ -1410,12 +1409,9 @@ constructor(
     }
 
     private fun beginWhispererSpecial(run: Run, requested: String?) {
-        val special =
-            requested?.let { key ->
-                WhispererSpecial.entries.firstOrNull { it.name.equals(key, true) }
-            } ?: Dt2Rules.whispererSpecial(run.specialIndex, (run.seed and 1L).toInt())
-        run.activeSpecial = special
-        run.specialIndex++
+        val phases = whispererPhases(run)
+        val special = phases.selectSpecial(requested, run.player)
+        phases.enterSpecial(special)
         run.whispererSpecialPerfect = true
         run.boss.anim(
             when (special) {
@@ -1427,7 +1423,6 @@ constructor(
         when (special) {
             WhispererSpecial.CORRUPTED_SEEDS -> {
                 run.specialRequired = Dt2Rules.whispererHealthySeedTiles.size
-                run.specialEndCycle = clock.cycle + 22
                 Dt2Rules.whispererSeedTiles.forEach { local ->
                     val tile = whispererLocal(run, local)
                     val healthy = local in Dt2Rules.whispererHealthySeedTiles
@@ -1439,7 +1434,6 @@ constructor(
                 run.player.mes("Your Blackstone fragment pulses with dark energy.")
             }
             WhispererSpecial.SCREECH -> {
-                run.specialEndCycle = clock.cycle + 30
                 Dt2Rules.whispererScreechPillars.forEach { local ->
                     val tile = whispererLocal(run, local)
                     val loc = spawnWhispererLoc(run, tile, Dt2Assets.WHISPERER_SCREECH_PILLAR)
@@ -1456,7 +1450,6 @@ constructor(
             }
             WhispererSpecial.SOUL_SIPHON -> {
                 run.specialRequired = 1
-                run.specialEndCycle = clock.cycle + 20
                 run.whispererSoulKills.clear()
                 run.whispererCompletedSoulGroups.clear()
                 Dt2Rules.whispererSoulTiles.forEach { (local, group) ->
@@ -1469,6 +1462,20 @@ constructor(
                 run.player.mes("Enter the Shadow Realm and manipulate one complete chant.")
             }
         }
+        run.specialEndCycle =
+            phases.armSpecialCompletion({ run.specialProgress >= run.specialRequired }) { success ->
+                if (!success) {
+                    when (special) {
+                        WhispererSpecial.CORRUPTED_SEEDS -> damagePlayer(run, 75, 75)
+                        WhispererSpecial.SCREECH -> Unit
+                        WhispererSpecial.SOUL_SIPHON -> {
+                            damagePlayer(run, 50, 0)
+                            run.boss.heal(100)
+                        }
+                    }
+                }
+                finishWhispererSpecial(run)
+            }
     }
 
     private fun beginLeviathanSpecial(run: Run, requested: String?) {
@@ -1522,54 +1529,13 @@ constructor(
     }
 
     private fun tickSpecial(run: Run) {
-        if (run.bossKind == Dt2Boss.WHISPERER) tickWhispererSpecial(run)
-        when (run.activeSpecial) {
-            LeviathanSpecial.LIGHTNING_BARRAGE -> {
-                tickLeviathanLightning(run)
-                if (clock.cycle >= run.specialEndCycle) {
-                    Dt2Rules.leviathanSpecialContract(LeviathanSpecial.LIGHTNING_BARRAGE)
-                        .endAnimation
-                        ?.let(run.boss::anim)
-                    finishSpecial(run)
-                }
-                return
-            }
-            LeviathanSpecial.SMOKE_BLAST -> {
-                tickLeviathanSmoke(run)
-                if (clock.cycle >= run.specialEndCycle) {
-                    Dt2Rules.leviathanSpecialContract(LeviathanSpecial.SMOKE_BLAST)
-                        .endAnimation
-                        ?.let(run.boss::anim)
-                    world.spotanimMap(
-                        SpotanimType(Dt2Assets.LEVIATHAN_SMOKE_EXPLOSION),
-                        run.player.coords,
-                    )
-                    if (!isShieldedByLeviathanDebris(run)) damagePlayer(run, 39, 0)
-                    finishSpecial(run)
-                }
-                return
-            }
-            else -> Unit
-        }
-        if (run.specialProgress >= run.specialRequired) {
-            finishSpecial(run)
-            return
-        }
-        if (clock.cycle < run.specialEndCycle) return
-        when (run.activeSpecial) {
-            WhispererSpecial.CORRUPTED_SEEDS -> damagePlayer(run, 75, 75)
-            WhispererSpecial.SCREECH -> Unit
-            WhispererSpecial.SOUL_SIPHON -> {
-                damagePlayer(run, 50, 0)
-                run.boss.heal(100)
-            }
-            else -> Unit
-        }
-        finishSpecial(run)
+        if (run.bossKind != Dt2Boss.WHISPERER) return
+        tickWhispererSpecial(run)
+        whispererPhases(run).completeSpecial()
     }
 
-    private fun finishSpecial(run: Run) {
-        val completed = run.activeSpecial
+    private fun finishWhispererSpecial(run: Run) {
+        val completed = run.whispererSpecial
         if (
             completed == WhispererSpecial.CORRUPTED_SEEDS &&
                 run.specialProgress >= run.specialRequired &&
@@ -1578,24 +1544,26 @@ constructor(
             setSanity(run, run.sanity + 15)
         }
         cleanupTransientHazards(run)
-        if (run.bossKind == Dt2Boss.WHISPERER && !run.enraged) setShadowRealm(run, false)
-        run.activeSpecial = null
+        if (!run.enraged) setShadowRealm(run, false)
         run.specialProgress = 0
         run.specialRequired = 0
         run.state = if (run.enraged) Dt2State.ENRAGED else Dt2State.ACTIVE
-        run.nextSpecialCycle =
-            if (run.bossKind == Dt2Boss.WHISPERER) Int.MAX_VALUE
-            else if (completed != LeviathanSpecial.VOLLEY_ROAR)
-                clock.cycle + normalSpecialDelay(run)
-            else run.nextSpecialCycle
-        if (run.bossKind == Dt2Boss.WHISPERER && !run.enraged) {
+        run.nextSpecialCycle = Int.MAX_VALUE
+        if (!run.enraged) {
             run.boss.transmog(requireNpc(Dt2Assets.WHISPERER_MELEE_ID), Int.MAX_VALUE)
             run.boss.movementLocked = false
             run.boss.apRangeOverride = 1
-            run.whispererMeleeEndCycle = clock.cycle + 13
+            whispererPhases(run).armMeleeExpiry(
+                allowed = { run.boss.isSlotAssigned && !run.enraged }
+            ) {
+                run.boss.transmog(requireNpc(Dt2Assets.WHISPERER_ACTIVE_ID), Int.MAX_VALUE)
+                run.boss.movementLocked = true
+                run.boss.apRangeOverride = 12
+                syncWhispererCombat(run)
+            }
         }
         run.boss.actionDelay = clock.cycle + 2
-        if (run.bossKind == Dt2Boss.WHISPERER) syncWhispererCombat(run)
+        syncWhispererCombat(run)
         run.boss.apPlayer2(run.player, interactions)
     }
 
@@ -1842,6 +1810,13 @@ constructor(
      * authoritative.
      */
     private fun syncWhispererCombat(run: Run) {
+        val phases = whispererPhases(run)
+        val special = phases.activeSpecial
+        if (run.state == Dt2State.SPECIAL && special != null) {
+            // The independent melee expiry must retain the current special's pulse origin.
+            phases.alignSpecial(special)
+            return
+        }
         val phase =
             when {
                 run.state !in setOf(Dt2State.ACTIVE, Dt2State.ENRAGED) -> WHISPERER_INACTIVE
@@ -1851,12 +1826,32 @@ constructor(
                 else -> whispererDistancePhase(run.attackCounter, run.enraged)
             }
         val movementLocked = run.boss.movementLocked
-        val encounter = bossEncounters.of(run.boss)
+        val encounter = phases.encounter
         encounter.transitionTo(phase, clock.cycle)
         // Special/death transitions retain the current form's native movement policy.
         if (phase == WHISPERER_INACTIVE) run.boss.movementLocked = movementLocked
         encounter.lastAbilityTick =
             max(clock.cycle, run.boss.actionDelay) - encounter.expectedAttackRate()
+    }
+
+    private fun whispererPhases(run: Run): WhispererCombatPhases {
+        run.whispererCombatPhases?.let {
+            return it
+        }
+        val boss = run.boss
+        val generation = run.generation
+        return WhispererCombatPhases(
+                bossEncounters.of(boss),
+                clock,
+                worldQueues,
+                queueProcess,
+                run.session,
+                run.seed,
+                stillAttached = {
+                    run(run.player) === run && run.boss === boss && run.generation == generation
+                },
+            )
+            .also { run.whispererCombatPhases = it }
     }
 
     /**
@@ -1869,6 +1864,9 @@ constructor(
     ): NpcAttackOverride {
         val run = requireNotNull(run(target))
         check(run.bossKind == Dt2Boss.WHISPERER && run.boss === npc)
+        val phases = whispererPhases(run)
+        val stage = phases.startedSpecials
+        val enraged = run.enraged
         if (style == Dt2AttackStyle.MELEE) {
             val protected = run.player.vars["varbit.prayer_protectfrommelee"] == 1
             return NpcAttackOverride(
@@ -1879,18 +1877,11 @@ constructor(
                     ),
                 hitModifier = NpcPartialProtectionPrayerPlayerHitModifier(if (protected) 50 else 0),
                 onAttack = {
-                    run.pendingWhispererShots +=
-                        PendingWhispererShot(
-                            Dt2AttackStyle.MELEE,
-                            clock.cycle + 1,
-                            projectile = false,
-                        )
+                    phases.enqueueFollowups(style, stage, enraged) {
+                        launchWhispererFollowup(run, it)
+                    }
                 },
             )
-        }
-        val volley = Dt2Rules.whispererVolley(run.attackCounter, run.specialIndex, run.enraged)
-        check(style == volley.styles.first()) {
-            "Whisperer native selection diverged from its accepted volley count"
         }
         val protected = whispererProtected(run, style)
         return NpcAttackOverride(
@@ -1902,12 +1893,9 @@ constructor(
                 ),
             hitModifier = NpcCalculatedProtectionPrayerPlayerHitModifier(protected, 100),
             onAttack = {
-                volley.styles.drop(1).forEachIndexed { index, followUp ->
-                    run.pendingWhispererShots +=
-                        PendingWhispererShot(followUp, clock.cycle + index + 1)
-                }
+                phases.enqueueFollowups(style, stage, enraged) { launchWhispererFollowup(run, it) }
                 run.attackCounter++
-                if (run.enraged || run.specialIndex >= 2) spawnTentaclePattern(run)
+                if (run.enraged || phases.startedSpecials >= 2) spawnTentaclePattern(run)
             },
             onImpact = { _, _ ->
                 if (style == Dt2AttackStyle.MAGIC)
@@ -2889,65 +2877,48 @@ constructor(
                 Dt2Rules.whispererInsanityDamage(elapsed)?.let { damagePlayer(run, it, 0) }
             }
         }
-        if (
-            run.whispererMeleeEndCycle != Int.MAX_VALUE &&
-                clock.cycle >= run.whispererMeleeEndCycle &&
-                run.boss.isSlotAssigned &&
-                !run.enraged
-        ) {
-            run.boss.transmog(requireNpc(Dt2Assets.WHISPERER_ACTIVE_ID), Int.MAX_VALUE)
-            run.boss.movementLocked = true
-            run.boss.apRangeOverride = 12
-            run.whispererMeleeEndCycle = Int.MAX_VALUE
-            syncWhispererCombat(run)
-        }
-        tickWhispererShots(run)
+        run.whispererCombatPhases?.expireMeleeForm()
+        run.whispererCombatPhases?.launchDueShots()
         tickWhispererTentacles(run)
     }
 
-    private fun tickWhispererShots(run: Run) {
-        val iterator = run.pendingWhispererShots.iterator()
-        while (iterator.hasNext()) {
-            val shot = iterator.next()
-            if (clock.cycle < shot.fireCycle) continue
-            val maximum =
-                Dt2Rules.whispererMaximumHit(shot.style, run.difficulty == Dt2Difficulty.AWAKENED)
-            val damage = run.rng.nextInt(maximum + 1)
-            if (shot.projectile) {
-                run.boss.anim(if (shot.style == Dt2AttackStyle.MAGIC) 10244 else 10238)
-                val projectile =
-                    ProjAnim.fromNpcToPlayer(
-                        run.boss,
-                        run.player,
-                        Dt2Rules.whispererProjectile(shot.style),
-                        WHISPERER_PROJECTILE_TYPE,
-                    )
-                world.projAnim(projectile)
-                run.player.queueHit(
-                    source = run.boss,
-                    delay = projectile.serverCycles,
-                    type =
-                        if (shot.style == Dt2AttackStyle.MAGIC) HitType.Magic else HitType.Ranged,
-                    damage = damage,
-                    modifier =
-                        NpcCalculatedProtectionPrayerPlayerHitModifier(
-                            whispererProtected(run, shot.style),
-                            100,
-                        ),
+    /** Each secondary retains its fire-time RNG, projectile origin and prayer snapshot. */
+    private fun launchWhispererFollowup(run: Run, shot: WhispererFollowup) {
+        val maximum =
+            Dt2Rules.whispererMaximumHit(shot.style, run.difficulty == Dt2Difficulty.AWAKENED)
+        val damage = run.rng.nextInt(maximum + 1)
+        if (shot.projectile) {
+            run.boss.anim(if (shot.style == Dt2AttackStyle.MAGIC) 10244 else 10238)
+            val projectile =
+                ProjAnim.fromNpcToPlayer(
+                    run.boss,
+                    run.player,
+                    Dt2Rules.whispererProjectile(shot.style),
+                    WHISPERER_PROJECTILE_TYPE,
                 )
-            } else {
-                run.player.queueHit(
-                    source = run.boss,
-                    delay = 1,
-                    type = HitType.Melee,
-                    damage = damage,
-                    modifier =
-                        NpcPartialProtectionPrayerPlayerHitModifier(
-                            if (whispererProtected(run, Dt2AttackStyle.MELEE)) 50 else 0
-                        ),
-                )
-            }
-            iterator.remove()
+            world.projAnim(projectile)
+            run.player.queueHit(
+                source = run.boss,
+                delay = projectile.serverCycles,
+                type = if (shot.style == Dt2AttackStyle.MAGIC) HitType.Magic else HitType.Ranged,
+                damage = damage,
+                modifier =
+                    NpcCalculatedProtectionPrayerPlayerHitModifier(
+                        whispererProtected(run, shot.style),
+                        100,
+                    ),
+            )
+        } else {
+            run.player.queueHit(
+                source = run.boss,
+                delay = 1,
+                type = HitType.Melee,
+                damage = damage,
+                modifier =
+                    NpcPartialProtectionPrayerPlayerHitModifier(
+                        if (whispererProtected(run, Dt2AttackStyle.MELEE)) 50 else 0
+                    ),
+            )
         }
     }
 
@@ -2979,7 +2950,7 @@ constructor(
                 }] == 1
 
     private fun tickWhispererSpecial(run: Run) {
-        when (run.activeSpecial) {
+        when (run.whispererSpecial) {
             WhispererSpecial.CORRUPTED_SEEDS -> tickWhispererSeeds(run)
             WhispererSpecial.SCREECH -> tickWhispererScreech(run)
             else -> Unit
@@ -3005,7 +2976,7 @@ constructor(
     }
 
     private fun tickWhispererScreech(run: Run) {
-        val elapsed = clock.cycle - run.specialStartCycle
+        val elapsed = clock.cycle - whispererPhases(run).enteredTick
         val pulse =
             when (elapsed) {
                 16 -> 1
@@ -3268,7 +3239,7 @@ constructor(
             if (active) 1 else 0,
         )
         run.player.spotanim(if (active) 2466 else 2467)
-        if (run.activeSpecial == WhispererSpecial.CORRUPTED_SEEDS) {
+        if (run.whispererSpecial == WhispererSpecial.CORRUPTED_SEEDS) {
             run.whispererSeeds.values.forEach { seed ->
                 seed.loc?.let { locs.del(it, Int.MAX_VALUE) }
                 seed.loc =
@@ -3283,7 +3254,7 @@ constructor(
                         )
             }
         }
-        if (run.activeSpecial == WhispererSpecial.SCREECH) {
+        if (run.whispererSpecial == WhispererSpecial.SCREECH) {
             run.whispererScreechPillars.forEach { pillar ->
                 if (pillar.npc.isSlotAssigned) {
                     pillar.npc.transmog(
@@ -3296,7 +3267,7 @@ constructor(
                 }
             }
         }
-        if (run.activeSpecial == WhispererSpecial.SOUL_SIPHON) {
+        if (run.whispererSpecial == WhispererSpecial.SOUL_SIPHON) {
             run.whispererSoulGroups.keys.forEach { soul ->
                 if (soul.isSlotAssigned) {
                     soul.transmog(
@@ -3384,7 +3355,7 @@ constructor(
         run.specialProgress = 0
         run.specialRequired = 0
         run.whispererInsanityStartCycle = Int.MAX_VALUE
-        run.whispererMeleeEndCycle = Int.MAX_VALUE
+        run.whispererCombatPhases = null
         run.whispererSpecialPerfect = true
         run.leviathanRoarCycle = Int.MAX_VALUE
         run.leviathanOpportunity = null
@@ -3499,7 +3470,7 @@ constructor(
     private fun cleanupTransientHazards(run: Run) {
         run.leviathanOpportunity = null
         run.dangerTiles.clear()
-        run.pendingWhispererShots.clear()
+        run.whispererCombatPhases?.clearTransient()
         run.pendingWhispererTentacles.clear()
         run.whispererLocs.toList().forEach { locs.del(it, Int.MAX_VALUE) }
         run.whispererLocs.clear()
@@ -3518,6 +3489,7 @@ constructor(
 
     private fun cleanupHazards(run: Run) {
         run.lifecycleTasks?.clear()
+        run.whispererCombatPhases?.close()
         if (run.bossKind == Dt2Boss.DUKE) dukeEncounter.clear(run)
         if (run.bossKind == Dt2Boss.LEVIATHAN) {
             run.leviathanCombatPhases?.close()
@@ -3632,7 +3604,7 @@ constructor(
         var rootEndCycle: Int = Int.MIN_VALUE,
         var prayerUnlockCycle: Int = Int.MIN_VALUE,
         var whispererInsanityStartCycle: Int = Int.MAX_VALUE,
-        var whispererMeleeEndCycle: Int = Int.MAX_VALUE,
+        var whispererCombatPhases: WhispererCombatPhases? = null,
         var whispererSpecialPerfect: Boolean = true,
         var vardorvisEnragePending: Boolean = false,
         var vardorvisTasks: WorldQueueList.Owner? = null,
@@ -3653,7 +3625,6 @@ constructor(
         val vardorvisDarts: MutableList<VardorvisDart> = mutableListOf(),
         val vardorvisDashSteps: MutableList<VardorvisDashStep> = mutableListOf(),
         val helpers: MutableSet<Npc> = linkedSetOf(),
-        val pendingWhispererShots: MutableList<PendingWhispererShot> = mutableListOf(),
         val pendingWhispererTentacles: MutableList<PendingWhispererTentacle> = mutableListOf(),
         val whispererLocs: MutableSet<LocInfo> = linkedSetOf(),
         val whispererSeeds: MutableMap<CoordGrid, WhispererSeedState> = linkedMapOf(),
@@ -3697,6 +3668,9 @@ constructor(
         val dangerTiles: MutableList<DangerTile> = mutableListOf(),
         val movingHazards: MutableList<MovingHazard> = mutableListOf(),
     ) {
+        val whispererSpecial: WhispererSpecial?
+            get() = whispererCombatPhases?.activeSpecial
+
         val leviathanAction: LeviathanAction
             get() =
                 when (state) {
@@ -3714,12 +3688,6 @@ constructor(
         val maximumHp: Int
             get() = bossKind.hitpoints(difficulty)
     }
-
-    internal data class PendingWhispererShot(
-        val style: Dt2AttackStyle,
-        val fireCycle: Int,
-        val projectile: Boolean = true,
-    )
 
     internal data class PendingWhispererTentacle(
         val npc: Npc,

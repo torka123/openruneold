@@ -50,7 +50,8 @@ internal fun whispererBossSpec(): BossSpec {
             selector = Selector.Rotation(listOf(Dt2AttackStyle.MELEE.name)),
         )
     for (offset in 0..1) {
-        val styles = List(2) { Dt2Rules.whispererVolley(offset + it, 0, false).styles.first().name }
+        val rotation = listOf(Dt2AttackStyle.MAGIC, Dt2AttackStyle.RANGED)
+        val styles = List(2) { rotation[(offset + it) % rotation.size].name }
         val key = whispererDistancePhase(offset, false)
         phases[key] =
             PhaseSpec(
@@ -61,7 +62,14 @@ internal fun whispererBossSpec(): BossSpec {
             )
     }
     for (offset in 0..3) {
-        val styles = List(4) { Dt2Rules.whispererVolley(offset + it, 0, true).styles.first().name }
+        val rotation =
+            listOf(
+                Dt2AttackStyle.RANGED,
+                Dt2AttackStyle.RANGED,
+                Dt2AttackStyle.MAGIC,
+                Dt2AttackStyle.MAGIC,
+            )
+        val styles = List(4) { rotation[(offset + it) % rotation.size].name }
         val key = whispererDistancePhase(offset, true)
         phases[key] =
             PhaseSpec(

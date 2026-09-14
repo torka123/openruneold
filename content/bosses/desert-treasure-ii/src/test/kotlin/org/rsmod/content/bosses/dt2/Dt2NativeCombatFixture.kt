@@ -54,6 +54,7 @@ internal class Dt2NativeCombatFixture(
     accurate: Boolean = true,
     bossKind: Dt2Boss = Dt2Boss.VARDORVIS,
     difficulty: Dt2Difficulty = Dt2Difficulty.NORMAL,
+    seed: Long = 42L,
 ) {
     val clock = MapClock().apply { cycle = 100 }
     val events = EventBus()
@@ -199,8 +200,8 @@ internal class Dt2NativeCombatFixture(
                 boss,
                 if (bossKind in setOf(Dt2Boss.WHISPERER, Dt2Boss.LEVIATHAN)) Dt2State.PREPARING
                 else Dt2State.ACTIVE,
-                Dt2SeededRng(42),
-                42,
+                Dt2SeededRng(seed),
+                seed,
                 100,
                 100,
             )

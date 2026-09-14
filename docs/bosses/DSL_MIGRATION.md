@@ -2,7 +2,43 @@
 
 ## Current source increments — September 14
 
-### Current checkpoint: Doom duplicate attack clock removed; Whisperer integration active
+### Current checkpoint: Whisperer native integration verified; ToA begins
+
+Whisperer's manager now uses its verified native special selector/phases and three owned queues
+for secondary shots, special completion and independent 13-tick melee expiry. Forced requests
+consume their scheduled slot before overriding the output. Final-tick success precedes timeout;
+form expiry preserves an active special's clock. Secondary launches retain fire-time RNG, prayer
+and projectile-origin snapshots. Removed the private pending-shot list, form deadline and special
+control counters. Named spatial effects and native session outcomes remain legitimate boundaries.
+This closes the identified DT2 routing debt; retained evidence gaps are not OSRS-parity claims.
+
+All 37 focused groups pass. The first run had one test-only expectation error: three Screech
+pulses exhaust sanity, so the existing insanity mechanic adds a fourth hit before completion.
+Production was unchanged by the correction. Full DT2 207, scoped formatting/checks, architecture
+and self-tests, and application assemble pass (57s). Logs/results: whisperer-native-specials-focus,
+whisperer-native-specials-retry and whisperer-native-specials-integration, suffixed -20260914 under
+logs/. Independent source review found no actionable regression. Doom 158 and the unchanged
+shared/other-boss/ToA 1,592 results remain valid: 1,957 cases without double counting.
+Changed files: Dt2EncounterManager, WhispererBossSpec, Dt2NativeCombatFixture,
+WhispererBossCombatTest and new WhispererNativeSpecialTest; waiver and current handoff updated.
+Archive/backup: logs/whisperer-native-specials-source-20260914.zip /
+backup/whisperer-native-specials-20260914. Build passed; listed behavior verified; not deployed.
+Runtime c4fc9390f/JVM23812, cache/database authority and all evidence/replay/deployment holds remain.
+
+Next approved increment: ToA Ba-Ba forms 11778-11780. Existing ToaCombat/ToaRaidManager behavior
+maps to BossSpec Effect.NpcAttack, six-tick Rotation, native actionDelay and attack parameters.
+Preserve admission order: raid target validation (native resetMode on failure), cooldown return,
+rolling/special opportunity, suppression (resetMode), profile lookup, native Crush attack.
+Keep recordBabaStandardAttack in native onAttack before damage RNG/retarget, current max-hit and
+prayer scaling, and onPrayerMitigatedImpact. Existing raid death/progression hooks remain native.
+Exclude only these forms from duplicate generic AI/Modify registration; no new engine API needed.
+Acceptance: exact six-tick release/longer locks, invalid/suppressed reset, threshold/special priority,
+accepted-auto count and callback order, prayer/hit delivery, death/departure and fresh encounter.
+Evidence is the current source path and retained docs/raids/toa/apmeken-baba-level-zero-audit.md;
+this is a source-preserving architecture increment, not new timing evidence. Raid session ownership
+and remaining boss/form routes follow, then ToB and CoX. Do not restart generic persistence research.
+
+### Earlier checkpoint: Doom duplicate attack clock removed; Whisperer integration active
 
 Doom's remaining duplicate nextAttackNotBeforeCycle is removed. Positive melee punishment and
 final car emergence now extend native npc.actionDelay with maxOf(current, retained deadline).

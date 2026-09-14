@@ -4,7 +4,17 @@ This is a resumable handoff, not a project-completion or full OSRS-parity claim.
 mechanic mappings, uncertainties, commands and results remain in [DSL_MIGRATION.md](DSL_MIGRATION.md).
 Update this checkpoint after each completed boss and immediately before any authorized deployment.
 
-September14 current checkpoint: Doom's duplicate attack clock is removed; both writers now extend
+September14 current checkpoint: Whisperer native manager integration is verified. Special slots,
+phases, completion, secondary shots and independent melee expiry now use native routes, preserving
+RNG/prayer/snapshot and cleanup ordering.37 focused/207 full DT2 cases, scoped checks, architecture
+self-tests and application assemble pass.1,957 valid cases with retained Doom/shared results.
+Archive/backup: logs/whisperer-native-specials-source-20260914.zip /
+backup/whisperer-native-specials-20260914. Identified DT2 routing debt is closed; mechanical evidence
+gaps remain separately recorded. Next: mapped ToA Ba-Ba native ordinary combat, raid session ownership
+and remaining forms, then ToB/CoX. Source only; runtime c4fc9390f/JVM23812 and all holds unchanged.
+The current DSL_MIGRATION.md section contains the exact mapping and acceptance criteria.
+
+Earlier September14 checkpoint: Doom's duplicate attack clock is removed; both writers now extend
 native actionDelay.43 focused/158 full Doom cases, scoped checks and architecture/self-tests pass.
 Its accepted budgets are legitimate native session-owned metadata; the documented presentation and
 spatial boundaries remain. Archive/backup: `logs/doom-native-holds-source-20260914.zip` /
