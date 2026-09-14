@@ -1,6 +1,8 @@
 package org.rsmod.content.bosses.doom
 
 import jakarta.inject.Inject
+import org.rsmod.api.bosses.runtime.BossCombat
+import org.rsmod.api.bosses.runtime.BossDeps
 import org.rsmod.api.death.NpcDeath
 import org.rsmod.api.script.onAiApPlayer2
 import org.rsmod.api.script.onModifyNpcHit
@@ -21,15 +23,30 @@ constructor(
     private val death: NpcDeath,
     private val players: PlayerList,
     private val npcs: NpcList,
+    private val deps: BossDeps,
 ) : PluginScript() {
     override fun ScriptContext.startup() {
-        for (id in listOf(DoomAssets.BOSS, DoomAssets.SHIELDED, DoomAssets.BURROWED)) {
-            val type = requireNpc(id)
-            onAiApPlayer2(type) { encounters.attack(this, it.target) }
-            onModifyNpcHit(type) {
+        deps.extensionRegistry.registerAttackParameters(DOOM_ATTACK_PARAMETERS) { npc, target, data
+            ->
+            encounters.attackParameters(npc, target, data as DoomPrimaryAttack)
+        }
+        deps.extensionRegistry.register(DOOM_ROCK_ATTACK) { access, _, target, _ ->
+            encounters.rockAttack(access, target)
+        }
+        BossCombat.register(
+            this,
+            doomBossSpec(),
+            deps,
+            ownerSlug = "doom-of-mokhaiotl",
+            canTarget = encounters::prepareAttack,
+            onModifyHit = {
                 val player = resolveSourcePlayer(hit)
                 if (player == null) hit.damage = 0 else encounters.modifyNpcHit(player, npc, hit)
-            }
+            },
+            onAbilityCommitted = { npc, target, _ -> encounters.afterAttack(npc, target) },
+        )
+        for (id in listOf(DoomAssets.BOSS, DoomAssets.SHIELDED, DoomAssets.BURROWED)) {
+            val type = requireNpc(id)
             onNpcQueue(type, "queue.death") {
                 val run = encounters.beginNpcDeath(npc)
                 if (run != null) {

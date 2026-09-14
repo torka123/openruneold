@@ -34,8 +34,34 @@ including the backed-up SERVER-only NPC11278 metadata preparation; LIVE is uncha
   hazards and full ordinary-hit lifecycle scope are not claimed migrated by this increment.
   Archive: `logs/yama-dsl-source-20260914.zip`; backup branch `backup/yama-dsl-20260914`.
 
-Next concrete deliverables: verify and checkpoint Doom's native attacks, DT2's Vardorvis, and
-the three Dagannoth Kings; continue DT2, then ToA, ToB and CoX in the approved order. Nex M04/M20
+### Doom: native primary attacks verified
+
+- Mapping: retained `DoomAttackFlow` selects the seeded three-stream turn and existing melee/
+  forced-rock substitutions; `forceNextAbility` supplies its named ability to `BossCombat`.
+  `Effect.SetAttackRate` and `Effect.NpcAttack` now own ordinary/tongue launches and cadence.
+  The existing named rock-volley handler retains its spatial work. Accepted-launch callbacks
+  commit stream state, larvae and charge side effects after the same native accuracy/damage RNG.
+  No new API, changed combat constants, reward path or save policy.
+- Changed files: Doom module `build.gradle.kts`, `DoomBossSpec.kt`, `DoomCombat.kt`,
+  `DoomEncounterManager.kt`, `DoomNativeDslTest.kt`. Removed the manager's duplicate standard/
+  tongue attack bodies and its `NvPCombat` dependency. Evidence: retained `DoomRules`,
+  `DoomAttackFlow`, native `NvPCombat` and their existing module characterization.
+- Verification: six focused groups cover every standard style/tier, tongue substitutions,
+  forced/seeded rocks, native/encounter rejection and unchanged stream consumption. Real native
+  player queues verify impact-time prayer changes, retained-source death, deletion and target
+  departure. Full module tests and scoped `check` pass: **121 cases**, no failures/errors/skips.
+  Logs: `logs/doom-dks-dsl-focus3-20260914.log` (Doom passed; DKS had a separate fixture failure),
+  `logs/doom-check-dks-vardorvis-focus2-20260914.log`; counts
+  `logs/doom-dsl-test-results-20260914.json`. Early fixture assumptions missed deferred hit
+  builders; actual queue processing and per-case mock cleanup resolved those test failures.
+  An unscoped check encountered pre-existing formatting in 49 untouched files; changed-file
+  formatting and the subsequent scoped check pass. No broad formatting churn was applied.
+- Boundary: seeded selection remains its existing policy adapter; spatial hazards and full
+  encounter lifecycle are not claimed migrated here. Archive `logs/doom-dsl-source-20260914.zip`,
+  backup `backup/doom-dsl-20260914`. Source only; shared/application integration follows.
+
+Next concrete deliverables: checkpoint DT2's Vardorvis and the three Dagannoth Kings;
+continue DT2, then ToA, ToB and CoX in the approved order. Nex M04/M20
 evidence and stronger S04 replay remain separately open, without blocking independent routing.
 
 ## Authority and preservation

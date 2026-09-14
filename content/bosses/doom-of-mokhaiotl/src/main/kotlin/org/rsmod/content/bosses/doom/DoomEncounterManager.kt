@@ -16,13 +16,10 @@ import kotlin.math.atan2
 import kotlin.math.max
 import kotlin.math.roundToInt
 import org.rsmod.api.bossbar.plugin.BossHpBarScript
+import org.rsmod.api.bosses.runtime.EncounterRegistry
 import org.rsmod.api.combat.NpcAttackOverride
-import org.rsmod.api.combat.NpcProjectile
-import org.rsmod.api.combat.NvPCombat
-import org.rsmod.api.combat.commons.CombatAttack
 import org.rsmod.api.combat.commons.magic.MagicSpellChecks
 import org.rsmod.api.combat.commons.types.MeleeAttackType
-import org.rsmod.api.combat.commons.types.RangedAttackType
 import org.rsmod.api.combat.formulas.AccuracyFormulae
 import org.rsmod.api.config.refs.params
 import org.rsmod.api.instances.InstanceAccess
@@ -37,16 +34,17 @@ import org.rsmod.api.npc.apPlayer2
 import org.rsmod.api.npc.heal
 import org.rsmod.api.npc.hit.visHitmark
 import org.rsmod.api.npc.interact.AiPlayerInteractions
+import org.rsmod.api.npc.isInCombat
 import org.rsmod.api.npc.owner.assignSpawnOwner
 import org.rsmod.api.npc.owner.isSpawnOwnedBy
 import org.rsmod.api.npc.queueDeath
 import org.rsmod.api.player.bonus.WornBonuses
 import org.rsmod.api.player.combatClearQueue
 import org.rsmod.api.player.hit.modifier.NpcBypassProtectionPrayerPlayerHitModifier
-import org.rsmod.api.player.hit.modifier.NpcPartialProtectionPrayerPlayerHitModifier
 import org.rsmod.api.player.hit.modifier.StandardPlayerHitModifier
 import org.rsmod.api.player.hit.queueHit
 import org.rsmod.api.player.hit.queueImpactHit
+import org.rsmod.api.player.isValidTarget
 import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.prayer.ProtectionPrayerLock
 import org.rsmod.api.player.prayer.disableProtectionPrayers
@@ -96,7 +94,7 @@ constructor(
     private val interactions: AiPlayerInteractions,
     private val collision: CollisionFlagMap,
     private val random: GameRandom,
-    private val combat: NvPCombat,
+    private val bossEncounters: EncounterRegistry,
     private val accuracy: AccuracyFormulae,
     private val wornBonuses: WornBonuses,
     private val world: WorldRepository,
@@ -122,9 +120,7 @@ constructor(
         DoomAssets.spotanims.forEach(::spotInternal)
         listOf(DoomAssets.CHARGE_HEADBAR, DoomAssets.SHIELD_HEADBAR).forEach { gameval ->
             requireNotNull(
-                ServerCacheManager.getHealthBar(
-                    RSCM.run { gameval.asRSCM(RSCMType.HEADBAR) }
-                )
+                ServerCacheManager.getHealthBar(RSCM.run { gameval.asRSCM(RSCMType.HEADBAR) })
             ) {
                 "Missing Doom headbar $gameval"
             }
@@ -499,16 +495,16 @@ constructor(
         }
     }
 
-    fun attack(access: StandardNpcAccess, target: Player) {
-        val run = runs[target.uid] ?: return
-        if (run.boss !== access.npc || run.state != DoomState.ACTIVE) return
-        if (!DoomAttackFlow.canStartTurn(access.actionDelay, access.mapClock)) return
+    fun prepareAttack(npc: Npc, target: Player): Boolean {
+        val run = runs[target.uid] ?: return false
+        if (run.boss !== npc || run.state != DoomState.ACTIVE) return false
+        if (!DoomAttackFlow.canStartTurn(npc.actionDelay, clock.cycle)) return false
         if (clock.cycle < run.nextAttackNotBeforeCycle) {
-            access.actionDelay = run.nextAttackNotBeforeCycle
-            return
+            npc.actionDelay = run.nextAttackNotBeforeCycle
+            return false
         }
-        if (run.rockVolleysRemaining > 0) return
-        if (run.shockwavePreparing && run.preShockwaveAttacksRemaining <= 0) return
+        if (run.rockVolleysRemaining > 0) return false
+        if (run.shockwavePreparing && run.preShockwaveAttacksRemaining <= 0) return false
 
         val forceRock =
             (run.shockwavePreparing && run.forceRockBeforeShockwave) ||
@@ -522,25 +518,56 @@ constructor(
                 suppressMeleeCharge =
                     run.shockwavePreparing || run.postShockwaveAttacksRemaining > 0,
             )
-        run.boss.facePlayer(target)
-        val launched =
-            when (turn.primary) {
-                DoomPrimaryAttack.STANDARD ->
-                    standardAttack(
-                        access,
-                        run,
-                        target,
-                        synchronizedStandardStyle(run, turn.standardStyle),
-                    )
-                DoomPrimaryAttack.TONGUE -> tongueAttack(access, run, target)
-                DoomPrimaryAttack.ROCKS -> {
-                    beginRockAttack(access, run)
-                    true
+        // Mirror NvPCombat's launch gate before the DSL commits an ordinary opportunity.
+        // Rock volleys retain their existing encounter-only admission and spatial handler.
+        if (
+            turn.primary != DoomPrimaryAttack.ROCKS &&
+                (!target.isValidTarget() || !npc.isInCombat())
+        )
+            return false
+        val style =
+            if (turn.primary == DoomPrimaryAttack.STANDARD)
+                synchronizedStandardStyle(run, turn.standardStyle)
+            else turn.standardStyle
+        val encounter =
+            bossEncounters.existing(npc)
+                ?: bossEncounters.of(npc).also {
+                    it.lastAbilityTick = clock.cycle - it.expectedAttackRate()
                 }
-            }
+        if (!encounter.forceNextAbility(doomAbility(run.delve, turn.primary, style))) return false
+        run.preparedAttack = turn
+        run.preparedForceRock = forceRock
+        run.attackLaunched = false
+        npc.facePlayer(target)
+        return true
+    }
+
+    fun attackParameters(npc: Npc, target: Player, primary: DoomPrimaryAttack): NpcAttackOverride {
+        val run = checkNotNull(runs[target.uid])
+        check(run.boss === npc && run.preparedAttack?.primary == primary)
+        return NpcAttackOverride(
+            applyModifierOnImpact = primary == DoomPrimaryAttack.STANDARD,
+            hitModifier = StandardPlayerHitModifier,
+            onAttack = { run.attackLaunched = true },
+        )
+    }
+
+    fun rockAttack(access: StandardNpcAccess, target: Player) {
+        val run = runs[target.uid] ?: return
+        if (run.boss !== access.npc || run.preparedAttack?.primary != DoomPrimaryAttack.ROCKS)
+            return
+        beginRockAttack(access, run)
+        run.attackLaunched = true
+    }
+
+    fun afterAttack(npc: Npc, target: Player) {
+        val run = runs[target.uid] ?: return
+        if (run.boss !== npc) return
+        val turn = run.preparedAttack ?: return
+        run.preparedAttack = null
         // The combat pipeline can reject an attack before it launches. Do not consume the
         // deterministic rotation or trigger its larvae/charge side effects in that case.
-        if (!launched) return
+        if (!run.attackLaunched) return
 
         run.attackFlowState = turn.nextState
         if (turn.spawnLarvae) spawnLarvae(run)
@@ -553,7 +580,7 @@ constructor(
             }
         }
         if (turn.startMeleeCharge) run.pendingMeleeChargeCycle = clock.cycle + 2
-        recordRotationAttack(run, turn.primary, forceRock, turn.advancesPhaseCounters)
+        recordRotationAttack(run, turn.primary, run.preparedForceRock, turn.advancesPhaseCounters)
     }
 
     fun modifyNpcHit(player: Player, npc: Npc, hit: HitBuilder) {
@@ -1061,51 +1088,6 @@ constructor(
             run.boss.apPlayer2(run.player, interactions)
     }
 
-    private fun standardAttack(
-        access: StandardNpcAccess,
-        run: Run,
-        target: Player,
-        style: DoomAttackStyle,
-    ): Boolean {
-        var launched = false
-        val maxHit = DoomRules.standardMaxHit(run.delve)
-        val gfx =
-            when (style) {
-                DoomAttackStyle.MELEE -> DoomAssets.GFX_MELEE_PROJECTILE
-                DoomAttackStyle.RANGED -> DoomAssets.GFX_RANGED_PROJECTILE
-                DoomAttackStyle.MAGIC -> DoomAssets.GFX_MAGIC_PROJECTILE
-            }
-        val type =
-            when (style) {
-                DoomAttackStyle.MELEE -> CombatAttack.NpcMelee(MeleeAttackType.Crush)
-                DoomAttackStyle.RANGED -> CombatAttack.NpcRanged(RangedAttackType.Standard)
-                DoomAttackStyle.MAGIC -> CombatAttack.NpcMagic(maxHit)
-            }
-        combat.attack(
-            access,
-            target,
-            type,
-            NpcAttackOverride(
-                attackAnimation = anim(DoomAssets.ANIM_STANDARD),
-                maxHit = maxHit,
-                attackRate = DoomRules.attackRate(run.delve),
-                projectile =
-                    NpcProjectile(
-                        spotInternal(gfx),
-                        projectileType(
-                            if (style == DoomAttackStyle.RANGED) "projanim.arrow"
-                            else "projanim.magic_spell"
-                        ),
-                    ),
-                impactDelay = DoomRules.standardProjectileTravelTicks(run.delve),
-                applyModifierOnImpact = true,
-                hitModifier = StandardPlayerHitModifier,
-                onAttack = { launched = true },
-            ),
-        )
-        return launched
-    }
-
     private fun synchronizedStandardStyle(
         run: Run,
         scheduledStyle: DoomAttackStyle,
@@ -1145,23 +1127,6 @@ constructor(
         }
     }
 
-    private fun tongueAttack(access: StandardNpcAccess, run: Run, target: Player): Boolean {
-        var launched = false
-        combat.attack(
-            access,
-            target,
-            CombatAttack.NpcMelee(MeleeAttackType.Crush),
-            NpcAttackOverride(
-                attackAnimation = anim(DoomAssets.ANIM_TONGUE),
-                maxHit = 40,
-                attackRate = DoomRules.tongueAttackRate(run.delve),
-                hitModifier = NpcPartialProtectionPrayerPlayerHitModifier(50),
-                onAttack = { launched = true },
-            ),
-        )
-        return launched
-    }
-
     private fun beginRockAttack(access: StandardNpcAccess, run: Run) {
         reserveAttackTurn(access, run)
         run.rockMagic = random.of(2) == 0
@@ -1185,14 +1150,7 @@ constructor(
         val volleyIndex = DoomRules.rockSets(run.delve) - run.rockVolleysRemaining
 
         run.boss.anim(anim(DoomAssets.ANIM_ROCK_THROW))
-        launchRockProjectile(
-            bossCentre(run),
-            splitTile,
-            projectile,
-            magic,
-            run.delve,
-            volleyIndex,
-        )
+        launchRockProjectile(bossCentre(run), splitTile, projectile, magic, run.delve, volleyIndex)
         run.fallingRocks +=
             FallingRock(
                 tile = splitTile,
@@ -1333,11 +1291,7 @@ constructor(
                 val hitByDebris = run.player.coords in falling.shadowTiles
                 falling.protectedAtImpact = false
                 if (hitByDebris) {
-                    mechanicHit(
-                        run = run,
-                        minimum = 15,
-                        maximum = 20,
-                    )
+                    mechanicHit(run = run, minimum = 15, maximum = 20)
                 }
                 falling.shadowsLanded = true
                 falling.permanentRockCycle = clock.cycle + 1
@@ -1946,8 +1900,7 @@ constructor(
                 RSCM.run { DoomAssets.SHIELD_HEADBAR.asRSCM(RSCMType.HEADBAR) }
             ) ?: return
         val fill =
-            (run.shieldHitpoints.coerceIn(0, DoomRules.SHIELD_HITPOINTS) *
-                    headbar.segments /
+            (run.shieldHitpoints.coerceIn(0, DoomRules.SHIELD_HITPOINTS) * headbar.segments /
                     DoomRules.SHIELD_HITPOINTS)
                 .coerceIn(0, headbar.segments)
         run.boss.showHeadbar(
@@ -3083,8 +3036,7 @@ constructor(
     private fun launchCarProjectile(run: Run) {
         val styleRoll =
             DoomAttackDecision.chooseStyle(run.attackFlowState.styleRandomState, run.delve)
-        run.attackFlowState =
-            run.attackFlowState.copy(styleRandomState = styleRoll.nextState)
+        run.attackFlowState = run.attackFlowState.copy(styleRandomState = styleRoll.nextState)
         val style = styleRoll.value
         val graphic =
             if (style == DoomAttackStyle.MAGIC) DoomAssets.GFX_MAGIC_PROJECTILE
@@ -3813,6 +3765,9 @@ constructor(
         val runId: String,
         val chainStartCycle: Int,
         var attackFlowState: DoomAttackFlowState = DoomAttackFlow.initial(delve, generation),
+        var preparedAttack: DoomAttackTurn? = null,
+        var preparedForceRock: Boolean = false,
+        var attackLaunched: Boolean = false,
         var shockwaveStarted: Boolean = false,
         var nextShockwaveCycle: Int,
         var shockwaveRemaining: Int = 0,
