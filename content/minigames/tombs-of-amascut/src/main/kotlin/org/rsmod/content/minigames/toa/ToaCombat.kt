@@ -229,8 +229,8 @@ constructor(
         }
         if (profile.style == ToaCombatStyle.MELEE && !npc.isWithinDistance(target, 1)) return false
         val encounter = deps.encounterRegistry.of(npc)
-        val phase = toaAkkhaCombatPhase(profile.style)
-        if (encounter.currentPhaseName != phase) encounter.transitionTo(phase, tick)
+        requireNotNull(encounter.stateOrNull<AkkhaCombatPhases>(AKKHA_COMBAT_PHASES))
+            .prepareStyle(profile.style)
         // Preserve the emission-time face, including native target rejection after this point.
         npc.faceSquare(target.coords)
         if (!target.isValidTarget()) {

@@ -6,6 +6,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.BeforeAll
 import org.rsmod.game.hit.HitType
 import org.rsmod.map.CoordGrid
 
@@ -102,7 +103,7 @@ class ToaBabaEncounterTest {
         assertEquals(listOf(1, 2), BabaThresholds.crossed(300, 0, 300))
         assertTrue(BabaThresholds.crossed(200, 200, 300).isEmpty())
 
-        val state = BabaEncounter(UUID(0, 1), 42)
+        val state = BabaNativePhaseFixture(UUID(0, 1), 42).state
         state.startIntro()
         state.startNormalCombat()
         assertEquals(listOf(1, 2), state.queueCrossedThresholds(300, 0, 300))
@@ -118,7 +119,7 @@ class ToaBabaEncounterTest {
 
     @Test
     fun `weak lane starts in middle three and stays within two lanes`() {
-        val state = BabaEncounter(UUID(2, 2), 7)
+        val state = BabaNativePhaseFixture(UUID(2, 2), 7).state
         state.state = BabaState.ROLLING_STONES_PREP
         state.beginRollingSet(boulderdash = false, now = 0)
         assertTrue(state.weakLane in 1..3)
@@ -151,7 +152,7 @@ class ToaBabaEncounterTest {
 
     @Test
     fun `baseline rolling rows retain the captured eight tick cadence`() {
-        val state = BabaEncounter(UUID(4, 4), 19)
+        val state = BabaNativePhaseFixture(UUID(4, 4), 19).state
         state.state = BabaState.ROLLING_STONES_PREP
         state.beginRollingSet(boulderdash = false, now = 100)
         assertEquals(108, state.nextBoulderAt)
@@ -161,7 +162,7 @@ class ToaBabaEncounterTest {
 
     @Test
     fun `the terminal rolling row disables further casts so the phase can drain`() {
-        val state = BabaEncounter(UUID(4, 5), 23)
+        val state = BabaNativePhaseFixture(UUID(4, 5), 23).state
         state.state = BabaState.ROLLING_STONES_PREP
         state.beginRollingSet(boulderdash = false, now = 100)
 
@@ -315,5 +316,13 @@ class ToaBabaEncounterTest {
         // Melee range is enforced by combat itself. The rolling-stone rule only requires that
         // the attack be melee and originate east of the boulder spawn line.
         assertTrue(BabaRollingExit.inExitZone(CoordGrid(99, 140, 0), boulderStart))
+    }
+
+    companion object {
+        @BeforeAll
+        @JvmStatic
+        fun cache() {
+            ToaCacheTestSupport.initRevision240()
+        }
     }
 }

@@ -32,6 +32,7 @@ import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
 import org.rsmod.game.entity.npc.NpcStateEvents
 import org.rsmod.game.entity.npc.NpcUid
+import org.rsmod.game.entity.player.SessionStateEvent
 import org.rsmod.game.queue.EngineQueueCache
 import org.rsmod.game.region.Region
 import org.rsmod.game.region.zone.RegionZoneCopy
@@ -748,6 +749,180 @@ class FixedInstanceIntegrationTest {
     }
 
     @Test
+    fun `allocated default empty join still respawns actors restarts clock and clears damage`() {
+        for (deferred in listOf(false, true)) {
+            val f = Fixture(allowCopies = true)
+            val player = f.player(1)
+            val created =
+                assertIs<InstanceManager.Result.Created>(
+                    f.manager.create(
+                        player,
+                        KEY,
+                        f.copiedSpec(deferred),
+                        InstanceAccess.Private,
+                        10,
+                    )
+                )
+            val session = created.session
+            assertEquals(if (deferred) 0 else 1, f.manager.npcsForInstance(session.id).size)
+            assertEquals(1, f.started)
+            f.enter(player, session, 20)
+            val original = f.manager.npcsForInstance(session.id).single()
+            original.hitpoints = 7
+            val key = InstanceStateKey<Any>("copied-default-state")
+            val state = session.state(key) { Any() }
+            session.damageContributions.record(player, 37)
+            val starts = f.started
+            f.clock.cycle = 30
+            f.events.publish(SessionStateEvent.Logout(player))
+            f.manager.tickReclaim(31)
+            assertTrue(session.occupants.isEmpty())
+            assertTrue(original.isSlotAssigned)
+            assertSame(session, f.manager.sessionForId(session.id))
+            f.enter(player, session, 50)
+            val replacement = f.manager.npcsForInstance(session.id).single()
+            assertNotSame(original, replacement)
+            assertFalse(original.isSlotAssigned)
+            assertNull(f.manager.instanceForNpc(original))
+            assertTrue(replacement.isSlotAssigned)
+            assertEquals(session.id, f.manager.instanceForNpc(replacement))
+            assertEquals(50, session.startedAtTick)
+            assertEquals(starts + 1, f.started)
+            assertEquals(0, session.damageContributions.totalDamage())
+            assertSame(
+                state,
+                session.stateOrNull(key),
+                "Ordinary actor reset retains content state",
+            )
+            assertEquals(1, f.allocations)
+            assertTrue(f.manager.terminate(session))
+            framework().clearInlineMocks()
+        }
+    }
+
+    @Test
+    fun `allocated retained join preserves fight through native logout replacement and finalize entry`() {
+        for (serverOwned in listOf(false, true)) {
+            val f = Fixture(allowCopies = true)
+            val originalPlayer = f.player(1)
+            val spec = f.copiedSpec()
+            val session =
+                if (serverOwned) f.create(spec, tick = 10)
+                else
+                    assertIs<InstanceManager.Result.Created>(
+                            f.manager.create(originalPlayer, KEY, spec, InstanceAccess.Private, 10)
+                        )
+                        .session
+            f.enter(originalPlayer, session, 20)
+            val actor = f.manager.npcsForInstance(session.id).single()
+            val actorUid = actor.uid
+            actor.hitpoints = 7
+            val key = InstanceStateKey<Any>("retained-raid-state")
+            val state = session.state(key) { Any() }
+            session.damageContributions.record(originalPlayer, 37)
+            session.bossFightStartTick = 21
+            val starts = f.started
+            val joins = f.joins.size
+            var npcCreates = 0
+            f.events.subscribeUnbound(NpcStateEvents.Create::class.java) { npcCreates++ }
+            f.clock.cycle = 30
+            f.events.publish(SessionStateEvent.Logout(originalPlayer))
+            f.manager.tickReclaim(31)
+            assertTrue(session.occupants.isEmpty())
+            assertEquals(EXIT, originalPlayer.coords)
+            assertNull(f.manager.sessionForPlayer(originalPlayer))
+            val replacement = f.player(1, assertNotNull(originalPlayer.uuid))
+            assertNotSame(originalPlayer, replacement)
+            val result =
+                assertIs<InstanceManager.Result.Joined>(
+                    f.manager.join(replacement, session, 50, resetIfEmpty = false)
+                )
+            assertTrue(session.occupants.isEmpty(), "Join planning must not enroll the new player")
+            assertNull(f.manager.sessionForPlayer(replacement))
+            assertEquals(EXIT, replacement.coords)
+            assertEquals(joins, f.joins.size)
+            assertSame(actor, f.manager.npcsForInstance(session.id).single())
+            assertEquals(actorUid, actor.uid)
+            assertEquals(7, actor.hitpoints)
+            assertSame(state, session.stateOrNull(key))
+            assertEquals(37, session.damageContributions.damageBy(replacement))
+            assertEquals(20, session.startedAtTick)
+            assertEquals(21, session.bossFightStartTick)
+            assertEquals(starts, f.started)
+            assertEquals(0, npcCreates)
+            replacement.coords = result.enter
+            f.manager.finalizeEntry(replacement, session, 50)
+            f.manager.finalizeEntry(replacement, session, 51)
+            assertSame(session, f.manager.sessionForPlayer(replacement))
+            assertEquals(listOf(replacement), f.manager.playersIn(session))
+            assertEquals(joins + 1, f.joins.size)
+            assertEquals(1, replacement.vars["varbit.player_in_instance"])
+            assertEquals(EXIT.packed, replacement.attr[InstanceAttributes.LOGIN_EXIT_COORD])
+            assertSame(actor, f.manager.npcsForInstance(session.id).single())
+            assertEquals(37, session.damageContributions.totalDamage())
+            assertEquals(20, session.startedAtTick)
+            assertEquals(starts, f.started)
+            assertEquals(0, npcCreates)
+            assertEquals(1, f.allocations)
+            assertTrue(f.manager.terminate(session))
+            framework().clearInlineMocks()
+        }
+    }
+
+    @Test
+    fun `retained allocated join still enforces live access grace capacity and region validity`() {
+        val cases =
+            mapOf(
+                "ended" to "That instance no longer exists.",
+                "access" to "You do not have access to that instance.",
+                "grace" to "That instance is ending and no longer accepts players.",
+                "full" to "That instance is full.",
+                "invalid" to "That instance is no longer available. Please create a new instance.",
+            )
+        for ((condition, reason) in cases) {
+            val f = Fixture(allowCopies = true)
+            val owner = f.player(1)
+            val session =
+                assertIs<InstanceManager.Result.Created>(
+                        f.manager.create(owner, KEY, f.copiedSpec(), InstanceAccess.Private, 10)
+                    )
+                    .session
+            f.enter(owner, session, 20)
+            if (condition != "full") {
+                f.clock.cycle = 30
+                f.events.publish(SessionStateEvent.Logout(owner))
+            }
+            val candidate = if (condition in setOf("access", "full")) f.player(2) else owner
+            when (condition) {
+                "ended" -> f.manager.terminate(session)
+                "grace" -> session.enterGrace(30)
+                "full" -> session.access = InstanceAccess.Friends
+                "invalid" -> f.validRegion = false
+            }
+            val before = f.manager.npcsForInstance(session.id)
+            val starts = f.started
+            val joins = f.joins.size
+            val result =
+                assertIs<InstanceManager.Result.Failed>(
+                    f.manager.join(candidate, session, 50, resetIfEmpty = false),
+                    condition,
+                )
+            assertEquals(reason, result.reason, condition)
+            assertEquals(starts, f.started, condition)
+            assertEquals(joins, f.joins.size, condition)
+            assertNull(f.manager.sessionForPlayer(candidate), condition)
+            if (condition == "invalid") {
+                assertNull(f.manager.sessionForId(session.id))
+                assertTrue(before.none { it.isSlotAssigned })
+            } else {
+                assertEquals(before, f.manager.npcsForInstance(session.id), condition)
+            }
+            if (!session.isEnded) assertTrue(f.manager.terminate(session))
+            framework().clearInlineMocks()
+        }
+    }
+
+    @Test
     fun `guarded dynamic spawn owns the prepared actor before native events and preserves its configuration`() {
         val f = Fixture()
         val session = f.create(f.spec(actors = false))
@@ -1067,6 +1242,7 @@ class FixedInstanceIntegrationTest {
         var allocations = 0
         var protections = 0
         var unprotections = 0
+        var validRegion = true
         val regions =
             mock(RegionRepository::class.java) { call ->
                 check(allowCopies) { "Fixed session called RegionRepository.${call.method.name}" }
@@ -1083,7 +1259,7 @@ class FixedInstanceIntegrationTest {
                         }
                         region
                     }
-                    "isValid" -> true
+                    "isValid" -> validRegion
                     "protect" -> {
                         protections++
                         null
@@ -1143,6 +1319,18 @@ class FixedInstanceIntegrationTest {
 
         fun create(spec: InstanceSpec = spec(), tick: Int = 0): InstanceSession =
             assertNotNull(manager.createServerOwned(KEY, spec, InstanceAccess.Friends, tick))
+
+        fun copiedSpec(deferred: Boolean = false): InstanceSpec =
+            InstanceSettings(maxPlayers = 1, reclaimTicks = 1000, spawnOnFirstJoin = deferred)
+                .withArea(
+                    InstanceArea.copyRegions(
+                        listOf(9116),
+                        enterCoord = RegionLocal(0, 35, 156, 40, 38),
+                        exitCoord = EXIT,
+                        npcSpawns = listOf(spawn(7852, CoordGrid(35 * 64 + 42, 156 * 64 + 40))),
+                    ),
+                    0,
+                )
 
         fun player(slot: Int, uuid: Long = slot.toLong()): Player =
             Player().apply {

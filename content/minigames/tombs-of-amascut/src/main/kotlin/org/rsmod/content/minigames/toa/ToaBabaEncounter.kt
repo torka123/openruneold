@@ -3,6 +3,8 @@ package org.rsmod.content.minigames.toa
 import java.util.UUID
 import kotlin.math.abs
 import kotlin.random.Random
+import org.rsmod.api.bosses.runtime.BossEncounter
+import org.rsmod.game.MapClock
 import org.rsmod.game.entity.player.PlayerUid
 import org.rsmod.game.hit.HitType
 import org.rsmod.map.CoordGrid
@@ -562,15 +564,38 @@ internal class BabaDebugTrace {
     fun clear() = events.clear()
 }
 
-/** One seedable state machine per raid; generation invalidates stale delayed work. */
+/**
+ * Session-owned Ba-Ba geometry and RNG; active phases and attack budget belong to BossEncounter.
+ */
 internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
     var generation = 0
         private set
 
-    var state = BabaState.WAITING
+    private var nativePhases: BabaCombatPhases? = null
+    private var unregisterNativeCleanup: (() -> Unit)? = null
+    private var sessionOutcome: BabaState? = BabaState.WAITING
+
+    var state: BabaState
+        get() = sessionOutcome ?: checkNotNull(nativePhases).state
+        set(value) {
+            if (value in BABA_NATIVE_PHASES) {
+                check(sessionOutcome == null || sessionOutcome == BabaState.WAITING)
+                checkNotNull(nativePhases) { "Bind Ba-Ba's native encounter before phase entry." }
+                    .transitionTo(value)
+                sessionOutcome = null
+            } else {
+                sessionOutcome = value
+                unregisterNativeCleanup?.invoke()
+                unregisterNativeCleanup = null
+                nativePhases = null
+            }
+        }
+
     var target: PlayerUid? = null
     var previousTarget: PlayerUid? = null
-    var attackCounter = 0
+    val attackCounter: Int
+        get() = nativePhases?.acceptedAutos ?: 0
+
     var nextRubbleAt = -1
     var activeRollingThreshold: Int? = null
     val pendingRollingThresholds = ArrayDeque<Int>()
@@ -597,12 +622,32 @@ internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
     val trace = BabaDebugTrace()
     private var random = Random(seed)
 
+    /** Bind after the initial registry lookup has installed this session's shared selection RNG. */
+    fun bindNative(encounter: BossEncounter, clock: MapClock) {
+        check(state == BabaState.WAITING && nativePhases == null)
+        check(!encounter.isEnded)
+        val phases = BabaCombatPhases(encounter, clock)
+        nativePhases = phases
+        unregisterNativeCleanup =
+            encounter.onCleanup {
+                if (nativePhases === phases) {
+                    nativePhases = null
+                    unregisterNativeCleanup = null
+                    sessionOutcome = BabaState.RESETTING
+                }
+            }
+    }
+
+    /** Native death completion runs after the actor's combat encounter has already been removed. */
+    fun markDefeated() {
+        state = BabaState.DEFEATED
+    }
+
     fun reset() {
         generation++
         state = BabaState.RESETTING
         target = null
         previousTarget = null
-        attackCounter = 0
         nextRubbleAt = -1
         activeRollingThreshold = null
         pendingRollingThresholds.clear()
@@ -671,13 +716,6 @@ internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
                 )
         )
         state = BabaState.NORMAL_COMBAT
-        attackCounter = 0
-    }
-
-    fun recordAuto(): Boolean {
-        if (state != BabaState.NORMAL_COMBAT) return false
-        attackCounter++
-        return attackCounter >= BabaTuning.SPECIAL_AFTER_AUTOS.value
     }
 
     fun rubbleDue(now: Int) = nextRubbleAt < 0 || now >= nextRubbleAt
@@ -713,7 +751,7 @@ internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
 
     fun beginRollingSet(boulderdash: Boolean, now: Int) {
         check(state in setOf(BabaState.ROLLING_STONES_PREP, BabaState.ROLLING_STONES))
-        state = BabaState.ROLLING_STONES
+        if (state != BabaState.ROLLING_STONES) state = BabaState.ROLLING_STONES
         rollingSet++
         val candidates =
             if (previousWeakLane < 0) (1..3).toList()

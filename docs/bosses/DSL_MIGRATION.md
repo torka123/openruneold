@@ -2,7 +2,73 @@
 
 ## Current source increments — September 14
 
-### Current checkpoint: ToA native special choices, deadline owners and Wardens P2 verified
+### Current checkpoint: ToA native phase budgets, special graph and retained rejoin verified
+
+Ba-Ba active phase identity and two-auto budget now belong to BossEncounter. Native transitions
+preserve actionDelay/lastAbilityTick; repeated rolling rows retain one phase origin, while fresh
+special entries reset the budget. The NvP callback uses prospective count+1 for first-auto target
+selection and nested traces before native commit. Post-delete defeat remains a native session
+outcome; no unbound private active-state fallback was added.
+
+Akkha uses one native ordinary phase with a prepared style input, preserving its7/Stay Vigilant6
+accepted budget through style/shadow changes. Every special resets that native budget once;
+existing secondary RNG/callback order stays intact. Native session owners replace blocking-special
+completion, forced-style and final-swap clocks at their original LateCycle positions. Final stand
+advances the hit generation, so it renews queue ownership before any swaps. Actual native hits
+verify repeated body/HP/role transfers, missing-actor retries, pause, deletion and terminal cleanup.
+Terminal raid cleanup now calls the existing Akkha cleanup routine; only cosmetic memory-symbol
+coordinate access is skipped after native session end. Unconditional state/player cleanup remains.
+
+Zebak's declared native emergence/roar/wave graph replaces the private phase clocks and counters.
+Owned phase edges consume one transition per eligible LateCycle, rearming from actual consumption.
+Separate preparation owners preserve launch+1/landing+6, before jug/wave/split processing, including
+overdue insertion/RNG order and preparation-to-wave/enrage cancellation distinctions. Geometry and
+split owners are retained; actor deletion/reset closes phase/hazard owners. Native death+4 remains
+the existing session continuation after the combat actor is deleted.
+
+A real native integration gap was found by last-player reconnect: empty dynamic join reset all
+actors and start/contribution state, deleting the retained boss. A bounded public API/settings
+lookup found no resume option. Under the standing missing-route approval, InstanceManager.join now
+has resetIfEmpty=true by default; ToA rejoin passes false. Initial/deferred and default empty entry
+still reset, while retained rejoin keeps actors, HP, typed state, contributions and fight clocks.
+Native live/access/Grace/capacity/region checks and finalizeEntry/recovery behavior remain enforced.
+This adds one shared API option, no private admission bypass or persistence policy.
+
+Verification:166 focused ToA and23 focused native instance cases pass; full ToA488, instances57,
+boss API72, DT2 207, Doom158 and all25 other boss checks pass. Current integration measures1,963
+cases, including existing ToB52/CoX32 (not migration-completion evidence); with unchanged engine133
+and game-process28 results,2,124 cases remain valid. Scoped formatting, architecture/self-tests and
+application assemble pass (215s). The detector still scans boss modules only; raid acceptance is
+explicitly tested. Logs/selections/results: logs/toa-native-phase-budgets-*20260914. Passing ToA
+focus is focus-resume. Earlier failures: incorrect native state accessor (compile), two non-Unit
+BeforeAll methods (discovery), and the two real cleanup/resume issues above. Use existing Unit
+BeforeAll blocks for cache initialization; initRevision240 returns Cache. No need to repeat checks
+without a source change or new concern invalidating them.
+
+Changed26 Kotlin files: exact logs/toa-native-phase-budgets-integration-format-20260914.txt;
+InstanceManager/native integration test, ToA manager/Combat and Baba/Akkha/Zebak adapters/specs,
+four phase/queue helpers and focused native/metadata suites; this ledger/handoff. Archive:
+logs/toa-native-phase-budgets-source-20260914.zip; backup/toa-native-phase-budgets-20260914.
+Build passed; described behavior verified; not deployed. Runtime remains c4fc9390f/JVM23812 on
+43594/8080/9091. Cache/database authority, inactive stronger replay migrations and all holds remain.
+
+Next approved complete increments, using current source as preservation evidence:
+- Ba-Ba rocks/rubble/shockwaves use three native owners at the existing ordered slots: rocks before
+  new rubble before shockwaves, then bananas/sarcophagi/forced/completion. Keep concrete payloads
+  and rubble reservations, update queued rock target on reconnect, cancel player-retired rocks,
+  clear all three at clearBabaRubbleSequence and close on native death/reset/session end. Native
+  projectile warnings/hit delivery and geometry remain unchanged; no new API needed.
+- Akkha final intro uses the completion owner for anchored cast+2/+4/+5, chained so only one stage
+  advances per dispatch even when overdue. A separate memory-visibility owner runs before special
+  completion: exact-tick warning/disappear expire if missed; hide/reappear retain ordered overdue
+  processing. Capture generation/body, cancel at memory completion/final entry/reset. The existing
+  overdue hide-first/reappearance gap remains separately recorded; current schedule tests prove
+  state/style completion, not visual recovery for a clock jump beyond both visibility deadlines.
+Then remaining ToA hazard/lifecycle/Wardens routing and ToB/CoX. Native geometry/payload metadata
+is legitimate; the remaining deadline scans still need explicit migration. Retained OSRS evidence
+gaps and deployment holds are unchanged; this is not a whole-raid or whole-project completion claim.
+
+### Earlier checkpoint: ToA native special choices, deadline owners and Wardens P2 verified
 
 Ba-Ba intro, special completion, rolling preparation/return and forced Rockfall now use native
 owned world queues at their retained LateCycle positions. Forced Rockfall keeps priority over a
@@ -49,8 +115,32 @@ Next approved mappings use existing APIs and the verified source as preservation
   jug/wave/split work and survive preparation-to-wave transition. Preserve enrage cancellation,
   split-owner survival and pause/death/reset semantics. Existing Doom phase/owned-queue precedents
   provide these routes; no new engine API is needed.
-Then Akkha remaining special/style/final scheduling, other ToA lifecycle/Wardens routes and ToB/CoX.
+The next Akkha mapping is also established from current source: one native combat phase with a
+prepared style input preserves the accepted 7/Stay Vigilant6 budget through forced style changes
+and shadow entry/lure exit. Native phaseAbilityCount resets exactly once at every startSpecial,
+including nonblocking Trailing Orbs; existing onAttack metadata/secondary RNG stays before native
+commit. Native session-owned completion/style/final-swap queues replace general clock maps.
+Completion remains after memory visibility and charge work, before payload/status processing;
+the100-tick style timer is eligible only during normal/shadow activity and rearms from actual style
+changes. Final swap+1 remains after pending hits and before final-orb work, retaining missing-actor
+retry, exact pending-swap/body identities and HP/role transfer. Reset/session cleanup closes work;
+the owner must survive the final body-role exchange. Test exact budgets across style/shadow,
+blocking/nonblocking style advance, overdue pause, swap order/duplicates and fresh admission.
+Existing native prepared-choice selection and owned world queue provide the whole mapped route.
+Then remaining Akkha final-intro/hazard scheduling, other ToA lifecycle/Wardens routes and ToB/CoX.
 These are architecture migrations, not new timing evidence; retained OSRS/replay gaps still apply.
+
+Focused verification exposed a concrete native resume gap: InstanceManager.join unconditionally
+resets actors and start/contribution state for an empty dynamic instance (InstanceManager.kt395).
+The native ToA session deliberately survives last-member logout, so rejoin deletes its retained
+boss and closes the native phase owner. The bounded api.instances public-entry/settings scan found
+no existing resume option. The user's standing approval for genuinely missing shared routes covers
+an appended join(resetIfEmpty:Boolean=true) option: default and initial/deferred admission retain
+their behavior; ToA's existing rejoin passes false. All live/access/capacity/Grace checks, native
+finalizeEntry, recovery placement and reclaim handling remain. Verify both default reset and resume
+with actual native actors/start/contributions, replacement identity, rejected joins and session
+cleanup, then rerun shared instances/boss dependents. No private admission bypass or persistence
+policy change. This is source only, subject to the existing deployment holds.
 
 ### Earlier checkpoint: ToA Akkha, Kephri and Zebak ordinary routes verified
 

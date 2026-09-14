@@ -361,12 +361,18 @@ constructor(
         return !session.arenaExpired
     }
 
+    /**
+     * Validates entry into a live instance. Retained encounters may set [resetIfEmpty] to false
+     * when reconnecting so their actors, contribution records and start clock survive vacancy.
+     * Initial admission keeps the default, including deferred instance spawns.
+     */
     public fun join(
         player: Player,
         session: InstanceSession,
         currentTick: Int,
         code: String? = null,
         forceAccess: Boolean = false,
+        resetIfEmpty: Boolean = true,
     ): Result {
         if (!isLive(session)) return Result.Failed("That instance no longer exists.")
         if (session.isFixed) reconcileFixedOccupants(session, currentTick)
@@ -392,7 +398,9 @@ constructor(
         }
         abandonOwnedSessionIfEmpty(player, session, currentTick)
         if (!isLive(session)) return Result.Failed("That instance no longer exists.")
-        if (!session.isFixed && session.occupants.isEmpty() && !session.arenaExpired) {
+        if (
+            resetIfEmpty && !session.isFixed && session.occupants.isEmpty() && !session.arenaExpired
+        ) {
             resetNpcs(session, region, currentTick)
             startSession(session, currentTick)
         }

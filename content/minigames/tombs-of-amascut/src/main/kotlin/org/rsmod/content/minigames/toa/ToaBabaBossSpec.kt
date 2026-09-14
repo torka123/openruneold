@@ -6,7 +6,7 @@ import org.rsmod.api.bosses.spec.*
 import org.rsmod.api.combat.commons.CombatAttack
 import org.rsmod.api.combat.commons.types.MeleeAttackType
 
-/** Native ordinary Ba-Ba combat; room geometry and the existing special gate remain raid-owned. */
+/** Native Ba-Ba phases and accepted ordinary launches; spatial payloads remain raid-owned. */
 internal fun toaBabaBossSpec(): BossSpec =
     BossSpec(
         npcTypes =
@@ -27,7 +27,17 @@ internal fun toaBabaBossSpec(): BossSpec =
                     )
             ),
         phases =
-            mapOf("combat" to PhaseSpec("combat", selector = Selector.Rotation(listOf("melee")))),
+            BABA_NATIVE_PHASES.entries.associate { (state, phase) ->
+                phase to
+                    PhaseSpec(
+                        phase,
+                        selector =
+                            Selector.Rotation(
+                                if (state == BabaState.NORMAL_COMBAT) listOf("melee")
+                                else emptyList()
+                            ),
+                    )
+            },
         triggers = emptyList(),
     )
 

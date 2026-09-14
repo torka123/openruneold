@@ -438,6 +438,23 @@ constructor(
         // Bind before the first player hit can lazily create the encounter with global RNG.
         val encounter = bossDeps.encounterRegistry.of(body, ZebakSelectionRandom(raid.zebak))
         val generation = raid.zebak.generation
+        val phases =
+            encounter.state("toa.zebak-phases") {
+                ZebakCombatPhases(
+                    encounter,
+                    bossDeps.worldQueues,
+                    worldQueueProcess,
+                    clock,
+                    valid = {
+                        raid.zebak.generation == generation &&
+                            raid.zebak.body === body &&
+                            instances.instanceForNpc(body) == raid.instance.id &&
+                            bossDeps.encounterRegistry.isCurrent(body, encounter)
+                    },
+                )
+            }
+        raid.zebak.bindPhases(phases)
+        encounter.onCleanup(phases::close)
         val attackQueues =
             encounter.state("toa.zebak-split-queues") {
                 ZebakAttackQueues(
@@ -549,15 +566,14 @@ constructor(
             tail?.anim(ZebakAssets.TAIL_DEAD)
             state.deadBody = body
             state.deadTail = tail
-            state.state = ZebakState.COMPLETE
+            state.completeDeath()
             return state.completedBy?.resolve(players)
         }
         val body = state.body ?: return null
         if (!body.isSlotAssigned || body.hitpoints <= 0) return null
         faceZebakEast(raid, body)
         if (state.state == ZebakState.EMERGING) {
-            if (clock.cycle < state.emergesAt) return null
-            state.state = ZebakState.NORMAL
+            if (state.phases?.advance() != ZebakPhase.NORMAL) return null
             animateZebak(raid, body, ZebakAssets.BODY_IDLE)
             faceZebakEast(raid, body)
             trace(raid, "emerge_complete", "first_auto=${body.actionDelay}")
@@ -566,7 +582,7 @@ constructor(
         if (body.defenceLvl < ZebakTuning.MINIMUM_DRAINED_DEFENCE) {
             body.defenceLvl = ZebakTuning.MINIMUM_DRAINED_DEFENCE
         }
-        processZebakPreparationHazards(raid, body)
+        state.phases?.processHazards()
         processZebakJugs(raid)
         processZebakWaterSplashes(raid)
         processZebakRockDeaths(raid)
@@ -586,18 +602,7 @@ constructor(
         ) {
             prepareZebakSpecial(raid, body)
         }
-        if (
-            state.state in setOf(ZebakState.PREP_ROAR, ZebakState.PREP_WAVES) &&
-                clock.cycle >= state.specialStartsAt
-        ) {
-            when (state.state) {
-                ZebakState.PREP_ROAR -> startGreatRoar(raid, body)
-                ZebakState.PREP_WAVES -> startWaves(raid, body)
-                else -> Unit
-            }
-        }
-        if (state.state == ZebakState.ROAR) processGreatRoar(raid, body)
-        if (state.state == ZebakState.WAVES) advanceZebakWaves(raid)
+        advanceZebakSpecial(raid, body)
         if (
             state.state in
                 setOf(
@@ -1030,47 +1035,31 @@ constructor(
         val special = state.nextSpecial()
         state.pendingThresholds.removeFirst()
         cleanupZebakSpecialActors(raid)
-        state.state =
-            if (special == ZebakSpecial.WAVES) ZebakState.PREP_WAVES else ZebakState.PREP_ROAR
-        state.specialStartsAt =
-            clock.cycle +
-                if (special == ZebakSpecial.WAVES) ZebakTuning.WAVE_CALL_DELAY
-                else ZebakTuning.ROAR_START_DELAY
+        val phases = checkNotNull(state.phases)
+        phases.enter(
+            if (special == ZebakSpecial.WAVES) ZebakPhase.PREP_WAVES else ZebakPhase.PREP_ROAR
+        )
         replaceOrdinaryDeadline(
             raid,
             clock.cycle +
                 if (special == ZebakSpecial.WAVES) ZebakTuning.WAVE_FIRST_AUTO_DELAY
                 else ZebakTuning.ROAR_FIRST_AUTO_DELAY,
         )
-        state.hazardLaunchAt = ZebakTimeline.hazardLaunchAt(clock.cycle)
-        state.hazardLandAt = ZebakTimeline.hazardLandAt(clock.cycle)
         state.preparationIncludesRocks = special == ZebakSpecial.ROAR
         state.pendingJugCount = ZebakTuning.jugCount(state.nextInt(ZebakTuning.JUG_COUNT_ROLLS))
         state.pendingRockCount =
             if (state.preparationIncludesRocks) ZebakTuning.rockCount(activePlayers(raid).size)
             else 0
+        phases.prepareHazards(
+            launch = { launchZebakPreparationHazards(raid) },
+            land = { spawnZebakPreparationHazards(raid, body, state.preparationIncludesRocks) },
+        )
         trace(
             raid,
             "special_prepare",
-            "special=$special launch=${state.hazardLaunchAt} land=${state.hazardLandAt} " +
-                "starts=${state.specialStartsAt}",
+            "special=$special launch=${ZebakTimeline.hazardLaunchAt(clock.cycle)} " +
+                "land=${ZebakTimeline.hazardLandAt(clock.cycle)} starts=${phases.deadline}",
         )
-    }
-
-    private fun processZebakPreparationHazards(raid: ToaRaidSession, body: Npc) {
-        val state = raid.zebak
-        if (
-            !state.hazardsLaunched &&
-                state.hazardLaunchAt >= 0 &&
-                clock.cycle >= state.hazardLaunchAt
-        ) {
-            state.hazardsLaunched = true
-            launchZebakPreparationHazards(raid)
-        }
-        if (!state.hazardsLanded && state.hazardLandAt >= 0 && clock.cycle >= state.hazardLandAt) {
-            state.hazardsLanded = true
-            spawnZebakPreparationHazards(raid, body, state.preparationIncludesRocks)
-        }
     }
 
     private fun launchZebakPreparationHazards(raid: ToaRaidSession) {
@@ -1179,25 +1168,8 @@ constructor(
         }
     }
 
-    private fun startGreatRoar(raid: ToaRaidSession, body: Npc) {
+    private fun emitGreatRoarPulse(raid: ToaRaidSession, body: Npc, pulse: Int) {
         val state = raid.zebak
-        state.state = ZebakState.ROAR
-        state.roarPulses = 0
-        // Packet trace: the first damaging pulse lands four ticks after the roar animation.
-        state.lastRoarAt =
-            clock.cycle + ZebakTuning.ROAR_FIRST_PULSE_DELAY - ZebakTuning.ROAR_PULSE_INTERVAL
-        animateZebak(raid, body, ZebakAssets.BODY_ROAR)
-    }
-
-    private fun processGreatRoar(raid: ToaRaidSession, body: Npc) {
-        val state = raid.zebak
-        if (state.roarPulses >= ZebakTuning.ROAR_PULSES) {
-            if (clock.cycle >= state.specialEndsAt) finishZebakSpecial(raid)
-            return
-        }
-        if (clock.cycle < state.lastRoarAt + ZebakTuning.ROAR_PULSE_INTERVAL) return
-        state.lastRoarAt = clock.cycle
-        state.roarPulses++
         val liveRocks = state.rocks.values.filter { it.npc.isSlotAssigned && it.hitpoints > 0 }
         emitGreatRoarFloor(raid, body, liveRocks)
         activePlayers(raid).forEach { player ->
@@ -1235,7 +1207,7 @@ constructor(
                 )
             }
         }
-        if (state.roarPulses == 1) {
+        if (pulse == 1) {
             state.jugs.values.toList().forEach { jug ->
                 if (jug.npc.isSlotAssigned) breakJug(raid, jug.npc, jug.tile)
             }
@@ -1249,42 +1221,46 @@ constructor(
                 runtime.destroysAt = clock.cycle + ZebakTuning.ROAR_ROCK_CLEANUP_DELAY
             }
         }
-        if (state.roarPulses >= ZebakTuning.ROAR_PULSES) {
-            state.specialEndsAt = clock.cycle + ZebakTuning.ROAR_ROCK_CLEANUP_DELAY
-        }
     }
 
     private fun startWaves(raid: ToaRaidSession, body: Npc) {
         val state = raid.zebak
-        state.state = ZebakState.WAVES
         state.waveOccurrence++
         if (state.waveOccurrence > 1) {
             state.waveDirection =
                 if (state.waveDirection == ZebakWaveDirection.NORTH) ZebakWaveDirection.SOUTH
                 else ZebakWaveDirection.NORTH
         }
-        state.waveStage = 0
-        state.nextWaveAt =
-            clock.cycle + ZebakTuning.WAVE_FIRST_ROW_DELAY - ZebakTuning.WAVE_CALL_DELAY
         state.waveHitAt.clear()
         animateZebak(raid, body, ZebakAssets.BODY_SPECIAL)
         message(raid, "Three tidal waves surge across the arena.")
     }
 
-    private fun advanceZebakWaves(raid: ToaRaidSession) {
+    private fun advanceZebakSpecial(raid: ToaRaidSession, body: Npc) {
         val state = raid.zebak
-        if (state.waveStage < ZebakTuning.WAVE_COUNT && clock.cycle >= state.nextWaveAt) {
-            val gapWidth = ZebakTuning.waveGap(raid.pathLevels[ToaPath.CRONDIS] ?: 0)
-            state.waveStage++
-            state.nextWaveAt = clock.cycle + ZebakTuning.WAVE_ROW_INTERVAL
-            state.waveHitAt.clear()
-            spawnWaveRow(raid, state.waveDirection, gapWidth)
-            return
-        }
-        if (state.waveStage == ZebakTuning.WAVE_COUNT && state.waves.isEmpty()) {
-            state.waveStage = 0
-            state.nextWaveAt = -1
-            finishZebakSpecial(raid)
+        val phases = state.phases ?: return
+        // Native owned dispatch snapshots one declared edge. Its new edge waits for another
+        // eligible LateCycle, preserving the old pulse/row delay after an overdue transition.
+        when (val advanced = phases.advance()) {
+            ZebakPhase.ROAR_START -> animateZebak(raid, body, ZebakAssets.BODY_ROAR)
+            ZebakPhase.ROAR_PULSE_1,
+            ZebakPhase.ROAR_PULSE_2,
+            ZebakPhase.ROAR_PULSE_3 -> emitGreatRoarPulse(raid, body, advanced.roarPulse)
+            ZebakPhase.WAVE_START -> startWaves(raid, body)
+            ZebakPhase.WAVE_ROW_1,
+            ZebakPhase.WAVE_ROW_2,
+            ZebakPhase.WAVE_ROW_3 -> {
+                val gapWidth = ZebakTuning.waveGap(raid.pathLevels[ToaPath.CRONDIS] ?: 0)
+                state.waveHitAt.clear()
+                spawnWaveRow(raid, state.waveDirection, gapWidth)
+            }
+            ZebakPhase.NORMAL -> finishZebakSpecial(raid)
+            null -> {
+                if (phases.phase == ZebakPhase.WAVE_ROW_3 && state.waves.isEmpty()) {
+                    finishZebakSpecial(raid)
+                }
+            }
+            else -> Unit
         }
     }
 
@@ -1579,7 +1555,7 @@ constructor(
         if (state.state in setOf(ZebakState.PREP_ROAR, ZebakState.PREP_WAVES)) {
             cleanupZebakSpecialActors(raid)
         }
-        state.state = ZebakState.ENRAGED
+        checkNotNull(state.phases).enter(ZebakPhase.ENRAGED)
         body.transmog(
             requireNotNull(ServerCacheManager.getNpc(ZebakAssets.ENRAGED_BODY)),
             Int.MAX_VALUE,
@@ -2063,7 +2039,7 @@ constructor(
     private fun beginZebakDeath(raid: ToaRaidSession, hero: Player) {
         val state = raid.zebak
         if (state.state in setOf(ZebakState.DYING, ZebakState.COMPLETE)) return
-        state.state = ZebakState.DYING
+        state.beginDeath()
         state.completedBy = hero.uid
         state.completesAt = ZebakTimeline.deathTransformAt(clock.cycle)
         raid.encounter.pendingHits.removeAll { it.generation == state.generation }
@@ -2078,7 +2054,9 @@ constructor(
 
     private fun finishZebakSpecial(raid: ToaRaidSession) {
         cleanupZebakSpecialActors(raid, keepJugs = true)
-        raid.zebak.state = if (raid.zebak.enrageTriggered) ZebakState.ENRAGED else ZebakState.NORMAL
+        val phases = checkNotNull(raid.zebak.phases)
+        val next = if (raid.zebak.enrageTriggered) ZebakPhase.ENRAGED else ZebakPhase.NORMAL
+        if (phases.phase != next) phases.enter(next)
         replaceOrdinaryDeadline(raid, clock.cycle + ZebakTuning.SPECIAL_RECOVERY_TICKS)
     }
 
@@ -2094,10 +2072,7 @@ constructor(
             .forEach { if (it.isSlotAssigned) removeNpc(raid, it) }
         raid.zebak.rocks.clear()
         zebakRockLocs.remove(raid.instance.id)?.values?.forEach { locs.del(it, Int.MAX_VALUE) }
-        raid.zebak.hazardLaunchAt = -1
-        raid.zebak.hazardLandAt = -1
-        raid.zebak.hazardsLaunched = false
-        raid.zebak.hazardsLanded = false
+        raid.zebak.phases?.cancelHazards()
         raid.zebak.preparationIncludesRocks = false
         raid.zebak.pendingJugCount = 0
         raid.zebak.pendingRockCount = 0
@@ -2111,6 +2086,7 @@ constructor(
     }
 
     private fun cleanupZebakCombatActors(raid: ToaRaidSession) {
+        raid.zebak.phases?.close()
         cleanupZebakSpecialActors(raid)
         raid.zebak.bloodClouds.values
             .map { it.npc }

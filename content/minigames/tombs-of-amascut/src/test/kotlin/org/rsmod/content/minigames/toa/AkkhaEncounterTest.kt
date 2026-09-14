@@ -147,37 +147,14 @@ class AkkhaEncounterTest {
     }
 
     @Test
-    fun `base special starts after seven emitted autos`() {
-        val state =
-            encounter().apply {
-                startIntro()
-                startNormalCombat()
-            }
-        repeat(6) { assertFalse(state.recordEmittedAuto(it, stay = false)) }
-        assertTrue(state.recordEmittedAuto(6, stay = false))
-    }
-
-    @Test
-    fun `stay vigilant starts special after six emitted autos without changing attack speed`() {
-        val state =
-            encounter().apply {
-                startIntro()
-                startNormalCombat()
-            }
-        repeat(5) { assertFalse(state.recordEmittedAuto(it, stay = true)) }
-        assertTrue(state.recordEmittedAuto(5, stay = true))
-        assertEquals(6, AkkhaTuning.BASE_ATTACK_INTERVAL.value)
-    }
-
-    @Test
     fun `special advances style exactly once`() {
         val state =
             encounter().apply {
                 startIntro()
                 startNormalCombat()
-                recordEmittedAuto(1, stay = false)
+                recordEmittedAuto(1)
             }
-        state.startSpecial(listOf(AkkhaSpecial.MEMORY_BLAST), 10)
+        state.startSpecial(listOf(AkkhaSpecial.MEMORY_BLAST))
         state.finishSpecial()
         assertEquals(AkkhaStyle.RANGED, state.style)
         state.finishSpecial()
@@ -191,7 +168,7 @@ class AkkhaEncounterTest {
                 startIntro()
                 startNormalCombat()
             }
-        state.startSpecial(listOf(AkkhaSpecial.MEMORY_BLAST), 10)
+        state.startSpecial(listOf(AkkhaSpecial.MEMORY_BLAST))
         state.finishSpecial()
         assertEquals(AkkhaStyle.MELEE, state.style)
     }
@@ -202,10 +179,10 @@ class AkkhaEncounterTest {
             encounter().apply {
                 startIntro()
                 startNormalCombat()
-                recordEmittedAuto(1, stay = false)
+                recordEmittedAuto(1)
             }
         state.startTrailingOrbs(2)
-        state.startSpecial(listOf(AkkhaSpecial.TRAILING_ORBS), 20)
+        state.startSpecial(listOf(AkkhaSpecial.TRAILING_ORBS))
         assertEquals(AkkhaState.NORMAL_COMBAT, state.state)
         assertTrue(state.activeSpecials.isEmpty())
         assertEquals(AkkhaStyle.RANGED, state.style)
@@ -310,7 +287,7 @@ class AkkhaEncounterTest {
             }
         assertEquals(80, state.beginNextShadow(10))
 
-        state.startSpecial(listOf(AkkhaSpecial.DETONATE), endsAt = 30)
+        state.startSpecial(listOf(AkkhaSpecial.DETONATE))
         assertEquals(AkkhaState.SPECIAL_ATTACK, state.state)
         assertTrue(state.completeShadow(AkkhaQuadrant.BURN, 20))
         assertEquals(AkkhaQuadrant.BURN, state.pendingLureQuadrant)
@@ -321,30 +298,26 @@ class AkkhaEncounterTest {
     }
 
     @Test
-    fun `shadow disruption preserves the regular attack cadence`() {
+    fun `shadow disruption preserves the emitted auto timestamp`() {
         val state =
             encounter().apply {
                 startIntro()
                 startNormalCombat()
             }
 
-        repeat(AkkhaTuning.BASE_AUTOS_PER_SPECIAL.value) { tick ->
-            state.recordEmittedAuto(tick, stay = false)
-        }
+        repeat(AkkhaTuning.BASE_AUTOS_PER_SPECIAL.value) { tick -> state.recordEmittedAuto(tick) }
         assertEquals(listOf(80), state.queueCrossedThresholds(400, 320, 400))
         assertEquals(80, state.beginNextShadow(10))
         assertTrue(state.completeShadow(AkkhaQuadrant.BURN, 20))
         assertTrue(state.confirmLure(AkkhaQuadrant.BURN))
 
-        assertEquals(AkkhaTuning.BASE_AUTOS_PER_SPECIAL.value, state.attackCounter)
-        assertTrue(state.recordEmittedAuto(21, stay = false))
+        state.recordEmittedAuto(21)
         assertEquals(listOf(60), state.queueCrossedThresholds(320, 240, 400))
         assertEquals(60, state.beginNextShadow(40))
         assertTrue(state.completeShadow(AkkhaQuadrant.FREEZE, 50))
         assertTrue(state.confirmLure(AkkhaQuadrant.FREEZE))
 
         assertEquals(AkkhaState.NORMAL_COMBAT, state.state)
-        assertEquals(AkkhaTuning.BASE_AUTOS_PER_SPECIAL.value + 1, state.attackCounter)
         assertEquals(21, state.lastEmittedAutoAt)
     }
 
@@ -468,7 +441,7 @@ class AkkhaEncounterTest {
                 startNormalCombat()
             }
         state.memorySteps += MemoryBlastController.schedule(10, 0, 4, 3)
-        state.startSpecial(listOf(AkkhaSpecial.MEMORY_BLAST), 30)
+        state.startSpecial(listOf(AkkhaSpecial.MEMORY_BLAST))
         state.finishSpecial()
         assertTrue(state.memorySteps.isEmpty())
         state.memorySteps += MemoryBlastController.schedule(40, 1, 4, 3)

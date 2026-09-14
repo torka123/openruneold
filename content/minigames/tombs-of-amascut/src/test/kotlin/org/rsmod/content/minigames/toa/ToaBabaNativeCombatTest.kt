@@ -127,7 +127,7 @@ class ToaBabaNativeCombatTest {
                 }
                 f.attack(npc, player, op = true)
                 assertEquals(2, f.hits(player).size)
-                assertEquals(2, encounter.phaseAbilityCount)
+                assertEquals(0, encounter.phaseAbilityCount, "Fresh special phase has no autos")
                 assertEquals(traces, encounter.attackTracesAfter(0))
                 assertEquals(ordinaryBounds, f.accessRandom.bounds)
                 assertTrue(f.selectionRandom.bounds.isEmpty())
@@ -147,12 +147,23 @@ class ToaBabaNativeCombatTest {
             val npc = f.baba(raid)
             partner.statMap.setCurrentLevel("stat.hitpoints", 50)
             assertEquals(leader.uid, raid.baba.target)
+            raid.baba.trace.enabled = true
             f.attack(npc, leader)
             assertEquals(partner.uid, raid.baba.target)
             assertEquals(1, raid.baba.attackCounter)
             assertEquals(listOf(leader), f.accuracyTargets)
             assertEquals(1, f.hits(leader).size)
             assertTrue(f.hits(partner).isEmpty())
+            val firstAutoEvents = raid.baba.trace.snapshot()
+            assertEquals(
+                1,
+                firstAutoEvents.last { it.event == "target_change" }.fields["autoAttackCount"],
+                "Nested retarget trace sees the prospective native commit",
+            )
+            assertEquals(
+                1,
+                firstAutoEvents.last { it.event == "auto_emitted" }.fields["autoAttackCount"],
+            )
             val firstBounds = f.accessRandom.bounds.toList()
             f.attack(npc, partner)
             assertEquals(1, raid.baba.attackCounter)

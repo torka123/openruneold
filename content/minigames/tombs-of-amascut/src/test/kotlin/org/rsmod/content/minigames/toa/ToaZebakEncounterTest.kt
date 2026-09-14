@@ -143,7 +143,6 @@ class ToaZebakEncounterTest {
     @Test
     fun `one large hit queues every crossed threshold once and preserves alternation`() {
         val state = ZebakEncounter(UUID(1, 1), 42)
-        state.state = ZebakState.NORMAL
         state.firstSpecial = ZebakSpecial.WAVES
         assertEquals(listOf(85, 70, 55, 40), state.queueCrossedThresholds(540, 0, 540))
         val order = mutableListOf<ZebakSpecial>()
@@ -161,7 +160,6 @@ class ToaZebakEncounterTest {
     @Test
     fun `enrage discards queued threshold specials and reset invalidates old generation`() {
         val state = ZebakEncounter(UUID(1, 2), 99)
-        state.state = ZebakState.NORMAL
         state.queueCrossedThresholds(540, 200, 540)
         assertTrue(state.pendingThresholds.isNotEmpty())
         state.discardThresholdsForEnrage()

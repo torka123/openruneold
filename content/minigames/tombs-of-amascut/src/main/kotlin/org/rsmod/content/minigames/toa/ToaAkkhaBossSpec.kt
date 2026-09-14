@@ -7,7 +7,7 @@ import org.rsmod.api.combat.commons.CombatAttack
 import org.rsmod.api.combat.commons.types.MeleeAttackType
 import org.rsmod.api.combat.commons.types.RangedAttackType
 
-/** Retained AkkhaTuning cadence and native NvP styles; raid specials still own form changes. */
+/** One accepted-attack budget across style changes; raid specials still own form changes. */
 internal fun toaAkkhaBossSpec(): BossSpec {
     val abilities =
         ToaCombatStyle.entries.associate { style ->
@@ -42,15 +42,27 @@ internal fun toaAkkhaBossSpec(): BossSpec {
         stats = BossStats(attackRate = AkkhaTuning.BASE_ATTACK_INTERVAL.value),
         abilities = abilities,
         phases =
-            ToaCombatStyle.entries.associate { style ->
-                val phase = toaAkkhaCombatPhase(style)
-                phase to
+            mapOf(
+                TOA_AKKHA_COMBAT_PHASE to
                     PhaseSpec(
-                        phase,
+                        TOA_AKKHA_COMBAT_PHASE,
                         attackRate = AkkhaTuning.BASE_ATTACK_INTERVAL.value,
-                        selector = Selector.Rotation(listOf(phase)),
+                        selector =
+                            Selector.SeededWeighted(
+                                stream = TOA_AKKHA_STYLE_STREAM,
+                                salt = 0x414B4B4841L,
+                                entries =
+                                    ToaCombatStyle.entries.map {
+                                        WeightedRef(toaAkkhaCombatPhase(it))
+                                    },
+                                preparedChoice =
+                                    PreparedChoice(
+                                        TOA_AKKHA_STYLE_INPUT,
+                                        drawBeforeOverride = false,
+                                    ),
+                            ),
                     )
-            },
+            ),
         triggers = emptyList(),
     )
 }
@@ -58,3 +70,6 @@ internal fun toaAkkhaBossSpec(): BossSpec {
 internal fun toaAkkhaCombatPhase(style: ToaCombatStyle): String = style.name.lowercase()
 
 internal const val TOA_AKKHA_ATTACK_PARAMETERS = "toa.akkha-ordinary"
+internal const val TOA_AKKHA_COMBAT_PHASE = "combat"
+internal const val TOA_AKKHA_STYLE_STREAM = "akkha.ordinary-style"
+internal const val TOA_AKKHA_STYLE_INPUT = "akkha.style"

@@ -469,30 +469,32 @@ internal data class ZebakPlayerRuntime(
 )
 
 internal class ZebakEncounter(val encounterId: UUID, private var rngState: Long) {
-    var state = ZebakState.IDLE
+    // Before native binding and after NPC deletion, the raid session retains lifecycle outcomes.
+    private var lifecycleState = ZebakState.IDLE
+    var phases: ZebakCombatPhases? = null
+        private set
+
+    val state: ZebakState
+        get() = phases?.phase?.state ?: lifecycleState
+
+    val emergesAt: Int
+        get() = phases?.takeIf { it.phase == ZebakPhase.EMERGING }?.deadline ?: -1
+
+    val waveStage: Int
+        get() = phases?.phase?.waveStage ?: 0
+
     var generation = 0
     var body: Npc? = null
     var tail: Npc? = null
     var firstSpecial = if (nextInt(2) == 0) ZebakSpecial.WAVES else ZebakSpecial.ROAR
-    var emergesAt = -1
-    var specialStartsAt = -1
-    var specialEndsAt = -1
-    var hazardLaunchAt = -1
-    var hazardLandAt = -1
-    var hazardsLaunched = false
-    var hazardsLanded = false
     var preparationIncludesRocks = false
     var pendingJugCount = 0
     var pendingRockCount = 0
-    var roarPulses = 0
-    var lastRoarAt = -1
     var nextThresholdIndex = 0
     var enrageTriggered = false
     var completedBy: PlayerUid? = null
     var completesAt = -1
     var primaryTarget: PlayerUid? = null
-    var waveStage = 0
-    var nextWaveAt = -1
     var waveOccurrence = 0
     var waveDirection = ZebakWaveDirection.NORTH
     var nextBloodAt = -1
@@ -524,32 +526,39 @@ internal class ZebakEncounter(val encounterId: UUID, private var rngState: Long)
         attackQueues = queues
     }
 
+    fun bindPhases(phases: ZebakCombatPhases) {
+        this.phases?.close()
+        this.phases = phases
+        phases.enter(ZebakPhase.EMERGING)
+    }
+
+    fun beginDeath() {
+        phases?.close()
+        phases = null
+        lifecycleState = ZebakState.DYING
+    }
+
+    fun completeDeath() {
+        lifecycleState = ZebakState.COMPLETE
+    }
+
     fun reset() {
+        phases?.close()
+        phases = null
         attackQueues?.close()
         attackQueues = null
         generation++
-        state = ZebakState.RESET
+        lifecycleState = ZebakState.RESET
         body = null
         tail = null
-        emergesAt = -1
-        specialStartsAt = -1
-        specialEndsAt = -1
-        hazardLaunchAt = -1
-        hazardLandAt = -1
-        hazardsLaunched = false
-        hazardsLanded = false
         preparationIncludesRocks = false
         pendingJugCount = 0
         pendingRockCount = 0
-        roarPulses = 0
-        lastRoarAt = -1
         nextThresholdIndex = 0
         enrageTriggered = false
         completedBy = null
         completesAt = -1
         primaryTarget = null
-        waveStage = 0
-        nextWaveAt = -1
         waveOccurrence = 0
         waveDirection = ZebakWaveDirection.NORTH
         nextBloodAt = -1
@@ -596,9 +605,8 @@ internal class ZebakEncounter(val encounterId: UUID, private var rngState: Long)
         reset()
         this.body = body
         this.tail = tail
-        state = ZebakState.EMERGING
-        emergesAt = cycle + ZebakTuning.EMERGE_TICKS
-        nextBloodAt = emergesAt + ZebakTuning.BLOOD_INTERVAL
+        lifecycleState = ZebakState.EMERGING
+        nextBloodAt = cycle + ZebakTuning.EMERGE_TICKS + ZebakTuning.BLOOD_INTERVAL
     }
 
     fun queueCrossedThresholds(previousHp: Int, currentHp: Int, maximum: Int): List<Int> {

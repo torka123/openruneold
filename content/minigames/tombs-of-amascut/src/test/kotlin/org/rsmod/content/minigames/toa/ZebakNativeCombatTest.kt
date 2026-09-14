@@ -41,18 +41,18 @@ class ZebakNativeCombatTest {
                 f.dispatchLateCycle(first - 1)
                 f.advance(1)
                 f.attack(body, player, op = true)
-                assertEquals(0, encounter.phaseAbilityCount)
+                assertEquals(0, encounter.attackTracesAfter(0).size)
                 f.dispatchLateCycle()
-                assertEquals(1, encounter.phaseAbilityCount)
+                assertEquals(1, encounter.attackTracesAfter(0).size)
                 assertEquals(first, encounter.lastAbilityTick)
                 assertEquals(first + ZebakTuning.attackInterval(pathLevel, false), body.actionDelay)
                 assertFalse(body.isBusy, "Ordinary native access must finish synchronously")
                 assertNull(body.mode, "Explicit native dispatch must not enable mobile AI")
                 f.attack(body, player)
                 f.dispatchLateCycle()
-                assertEquals(1, encounter.phaseAbilityCount)
+                assertEquals(1, encounter.attackTracesAfter(0).size)
                 f.dispatchLateCycle(body.actionDelay)
-                assertEquals(2, encounter.phaseAbilityCount)
+                assertEquals(2, encounter.attackTracesAfter(0).size)
                 assertTrue(f.selectionRandom.bounds.isEmpty(), "Use the existing Zebak RNG")
                 assertTrue(
                     f.accessRandom.bounds.isEmpty(),
@@ -152,7 +152,7 @@ class ZebakNativeCombatTest {
             // Keep both connected: native pause rules still let this empty-target opportunity run.
             f.dispatchLateCycle(first)
             assertEquals(first + 1, body.actionDelay)
-            assertEquals(0, encounter.phaseAbilityCount)
+            assertEquals(0, encounter.attackTracesAfter(0).size)
             raid.participant(leader.uid)!!.spectating = false
             raid.participant(member.uid)!!.spectating = false
             leader.coords = tile(f, raid, 38, 32)
@@ -225,7 +225,7 @@ class ZebakNativeCombatTest {
                     body.actionDelay - encounter.expectedAttackRate(),
                     encounter.lastAbilityTick,
                 )
-                assertEquals(1, encounter.phaseAbilityCount)
+                assertEquals(1, encounter.attackTracesAfter(0).size)
                 assertEquals(oracle.nextInt(997), raid.zebak.nextInt(997))
                 assertFalse(body.isBusy)
             }
@@ -250,20 +250,19 @@ class ZebakNativeCombatTest {
                 val enrageDue = f.clock.cycle + ZebakTuning.attackInterval(pathLevel, true)
                 assertEquals(ZebakState.ENRAGED, raid.zebak.state)
                 assertEquals(enrageDue, body.actionDelay)
-                assertEquals(0, encounter.phaseAbilityCount)
+                assertEquals(0, encounter.attackTracesAfter(0).size)
                 f.dispatchLateCycle(enrageDue)
-                assertEquals(1, encounter.phaseAbilityCount)
+                assertEquals(1, encounter.attackTracesAfter(0).size)
                 assertFalse(body.isBusy)
-                raid.zebak.state = ZebakState.WAVES
-                raid.zebak.waveStage = ZebakTuning.WAVE_COUNT
+                assertNotNull(raid.zebak.phases).enter(ZebakPhase.WAVE_ROW_3)
                 body.actionDelay = f.clock.cycle + 100
                 f.dispatchLateCycle()
                 assertEquals(ZebakState.ENRAGED, raid.zebak.state)
                 assertEquals(f.clock.cycle + 3, body.actionDelay)
                 f.dispatchLateCycle(body.actionDelay - 1)
-                assertEquals(1, encounter.phaseAbilityCount)
+                assertEquals(1, encounter.attackTracesAfter(0).size)
                 f.dispatchLateCycle(body.actionDelay)
-                assertEquals(2, encounter.phaseAbilityCount)
+                assertEquals(2, encounter.attackTracesAfter(0).size)
                 assertFalse(body.isBusy)
             }
             framework().clearInlineMocks()
@@ -332,17 +331,18 @@ class ZebakNativeCombatTest {
                 enterArena(f, player)
                 val body = assertNotNull(raid.zebak.body)
                 val encounter = f.bossEncounters.of(body)
-                raid.zebak.state = state
-                raid.zebak.lastRoarAt = Int.MAX_VALUE - 100
-                raid.zebak.specialEndsAt = Int.MAX_VALUE
+                if (state == ZebakState.ROAR) {
+                    f.advance(body.actionDelay - f.clock.cycle)
+                    assertNotNull(raid.zebak.phases).enter(ZebakPhase.ROAR_START)
+                }
                 f.dispatchLateCycle(body.actionDelay)
-                assertEquals(0, encounter.phaseAbilityCount)
+                assertEquals(0, encounter.attackTracesAfter(0).size)
                 assertTrue(projectiles(f).isEmpty())
                 assertFalse(body.isBusy)
                 if (state == ZebakState.EMERGING) {
                     assertEquals(ZebakState.NORMAL, raid.zebak.state)
                     f.dispatchLateCycle(f.clock.cycle + 1)
-                    assertEquals(1, encounter.phaseAbilityCount)
+                    assertEquals(1, encounter.attackTracesAfter(0).size)
                 }
             }
             framework().clearInlineMocks()
@@ -359,16 +359,22 @@ class ZebakNativeCombatTest {
                 val body = assertNotNull(raid.zebak.body)
                 val encounter = f.bossEncounters.of(body)
                 f.dispatchLateCycle(raid.zebak.emergesAt)
-                raid.zebak.state = state
-                raid.zebak.specialStartsAt = Int.MAX_VALUE
-                raid.zebak.nextWaveAt = Int.MAX_VALUE
+                f.advance(body.actionDelay - f.clock.cycle)
+                assertNotNull(raid.zebak.phases)
+                    .enter(
+                        when (state) {
+                            ZebakState.PREP_ROAR -> ZebakPhase.PREP_ROAR
+                            ZebakState.PREP_WAVES -> ZebakPhase.PREP_WAVES
+                            else -> ZebakPhase.WAVE_START
+                        }
+                    )
                 f.dispatchLateCycle(body.actionDelay)
                 assertEquals(state, raid.zebak.state)
-                assertEquals(1, encounter.phaseAbilityCount)
+                assertEquals(1, encounter.attackTracesAfter(0).size)
                 assertEquals(1, raid.zebak.splitProjectiles.size)
                 assertFalse(body.isBusy, state.name)
                 f.attack(body, player)
-                assertEquals(1, encounter.phaseAbilityCount)
+                assertEquals(1, encounter.attackTracesAfter(0).size)
             }
             framework().clearInlineMocks()
         }
@@ -541,9 +547,9 @@ class ZebakNativeCombatTest {
                 assertFalse(visual.npc.isSlotAssigned, retirement)
                 assertFalse(raid.npcRoles.containsKey(visual.npc), retirement)
                 assertEquals(
-                    0,
+                    if (retirement == "reset") 1 else 0,
                     f.worldQueues.size,
-                    "Retirement releases native callback nodes: $retirement",
+                    "Only a reset's fresh emergence edge may remain: $retirement",
                 )
                 f.advance(20)
                 f.queueProcess.process()
@@ -630,7 +636,7 @@ class ZebakNativeCombatTest {
             assertTrue(raid.encounter.pendingHits.isEmpty())
             f.attack(body, player)
             f.dispatchLateCycle(launch + 3)
-            assertEquals(1, encounter.phaseAbilityCount)
+            assertEquals(1, encounter.attackTracesAfter(0).size)
             assertEquals(projectilesBefore, projectiles(f).size)
             assertFalse(body.isBusy)
             assertTrue(f.hits(player).isEmpty())

@@ -150,8 +150,6 @@ constructor(
     private val devSeedOverrides = ToaDevSeedOverrides()
     private val pendingResets = mutableMapOf<InstanceId, Int>()
     private val wardenFloorOriginalLocs = WardenFloorLocJournal<InstanceId, CoordGrid, LocInfo?>()
-    private val akkhaFinalSwapReadyAt = mutableMapOf<InstanceId, Int>()
-    private val akkhaLastStyleChangeAt = mutableMapOf<InstanceId, Int>()
     private val stepValidator = StepValidator(collision)
     private val apmeken = ToaApmekenLiveRuntime()
     private val apmekenPlayerSlots = mutableMapOf<InstanceId, LinkedHashMap<PlayerUid, Int>>()
@@ -871,7 +869,14 @@ constructor(
             player.mes("You were not a participant in that Tombs raid.")
             return false
         }
-        val result = instances.join(player, raid.instance, clock.cycle, forceAccess = true)
+        val result =
+            instances.join(
+                player,
+                raid.instance,
+                clock.cycle,
+                forceAccess = true,
+                resetIfEmpty = false,
+            )
         if (result !is InstanceManager.Result.Joined) return false
         val oldUid = raid.participants.rebind(player.accountHash, player.uid) ?: return false
         rebindRaidPlayer(raid, oldUid, player.uid)
@@ -1738,8 +1743,15 @@ constructor(
         val state = raid.baba
         state.previousTarget = state.target
         state.target = attacked.uid
-        val due = state.recordAuto()
-        val next = selectBabaTarget(raid, postBoulder = state.completedRollingPhases > 0)
+        // NvP invokes onAttack before the native accepted-launch commit.
+        val acceptedCount = state.attackCounter + 1
+        val due = acceptedCount >= BabaTuning.SPECIAL_AFTER_AUTOS.value
+        val next =
+            selectBabaTarget(
+                raid,
+                postBoulder = state.completedRollingPhases > 0,
+                autoAttackCount = acceptedCount,
+            )
         if (next != null && next.uid != attacked.uid) source.apPlayer2(next, interactions)
         traceBaba(
             raid,
@@ -1747,7 +1759,7 @@ constructor(
             "auto_emitted",
             "target" to attacked.uid,
             "nextTarget" to next?.uid,
-            "autoAttackCount" to state.attackCounter,
+            "autoAttackCount" to acceptedCount,
             "specialDue" to due,
         )
     }
@@ -1780,7 +1792,16 @@ constructor(
             duration = maxOf(duration, performAkkhaSpecial(raid, source, target, it))
         }
         val previousStyle = state.style
-        state.startSpecial(specials, clock.cycle + duration)
+        state.startSpecial(specials)
+        if (state.state == AkkhaState.SPECIAL_ATTACK) {
+            akkhaQueues(raid).armCompletion(clock.cycle + duration) {
+                if (boss(raid) === source && source.isSlotAssigned) {
+                    completeAkkhaSpecial(raid, source)
+                }
+            }
+        } else {
+            akkhaQueues(raid).clearCompletion()
+        }
         encounter.akkhaSpecialHistory().previous = specials.lastOrNull()
         if (state.state != AkkhaState.SPECIAL_ATTACK) {
             source.transmog(
@@ -1790,7 +1811,7 @@ constructor(
             source.apRangeOverride = akkhaAttackRange(state.style)
             state.target = null
             if (state.style != previousStyle) {
-                akkhaLastStyleChangeAt[raid.instance.id] = clock.cycle
+                armAkkhaStyleSwitch(raid)
                 playAkkhaStyleChangeSound(source)
             }
             rearmAkkhaAggression(raid, source, force = true)
@@ -1800,7 +1821,7 @@ constructor(
             source,
             "special_start",
             "special" to specials.joinToString("+"),
-            "endsAt" to state.specialEndsAt,
+            "endsAt" to akkhaQueues(raid).completionAt,
         )
         return duration
     }
@@ -1825,10 +1846,8 @@ constructor(
                 "target" to target.uid,
             )
         if (state.state in setOf(AkkhaState.NORMAL_COMBAT, AkkhaState.SHADOW_TRANSITION))
-            state.recordEmittedAuto(
-                clock.cycle,
-                ToaInvocation.STAY_VIGILANT in raid.startSnapshot.invocations,
-            )
+            state.recordEmittedAuto(clock.cycle)
+        val acceptedCount = state.attackCounter + 1
         val extras =
             when (style) {
                 ToaCombatStyle.MELEE ->
@@ -1893,7 +1912,7 @@ constructor(
             "auto_emitted",
             "target" to target.uid,
             "style" to style,
-            "autoAttackCount" to state.attackCounter,
+            "autoAttackCount" to acceptedCount,
             "projectileId" to state.style.projectile,
         )
     }
@@ -2532,7 +2551,7 @@ constructor(
             ToaNpcRole.BOSS -> {
                 if (raid.currentRoom == ToaRoom.AKKHA) raid.akkha.state = AkkhaState.DEFEATED
                 if (raid.currentRoom == ToaRoom.BABA) {
-                    raid.baba.state = BabaState.DEFEATED
+                    raid.baba.markDefeated()
                     cleanupBaba(raid, resetState = false)
                 }
                 completePathBoss(raid, hero)
@@ -5682,7 +5701,6 @@ constructor(
 
     private fun startBabaSpecial(raid: ToaRaidSession, source: Npc, special: BabaSpecial): Int {
         val state = raid.baba
-        state.attackCounter = 0
         source.abortRoute()
         source.mode = null
         val duration =
@@ -6779,7 +6797,7 @@ constructor(
             raid.nextMechanicAt = clock.cycle + 1
             return
         }
-        completeAkkhaFinalStandSwapIfDue(raid)
+        akkhaQueues(raid).processSwap()
         val real = boss(raid) ?: return
         moveFinalOrbs(raid, real)
         if (
@@ -8515,46 +8533,15 @@ constructor(
         val state = raid.akkha
         processAkkhaMemoryVisibility(raid, source)
         when (state.state) {
-            AkkhaState.INTRO ->
-                if (clock.cycle >= state.specialEndsAt) {
-                    source.transmog(
-                        requireNotNull(ServerCacheManager.getNpc(AkkhaAssets.MELEE)),
-                        Int.MAX_VALUE,
-                    )
-                    source.anim(AkkhaAssets.TELEPORT_APPEAR_SPEAR)
-                    state.startNormalCombat()
-                    source.apRangeOverride = akkhaAttackRange(state.style)
-                    rearmAkkhaAggression(raid, source, force = true)
-                    traceAkkha(raid, source, "intro_end", "combatStyle" to state.style)
-                }
+            // Admission starts intro and normal combat synchronously in initializeAkkha.
+            AkkhaState.INTRO -> Unit
             AkkhaState.SPECIAL_ATTACK -> {
                 if (AkkhaSpecial.MEMORY_BLAST in state.activeSpecials) {
                     state.pauseShadowCharge()
                 } else {
                     processAkkhaShadowCharge(raid, source)
                 }
-                if (clock.cycle >= state.specialEndsAt) {
-                    val wasMemory = AkkhaSpecial.MEMORY_BLAST in state.activeSpecials
-                    val previousStyle = state.style
-                    state.finishSpecial()
-                    state.target = null
-                    if (state.style != previousStyle) {
-                        akkhaLastStyleChangeAt[raid.instance.id] = clock.cycle
-                        playAkkhaStyleChangeSound(source)
-                    }
-                    if (state.state == AkkhaState.SHADOW_TRANSITION)
-                        startAkkhaShadowTransition(raid, source)
-                    else {
-                        source.transmog(
-                            requireNotNull(ServerCacheManager.getNpc(state.style.npcId)),
-                            Int.MAX_VALUE,
-                        )
-                        if (!wasMemory) source.anim(AkkhaAssets.TELEPORT_APPEAR_SPEAR)
-                        source.apRangeOverride = akkhaAttackRange(state.style)
-                        rearmAkkhaAggression(raid, source, force = true)
-                        traceAkkha(raid, source, "special_end", "combatStyle" to state.style)
-                    }
-                }
+                akkhaQueues(raid).processCompletion()
             }
             AkkhaState.SHADOW_TRANSITION -> {
                 state.pendingLureQuadrant?.let { quadrant ->
@@ -8566,13 +8553,13 @@ constructor(
                         traceAkkha(raid, source, "shadow_lure_complete", "quadrant" to quadrant)
                     }
                 }
-                processAkkhaForcedStyleSwitch(raid, source)
+                akkhaQueues(raid).processStyle()
                 maintainAkkhaAggression(raid, source)
                 processAkkhaShadowCharge(raid, source)
             }
             AkkhaState.FINAL_STAND_INTRO -> processAkkhaFinalStandIntro(raid, source)
             AkkhaState.NORMAL_COMBAT -> {
-                processAkkhaForcedStyleSwitch(raid, source)
+                akkhaQueues(raid).processStyle()
                 maintainAkkhaAggression(raid, source)
                 processAkkhaShadowCharge(raid, source)
             }
@@ -8584,14 +8571,65 @@ constructor(
         processAkkhaStatuses(raid, source)
     }
 
-    private fun processAkkhaForcedStyleSwitch(raid: ToaRaidSession, source: Npc) {
+    private fun akkhaQueues(raid: ToaRaidSession): AkkhaCombatQueues =
+        requireNotNull(raid.akkha.combatQueues)
+
+    private fun resetAkkhaQueues(raid: ToaRaidSession) {
         val state = raid.akkha
-        if (ToaInvocation.STAY_VIGILANT !in raid.startSnapshot.invocations) return
-        val lastStyleChange = akkhaLastStyleChangeAt.getOrPut(raid.instance.id) { clock.cycle }
-        if (clock.cycle - lastStyleChange < AKKHA_FORCED_STYLE_SWITCH_TICKS) return
+        state.combatQueues?.close()
+        val generation = state.token()
+        state.combatQueues =
+            AkkhaCombatQueues(raid.instance, bossDeps.worldQueues, queueProcess, clock) {
+                isCurrent(raid) && raid.currentRoom == ToaRoom.AKKHA && state.isCurrent(generation)
+            }
+    }
+
+    private fun completeAkkhaSpecial(raid: ToaRaidSession, source: Npc) {
+        val state = raid.akkha
+        if (state.state != AkkhaState.SPECIAL_ATTACK) return
+        val wasMemory = AkkhaSpecial.MEMORY_BLAST in state.activeSpecials
+        val previousStyle = state.style
+        state.finishSpecial()
+        state.target = null
+        if (state.style != previousStyle) {
+            armAkkhaStyleSwitch(raid)
+            playAkkhaStyleChangeSound(source)
+        }
+        if (state.state == AkkhaState.SHADOW_TRANSITION) startAkkhaShadowTransition(raid, source)
+        else {
+            source.transmog(
+                requireNotNull(ServerCacheManager.getNpc(state.style.npcId)),
+                Int.MAX_VALUE,
+            )
+            if (!wasMemory) source.anim(AkkhaAssets.TELEPORT_APPEAR_SPEAR)
+            source.apRangeOverride = akkhaAttackRange(state.style)
+            rearmAkkhaAggression(raid, source, force = true)
+            traceAkkha(raid, source, "special_end", "combatStyle" to state.style)
+        }
+    }
+
+    private fun armAkkhaStyleSwitch(raid: ToaRaidSession) {
+        val queues = akkhaQueues(raid)
+        if (ToaInvocation.STAY_VIGILANT !in raid.startSnapshot.invocations) {
+            queues.clearStyle()
+            return
+        }
+        queues.armStyle(
+            clock.cycle + AKKHA_FORCED_STYLE_SWITCH_TICKS,
+            ready = {
+                raid.akkha.state in setOf(AkkhaState.NORMAL_COMBAT, AkkhaState.SHADOW_TRANSITION) &&
+                    boss(raid)?.isSlotAssigned == true
+            },
+        ) {
+            boss(raid)?.let { performAkkhaForcedStyleSwitch(raid, it) }
+        }
+    }
+
+    private fun performAkkhaForcedStyleSwitch(raid: ToaRaidSession, source: Npc) {
+        val state = raid.akkha
         val previous = state.style
         state.style = state.style.next()
-        akkhaLastStyleChangeAt[raid.instance.id] = clock.cycle
+        armAkkhaStyleSwitch(raid)
         state.target = null
         source.transmog(requireNotNull(ServerCacheManager.getNpc(state.style.npcId)), Int.MAX_VALUE)
         source.apRangeOverride =
@@ -9270,7 +9308,8 @@ constructor(
         )
         source.anim(AkkhaAssets.FINAL_STAND_SPEAR)
         state.scheduleFinalStandIntro(clock.cycle)
-        akkhaFinalSwapReadyAt.remove(raid.instance.id)
+        // Final stand starts a new hit generation; retire its old callbacks and bind that lifetime.
+        resetAkkhaQueues(raid)
         raid.nextMechanicAt = clock.cycle + 1
         traceAkkha(raid, source, "final_stand_start", "bossMaxHp" to source.baseHitpointsLvl)
         message(raid.party, "<col=ff289d>Akkha makes his final stand!</col>")
@@ -9349,7 +9388,16 @@ constructor(
         incoming.ignoreCombatInteractions = true
         outgoing.anim(AkkhaAssets.TELEPORT_DISAPPEAR_SWORD)
         incoming.anim(AkkhaAssets.TELEPORT_DISAPPEAR_SWORD)
-        akkhaFinalSwapReadyAt[raid.instance.id] = clock.cycle + 1
+        akkhaQueues(raid).armSwap(
+            clock.cycle + 1,
+            ready = {
+                raid.akkha.pendingFinalStandSwap !== swap ||
+                    (akkhaActor(raid, swap.outgoingBossActorKey) === outgoing &&
+                        akkhaActor(raid, swap.incomingBossActorKey) === incoming)
+            },
+        ) {
+            if (raid.akkha.pendingFinalStandSwap === swap) completeAkkhaFinalStandSwap(raid)
+        }
         traceAkkha(
             raid,
             outgoing,
@@ -9359,15 +9407,8 @@ constructor(
         )
     }
 
-    private fun completeAkkhaFinalStandSwapIfDue(raid: ToaRaidSession) {
-        val readyAt = akkhaFinalSwapReadyAt[raid.instance.id] ?: return
-        if (clock.cycle < readyAt) return
-        val swap =
-            raid.akkha.pendingFinalStandSwap
-                ?: run {
-                    akkhaFinalSwapReadyAt.remove(raid.instance.id)
-                    return
-                }
+    private fun completeAkkhaFinalStandSwap(raid: ToaRaidSession) {
+        val swap = raid.akkha.pendingFinalStandSwap ?: return
         val outgoing = akkhaActor(raid, swap.outgoingBossActorKey) ?: return
         val incoming = akkhaActor(raid, swap.incomingBossActorKey) ?: return
         val sharedHitpoints = outgoing.hitpoints
@@ -9394,7 +9435,6 @@ constructor(
         incoming.maxOpRangeOverride = AkkhaTuning.ROOM_CHASE_RANGE.value
         incoming.anim(AkkhaAssets.TELEPORT_APPEAR_SWORD)
         raid.akkha.completeFinalStandSwap()
-        akkhaFinalSwapReadyAt.remove(raid.instance.id)
         traceAkkha(
             raid,
             incoming,
@@ -9434,7 +9474,7 @@ constructor(
             .mapNotNull { akkhaActor(raid, it) }
             .forEach { removeNpc(raid, it) }
         state.finalOrbs.clear()
-        akkhaFinalSwapReadyAt.remove(raid.instance.id)
+        akkhaQueues(raid).close()
         activePlayers(raid).forEach { it.clearTint() }
         traceAkkha(raid, source, "final_death_start")
     }
@@ -9814,9 +9854,11 @@ constructor(
         cleanupBaba(raid, resetState = false)
         val state = raid.baba
         state.reset()
+        val encounter =
+            bossDeps.encounterRegistry.of(source, ToaSpecialSelectionRandom(state::nextInt))
+        state.bindNative(encounter, clock)
         state.startIntro()
         val introEndsAt = clock.cycle + BabaTuning.INTRO_TICKS.value
-        bossDeps.encounterRegistry.of(source, ToaSpecialSelectionRandom(state::nextInt))
         armBabaCompletion(raid, source, introEndsAt)
         val hp =
             BabaScaling.hitpoints(
@@ -9850,7 +9892,11 @@ constructor(
     private fun initializeAkkha(raid: ToaRaidSession, source: Npc, initialTarget: Player?) {
         val state = raid.akkha
         state.reset()
-        bossDeps.encounterRegistry.of(source, ToaSpecialSelectionRandom(state::nextInt))
+        val encounter =
+            bossDeps.encounterRegistry.of(source, ToaSpecialSelectionRandom(state::nextInt))
+        val phases = encounter.state(AKKHA_COMBAT_PHASES) { AkkhaCombatPhases(encounter, clock) }
+        state.bindNative(phases)
+        resetAkkhaQueues(raid)
         state.startIntro()
         state.startNormalCombat()
         val hp =
@@ -9869,7 +9915,7 @@ constructor(
         source.apRangeOverride = akkhaAttackRange(state.style)
         source.maxOpRangeOverride = AkkhaTuning.ROOM_CHASE_RANGE.value
         val target = initialTarget ?: activePlayers(raid).firstOrNull()
-        akkhaLastStyleChangeAt[raid.instance.id] = clock.cycle
+        armAkkhaStyleSwitch(raid)
         state.target = target?.uid
         target?.let { rearmAkkhaAggression(raid, source, force = true) }
         traceAkkha(
@@ -10514,12 +10560,16 @@ constructor(
         }
     }
 
-    private fun selectBabaTarget(raid: ToaRaidSession, postBoulder: Boolean): Player? {
+    private fun selectBabaTarget(
+        raid: ToaRaidSession,
+        postBoulder: Boolean,
+        autoAttackCount: Int = raid.baba.attackCounter,
+    ): Player? {
         val active = activePlayers(raid)
         if (active.isEmpty()) return null
         val state = raid.baba
         val first = state.target?.resolve(players)?.takeIf { it in active }
-        if (state.attackCounter == 0 && !postBoulder && first != null) return first
+        if (autoAttackCount == 0 && !postBoulder && first != null) return first
         val ordered = active.sortedBy(Player::hitpoints)
         val chosen =
             if (postBoulder && ordered.size > 1 && ordered.first().uid == state.previousTarget)
@@ -10536,6 +10586,7 @@ constructor(
                 "previousTarget" to previous,
                 "target" to chosen.uid,
                 "postBoulder" to postBoulder,
+                "autoAttackCount" to autoAttackCount,
             )
         }
         return chosen
@@ -10604,9 +10655,8 @@ constructor(
 
     private fun cleanupAkkha(raid: ToaRaidSession) {
         forEachOnline(raid) { player -> cleanupAkkhaPlayer(raid, player) }
-        akkhaFinalSwapReadyAt.remove(raid.instance.id)
-        akkhaLastStyleChangeAt.remove(raid.instance.id)
-        clearAkkhaMemorySymbols(raid)
+        raid.akkha.combatQueues?.close()
+        if (!raid.instance.isEnded) clearAkkhaMemorySymbols(raid)
         raid.encounter.pendingHits.clear()
         raid.akkha.reset()
     }
@@ -10835,6 +10885,7 @@ constructor(
         het.cleanup(raid)
         crondisZebak.cleanup(raid)
         cleanupKephri(raid)
+        if (raid.currentRoom == ToaRoom.AKKHA) cleanupAkkha(raid)
         if (raid.currentRoom == ToaRoom.BABA) cleanupBaba(raid)
         clearRewardEntry(raid)
         closeBossBars(raid, raid.spawnedNpcs)

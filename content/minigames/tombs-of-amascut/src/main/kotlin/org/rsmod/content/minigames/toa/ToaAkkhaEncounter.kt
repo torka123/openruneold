@@ -536,9 +536,12 @@ internal class AkkhaEncounter(val encounterId: UUID, private val seed: Long) {
     var style = AkkhaStyle.MELEE
     var quadrant = AkkhaQuadrant.BURN
     var target: PlayerUid? = null
-    var attackCounter = 0
+    private var nativeCombat: AkkhaCombatPhases? = null
+    val attackCounter: Int
+        get() = nativeCombat?.actionCount ?: 0
+
+    var combatQueues: AkkhaCombatQueues? = null
     var lastEmittedAutoAt = -1
-    var specialEndsAt = -1
     private var autoSinceLastSpecial = false
     private var advanceStyleWhenSpecialFinishes = false
     val activeSpecials = linkedSetOf<AkkhaSpecial>()
@@ -603,9 +606,10 @@ internal class AkkhaEncounter(val encounterId: UUID, private val seed: Long) {
         style = AkkhaStyle.MELEE
         quadrant = AkkhaQuadrant.BURN
         target = null
-        attackCounter = 0
+        combatQueues?.close()
+        combatQueues = null
+        nativeCombat = null
         lastEmittedAutoAt = -1
-        specialEndsAt = -1
         autoSinceLastSpecial = false
         advanceStyleWhenSpecialFinishes = false
         activeSpecials.clear()
@@ -692,37 +696,37 @@ internal class AkkhaEncounter(val encounterId: UUID, private val seed: Long) {
         state = AkkhaState.NORMAL_COMBAT
     }
 
-    fun recordEmittedAuto(tick: Int, stay: Boolean): Boolean {
-        if (state !in setOf(AkkhaState.NORMAL_COMBAT, AkkhaState.SHADOW_TRANSITION)) return false
-        attackCounter++
-        lastEmittedAutoAt = tick
-        autoSinceLastSpecial = true
-        return attackCounter >= AkkhaInvocationRules.attacksBeforeSpecial(stay)
+    fun bindNative(phases: AkkhaCombatPhases) {
+        check(nativeCombat == null || nativeCombat === phases)
+        nativeCombat = phases
     }
 
-    fun startSpecial(specials: Collection<AkkhaSpecial>, endsAt: Int) {
+    fun recordEmittedAuto(tick: Int) {
+        if (state !in setOf(AkkhaState.NORMAL_COMBAT, AkkhaState.SHADOW_TRANSITION)) return
+        lastEmittedAutoAt = tick
+        autoSinceLastSpecial = true
+    }
+
+    fun startSpecial(specials: Collection<AkkhaSpecial>) {
         check(state in setOf(AkkhaState.NORMAL_COMBAT, AkkhaState.SHADOW_TRANSITION))
         require(specials.isNotEmpty())
         val blocking = specials.filterNot { it == AkkhaSpecial.TRAILING_ORBS }
         activeSpecials.clear()
         activeSpecials.addAll(blocking)
-        attackCounter = 0
         advanceStyleWhenSpecialFinishes = autoSinceLastSpecial
         autoSinceLastSpecial = false
+        nativeCombat?.resetForSpecial()
         if (blocking.isEmpty()) {
             // Trailing orbs persist as a hazard overlay while Akkha resumes standard attacks.
-            specialEndsAt = -1
             advanceStyleAfterSpecialIfDue()
             return
         }
         state = AkkhaState.SPECIAL_ATTACK
-        specialEndsAt = endsAt
     }
 
     fun finishSpecial() {
         if (state != AkkhaState.SPECIAL_ATTACK) return
         activeSpecials.clear()
-        specialEndsAt = -1
         clearMemoryLifecycle()
         advanceStyleAfterSpecialIfDue()
         state =

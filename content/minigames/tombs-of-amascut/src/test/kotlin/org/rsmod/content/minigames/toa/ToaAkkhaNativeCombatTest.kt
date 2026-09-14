@@ -43,7 +43,7 @@ class ToaAkkhaNativeCombatTest {
                 assertEquals(akkhaImpactDelay(ToaCombatStyle.valueOf(style.name)), hit.first)
                 assertEquals(style.hitType, hit.second.type)
                 assertEquals(maximum, hit.second.damage)
-                assertEquals(style.name.lowercase(), encounter.currentPhaseName)
+                assertEquals(TOA_AKKHA_COMBAT_PHASE, encounter.currentPhaseName)
                 assertEquals(player.coords, npc.pendingFaceSquare)
                 assertEquals(1, raid.akkha.attackCounter)
                 assertEquals(ready, raid.akkha.lastEmittedAutoAt)
@@ -144,11 +144,11 @@ class ToaAkkhaNativeCombatTest {
             f.advance(1)
             f.attack(npc, player)
             assertEquals(1, raid.akkha.attackCounter)
-            assertEquals("ranged", encounter.currentPhaseName)
+            assertEquals(TOA_AKKHA_COMBAT_PHASE, encounter.currentPhaseName)
             assertEquals(
                 1,
                 encounter.phaseAbilityCount,
-                "Native phase count restarts on form change",
+                "Native accepted count restarts at the special",
             )
             assertEquals(HitType.Ranged, f.hits(player).last().second.type)
             assertEquals(f.clock.cycle + 6, npc.actionDelay)

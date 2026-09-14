@@ -4,7 +4,20 @@ This is a resumable handoff, not a project-completion or full OSRS-parity claim.
 mechanic mappings, uncertainties, commands and results remain in [DSL_MIGRATION.md](DSL_MIGRATION.md).
 Update this checkpoint after each completed boss and immediately before any authorized deployment.
 
-September14 current checkpoint: ToA Ba-Ba native completion/forced queues, Ba-Ba/Akkha native shared
+September14 current checkpoint: Ba-Ba native phases/two-auto budget, Akkha persistent native budget
+and completion/style/swap owners, and Zebak native special graph/preparation owners are verified.
+Fixed native empty-raid reconnect deleting retained actors via shared join(resetIfEmpty=false),
+with default behavior preserved; wired existing Akkha terminal cleanup.166 ToA/23 instance focused,
+full ToA488/instances57, boss API72 and27 boss-module checks pass.1,963 integration cases;2,124 with
+retained engine/game-process results. Current checks include existing ToB52/CoX32, not migrated raid
+coverage. Scoped checks, architecture/self-tests and app assemble pass (215s). Archive/backup:
+logs/toa-native-phase-budgets-source-20260914.zip / backup/toa-native-phase-budgets-20260914.
+Next: mapped Ba-Ba rocks/rubble/shockwave owners and Akkha final-intro/memory-visibility owners,
+then remaining ToA/Wardens and ToB/CoX. Top of DSL_MIGRATION.md has exact source manifest, evidence
+limits, failed-check corrections and acceptance. Source only; runtime c4fc9390f/JVM23812 and all
+save/restart/deployment holds remain. Continue approved work; this checkpoint is not completion.
+
+Earlier September14 checkpoint: ToA Ba-Ba native completion/forced queues, Ba-Ba/Akkha native shared
 RNG choices, Zebak split/visual owners and Wardens P2 native live route are verified.54 focused and
 470 full ToA cases pass; scoped checks, architecture/self-tests and app assemble pass (63s).
 2,019 cases with retained results. Fixed only ended-session Wardens cosmetic coordinate access;
