@@ -12,7 +12,6 @@ import org.rsmod.api.script.onCommand
 import org.rsmod.api.script.onOpHeld1
 import org.rsmod.api.script.onOpHeldU
 import org.rsmod.api.script.onOpLoc1
-import org.rsmod.api.script.onOpLoc2
 import org.rsmod.api.script.onOpLoc3
 import org.rsmod.api.script.onOpLoc4
 import org.rsmod.api.script.onOpNpc1
@@ -25,18 +24,10 @@ internal class Dt2World
 @Inject
 constructor(
     private val encounters: Dt2EncounterManager,
-    private val leviathanDeathStorage: LeviathanDeathStorage,
     private val leviathanRecords: LeviathanRecordService,
 ) : PluginScript() {
     override fun ScriptContext.startup() {
         encounters.validateAssets()
-        for (boss in Dt2Boss.entries) {
-            registerEntryCommand(boss.command, boss)
-            registerEntryCommand(boss.alias, boss)
-        }
-        registerEntryCommand("dt2lev", Dt2Boss.LEVIATHAN)
-        registerEntryCommand("dt2vi", Dt2Boss.VARDORVIS)
-        registerEntryCommand("dt2wi", Dt2Boss.WHISPERER)
         onCommand("dt2debug") {
             requiredRights = Rights.ADMINISTRATOR
             desc = "Show the current private DT2 encounter state"
@@ -62,40 +53,10 @@ constructor(
             cheat { encounters.solve(player) }
         }
 
-        onCommand("leavevardorvis") {
-            desc = "Leave your current private Vardorvis encounter"
-            invalidArgs = "Use as ::leavevardorvis"
-            cheat {
-                if (args.isEmpty() && !encounters.leave(player)) {
-                    player.mes("You are not inside a private Vardorvis encounter.")
-                }
-            }
-        }
-
         for (component in 6..13) {
             onProtectedEvent<IfOverlayButton>((VARDORVIS_QTE_INTERFACE shl 16) or component) {
                 if (!encounters.destroyVardorvisSpore(player, component)) {
                     player.mes("That tendril is not active.")
-                }
-            }
-        }
-
-        onCommand("leaveleviathan") {
-            desc = "Leave your current private Leviathan encounter"
-            invalidArgs = "Use as ::leaveleviathan"
-            cheat {
-                if (args.isEmpty() && !encounters.leave(player)) {
-                    player.mes("You are not inside a private Leviathan encounter.")
-                }
-            }
-        }
-
-        onCommand("leavewhisperer") {
-            desc = "Leave your current private Whisperer encounter"
-            invalidArgs = "Use as ::leavewhisperer"
-            cheat {
-                if (args.isEmpty() && !encounters.leave(player)) {
-                    player.mes("You are not inside a private Whisperer encounter.")
                 }
             }
         }
@@ -135,24 +96,6 @@ constructor(
             }
         }
 
-        Dt2Assets.exitLocs.forEach { id ->
-            ServerCacheManager.getObject(id)?.let { type ->
-                onOpLoc1(type) {
-                    arriveDelay()
-                    if (!encounters.escape(player, id)) {
-                        if (
-                            id in Dt2Assets.LEVIATHAN_EXIT_ROWBOATS &&
-                                leviathanDeathStorage.hasItems(player)
-                        ) {
-                            leviathanDeathStorage.reclaim(player)
-                        } else {
-                            player.mes("There is no encounter to leave here.")
-                        }
-                    }
-                }
-            }
-        }
-
         ServerCacheManager.getNpc(Dt2Assets.WHISPERER_SPAWN_ID)?.let { whisperer ->
             onOpNpc1(whisperer) { encounters.activateWhisperer(player, it.npc) }
         }
@@ -163,31 +106,7 @@ constructor(
             onOpNpcU(duke) { encounters.poisonDuke(player, it.npc, it.objType) }
             onOpNpc1(duke) { encounters.feedDuke(player, it.npc) }
         }
-        listOf(47565, 47566).forEach { id ->
-            ServerCacheManager.getObject(id)?.let { type ->
-                onOpLoc2(type) { arriveDelay(); encounters.escape(player, id) }
-            }
-        }
         registerDukePreparation()
-    }
-
-    private fun ScriptContext.registerEntryCommand(name: String, boss: Dt2Boss) {
-        onCommand(name) {
-            requiredRights = Rights.ADMINISTRATOR
-            desc = "Start a private ${boss.displayName} encounter"
-            invalidArgs = "Use as ::$name [awakened] [seed]"
-            cheat {
-                val awakened = args.firstOrNull()?.equals("awakened", ignoreCase = true) == true
-                val seedIndex = if (awakened) 1 else 0
-                val seed = args.getOrNull(seedIndex)?.toLongOrNull() ?: 0xD72L
-                encounters.enter(
-                    player,
-                    boss,
-                    if (awakened) Dt2Difficulty.AWAKENED else Dt2Difficulty.NORMAL,
-                    seed,
-                )
-            }
-        }
     }
 
     private fun ScriptContext.registerDukePreparation() {
@@ -200,8 +119,14 @@ constructor(
             }
         }
         ServerCacheManager.getObject(47536)?.let { vat ->
-            onOpLoc3(vat) { arriveDelay(); encounters.inspectDukeVat(player, it.loc.coords, false) }
-            onOpLoc4(vat) { arriveDelay(); encounters.inspectDukeVat(player, it.loc.coords, true) }
+            onOpLoc3(vat) {
+                arriveDelay()
+                encounters.inspectDukeVat(player, it.loc.coords, false)
+            }
+            onOpLoc4(vat) {
+                arriveDelay()
+                encounters.inspectDukeVat(player, it.loc.coords, true)
+            }
         }
         val pestle = ServerCacheManager.getItem(Dt2Assets.PESTLE_AND_MORTAR)
         val musca = ServerCacheManager.getItem(Dt2Assets.MUSCA_MUSHROOM)

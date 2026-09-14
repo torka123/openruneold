@@ -67,6 +67,7 @@ import org.rsmod.game.queue.EngineQueueCache
 import org.rsmod.game.queue.WorldQueueList
 import org.rsmod.game.region.Region
 import org.rsmod.game.region.zone.RegionZoneCopy
+import org.rsmod.game.seq.EntitySeq
 import org.rsmod.map.CoordGrid
 import org.rsmod.map.zone.ZoneKey
 import org.rsmod.plugin.scripts.PluginScript
@@ -183,7 +184,7 @@ class DoomNativeDslTest {
         for (delve in listOf(1, 4, 8)) {
             Fixture(delve, standardSeed(delve, DoomAttackStyle.RANGED)).use { forced ->
                 val before = forced.oracleState
-                forced.run.shockwavePreparing = true
+                forced.run.phases.shockwavePreparing = true
                 forced.run.forceRockBeforeShockwave = true
                 forced.run.preShockwaveAttacksRemaining = 2
                 forced.player.coords = forced.npc.coords.translateX(5)
@@ -496,7 +497,7 @@ class DoomNativeDslTest {
                     val forced = step % 9 == 5
                     val suppressed = step % 4 == 3 || forced
                     f.player.coords = f.npc.coords.translateX(if (adjacent) 5 else 8)
-                    f.run.shockwavePreparing = suppressed
+                    f.run.phases.shockwavePreparing = suppressed
                     f.run.preShockwaveAttacksRemaining = if (suppressed) 10 else 0
                     f.run.forceRockBeforeShockwave = forced
                     val expected =
@@ -748,8 +749,246 @@ class DoomNativeDslTest {
                     it.invoke(f.npcs, f.npc)
                 }
             assertTrue(f.npc.isVisible)
-            assertTrue(f.worldQueues.isEmpty)
+            assertEquals(1, f.worldQueues.size, "Activation arms the existing 100-tick readiness")
             assertEquals(listOf(0L, 0L, 0L), f.decisionCounts())
+        }
+    }
+
+    @Test
+    fun `declared shockwave graph preserves every delve packet pulse and final shield order`() {
+        for (delve in 1..9) {
+            Fixture(delve, 42).use { f ->
+                f.callRun("beginShockwavePreparation")
+                val shield = f.protectingEarthShield()
+                val start = DoomCombatTimeline.shockwaveStartCycle(100)
+                val slams = DoomCombatTimeline.shockwaveSlamCycles(start, delve)
+                val pulses = DoomCombatTimeline.shockwavePulseCycles(start, delve)
+                val recover = pulses.last()
+                val packets = mutableListOf<Pair<Int, Int>>()
+                val pulseRolls = mutableListOf<Int>()
+                f.random.beforeRoll = {
+                    pulseRolls += f.clock.cycle
+                    assertEquals(DoomState.SHOCKWAVE, f.run.state)
+                    assertTrue(shield.isSlotAssigned, "Final pulse must precede recovery cleanup")
+                    assertSame(shield, f.run.shield)
+                }
+                while (f.clock.cycle < recover) {
+                    f.npc.pendingSequence = EntitySeq.NULL
+                    f.worldPreInput()
+                    f.lateCycle()
+                    val sequence = f.npc.pendingSequence.id
+                    if (
+                        sequence in
+                            listOf(
+                                DoomAssets.ANIM_SHOCKWAVE_PREPARE,
+                                DoomAssets.ANIM_SHOCKWAVE_CHARGE,
+                                DoomAssets.ANIM_SHOCKWAVE_SLAM,
+                                DoomAssets.ANIM_SHOCKWAVE_RECOVER,
+                            )
+                    )
+                        packets += f.clock.cycle to sequence
+                    if (f.clock.cycle in slams) {
+                        assertEquals(f.clock.cycle + 2, f.run.activeShockwaves.single().pulseCycle)
+                        assertEquals(
+                            DoomGeometry.centre(f.npc.coords, f.npc.size),
+                            f.run.activeShockwaves.single().origin,
+                        )
+                    }
+                }
+                assertEquals(
+                    listOf(
+                        start to DoomAssets.ANIM_SHOCKWAVE_PREPARE,
+                        (start + 2) to DoomAssets.ANIM_SHOCKWAVE_CHARGE,
+                    ) +
+                        slams.map { it to DoomAssets.ANIM_SHOCKWAVE_SLAM } +
+                        (recover to DoomAssets.ANIM_SHOCKWAVE_RECOVER),
+                    packets,
+                )
+                val tiles = DoomShockwaveGeometry.candidateTiles(f.npc.coords).size
+                assertEquals(
+                    pulses.associateWith { tiles },
+                    pulseRolls.groupingBy { it }.eachCount(),
+                )
+                assertEquals(DoomState.ACTIVE, f.run.state)
+                assertTrue(f.run.activeShockwaves.isEmpty())
+                assertFalse(shield.isSlotAssigned)
+                assertNull(f.run.shield)
+                assertTrue(
+                    f.hits().isEmpty(),
+                    "The retained shield covers every pulse, including the final one",
+                )
+                assertEquals(DoomRules.POST_SHOCKWAVE_ATTACKS, f.run.postShockwaveAttacksRemaining)
+                assertTrue(f.run.forceRockAfterShockwave)
+                assertEquals(1, f.worldQueues.size, "Recovery arms one next readiness deadline")
+                assertEquals(listOf(0L, 0L, 0L), f.decisionCounts())
+            }
+        }
+    }
+
+    @Test
+    fun `hundred tick shockwave readiness survives charge and shield until active priority`() {
+        for (shielded in listOf(false, true)) {
+            Fixture(4, 42).use { f ->
+                f.callRun("activate")
+                assertEquals(1, f.worldQueues.size)
+                f.at(198)
+                if (shielded) f.beginShield() else f.callRun("beginMeleeCharge")
+                f.worldPreInput()
+                f.lateCycle()
+                assertFalse(f.run.phases.shockwaveDue)
+                f.worldPreInput()
+                assertTrue(f.run.phases.shockwaveDue)
+                f.lateCycle()
+                assertEquals(200, f.clock.cycle)
+                assertEquals(
+                    if (shielded) DoomState.SHIELDED else DoomState.MELEE_CHARGE,
+                    f.run.state,
+                )
+                assertFalse(f.run.shockwavePreparing)
+                if (shielded) f.finishShield()
+                else {
+                    f.queueBossHit(1, HitType.Melee)
+                    f.processBossHits()
+                }
+                assertEquals(DoomState.ACTIVE, f.run.state)
+                f.manager.tick(f.player)
+                assertTrue(f.run.shockwavePreparing)
+                assertFalse(f.run.phases.shockwaveDue)
+                assertEquals(1, f.worldQueues.size)
+                assertEquals(DoomRules.preShockwaveAttacks(4), f.run.preShockwaveAttacksRemaining)
+            }
+        }
+    }
+
+    @Test
+    fun `car emergence replaces the outstanding readiness deadline with six ticks`() {
+        Fixture(5, 42).use { f ->
+            f.callRun("activate")
+            f.at(110)
+            f.run.state = DoomState.BURROWING
+            f.run.burrowRemaining = 1
+            f.callRun("completeZoom")
+            assertEquals(116, f.run.nextAttackNotBeforeCycle)
+            assertEquals(1, f.worldQueues.size, "The original 100-tick queue was cancelled")
+            f.at(114)
+            f.worldPreInput()
+            f.lateCycle()
+            assertFalse(f.run.shockwavePreparing)
+            assertFalse(f.run.phases.shockwaveDue)
+            f.worldPreInput()
+            assertTrue(f.run.phases.shockwaveDue)
+            f.lateCycle()
+            assertEquals(116, f.clock.cycle)
+            assertTrue(f.run.shockwavePreparing)
+            f.run.phases.shockwavePreparing = false
+            assertTrue(f.worldQueues.isEmpty)
+            f.at(200)
+            f.worldPreInput()
+            assertFalse(
+                f.run.phases.shockwaveDue,
+                "The cancelled original deadline cannot reassert readiness",
+            )
+        }
+    }
+
+    @Test
+    fun `warning retains accepted non tongue budgets and ordinary opportunities until LateCycle deadline`() {
+        Fixture(4, standardSeed(4, DoomAttackStyle.RANGED)).use { f ->
+            f.callRun("beginShockwavePreparation")
+            f.run.forceRockBeforeShockwave = false
+            val initial = f.run.preShockwaveAttacksRemaining
+            f.player.hidden = true
+            f.attack()
+            assertEquals(initial, f.run.preShockwaveAttacksRemaining)
+            assertEquals(listOf(0L, 0L, 0L), f.decisionCounts())
+            f.player.hidden = false
+            f.attack()
+            assertEquals(initial - 1, f.run.preShockwaveAttacksRemaining)
+            assertEquals(listOf(1L, 1L, 0L), f.decisionCounts())
+            f.at(f.npc.actionDelay)
+            f.player.coords = f.npc.coords.translateX(5)
+            f.attack()
+            assertEquals(initial - 1, f.run.preShockwaveAttacksRemaining)
+            val counts = f.decisionCounts()
+            f.at(114)
+            f.worldPreInput()
+            assertTrue(f.run.shockwavePreparing, "Readiness does not change the pre-input phase")
+            val committed = f.registry.of(f.npc).recentAbilityCommitTicks().size
+            f.attack()
+            assertEquals(committed + 1, f.registry.of(f.npc).recentAbilityCommitTicks().size)
+            assertEquals(initial - 1, f.run.preShockwaveAttacksRemaining)
+            f.lateCycle()
+            assertEquals(115, f.clock.cycle)
+            assertEquals(DoomState.SHOCKWAVE, f.run.state)
+            f.attack()
+            assertEquals(committed + 1, f.registry.of(f.npc).recentAbilityCommitTicks().size)
+            assertEquals(counts, f.decisionCounts())
+        }
+    }
+
+    @Test
+    fun `already armed melee charge retains the original warning deadline after native interruption`() {
+        val seed =
+            (1L..10000L).first {
+                DoomAttackFlow.next(4, DoomAttackFlow.initial(4, it), adjacent = false)
+                    .startMeleeCharge
+            }
+        Fixture(4, seed).use { f ->
+            f.attack()
+            assertEquals(102, f.run.pendingMeleeChargeCycle)
+            val counts = f.decisionCounts()
+            f.run.fallingRocks.clear()
+            f.run.rockVolleysRemaining = 0
+            f.callRun("beginShockwavePreparation")
+            repeat(2) {
+                f.worldPreInput()
+                f.lateCycle()
+            }
+            assertEquals(DoomState.MELEE_CHARGE, f.run.state)
+            assertTrue(f.run.shockwavePreparing)
+            assertEquals(
+                doomShockwaveWarningPhase(4, DoomState.MELEE_CHARGE),
+                f.registry.of(f.npc).currentPhaseName,
+            )
+            f.queueBossHit(1, HitType.Melee)
+            f.processBossHits()
+            assertEquals(DoomState.ACTIVE, f.run.state)
+            assertTrue(f.run.shockwavePreparing)
+            f.at(114)
+            f.npc.pendingSequence = EntitySeq.NULL
+            f.worldPreInput()
+            f.lateCycle()
+            assertEquals(115, f.clock.cycle)
+            assertEquals(DoomState.SHOCKWAVE, f.run.state)
+            assertEquals(DoomAssets.ANIM_SHOCKWAVE_PREPARE, f.npc.pendingSequence.id)
+            assertEquals(counts, f.decisionCounts())
+        }
+    }
+
+    @Test
+    fun `native death and departure cancel both shockwave readiness and declared edge queues`() {
+        for (warning in listOf(false, true)) for (departure in listOf(false, true)) {
+            Fixture(4, 42).use { f ->
+                if (warning) f.callRun("beginShockwavePreparation") else f.callRun("activate")
+                assertEquals(1, f.worldQueues.size)
+                if (departure) f.events.publish(SessionStateEvent.Logout(f.player))
+                else {
+                    f.npc.hitpoints = 0
+                    assertNotNull(f.manager.beginNpcDeath(f.npc))
+                    assertTrue(
+                        f.worldQueues.isEmpty,
+                        "Death invalidates deadlines before native NPC deletion",
+                    )
+                    f.npcs.del(f.npc, Int.MAX_VALUE)
+                }
+                assertTrue(f.worldQueues.isEmpty)
+                f.at(300)
+                f.worldPreInput()
+                f.manager.tick(f.player)
+                assertFalse(f.npc.isSlotAssigned)
+                assertTrue(f.run.activeShockwaves.isEmpty())
+                assertFalse(f.run.phases.shockwaveDue)
+            }
         }
     }
 
@@ -904,7 +1143,6 @@ class DoomNativeDslTest {
                 startingPrayerMask = 0,
                 runId = "native-dsl-test",
                 chainStartCycle = 100,
-                nextShockwaveCycle = Int.MAX_VALUE,
             )
         private val playerContext =
             mock(ProtectedAccessContext::class.java) { call ->
@@ -1040,10 +1278,10 @@ class DoomNativeDslTest {
             manager.tick(player)
         }
 
-        fun queueBossHit(damage: Int): Hit {
+        fun queueBossHit(damage: Int, type: HitType = HitType.Ranged): Hit {
             var queued: Hit? = null
             npcAccess.launch(npc) {
-                queued = queueHit(player, delay = 1, type = HitType.Ranged, damage = damage)
+                queued = queueHit(player, delay = 1, type = type, damage = damage)
             }
             return assertNotNull(queued)
         }
@@ -1054,6 +1292,39 @@ class DoomNativeDslTest {
             run.shieldAttacksRemaining = 0
             manager.tick(player)
             assertEquals(DoomState.SHIELD_TRANSITION, run.state)
+        }
+
+        fun callRun(name: String) {
+            manager.javaClass.getDeclaredMethod(name, DoomEncounterManager.Run::class.java).let {
+                it.isAccessible = true
+                it.invoke(manager, run)
+            }
+        }
+
+        fun finishShield() {
+            manager.javaClass
+                .getDeclaredMethod(
+                    "finishShieldPhase",
+                    DoomEncounterManager.Run::class.java,
+                    Boolean::class.javaPrimitiveType,
+                )
+                .let {
+                    it.isAccessible = true
+                    it.invoke(manager, run, false)
+                }
+        }
+
+        fun protectingEarthShield(): Npc {
+            val shield =
+                Npc(
+                    assertNotNull(ServerCacheManager.getNpc(DoomAssets.EARTH_SHIELD)),
+                    player.coords,
+                )
+            npcs.add(shield, 1000)
+            instances.attachNpc(session.id, shield)
+            run.shield = shield
+            run.shieldDestination = null
+            return shield
         }
 
         fun arrivingLarva(activeCycle: Int): Npc {

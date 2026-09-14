@@ -13,9 +13,6 @@ import org.rsmod.api.death.PlayerDeathHook
 import org.rsmod.api.death.UntradeableHandling
 import org.rsmod.api.game.process.GameLifecycle
 import org.rsmod.api.game.process.player.PlayerNpcApLineOfSightHook
-import org.rsmod.api.instances.events.InstanceLeaveRequestEvent
-import org.rsmod.api.instances.events.InstancePlayerLeaveEvent
-import org.rsmod.api.instances.events.instanceEventId
 import org.rsmod.api.script.onEvent
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
@@ -92,29 +89,5 @@ internal class Dt2Lifecycle @Inject constructor(private val encounters: Dt2Encou
         // same game cycle through the standard player hit/death processor.
         onEvent<GameLifecycle.StartCycle> { encounters.tickAll(dukeOnly = true) }
         onEvent<GameLifecycle.LateCycle> { encounters.tickAll() }
-        onEvent<InstanceLeaveRequestEvent>(instanceEventId(Dt2Boss.DUKE.key)) {
-            result = encounters.leaveFromLogoutTab(player, instanceId)
-        }
-        onEvent<InstancePlayerLeaveEvent>(instanceEventId(Dt2Boss.DUKE.key)) {
-            encounters.membershipEnded(player, instanceId)
-        }
-        onEvent<InstanceLeaveRequestEvent>(instanceEventId(Dt2Boss.VARDORVIS.key)) {
-            result = encounters.leaveFromLogoutTab(player, instanceId)
-        }
-        onEvent<InstancePlayerLeaveEvent>(instanceEventId(Dt2Boss.VARDORVIS.key)) {
-            encounters.membershipEnded(player, instanceId)
-        }
-        onEvent<InstanceLeaveRequestEvent>(instanceEventId(Dt2Boss.LEVIATHAN.key)) {
-            result = encounters.leaveFromLogoutTab(player, instanceId)
-        }
-        onEvent<InstancePlayerLeaveEvent>(instanceEventId(Dt2Boss.LEVIATHAN.key)) {
-            encounters.membershipEnded(player, instanceId)
-        }
-        onEvent<InstanceLeaveRequestEvent>(instanceEventId(Dt2Boss.WHISPERER.key)) {
-            result = encounters.leaveFromLogoutTab(player, instanceId)
-        }
-        onEvent<InstancePlayerLeaveEvent>(instanceEventId(Dt2Boss.WHISPERER.key)) {
-            encounters.membershipEnded(player, instanceId)
-        }
     }
 }

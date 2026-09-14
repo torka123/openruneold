@@ -4,7 +4,16 @@ This is a resumable handoff, not a project-completion or full OSRS-parity claim.
 mechanic mappings, uncertainties, commands and results remain in [DSL_MIGRATION.md](DSL_MIGRATION.md).
 Update this checkpoint after each completed boss and immediately before any authorized deployment.
 
-September14 current checkpoint: the top of `DSL_MIGRATION.md` records DT2 native typed session
+September14 current checkpoint: DT2's four protected native instance owners and Doom's declared
+shockwave graph/readiness pass full DT2 170/Doom 140, scoped checks, application assemble and
+architecture/self-tests. The retained 1,023 shared/other-boss cases remain valid: **1,333 total**.
+Archive/backup: `logs/dt2-entry-doom-shockwave-source-20260914.zip` /
+`backup/dt2-entry-doom-shockwave-20260914`. Source only; runtime c4fc9390f/JVM23812 and all holds
+unchanged. Next: native Doom charge readiness and the mapped shared owned world-queue dispatch
+needed for Duke's exact StartCycle pool/callback/ordinary ordering, then car and ToA/ToB/CoX.
+The top of `DSL_MIGRATION.md` records the pre-edit API gap, approval, mapping and acceptance.
+
+Earlier September14 checkpoint: `DSL_MIGRATION.md` records DT2 native typed session
 ownership/cleanup and Doom native phase identity/two-tick shield readiness, following the verified
 seeded decisions, Leviathan cadence and Duke interval rotation. Full Doom134/DT2164 and still-valid
 boss API72/instances54/25 other boss modules897 pass scoped checks: **1,321 cases**. Application

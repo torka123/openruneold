@@ -139,7 +139,11 @@ constructor(
         bossEncounters.of(run.boss).apply {
             initializeDecisionSeed(run.generation)
             transitionTo(DOOM_INACTIVE_PHASE, clock.cycle)
-            run.phases = DoomCombatPhases(this, clock, worldQueues, run.delve)
+            val encounter = this
+            run.phases =
+                DoomCombatPhases(this, clock, worldQueues, run.delve) {
+                    run(run.player) === run && bossEncounters.isAttached(run.boss, encounter)
+                }
             lastAbilityTick = clock.cycle - expectedAttackRate()
         }
         // Session teardown removes the native indexes and typed state before invoking this closure.
@@ -443,7 +447,6 @@ constructor(
                 boss,
                 clock.cycle,
                 startCycle = bossRevealCycle,
-                nextShockwaveCycle = Int.MAX_VALUE,
                 bossRevealCycle = bossRevealCycle,
                 entryPromptFallbackCycle =
                     if (awaitPrompt) clock.cycle + ENTRY_PROMPT_TIMEOUT_TICKS else Int.MAX_VALUE,
@@ -517,9 +520,8 @@ constructor(
                     DoomPhasePriority.select(
                         shockwaveDue =
                             DoomRules.profile(run.delve).shockwaveEnabled &&
-                                !run.shockwaveStarted &&
                                 !run.shockwavePreparing &&
-                                clock.cycle >= run.nextShockwaveCycle,
+                                run.phases.shockwaveDue,
                         shockwavePreparing = run.shockwavePreparing,
                         shieldReady =
                             run.shieldAttacksRemaining == 0 &&
@@ -528,8 +530,7 @@ constructor(
                 when (transition) {
                     DoomPhaseTransition.SHOCKWAVE -> {
                         when {
-                            run.shockwavePreparing && clock.cycle >= run.shockwaveImpactCycle ->
-                                beginShockwave(run)
+                            run.shockwavePreparing -> processShockwave(run)
                             !run.shockwavePreparing -> beginShockwavePreparation(run)
                         }
                     }
@@ -1091,10 +1092,7 @@ constructor(
         SpecialAttackEnergyRegeneration.restart(run.player)
         run.startCycle = clock.cycle
         run.state = DoomState.ACTIVE
-        run.nextShockwaveCycle =
-            if (DoomRules.profile(run.delve).shockwaveEnabled)
-                DoomCombatTimeline.firstShockwaveCycle(clock.cycle)
-            else Int.MAX_VALUE
+        armNextShockwave(run)
         run.boss.movementLocked = true
         run.boss.apPlayer2(run.player, interactions)
     }
@@ -2569,9 +2567,7 @@ constructor(
     private fun beginShockwavePreparation(run: Run) {
         if (!DoomRules.profile(run.delve).shockwaveEnabled) return
         if (run.shockwavePreparing) return
-        run.shockwaveStarted = true
-        run.shockwavePreparing = true
-        run.shockwaveImpactCycle = DoomCombatTimeline.shockwaveStartCycle(clock.cycle)
+        run.phases.shockwavePreparing = true
         run.preShockwaveAttacksRemaining = DoomRules.preShockwaveAttacks(run.delve)
         run.forceRockBeforeShockwave = true
         val occupied = linkedSetOf<CoordGrid>()
@@ -2599,51 +2595,32 @@ constructor(
         )
     }
 
-    private fun beginShockwave(run: Run) {
-        run.shockwavePreparing = false
-        run.state = DoomState.SHOCKWAVE
-        run.stateCycle = clock.cycle
-        run.shockwaveRemaining = DoomRules.shockwaveSlams(run.delve)
-        run.shockwaveStage = 0
-        run.boss.movementLocked = true
-        processShockwave(run)
+    private fun armNextShockwave(run: Run) {
+        if (DoomRules.profile(run.delve).shockwaveEnabled) {
+            run.phases.armShockwaveAt(DoomCombatTimeline.firstShockwaveCycle(clock.cycle))
+        }
     }
 
     private fun processShockwave(run: Run) {
-        if (clock.cycle < run.stateCycle) return
-
-        when (run.shockwaveStage) {
-            0 -> {
+        // The native phase graph has already marked this edge ready before input. Packets and
+        // pulse snapshots remain after processActiveShockwaves at the original LateCycle point.
+        when (run.phases.advanceShockwavePacket() ?: return) {
+            DoomShockwavePacket.PREPARE -> {
                 run.boss.anim(anim(DoomAssets.ANIM_SHOCKWAVE_PREPARE))
                 clearVolatileEarth(run)
-                run.shockwaveStage = 1
-                run.stateCycle = clock.cycle + DoomRules.SHOCKWAVE_INTERVAL_TICKS
             }
-            1 -> {
+            DoomShockwavePacket.CHARGE -> {
                 run.boss.anim(anim(DoomAssets.ANIM_SHOCKWAVE_CHARGE))
-                run.shockwaveStage = 2
-                run.stateCycle = clock.cycle + DoomRules.SHOCKWAVE_INTERVAL_TICKS
             }
-            2 -> {
+            DoomShockwavePacket.SLAM -> {
                 run.boss.anim(anim(DoomAssets.ANIM_SHOCKWAVE_SLAM))
                 val pulseCycle = DoomCombatTimeline.shockwavePulseCycle(clock.cycle)
                 run.activeShockwaves +=
                     ActiveShockwave(DoomGeometry.centre(run.boss.coords, run.boss.size), pulseCycle)
-                run.shockwaveRemaining--
-                if (run.shockwaveRemaining > 0) {
-                    run.stateCycle = clock.cycle + DoomRules.SHOCKWAVE_INTERVAL_TICKS
-                } else {
-                    run.shockwaveStage = 3
-                    run.stateCycle = pulseCycle
-                }
             }
-            else -> {
+            DoomShockwavePacket.RECOVER -> {
                 run.boss.anim(anim(DoomAssets.ANIM_SHOCKWAVE_RECOVER))
-                run.shockwaveStarted = false
-                run.nextShockwaveCycle =
-                    if (DoomRules.profile(run.delve).shockwaveEnabled)
-                        DoomCombatTimeline.firstShockwaveCycle(clock.cycle)
-                    else Int.MAX_VALUE
+                armNextShockwave(run)
                 run.shield?.let { if (it.isSlotAssigned) npcs.del(it, Int.MAX_VALUE) }
                 run.shield = null
                 run.shieldDestination = null
@@ -2651,8 +2628,10 @@ constructor(
                 run.postShockwaveAttacksRemaining = DoomRules.POST_SHOCKWAVE_ATTACKS
                 run.forceRockAfterShockwave = true
                 restoreNormal(run)
+                return
             }
         }
+        run.phases.armShockwavePacket()
     }
 
     private fun renderShockwave(run: Run): Set<CoordGrid> {
@@ -3207,10 +3186,9 @@ constructor(
         run.boss.movementLocked = true
         run.burrowStage = CAR_STAGE_TRANSFORM_WAIT
         run.state = DoomState.ACTIVE
-        run.shockwaveStarted = false
-        run.shockwavePreparing = false
-        run.nextShockwaveCycle = DoomCombatTimeline.postCarShockwavePreparationCycle(clock.cycle)
-        run.nextAttackNotBeforeCycle = max(run.nextAttackNotBeforeCycle, run.nextShockwaveCycle)
+        val preparationCycle = DoomCombatTimeline.postCarShockwavePreparationCycle(clock.cycle)
+        run.phases.armShockwaveAt(preparationCycle)
+        run.nextAttackNotBeforeCycle = max(run.nextAttackNotBeforeCycle, preparationCycle)
         keepAggressive(run)
     }
 
@@ -3805,10 +3783,6 @@ constructor(
         var retired: Boolean = false,
         var deathRecorded: Boolean = false,
         var launchedPrimary: DoomPrimaryAttack? = null,
-        var shockwaveStarted: Boolean = false,
-        var nextShockwaveCycle: Int,
-        var shockwaveRemaining: Int = 0,
-        var shockwaveStage: Int = 0,
         val activeShockwaves: MutableList<ActiveShockwave> = mutableListOf(),
         var chargeProgress: Int = 0,
         var chargeStartCycle: Int = 0,
@@ -3839,8 +3813,6 @@ constructor(
         var shield: Npc? = null,
         var shieldDestination: CoordGrid? = null,
         var shieldEndpointCycle: Int = Int.MAX_VALUE,
-        var shockwavePreparing: Boolean = false,
-        var shockwaveImpactCycle: Int = Int.MAX_VALUE,
         var preShockwaveAttacksRemaining: Int = 0,
         var forceRockBeforeShockwave: Boolean = false,
         var postShockwaveAttacksRemaining: Int = 0,
@@ -3872,12 +3844,15 @@ constructor(
         lateinit var phases: DoomCombatPhases
         private var outcome: DoomSessionOutcome? = DoomSessionOutcome.STARTING
 
+        val shockwavePreparing: Boolean
+            get() = phases.shockwavePreparing
+
         var state: DoomState
             get() = outcome?.state ?: phases.state
             set(value) {
                 val sessionOutcome = DoomSessionOutcome.entries.firstOrNull { it.state == value }
                 if (sessionOutcome != null) {
-                    phases.invalidateReadiness()
+                    phases.retireReadiness()
                     outcome = sessionOutcome
                 } else {
                     check(outcome == null || outcome == DoomSessionOutcome.STARTING) {

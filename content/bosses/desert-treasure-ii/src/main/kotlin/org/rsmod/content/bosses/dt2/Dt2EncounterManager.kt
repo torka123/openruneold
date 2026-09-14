@@ -25,12 +25,10 @@ import org.rsmod.api.combat.commons.types.MeleeAttackType
 import org.rsmod.api.combat.commons.types.RangedAttackType
 import org.rsmod.api.combat.formulas.isSlayerTask
 import org.rsmod.api.config.refs.BaseParams
-import org.rsmod.api.instances.InstanceAccess
 import org.rsmod.api.instances.InstanceId
 import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.instances.InstanceSession
 import org.rsmod.api.instances.InstanceStateKey
-import org.rsmod.api.instances.RaidLeaveResult
 import org.rsmod.api.instances.RegionLocal
 import org.rsmod.api.invtx.invAdd
 import org.rsmod.api.invtx.invDel
@@ -202,37 +200,26 @@ constructor(
             }
     }
 
-    fun enter(player: Player, boss: Dt2Boss, difficulty: Dt2Difficulty, seed: Long): Boolean {
-        if (boss == Dt2Boss.VARDORVIS) return enterVardorvis(player, difficulty, seed)
-        if (player.hitpoints <= 0 || player.isAccessProtected) {
-            player.mes("Finish what you are doing before starting this encounter.")
-            return false
+    fun onJoin(player: Player, session: InstanceSession) {
+        val entry = session.stateOrNull(DT2_ENTRY_STATE) ?: return
+        if (
+            session.isEnded ||
+                instances.sessionForPlayer(player) !== session ||
+                entry.player !== player ||
+                entry.playerUid != player.uid ||
+                session.key != entry.boss.key ||
+                session.stateOrNull(RUN_STATE) != null
+        )
+            return
+        val boss = entry.boss
+        val difficulty = entry.difficulty
+        val seed = entry.seed
+        if (boss == Dt2Boss.VARDORVIS) {
+            startVardorvis(player, session, seed)
+            return
         }
-        if (instances.sessionForPlayer(player) != null) {
-            player.mes("Leave your current instance before starting another encounter.")
-            return false
-        }
-        val initialType = initialType(boss, difficulty)
-        val result =
-            instances.create(
-                owner = player,
-                key = boss.key,
-                spec = boss.spec(initialType),
-                access = InstanceAccess.Private,
-                currentTick = clock.cycle,
-            )
-        if (result !is InstanceManager.Result.Created) {
-            player.mes(
-                (result as? InstanceManager.Result.Failed)?.reason
-                    ?: "The ${boss.displayName} arena is unavailable."
-            )
-            return false
-        }
-        prepare(player)
-        PathingEntityCommon.telejump(player, collision, result.enter)
-        instances.finalizeEntry(player, result.session, clock.cycle)
         player.lootDropDuration = DT2_DROP_DURATION
-        val npc = spawnBoss(player, result.session, boss, difficulty)
+        val npc = spawnBoss(player, session, boss, difficulty)
         val initialState =
             if (boss in setOf(Dt2Boss.DUKE, Dt2Boss.WHISPERER, Dt2Boss.LEVIATHAN))
                 Dt2State.PREPARING
@@ -240,7 +227,7 @@ constructor(
         val run =
             Run(
                 player,
-                result.session,
+                session,
                 generation++,
                 boss,
                 difficulty,
@@ -272,7 +259,7 @@ constructor(
                     if (!player.invAdd(player.inv, fragment.id, 1).success) {
                         abort(player, "could not issue Blackstone fragment", teleport = true)
                         player.mes("Make one free inventory space before entering The Whisperer.")
-                        return false
+                        return
                     }
                     player.mes("A Blackstone fragment has been placed in your inventory.")
                 }
@@ -293,54 +280,19 @@ constructor(
         }
         log.info {
             "[DT2] enter player=${player.displayName} boss=${boss.command} difficulty=$difficulty " +
-                "seed=$seed instance=${result.session.id}"
+                "seed=$seed instance=${session.id}"
         }
-        return true
     }
 
-    private fun enterVardorvis(player: Player, difficulty: Dt2Difficulty, seed: Long): Boolean {
-        if (difficulty == Dt2Difficulty.AWAKENED) {
-            player.mes(
-                "Awakened Vardorvis is unavailable: revision-240 NPC 12224 is the quest form."
-            )
-            return false
-        }
-        if (player.hitpoints <= 0 || player.isAccessProtected) {
-            player.mes("Finish what you are doing before starting this encounter.")
-            return false
-        }
-        if (instances.sessionForPlayer(player) != null) {
-            player.mes("Leave your current instance before starting another encounter.")
-            return false
-        }
-        val result =
-            instances.create(
-                owner = player,
-                key = Dt2Boss.VARDORVIS.key,
-                spec = Dt2Boss.VARDORVIS.spec(requireNpc(Dt2Boss.VARDORVIS.normalNpcId)),
-                access = InstanceAccess.Private,
-                currentTick = clock.cycle,
-            )
-        if (result !is InstanceManager.Result.Created) {
-            player.mes(
-                (result as? InstanceManager.Result.Failed)?.reason
-                    ?: "The Vardorvis arena is unavailable."
-            )
-            return false
-        }
-        val safeEntry =
-            requireNotNull(instances.localCoord(result.session, Dt2Assets.VARDORVIS_SAFE_ENTRY))
-        prepare(player)
-        PathingEntityCommon.telejump(player, collision, safeEntry)
-        instances.finalizeEntry(player, result.session, clock.cycle)
+    private fun startVardorvis(player: Player, session: InstanceSession, seed: Long) {
         player.lootDropDuration = DT2_DROP_DURATION
-        val npc = spawnBoss(player, result.session, Dt2Boss.VARDORVIS, Dt2Difficulty.NORMAL)
+        val npc = spawnBoss(player, session, Dt2Boss.VARDORVIS, Dt2Difficulty.NORMAL)
         npc.movementLocked = true
         npc.apRangeOverride = 1
         val run =
             Run(
                 player,
-                result.session,
+                session,
                 generation++,
                 Dt2Boss.VARDORVIS,
                 Dt2Difficulty.NORMAL,
@@ -359,9 +311,8 @@ constructor(
         player.mes("Vardorvis remains dormant until you attack him.")
         log.info {
             "[DT2] enter player=${player.displayName} boss=vardorvis difficulty=NORMAL " +
-                "seed=$seed instance=${result.session.id}"
+                "seed=$seed instance=${session.id}"
         }
-        return true
     }
 
     fun tickAll(dukeOnly: Boolean = false) {
@@ -895,52 +846,15 @@ constructor(
         return true
     }
 
-    fun escape(player: Player, locId: Int): Boolean {
-        val run = run(player) ?: return false
-        if (run.bossKind == Dt2Boss.VARDORVIS) {
-            val vardorvisDefeated = run.state == Dt2State.RESPAWNING
-            if (locId == Dt2Assets.VARDORVIS_EXIT_DISABLED && !vardorvisDefeated) {
-                player.mes("The tendrils seal the exit while Vardorvis is active.")
-                return true
-            }
-            if (locId != Dt2Assets.VARDORVIS_EXIT && locId != Dt2Assets.VARDORVIS_EXIT_DISABLED)
-                return false
-        }
-        if (run.bossKind == Dt2Boss.LEVIATHAN && locId !in Dt2Assets.LEVIATHAN_EXIT_ROWBOATS) {
-            return false
-        }
-        if (run.bossKind != Dt2Boss.LEVIATHAN && locId in Dt2Assets.LEVIATHAN_EXIT_ROWBOATS) {
-            return false
-        }
-        abort(player, "used an arena exit", teleport = true)
-        player.mes("You leave the encounter.")
-        return true
-    }
-
-    fun leave(player: Player): Boolean {
-        val boss = run(player)?.bossKind ?: return false
-        abort(player, "used Leave Instance", teleport = true)
-        player.mes(
-            when (boss) {
-                Dt2Boss.VARDORVIS -> "You leave Vardorvis' private ritual site."
-                Dt2Boss.LEVIATHAN -> "You leave The Leviathan's private arena."
-                Dt2Boss.WHISPERER -> "You leave The Whisperer's private arena."
-                else -> "You leave the private encounter."
-            }
+    fun exitDenial(player: Player, locId: Int): String? {
+        val run = run(player) ?: return null
+        return if (
+            run.bossKind == Dt2Boss.VARDORVIS &&
+                locId == Dt2Assets.VARDORVIS_EXIT_DISABLED &&
+                run.state != Dt2State.RESPAWNING
         )
-        return true
-    }
-
-    fun leaveFromLogoutTab(player: Player, expected: InstanceId): RaidLeaveResult {
-        val run = run(player) ?: return RaidLeaveResult.Unhandled
-        if (
-            run.session.id != expected ||
-                run.bossKind !in
-                    setOf(Dt2Boss.VARDORVIS, Dt2Boss.LEVIATHAN, Dt2Boss.WHISPERER, Dt2Boss.DUKE)
-        ) {
-            return RaidLeaveResult.Unhandled
-        }
-        return if (leave(player)) RaidLeaveResult.Left else RaidLeaveResult.Failed
+            "The tendrils seal the exit while Vardorvis is active."
+        else null
     }
 
     fun membershipEnded(player: Player, instanceId: InstanceId) {

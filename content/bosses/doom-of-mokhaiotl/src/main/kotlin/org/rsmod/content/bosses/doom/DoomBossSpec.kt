@@ -151,6 +151,41 @@ internal fun doomBossSpec(): BossSpec {
                         ),
                     )
                 }
+                for (delve in 1..8) {
+                    val packets =
+                        listOf(
+                            doomShockwavePhase(delve, DoomShockwavePacket.PREPARE),
+                            doomShockwavePhase(delve, DoomShockwavePacket.CHARGE),
+                        ) +
+                            (1..DoomRules.shockwaveSlams(delve)).map {
+                                doomShockwavePhase(delve, DoomShockwavePacket.SLAM, it)
+                            } +
+                            doomShockwavePhase(delve, DoomShockwavePacket.RECOVER)
+                    for ((index, name) in packets.withIndex()) {
+                        val next = packets.getOrNull(index + 1)
+                        put(
+                            name,
+                            PhaseSpec(
+                                name,
+                                lockMovement = true,
+                                exitAfter = next?.let { DoomRules.SHOCKWAVE_INTERVAL_TICKS },
+                                nextPhase = next,
+                            ),
+                        )
+                    }
+                    for (state in listOf(DoomState.ACTIVE, DoomState.MELEE_CHARGE)) {
+                        val name = doomShockwaveWarningPhase(delve, state)
+                        put(
+                            name,
+                            getValue(doomPhase(delve, state))
+                                .copy(
+                                    name = name,
+                                    exitAfter = DoomRules.SHOCKWAVE_WARNING_TICKS,
+                                    nextPhase = packets.first(),
+                                ),
+                        )
+                    }
+                }
             },
         triggers = emptyList(),
     )
@@ -178,7 +213,25 @@ internal const val DOOM_INACTIVE_PHASE = "inactive"
 
 internal fun doomPhase(delve: Int, state: DoomState = DoomState.ACTIVE): String =
     "delve.${delve.coerceIn(1, 8)}" +
-        if (state == DoomState.ACTIVE) "" else ".${state.name.lowercase()}"
+        when (state) {
+            DoomState.ACTIVE -> ""
+            DoomState.SHOCKWAVE -> ".shockwave.prepare"
+            else -> ".${state.name.lowercase()}"
+        }
+
+internal enum class DoomShockwavePacket {
+    PREPARE,
+    CHARGE,
+    SLAM,
+    RECOVER,
+}
+
+internal fun doomShockwavePhase(delve: Int, packet: DoomShockwavePacket, slam: Int = 0): String =
+    "delve.${delve.coerceIn(1, 8)}.shockwave.${packet.name.lowercase()}" +
+        if (packet == DoomShockwavePacket.SLAM) ".$slam" else ""
+
+internal fun doomShockwaveWarningPhase(delve: Int, state: DoomState): String =
+    "delve.${delve.coerceIn(1, 8)}.shockwave-warning.${state.name.lowercase()}"
 
 private fun doomOrdinaryAbility(delve: Int): String = "${delve.coerceIn(1, 8)}.ordinary"
 

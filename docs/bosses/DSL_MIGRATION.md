@@ -2,7 +2,64 @@
 
 ## Current source increments — September 14
 
-### Current checkpoint: native DT2 ownership and Doom shield boundary verified
+### Current checkpoint: DT2 protected instances and Doom shockwave graph
+
+Four concrete DT2 `InstanceScript` owners now register entry, exit and keyed lifecycle callbacks.
+Immutable session entry inputs precede native `completeInstanceEntry`; only successful keyed join
+initializes a Run, actors and preparation items. Native `defaultLeaveFlow` preserves rooms when
+teleport is refused. Vardorvis safe entry/awakened refusal/sealed exit, Whisperer fragment issuance,
+normal/awakened setup and Leviathan's native death-storage rowboat reclaim remain intact. The
+native plugin loader discovers concrete injected leaves and skips the abstract common owner.
+Removed manual creation/telejump/finalization, duplicate keyed leave/panel bindings and the obsolete
+instance-script waiver. Changed DT2 files: EncounterManager, Lifecycle, World, new Instances,
+NativeLifecycleFixture/Test. Six additional lifecycle groups cover all four owners, admission
+failure, denied/successful exit, fresh rooms, panel results and death-storage reclaim once.
+The first focus exposed a test counting three helper types instead of five placed Leviathan
+actors; the corrected normal/awakened matrix and 54 selected cases pass in
+`logs/dt2-native-entry-retry-20260914.log`. Full DT2 **170** and scoped checks/application assemble/
+architecture pass in `logs/dt2-native-entry-integration-20260914.log`.
+
+Doom now declares the warning ACTIVE/MELEE_CHARGE variants and prepare -> charge -> slam.1..N ->
+recover graph. Existing native cancellable world queues and encounter cleanup own the cross-phase
+100-tick readiness (replaced by car's +6) and current graph edge. Native phase identity replaces
+private stage/remaining/start/deadline fields. LateCycle consumes readiness at the former point:
+ring damage precedes final recovery/shield deletion. Warning retains its original deadline through
+an already accepted melee charge and its interruption. Existing accepted non-tongue counters remain
+unchanged. Changed Doom files: BossSpec, CombatPhases, EncounterManager, NativeDslTest. Six new
+groups cover exact packets/pulses for every delve, cross-phase readiness, car replacement, ordinary/
+tongue/rejected warning opportunities, native melee interruption and death/departure cancellation.
+All 25 focused native groups pass first run (`logs/doom-shockwave-focus-20260914.log`). Full Doom
+**140** and scoped checks/application assemble/architecture pass in
+`logs/doom-shockwave-integration-20260914.log`. Matching results JSONs record **310 affected cases**,
+zero failures/errors/skips; unchanged shared/other-boss 1,023 results remain valid (**1,333 total**).
+No new mechanics evidence or shared API was needed for these increments. Source archive:
+`logs/dt2-entry-doom-shockwave-source-20260914.zip`; backup:
+`backup/dt2-entry-doom-shockwave-20260914`. Build passed; listed behavior verified; **not deployed**.
+Runtime remains c4fc9390f/JVM23812 under unchanged evidence/replay/deployment holds.
+
+Next mapped increment: Doom accepted-launch +2 charge start and 13/17/20 beam readiness use the
+same encounter-owned native queues; preserve existing LateCycle/incoming-impact interruption and
+exact pending-hit completion. Do not reset a phase to reset an orthogonal beam deadline: car movement
+and the shockwave warning must survive it. Car's 5/1/2 initial waits follow separately.
+
+Duke remaining scheduler mapping (before edits): `DukeTimeline` is a generic callback/deadline list,
+not an approved spatial exception. Its exact boundary is existing pool damage -> due callbacks ->
+ordinary/preparation -> orb trigger, per native session at StartCycle (`DukeEncounter.tick`). Normal
+world queues run later; a global early queue would instead make newly created pools hurt immediately
+and reorder RNG/NPC allocation. Local native queue/instance/boss APIs and pinned upstream have no
+owned boundary dispatcher (`git grep processOwned|WorldQueueOwner|WorldQueueBoundary` returned no
+matches). Use the user's conditional missing-route approval for one extension of the **existing**
+WorldQueueList/WorldQueueListProcess: an opaque owner, default processing skips owned entries,
+explicit native owner dispatch takes the due insertion-order snapshot at the existing content
+boundary, and cancellation can remove later callbacks in that snapshot. Additions during dispatch
+wait until the next dispatch. Native session cleanup closes the owner; preparation/combat reset
+clears it and invalidates captured hit epochs. Death scenery +2/+4 survives old boss deletion but
+not session departure. No new queue collection, global cycle hook or private content scheduler.
+Acceptance: preserve default queue semantics; owner isolation/cancellation/nested additions; tied
+pool/bile/ordinary RNG and busy actor timing; native deletion versus death scenery; reset/departure.
+Then finish remaining specialized timing and proceed ToA, ToB, CoX in the approved order.
+
+### Verified checkpoint: native DT2 ownership and Doom shield boundary
 
 DT2 now stores Run in native `InstanceStateKey<Run>` session state. Exact player object/UID and
 native NPC/session/role lookup replace the private run map and linear actor scans. Captured,
@@ -40,6 +97,16 @@ Archive `logs/dt2-owner-doom-phase-source-20260914.zip`, backup
 `backup/dt2-owner-doom-phase-20260914`. Next: four native DT2 InstanceScript entry/exit owners and
 Doom's declared shockwave graph/readiness (preserve LateCycle pulse-before-recovery), then remaining
 specialized timing and the approved ToA/ToB/CoX order. Nex evidence/replay holds remain separate.
+
+Raid resume pin (after the current bosses): all three production modules already exist under
+`content/minigames/{tombs-of-amascut,theatre-of-blood,chambers-of-xeric}`. Reuse the retained first
+ToA mapping: Ba-Ba11778-11780 ordinary melee → BossSpec/Effect.NpcAttack, existing six-tick Crush,
+animation9743, profile-scaled base24 maximum, native prayer/invocation modifier and accepted-launch
+counter/retarget callback before damage RNG (`ToaCombat`, `ToaRaidManager`, `ToaBabaEncounter`).
+Special/rolling gates and mechanics evidence remain unchanged; see the existing Apmeken/Ba-Ba and
+level-zero ledgers. ToB/CoxCombat already dispatch through NvPCombat; lift those current profiles
+and retained native death routes without reopening donor/cache audits or treating asset mappings
+as proof of fight accuracy. No raid implementation is claimed at this checkpoint.
 
 ### Verified checkpoint: shared Doom decisions, Leviathan and Duke
 

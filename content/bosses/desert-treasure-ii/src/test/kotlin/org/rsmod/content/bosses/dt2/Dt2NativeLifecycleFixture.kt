@@ -1,5 +1,7 @@
 package org.rsmod.content.bosses.dt2
 
+import com.google.inject.AbstractModule
+import com.google.inject.Guice
 import dev.openrune.ServerCacheManager
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -15,19 +17,29 @@ import org.rsmod.api.combat.NvPCombat
 import org.rsmod.api.combat.formulas.AccuracyFormulae
 import org.rsmod.api.combat.formulas.MaxHitFormulae
 import org.rsmod.api.death.NpcDeath
+import org.rsmod.api.instances.BossInstanceRegistry
 import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.instances.InstanceSession
 import org.rsmod.api.instances.InstanceStateKey
 import org.rsmod.api.instances.region.InstanceAreaResolver
+import org.rsmod.api.market.MarketPrices
 import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.api.npc.access.StandardNpcAccessContext
+import org.rsmod.api.npc.access.StandardNpcAccessContextFactory
+import org.rsmod.api.npc.access.StandardNpcAccessLauncher
 import org.rsmod.api.npc.events.interact.AiPlayerEvents
 import org.rsmod.api.npc.hit.modifier.StandardNpcHitModifier
 import org.rsmod.api.npc.hit.processor.StandardNpcHitProcessor
 import org.rsmod.api.npc.interact.AiPlayerInteractions
 import org.rsmod.api.npc.owner.assignSpawnOwner
 import org.rsmod.api.player.hook.PlayerPostTickHook
+import org.rsmod.api.player.hook.PlayerTeleportHooks
+import org.rsmod.api.player.hook.PlayerTeleportValidateHook
+import org.rsmod.api.player.hook.PlayerTeleportValidator
 import org.rsmod.api.player.music.MusicPlayer
+import org.rsmod.api.player.protect.ProtectedAccessContext
+import org.rsmod.api.player.protect.ProtectedAccessContextFactory
+import org.rsmod.api.player.protect.ProtectedAccessLauncher
 import org.rsmod.api.random.DefaultGameRandom
 import org.rsmod.api.registry.npc.NpcRegistry
 import org.rsmod.api.repo.loc.LocRepository
@@ -66,11 +78,15 @@ internal class Dt2NativeLifecycleFixture(val bossKind: Dt2Boss = Dt2Boss.VARDORV
     val npcList = NpcList()
     val npcRegistry = NpcRegistry(npcList, collision, events)
     val npcs = NpcRepository(clock, npcRegistry, npcList)
-    private var allocations = 0
+    var allocations = 0
+        private set
+
+    var allocationRefused = false
+    var teleportRefused = false
     private val regions =
         mock(RegionRepository::class.java) { call ->
             when {
-                call.method.name == "add" -> allocateRegion()
+                call.method.name == "add" -> if (allocationRefused) null else allocateRegion()
                 call.method.name.startsWith("isValid") -> true
                 else -> Answers.RETURNS_DEFAULTS.answer(call)
             }
@@ -100,6 +116,27 @@ internal class Dt2NativeLifecycleFixture(val bossKind: Dt2Boss = Dt2Boss.VARDORV
         }
     private val combat = NvPCombat(accuracy, mock(MaxHitFormulae::class.java), world)
     val bossEncounters = EncounterRegistry(random)
+    private val npcAccess =
+        StandardNpcAccessLauncher(
+            StandardNpcAccessContextFactory(
+                random,
+                StandardNpcHitModifier(events),
+                StandardNpcHitProcessor(players, events, emptySet()),
+            )
+        )
+    val duke =
+        DukeEncounter(
+            clock,
+            npcs,
+            instances,
+            world,
+            locs,
+            collision,
+            accuracy,
+            bossEncounters,
+            npcAccess,
+            events,
+        )
     val manager =
         Dt2EncounterManager(
             clock,
@@ -115,14 +152,58 @@ internal class Dt2NativeLifecycleFixture(val bossKind: Dt2Boss = Dt2Boss.VARDORV
             mock(LeviathanRecordService::class.java),
             mock(MusicPlayer::class.java),
             mock(RouteFactory::class.java),
-            mock(DukeEncounter::class.java),
+            duke,
             bossEncounters,
         )
+    val storage = LeviathanDeathStorage(manager, mock(MarketPrices::class.java))
+    val instanceRegistry = BossInstanceRegistry()
+    private val protectedContext =
+        mock(ProtectedAccessContext::class.java) { call ->
+            when (call.method.name) {
+                "getCollision" -> collision
+                "getTeleportHooks" -> PlayerTeleportHooks.EMPTY
+                "getTeleportValidator" ->
+                    PlayerTeleportValidator(
+                        setOf(
+                            PlayerTeleportValidateHook { _, _, _ ->
+                                if (teleportRefused) "Test teleport refusal." else null
+                            }
+                        )
+                    )
+                "getEventBus" -> events
+                "getAreaChecker" -> mock(call.method.returnType)
+                else -> Answers.RETURNS_DEFAULTS.answer(call)
+            }
+        }
+    private val protectedLauncher =
+        ProtectedAccessLauncher(
+            mock(ProtectedAccessContextFactory::class.java) { call ->
+                if (call.method.name == "create") protectedContext
+                else Answers.RETURNS_DEFAULTS.answer(call)
+            }
+        )
+    val instanceScript: Dt2InstanceScript =
+        when (bossKind) {
+            Dt2Boss.DUKE -> DukeInstance(instanceRegistry, manager, protectedLauncher)
+            Dt2Boss.WHISPERER -> WhispererInstance(instanceRegistry, manager, protectedLauncher)
+            Dt2Boss.VARDORVIS -> VardorvisInstance(instanceRegistry, manager, protectedLauncher)
+            Dt2Boss.LEVIATHAN ->
+                LeviathanInstance(instanceRegistry, manager, protectedLauncher, storage)
+        }
     val nativeLifecycle: PlayerPostTickHook
 
     init {
-        require(bossKind in setOf(Dt2Boss.VARDORVIS, Dt2Boss.LEVIATHAN))
         val context = ScriptContext(events, CheatCommandMap(), EngineQueueCache())
+        Guice.createInjector(
+                object : AbstractModule() {
+                    override fun configure() {
+                        bind(InstanceManager::class.java).toInstance(instances)
+                        bind(MapClock::class.java).toInstance(clock)
+                    }
+                }
+            )
+            .injectMembers(instanceScript)
+        with(instanceScript) { context.startup() }
         val lifecycle =
             Class.forName("org.rsmod.api.instances.hook.InstanceLifecycleScript")
                 .getConstructor(InstanceManager::class.java, MapClock::class.java)
@@ -176,6 +257,7 @@ internal class Dt2NativeLifecycleFixture(val bossKind: Dt2Boss = Dt2Boss.VARDORV
             slotId = id
             assignUid()
             coords = bossKind.exit
+            collision.allocateIfAbsent(coords.x, coords.z, coords.level)
             currentMapClock = clock.cycle
             processedMapClock = clock.cycle
             for (stat in
@@ -188,9 +270,33 @@ internal class Dt2NativeLifecycleFixture(val bossKind: Dt2Boss = Dt2Boss.VARDORV
             players[id] = this
         }
 
-    fun enter(player: Player = player()): Dt2EncounterManager.Run {
-        assertTrue(manager.enter(player, bossKind, Dt2Difficulty.NORMAL, seed = 42L))
+    fun enter(
+        player: Player = player(),
+        difficulty: Dt2Difficulty = Dt2Difficulty.NORMAL,
+        seed: Long = 42L,
+    ): Dt2EncounterManager.Run {
+        assertTrue(tryEnter(player, difficulty, seed))
         return run(assertNotNull(instances.sessionForPlayer(player)))
+    }
+
+    fun tryEnter(
+        player: Player,
+        difficulty: Dt2Difficulty = Dt2Difficulty.NORMAL,
+        seed: Long = 42L,
+    ): Boolean {
+        var entered = false
+        protectedLauncher.launch(player) {
+            with(instanceScript) { entered = enterEncounter(difficulty, seed) }
+        }
+        return entered
+    }
+
+    fun leave(player: Player, expectedLocId: Int? = null): Boolean {
+        var handled = false
+        protectedLauncher.launch(player) {
+            with(instanceScript) { handled = leaveEncounter(expectedLocId) }
+        }
+        return handled
     }
 
     @Suppress("UNCHECKED_CAST")
