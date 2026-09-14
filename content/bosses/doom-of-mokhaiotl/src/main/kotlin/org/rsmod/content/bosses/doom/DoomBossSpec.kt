@@ -128,22 +128,29 @@ internal fun doomBossSpec(): BossSpec {
         stats = BossStats(attackRate = 1),
         abilities = abilities,
         phases =
-            (1..8).associate { delve ->
-                val name = doomPhase(delve)
-                name to
-                    PhaseSpec(
+            buildMap {
+                put(DOOM_INACTIVE_PHASE, PhaseSpec(DOOM_INACTIVE_PHASE, lockMovement = true))
+                for (delve in 1..8) for (state in DOOM_COMBAT_STATES) {
+                    val name = doomPhase(delve, state)
+                    put(
                         name,
-                        lockMovement = true,
-                        selector =
-                            Selector.Conditional(
-                                branches =
-                                    listOf(
-                                        Condition.WithinMeleeRange to
-                                            doomAbility(delve, DoomPrimaryAttack.TONGUE)
-                                    ),
-                                fallback = doomOrdinaryAbility(delve),
-                            ),
+                        PhaseSpec(
+                            name,
+                            lockMovement = true,
+                            selector =
+                                if (state == DoomState.ACTIVE)
+                                    Selector.Conditional(
+                                        branches =
+                                            listOf(
+                                                Condition.WithinMeleeRange to
+                                                    doomAbility(delve, DoomPrimaryAttack.TONGUE)
+                                            ),
+                                        fallback = doomOrdinaryAbility(delve),
+                                    )
+                                else Selector.WeightedRandom(),
+                        ),
                     )
+                }
             },
         triggers = emptyList(),
     )
@@ -167,7 +174,11 @@ internal const val DOOM_CHARGE_INPUT = "doom.charge-suppression"
 internal const val DOOM_CHARGE = "charge"
 internal const val DOOM_NO_CHARGE = "plain"
 
-internal fun doomPhase(delve: Int): String = "delve.${delve.coerceIn(1, 8)}"
+internal const val DOOM_INACTIVE_PHASE = "inactive"
+
+internal fun doomPhase(delve: Int, state: DoomState = DoomState.ACTIVE): String =
+    "delve.${delve.coerceIn(1, 8)}" +
+        if (state == DoomState.ACTIVE) "" else ".${state.name.lowercase()}"
 
 private fun doomOrdinaryAbility(delve: Int): String = "${delve.coerceIn(1, 8)}.ordinary"
 

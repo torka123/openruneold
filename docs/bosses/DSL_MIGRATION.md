@@ -2,6 +2,45 @@
 
 ## Current source increments — September 14
 
+### Current checkpoint: native DT2 ownership and Doom shield boundary verified
+
+DT2 now stores Run in native `InstanceStateKey<Run>` session state. Exact player object/UID and
+native NPC/session/role lookup replace the private run map and linear actor scans. Captured,
+idempotent session cleanup and native instance lifecycle own logout/external teleport; keyed
+leave and the existing priority1000 death-record hook are preserved. The captured Run crosses
+native NPC deletion for completion, consuming DYING→RESPAWNING before record/respawn effects;
+helper role removal permits progress once. Removed the dead generic attack route. Six new native
+lifecycle groups pass: real admission and duplicate entry, Vardorvis/Leviathan departures/death,
+exact identities, helper ownership, post-Delete completion, fresh entry and stale queued hits.
+Changed DT2 files: Combat, EncounterManager, Lifecycle, existing NativeCombatFixture, new
+NativeLifecycleFixture/Test. Source-defined `InstanceScript` entry/exit remains the next increment;
+this checkpoint does not claim that remaining entry workflow or Duke timeline migrated.
+
+Doom's six live combat identities now derive from declared native phases. STARTING and post-death
+outcomes remain session-owned. Shield readiness uses existing `BossEncounter.state/scheduleAt`,
+following RoyalTitans' pre-input readiness / retained LateCycle effect pattern. A deadline one
+clock value before the old LateCycle boundary marks readiness only; normal queued damage and
+arriving larvae still resolve before the original two-tick shield activation. Same-run/session/
+encounter/epoch guards invalidate stale readiness. Removed the shield's local stateCycle polling;
+other charge/shockwave/car deadlines remain the exact next debt. Changed Doom files: BossSpec,
+EncounterManager, NativeDslTest and new CombatPhases adapter. Five new groups verify native queue/
+NPC-hit processing order, live phases/seed streams, stale deadlines, death/departure and hidden
+startup. No shared API or new mechanic assumption was introduced.
+
+Focus logs `logs/dt2-native-owner-focus-20260914.log` and
+`logs/doom-native-phase-focus-20260914.log` pass on their first runs. Full **DT2 164 / Doom 134**
+and scoped checks pass, plus architecture/self-tests and application assemble, in
+`logs/dt2-owner-doom-phase-integration-20260914.log`; matching results JSON contains **298 cases**,
+zero failures/errors/skips. Combined with the still-valid shared/other-boss 1,023 cases below:
+**1,321 verified cases**. Removed two obsolete DT2 architecture waivers after inventory confirmed
+zero private-run-map/manual-lifecycle findings. Build passed; listed behaviors verified in tests;
+**not deployed**. Runtime remains c4fc9390f/JVM23812 under the same holds.
+
+Archive `logs/dt2-owner-doom-phase-source-20260914.zip`, backup
+`backup/dt2-owner-doom-phase-20260914`. Next: four native DT2 InstanceScript entry/exit owners and
+Doom's declared shockwave graph/readiness (preserve LateCycle pulse-before-recovery), then remaining
+specialized timing and the approved ToA/ToB/CoX order. Nex evidence/replay holds remain separate.
+
 ### Verified checkpoint: shared Doom decisions, Leviathan and Duke
 
 Leviathan's registered native opportunity/cadence route passes its first focused run with

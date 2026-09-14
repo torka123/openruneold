@@ -15,7 +15,10 @@ import org.rsmod.api.combat.formulas.AccuracyFormulae
 import org.rsmod.api.combat.formulas.MaxHitFormulae
 import org.rsmod.api.death.NpcDeath
 import org.rsmod.api.death.PlayerDeathCleanupHook
+import org.rsmod.api.game.process.npc.NpcQueueProcessor
 import org.rsmod.api.game.process.player.PlayerQueueProcessor
+import org.rsmod.api.game.process.world.WorldQueueListProcess
+import org.rsmod.api.hit.plugin.NpcHitScript
 import org.rsmod.api.hit.plugin.PlayerHitScript
 import org.rsmod.api.instances.BossInstanceRegistry
 import org.rsmod.api.instances.InstanceAccess
@@ -25,6 +28,8 @@ import org.rsmod.api.instances.events.InstancePlayerLeaveEvent
 import org.rsmod.api.instances.region.InstanceAreaResolver
 import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.api.npc.access.StandardNpcAccessContext
+import org.rsmod.api.npc.access.StandardNpcAccessContextFactory
+import org.rsmod.api.npc.access.StandardNpcAccessLauncher
 import org.rsmod.api.npc.events.interact.AiPlayerEvents
 import org.rsmod.api.npc.hit.modifier.StandardNpcHitModifier
 import org.rsmod.api.npc.hit.processor.StandardNpcHitProcessor
@@ -571,7 +576,184 @@ class DoomNativeDslTest {
         }
     }
 
-    private class Fixture(val delve: Int, val seed: Long) : AutoCloseable {
+    @Test
+    fun `native combat phase identity retains accepted streams and attack lifetime`() {
+        for (delve in 1..9) {
+            Fixture(delve, standardSeed(delve, DoomAttackStyle.RANGED)).use { f ->
+                f.attack()
+                val encounter = f.registry.of(f.npc)
+                val counts = f.decisionCounts()
+                val results =
+                    listOf(DOOM_PRIMARY_STREAM, DOOM_STYLE_STREAM, DOOM_CHARGE_STREAM)
+                        .map(encounter::decisionResult)
+                val trace = encounter.recentAbilityCommitTicks()
+                val actionDelay = f.npc.actionDelay
+                val lastAbility = encounter.lastAbilityTick
+                val hit = f.hits().single().second
+                for (state in DOOM_COMBAT_STATES) {
+                    f.run.state = state
+                    assertEquals(doomPhase(delve, state), encounter.currentPhaseName)
+                    assertEquals(state, f.run.state)
+                    assertEquals(counts, f.decisionCounts())
+                    assertEquals(
+                        results,
+                        listOf(DOOM_PRIMARY_STREAM, DOOM_STYLE_STREAM, DOOM_CHARGE_STREAM)
+                            .map(encounter::decisionResult),
+                    )
+                    assertEquals(trace, encounter.recentAbilityCommitTicks())
+                    assertEquals(actionDelay, f.npc.actionDelay)
+                    assertEquals(lastAbility, encounter.lastAbilityTick)
+                    assertTrue(hit.isValidNow())
+                }
+                // The native phase is authoritative even when entered through its public API.
+                encounter.transitionTo(doomPhase(delve, DoomState.MELEE_CHARGE), f.clock.cycle)
+                assertEquals(DoomState.MELEE_CHARGE, f.run.state)
+            }
+        }
+    }
+
+    @Test
+    fun `shield readiness precedes input but activation follows queued damage and LateCycle larvae`() {
+        Fixture(4, 42).use { f ->
+            f.beginShield()
+            val epoch = f.run.shieldEpoch
+            assertEquals(1, f.worldQueues.size)
+            f.worldPreInput()
+            f.lateCycle()
+            assertEquals(101, f.clock.cycle)
+            assertEquals(DoomState.SHIELD_TRANSITION, f.run.state)
+            assertEquals(600, f.npc.hitpoints)
+
+            f.worldPreInput()
+            assertTrue(f.worldQueues.isEmpty, "Native deadline has marked readiness")
+            assertEquals(DoomState.SHIELD_TRANSITION, f.run.state)
+            assertEquals(DoomAssets.BOSS, f.npc.visType.id)
+            assertEquals(Int.MAX_VALUE, f.run.beamFireCycle)
+            val incoming = f.queueBossHit(37)
+            assertTrue("queue.hit" in f.npc.queueList)
+            f.processBossHits()
+            val damagedHealth = 600 - incoming.damage
+            assertEquals(damagedHealth, f.npc.hitpoints)
+            assertEquals(damagedHealth, f.run.normalHitpoints)
+            assertFalse("queue.hit" in f.npc.queueList)
+            val larva = f.arrivingLarva(activeCycle = 102)
+            val expectedHealth =
+                (damagedHealth + DoomRules.larvaHeal(0, false)).coerceAtMost(f.npc.baseHitpointsLvl)
+            f.lateCycle()
+
+            assertEquals(102, f.clock.cycle)
+            assertEquals(DoomState.SHIELDED, f.run.state)
+            assertEquals(doomPhase(4, DoomState.SHIELDED), f.registry.of(f.npc).currentPhaseName)
+            assertEquals(DoomAssets.SHIELDED, f.npc.visType.id)
+            assertEquals(DoomRules.SHIELD_HITPOINTS, f.npc.hitpoints)
+            assertEquals(expectedHealth, f.run.normalHitpoints)
+            assertEquals(1, f.run.demonicCharge)
+            assertFalse(larva.isSlotAssigned)
+            assertTrue(f.hits().isEmpty(), "Arriving larva keeps transition hazard grace")
+            assertEquals(epoch, f.run.shieldEpoch)
+            assertEquals(
+                DoomCombatTimeline.firstShieldLarvaSpawnCycle(102),
+                f.run.nextShieldLarvaCycle,
+            )
+            assertEquals(
+                DoomCombatTimeline.beamFireCycle(102, DoomState.SHIELDED),
+                f.run.beamFireCycle,
+            )
+            assertEquals(listOf(0L, 0L, 0L), f.decisionCounts())
+            f.manager.tick(f.player)
+            assertEquals(expectedHealth, f.run.normalHitpoints)
+            assertEquals(epoch, f.run.shieldEpoch)
+        }
+    }
+
+    @Test
+    fun `stale shield readiness cannot activate a replacement phase epoch`() {
+        for (readyBeforeExit in listOf(false, true)) {
+            Fixture(4, 42).use { f ->
+                f.beginShield()
+                f.worldPreInput()
+                f.lateCycle()
+                if (readyBeforeExit) f.worldPreInput()
+                f.run.state = DoomState.ACTIVE
+                f.beginShield()
+                val epoch = f.run.shieldEpoch
+                f.worldPreInput()
+                f.lateCycle()
+                assertEquals(102, f.clock.cycle)
+                assertEquals(DoomState.SHIELD_TRANSITION, f.run.state)
+                assertEquals(DoomAssets.BOSS, f.npc.visType.id)
+                f.worldPreInput()
+                f.lateCycle()
+                assertEquals(103, f.clock.cycle)
+                assertEquals(DoomState.SHIELDED, f.run.state)
+                assertEquals(epoch, f.run.shieldEpoch)
+                assertTrue(f.worldQueues.isEmpty)
+            }
+        }
+    }
+
+    @Test
+    fun `shield deadline retires on native death deletion and session departure`() {
+        for (departure in listOf(false, true)) {
+            Fixture(4, 42).use { f ->
+                f.beginShield()
+                val encounter = f.registry.of(f.npc)
+                if (departure) {
+                    f.events.publish(SessionStateEvent.Logout(f.player))
+                    assertEquals(DoomState.INVALIDATED, f.run.state)
+                } else {
+                    f.npc.hitpoints = 0
+                    assertSame(f.run, f.manager.beginNpcDeath(f.npc))
+                    f.npcs.del(f.npc, Int.MAX_VALUE)
+                    assertEquals(DoomState.DYING, f.run.state)
+                }
+                assertTrue(encounter.isEnded)
+                assertTrue(f.worldQueues.isEmpty)
+                f.at(110)
+                f.worldPreInput()
+                f.manager.tick(f.player)
+                assertFalse(f.npc.isSlotAssigned)
+                assertEquals(DoomAssets.BOSS, f.npc.visType.id)
+                assertFailsWith<IllegalStateException> { f.run.state = DoomState.ACTIVE }
+            }
+        }
+    }
+
+    @Test
+    fun `native hidden startup retains its reveal deadline and session outcome`() {
+        Fixture(4, 42, active = false).use { f ->
+            f.run.bossRevealCycle = 103
+            f.run.startCycle = 103
+            f.npcs.hide(f.npc, 3)
+            assertEquals(DOOM_INACTIVE_PHASE, f.registry.of(f.npc).currentPhaseName)
+            repeat(2) {
+                f.worldPreInput()
+                f.lateCycle()
+                assertEquals(DoomState.STARTING, f.run.state)
+                assertFalse(f.npc.isVisible)
+                f.attack()
+                assertTrue(f.registry.of(f.npc).recentAbilityCommitTicks().isEmpty())
+            }
+            f.worldPreInput()
+            f.lateCycle()
+            assertEquals(103, f.clock.cycle)
+            assertEquals(DoomState.ACTIVE, f.run.state)
+            assertEquals(doomPhase(4), f.registry.of(f.npc).currentPhaseName)
+            assertEquals(103, f.npc.lifecycleRevealCycle)
+            // This is NpcRepository's existing native reveal processing, independent of DSL clocks.
+            f.npcs.javaClass.declaredMethods
+                .single { it.name.startsWith("processReveal") }
+                .let {
+                    it.isAccessible = true
+                    it.invoke(f.npcs, f.npc)
+                }
+            assertTrue(f.npc.isVisible)
+            assertTrue(f.worldQueues.isEmpty)
+            assertEquals(listOf(0L, 0L, 0L), f.decisionCounts())
+        }
+    }
+
+    private class Fixture(val delve: Int, val seed: Long, active: Boolean = true) : AutoCloseable {
         var oracleState = DoomAttackFlow.initial(delve, seed)
         private val oracleCounts = longArrayOf(0, 0, 0)
         val clock = MapClock().apply { cycle = 100 }
@@ -664,6 +846,17 @@ class DoomNativeDslTest {
                 if (call.method.name.startsWith("roll")) true
                 else Answers.RETURNS_DEFAULTS.answer(call)
             }
+        val worldQueues = WorldQueueList()
+        private val worldQueueProcess = WorldQueueListProcess(worldQueues)
+        private val npcAccess =
+            StandardNpcAccessLauncher(
+                StandardNpcAccessContextFactory(
+                    random,
+                    StandardNpcHitModifier(events),
+                    StandardNpcHitProcessor(players, events, emptySet()),
+                )
+            )
+        private val npcQueues = NpcQueueProcessor(events, npcAccess)
         val deps =
             BossDeps(
                 random,
@@ -672,7 +865,7 @@ class DoomNativeDslTest {
                 npcs,
                 players,
                 clock,
-                WorldQueueList(),
+                worldQueues,
                 collision,
                 registry,
                 BossExtensionRegistry(),
@@ -695,6 +888,7 @@ class DoomNativeDslTest {
                 rewards,
                 statistics,
                 mock(RouteFactory::class.java),
+                worldQueues,
             )
         val run =
             DoomEncounterManager.Run(
@@ -703,7 +897,6 @@ class DoomNativeDslTest {
                 generation = seed,
                 delve = delve,
                 boss = npc,
-                state = DoomState.ACTIVE,
                 stateCycle = 100,
                 startCycle = 100,
                 bossRevealCycle = 100,
@@ -753,7 +946,9 @@ class DoomNativeDslTest {
                     it.isAccessible = true
                     it.invoke(manager, run)
                 }
+            if (active) run.state = DoomState.ACTIVE
             with(PlayerHitScript()) { scripts.startup() }
+            with(NpcHitScript()) { scripts.startup() }
         }
 
         fun attack() {
@@ -836,6 +1031,51 @@ class DoomNativeDslTest {
             clock.cycle = cycle
             npc.currentMapClock = cycle
             npc.processedMapClock = cycle
+        }
+
+        fun worldPreInput() = worldQueueProcess.process()
+
+        fun lateCycle() {
+            at(clock.cycle + 1)
+            manager.tick(player)
+        }
+
+        fun queueBossHit(damage: Int): Hit {
+            var queued: Hit? = null
+            npcAccess.launch(npc) {
+                queued = queueHit(player, delay = 1, type = HitType.Ranged, damage = damage)
+            }
+            return assertNotNull(queued)
+        }
+
+        fun processBossHits() = npcQueues.process(npc)
+
+        fun beginShield() {
+            run.shieldAttacksRemaining = 0
+            manager.tick(player)
+            assertEquals(DoomState.SHIELD_TRANSITION, run.state)
+        }
+
+        fun arrivingLarva(activeCycle: Int): Npc {
+            val larva =
+                Npc(assertNotNull(ServerCacheManager.getNpc(DoomAssets.LARVA_NEUTRAL)), npc.coords)
+            npcs.add(larva, 1000)
+            instances.attachNpc(session.id, larva)
+            run.larvae[larva] =
+                DoomEncounterManager.Larva(
+                    style = null,
+                    giant = false,
+                    protectedStyles = emptySet(),
+                    shieldPhase = false,
+                    spawnCycle = clock.cycle,
+                    movementCycle = clock.cycle,
+                    activeCycle = activeCycle,
+                    crawlStarted = true,
+                    lastProgressTile = larva.coords,
+                    lastProgressCycle = clock.cycle,
+                    lastRouteCycle = clock.cycle,
+                )
+            return larva
         }
 
         fun projectiles(): List<ProjAnim> =

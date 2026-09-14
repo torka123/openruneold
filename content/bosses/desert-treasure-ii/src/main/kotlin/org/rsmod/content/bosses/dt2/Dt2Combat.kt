@@ -7,7 +7,6 @@ import org.rsmod.api.bosses.runtime.BossDeps
 import org.rsmod.api.death.NpcDeath
 import org.rsmod.api.droptable.NpcKillRewardContext
 import org.rsmod.api.droptable.NpcKillRewardContexts
-import org.rsmod.api.script.onAiApPlayer2
 import org.rsmod.api.script.onModifyNpcHit
 import org.rsmod.api.script.onNpcQueue
 import org.rsmod.game.entity.PlayerList
@@ -102,7 +101,6 @@ constructor(
                         Dt2Boss.DUKE.normalNpcId,
                     )
             ) {
-                onAiApPlayer2(type) { encounters.attack(this, it.target) }
                 onModifyNpcHit(type) {
                     val player =
                         if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players)
@@ -145,7 +143,7 @@ constructor(
                             if (run.bossKind == Dt2Boss.DUKE) DukeRules.DEATH else null,
                         )
                     }
-                    encounters.finishBossDeath(npc)
+                    encounters.finishBossDeath(npc, run)
                 }
             }
         }

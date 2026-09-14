@@ -29,6 +29,7 @@ import org.rsmod.api.instances.InstanceAccess
 import org.rsmod.api.instances.InstanceId
 import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.instances.InstanceSession
+import org.rsmod.api.instances.InstanceStateKey
 import org.rsmod.api.instances.RaidLeaveResult
 import org.rsmod.api.instances.RegionLocal
 import org.rsmod.api.invtx.invAdd
@@ -106,8 +107,36 @@ constructor(
     private val bossEncounters: EncounterRegistry,
 ) {
     private val log = InlineLogger()
-    private val runs = mutableMapOf<PlayerUid, Run>()
+    private val RUN_STATE = InstanceStateKey<Run>("desert-treasure-ii-encounter")
     private var generation = 1L
+
+    private fun run(player: Player): Run? =
+        instances
+            .sessionForPlayer(player)
+            ?.takeIf { it.key.startsWith(DT2_INSTANCE_PREFIX) && !it.isEnded }
+            ?.stateOrNull(RUN_STATE)
+            ?.takeIf { !it.retired && it.player === player && it.playerUid == player.uid }
+
+    private fun run(npc: Npc): Run? =
+        instances
+            .instanceForNpc(npc)
+            ?.let(instances::sessionForId)
+            ?.stateOrNull(RUN_STATE)
+            ?.takeIf { !it.retired && (it.boss === npc || npc in it.helpers) }
+            ?.takeIf { run(it.player) === it }
+
+    private fun activeRuns(): List<Run> =
+        Dt2Boss.entries
+            .flatMap { instances.sessionsForKey(it.key) }
+            .filterNot { it.isEnded }
+            .mapNotNull { it.stateOrNull(RUN_STATE) }
+            .filterNot { it.retired }
+
+    private fun attachRun(run: Run) {
+        check(run.session.state(RUN_STATE) { run } === run)
+        // Native teardown clears indexes and typed state before invoking the captured cleanup.
+        run.session.onCleanup { invalidateRun(run) }
+    }
 
     fun combatNpcTypes(): Set<NpcServerType> =
         listOf(12203, 12204, 12205, 12223, 12214, 12167, 12191, 12195)
@@ -179,7 +208,7 @@ constructor(
             player.mes("Finish what you are doing before starting this encounter.")
             return false
         }
-        if (instances.sessionForPlayer(player) != null || runs.containsKey(player.uid)) {
+        if (instances.sessionForPlayer(player) != null) {
             player.mes("Leave your current instance before starting another encounter.")
             return false
         }
@@ -227,7 +256,7 @@ constructor(
             run.attackCounter =
                 Dt2Rules.leviathanInitialAttackCounter(difficulty == Dt2Difficulty.AWAKENED)
         }
-        runs[player.uid] = run
+        attachRun(run)
         if (boss != Dt2Boss.LEVIATHAN) {
             bossHpBar.onOpen(player, npc)
             bossHpBar.onUpdate(player, npc, npc.hitpoints, npc.baseHitpointsLvl)
@@ -280,7 +309,7 @@ constructor(
             player.mes("Finish what you are doing before starting this encounter.")
             return false
         }
-        if (instances.sessionForPlayer(player) != null || runs.containsKey(player.uid)) {
+        if (instances.sessionForPlayer(player) != null) {
             player.mes("Leave your current instance before starting another encounter.")
             return false
         }
@@ -324,7 +353,7 @@ constructor(
                 rewardEligible = Dt2Rules.rewardEligibleOnEntry(Dt2Difficulty.NORMAL),
             )
         run.lastPlayerTile = player.coords
-        runs[player.uid] = run
+        attachRun(run)
         setVardorvisExitLocked(run, locked = false)
         player.mes("You enter the ritual site.")
         player.mes("Vardorvis remains dormant until you attack him.")
@@ -337,7 +366,7 @@ constructor(
 
     fun tickAll(dukeOnly: Boolean = false) {
         val activePlayers =
-            runs.values.filter { (it.bossKind == Dt2Boss.DUKE) == dukeOnly }.map { it.player }
+            activeRuns().filter { (it.bossKind == Dt2Boss.DUKE) == dukeOnly }.map { it.player }
         activePlayers.forEach { player ->
             try {
                 tick(player)
@@ -354,12 +383,8 @@ constructor(
     }
 
     fun tick(player: Player) {
-        val run = runs[player.uid] ?: return
+        val run = run(player) ?: return
         if (!player.isSlotAssigned || player.pendingLogout || player.loggingOut) return
-        if (instances.sessionForPlayer(player)?.id != run.session.id) {
-            abort(player, "left instance outside an exit", teleport = false)
-            return
-        }
         if (run.bossKind == Dt2Boss.DUKE) {
             if (player.hitpoints <= 0) return
             dukeEncounter.tick(run)
@@ -394,26 +419,8 @@ constructor(
         }
     }
 
-    fun attack(access: StandardNpcAccess, target: Player) {
-        val run = runs[target.uid] ?: return
-        if (run.boss !== access.npc || run.state !in setOf(Dt2State.ACTIVE, Dt2State.ENRAGED))
-            return
-        if (
-            run.bossKind == Dt2Boss.LEVIATHAN &&
-                run.leviathanAction != LeviathanAction.STANDARD_VOLLEY
-        ) {
-            return
-        }
-        when (run.bossKind) {
-            Dt2Boss.WHISPERER -> Unit
-            Dt2Boss.VARDORVIS -> Unit
-            Dt2Boss.LEVIATHAN -> Unit
-            Dt2Boss.DUKE -> Unit // Duke's clock-driven state machine owns every attack.
-        }
-    }
-
     fun modifyNpcHit(player: Player, npc: Npc, hit: HitBuilder) {
-        val run = runs[player.uid]
+        val run = run(player)
         if (run == null || !npc.isSpawnOwnedBy(player)) {
             hit.damage = 0
             return
@@ -597,9 +604,9 @@ constructor(
 
     fun rewardEligible(run: Run): Boolean = run.rewardEligible
 
-    fun rewardEligible(player: Player): Boolean = runs[player.uid]?.rewardEligible == true
+    fun rewardEligible(player: Player): Boolean = run(player)?.rewardEligible == true
 
-    fun isLeviathanActive(player: Player): Boolean = runs[player.uid]?.bossKind == Dt2Boss.LEVIATHAN
+    fun isLeviathanActive(player: Player): Boolean = run(player)?.bossKind == Dt2Boss.LEVIATHAN
 
     fun rewardTile(run: Run): CoordGrid =
         when (run.bossKind) {
@@ -609,7 +616,7 @@ constructor(
         }
 
     fun beginBossDeath(npc: Npc): Run? {
-        val run = runs.values.firstOrNull { it.boss === npc } ?: return null
+        val run = run(npc)?.takeIf { it.boss === npc } ?: return null
         if (run.state in setOf(Dt2State.DYING, Dt2State.RESPAWNING)) return null
         run.generation = generation++
         run.state = Dt2State.DYING
@@ -640,15 +647,16 @@ constructor(
         if (npc.type.id != normal.id) npc.transmog(normal, Int.MAX_VALUE)
     }
 
-    fun finishBossDeath(npc: Npc) {
-        val run = runs.values.firstOrNull { it.boss === npc } ?: return
-        if (runs[run.player.uid] !== run) return
+    fun finishBossDeath(npc: Npc, run: Run) {
+        // Native death deletes/detaches the NPC before this continuation resumes. Retain its
+        // exact actor and session token; never resolve a deleted actor through another index.
+        if (run(run.player) !== run || run.boss !== npc || run.state != Dt2State.DYING) return
+        run.state = Dt2State.RESPAWNING
         if (run.bossKind == Dt2Boss.LEVIATHAN) recordLeviathanKill(run)
         run.player.mes(
             "<col=ff9900>${run.bossKind.displayName} defeated in " +
                 "${Dt2Rules.formatTicks(run.killTicks)}.</col>"
         )
-        run.state = Dt2State.RESPAWNING
         if (run.bossKind == Dt2Boss.DUKE) {
             dukeEncounter.showCorpse(run)
             return
@@ -668,8 +676,8 @@ constructor(
     }
 
     fun helperDied(npc: Npc) {
-        val run = runs.values.firstOrNull { npc in it.helpers } ?: return
-        run.helpers.remove(npc)
+        val run = run(npc)?.takeIf { npc in it.helpers } ?: return
+        if (!run.helpers.remove(npc)) return
         val group = run.whispererSoulGroups.remove(npc)
         if (run.activeSpecial == WhispererSpecial.SOUL_SIPHON && group != null) {
             val killed = (run.whispererSoulKills[group] ?: 0) + 1
@@ -685,22 +693,21 @@ constructor(
         run.specialProgress++
     }
 
-    fun isActive(player: Player): Boolean = runs.containsKey(player.uid)
+    fun isActive(player: Player): Boolean = run(player) != null
 
-    fun isEncounterNpc(npc: Npc): Boolean = runs.values.any { it.boss === npc || npc in it.helpers }
+    fun isEncounterNpc(npc: Npc): Boolean = run(npc) != null
 
     fun isOwnedBy(player: Player, npc: Npc): Boolean =
-        runs[player.uid]?.let {
-            (it.boss === npc || npc in it.helpers) && npc.isSpawnOwnedBy(player)
-        } == true
+        run(player)?.let { (it.boss === npc || npc in it.helpers) && npc.isSpawnOwnedBy(player) } ==
+            true
 
     fun bypassLeviathanPlayerLineOfSight(player: Player, npc: Npc): Boolean {
-        val run = runs[player.uid] ?: return false
+        val run = run(player) ?: return false
         return run.bossKind == Dt2Boss.LEVIATHAN && run.boss === npc && npc.isSpawnOwnedBy(player)
     }
 
     fun attackDenial(player: Player, npc: Npc): String? {
-        val run = runs[player.uid] ?: return "You do not have an active DT2 encounter."
+        val run = run(player) ?: return "You do not have an active DT2 encounter."
         if (npc !== run.boss && npc !in run.helpers)
             return "That creature belongs to another encounter."
         if (npc in run.helpers) {
@@ -731,7 +738,7 @@ constructor(
     }
 
     fun activateWhisperer(player: Player, npc: Npc): Boolean {
-        val run = runs[player.uid] ?: return false
+        val run = run(player) ?: return false
         if (
             run.bossKind != Dt2Boss.WHISPERER ||
                 run.boss !== npc ||
@@ -757,7 +764,7 @@ constructor(
     }
 
     fun toggleWhispererShadowRealm(player: Player): Boolean {
-        val run = runs[player.uid]
+        val run = run(player)
         if (run == null || run.bossKind != Dt2Boss.WHISPERER) {
             player.mes("The Blackstone fragment is unresponsive.")
             return false
@@ -779,7 +786,7 @@ constructor(
     }
 
     fun activateLeviathan(player: Player, locId: Int, clicked: CoordGrid): Boolean {
-        val run = runs[player.uid] ?: return false
+        val run = run(player) ?: return false
         if (run.bossKind != Dt2Boss.LEVIATHAN || run.state != Dt2State.PREPARING) return false
         val expected =
             instances.localCoord(
@@ -801,42 +808,42 @@ constructor(
 
     suspend fun useDukePreparation(access: ProtectedAccess, locId: Int, tile: CoordGrid) {
         val player = access.player
-        val run = runs[player.uid] ?: return
+        val run = run(player) ?: return
         if (run.bossKind != Dt2Boss.DUKE) return
         if (locId in setOf(47522, 47524, 47528)) dukeEncounter.gather(run, access, locId, tile)
         else dukeEncounter.ingredient(run, player, locId, tile)
     }
 
     fun prepareDukeOpportunity(npc: Npc, target: Player): Boolean {
-        val run = runs[target.uid] ?: return false
+        val run = run(target) ?: return false
         return run.bossKind == Dt2Boss.DUKE &&
             run.boss === npc &&
             dukeEncounter.prepareOpportunity(run)
     }
 
     fun launchDukeAction(npc: Npc, target: Player, action: DukeAction) {
-        val run = runs[target.uid] ?: return
+        val run = run(target) ?: return
         check(run.bossKind == Dt2Boss.DUKE && run.boss === npc)
         dukeEncounter.launchAction(run, action)
     }
 
     fun inspectDukeVat(player: Player, tile: CoordGrid, empty: Boolean) {
-        val run = runs[player.uid] ?: return
+        val run = run(player) ?: return
         if (run.bossKind == Dt2Boss.DUKE) dukeEncounter.inspectVat(run, tile, empty)
     }
 
     fun grindDukeIngredient(access: ProtectedAccess, musca: Boolean) {
-        val run = runs[access.player.uid] ?: return
+        val run = run(access.player) ?: return
         if (run.bossKind == Dt2Boss.DUKE && dukeEncounter.grind(run, musca)) access.anim(364)
     }
 
     fun poisonDuke(player: Player, npc: Npc, item: ItemServerType) {
-        val run = runs[player.uid] ?: return
+        val run = run(player) ?: return
         if (run.bossKind == Dt2Boss.DUKE && run.boss === npc) dukeEncounter.feed(run, item.id)
     }
 
     fun feedDuke(player: Player, npc: Npc) {
-        val run = runs[player.uid] ?: return
+        val run = run(player) ?: return
         if (run.bossKind != Dt2Boss.DUKE || run.boss !== npc) return
         val item =
             listOf(Dt2Assets.ARDER_MUSCA_POISON, Dt2Assets.ARDER_POWDER, Dt2Assets.MUSCA_POWDER)
@@ -846,7 +853,7 @@ constructor(
     }
 
     fun solve(player: Player): Boolean {
-        val run = runs[player.uid] ?: return false
+        val run = run(player) ?: return false
         if (run.state != Dt2State.SPECIAL) {
             player.mes("There is no active puzzle mechanic to solve.")
             return false
@@ -858,7 +865,7 @@ constructor(
     }
 
     fun forcePhase(player: Player, requested: String?): Boolean {
-        val run = runs[player.uid] ?: return false
+        val run = run(player) ?: return false
         if (run.state !in setOf(Dt2State.ACTIVE, Dt2State.ENRAGED)) {
             player.mes("The boss must be active before a phase can be forced.")
             return false
@@ -873,7 +880,7 @@ constructor(
     }
 
     fun reset(player: Player): Boolean {
-        val run = runs[player.uid] ?: return false
+        val run = run(player) ?: return false
         run.rewardEligible = false
         if (run.bossKind == Dt2Boss.VARDORVIS) bossHpBar.onClose(run.player, run.boss)
         cleanupHazards(run)
@@ -889,7 +896,7 @@ constructor(
     }
 
     fun escape(player: Player, locId: Int): Boolean {
-        val run = runs[player.uid] ?: return false
+        val run = run(player) ?: return false
         if (run.bossKind == Dt2Boss.VARDORVIS) {
             val vardorvisDefeated = run.state == Dt2State.RESPAWNING
             if (locId == Dt2Assets.VARDORVIS_EXIT_DISABLED && !vardorvisDefeated) {
@@ -911,7 +918,7 @@ constructor(
     }
 
     fun leave(player: Player): Boolean {
-        val boss = runs[player.uid]?.bossKind ?: return false
+        val boss = run(player)?.bossKind ?: return false
         abort(player, "used Leave Instance", teleport = true)
         player.mes(
             when (boss) {
@@ -925,7 +932,7 @@ constructor(
     }
 
     fun leaveFromLogoutTab(player: Player, expected: InstanceId): RaidLeaveResult {
-        val run = runs[player.uid] ?: return RaidLeaveResult.Unhandled
+        val run = run(player) ?: return RaidLeaveResult.Unhandled
         if (
             run.session.id != expected ||
                 run.bossKind !in
@@ -937,18 +944,13 @@ constructor(
     }
 
     fun membershipEnded(player: Player, instanceId: InstanceId) {
-        val run = runs[player.uid] ?: return
-        if (run.session.id != instanceId) return
-        runs.remove(player.uid)
+        val run = instances.sessionForId(instanceId)?.stateOrNull(RUN_STATE) ?: return
+        if (run.player !== player || run.playerUid != player.uid) return
         invalidateRun(run)
     }
 
-    fun externalTeleport(player: Player, instanceId: InstanceId) {
-        membershipEnded(player, instanceId)
-    }
-
     fun playerDied(player: Player) {
-        val run = runs[player.uid]
+        val run = run(player)
         if (run?.bossKind == Dt2Boss.LEVIATHAN) {
             leviathanRecords.recordDeath(
                 player,
@@ -961,20 +963,18 @@ constructor(
         }
     }
 
-    fun abort(player: Player, reason: String, teleport: Boolean, logout: Boolean = false) {
-        val run = runs.remove(player.uid) ?: return
+    fun abort(player: Player, reason: String, teleport: Boolean) {
+        val run = run(player) ?: return
         invalidateRun(run)
-        if (logout) instances.handleLogout(player, clock.cycle)
-        else {
-            val exit = instances.leave(player, run.session, clock.cycle)
-            if (teleport && player.isSlotAssigned)
-                PathingEntityCommon.telejump(player, collision, exit)
-        }
+        val exit = instances.leave(player, run.session, clock.cycle)
+        if (teleport && player.isSlotAssigned) PathingEntityCommon.telejump(player, collision, exit)
         prepare(player)
         log.info { "[DT2] player=${player.displayName} boss=${run.bossKind.command} abort=$reason" }
     }
 
     private fun invalidateRun(run: Run) {
+        if (run.retired) return
+        run.retired = true
         if (run.bossKind == Dt2Boss.LEVIATHAN && run.rewardEligible) {
             leviathanRecords.endVisit(run.player)
         }
@@ -1042,13 +1042,13 @@ constructor(
     }
 
     private fun markLeviathanPerfectFailure(run: Run, failure: LeviathanPerfectFailure) {
-        if (runs[run.player.uid] !== run || run.bossKind != Dt2Boss.LEVIATHAN) return
+        if (run(run.player) !== run || run.bossKind != Dt2Boss.LEVIATHAN) return
         run.leviathanPerfectKill = false
         run.leviathanPerfectFailures += failure
     }
 
     fun debugStatus(player: Player): String {
-        val run = runs[player.uid] ?: return "DT2: no active encounter."
+        val run = run(player) ?: return "DT2: no active encounter."
         return "DT2 boss=${run.bossKind.command} difficulty=${run.difficulty} generation=${run.generation} " +
             "state=${run.state} hp=${run.boss.hitpoints}/${run.maximumHp} attacks=${run.attackCounter} " +
             "tier=${Dt2Rules.leviathanVolleyTier(run.attackCounter)} action=${run.leviathanAction} roarDue=${run.leviathanRoarCycle} " +
@@ -1092,7 +1092,7 @@ constructor(
     }
 
     private fun tickLeviathanRuntime(run: Run) {
-        if (runs[run.player.uid] !== run) return
+        if (run(run.player) !== run) return
         if (clock.cycle >= run.leviathanCameraResetCycle) {
             Camera.camReset(run.player)
             run.leviathanCameraResetCycle = Int.MAX_VALUE
@@ -1409,7 +1409,7 @@ constructor(
     }
 
     private fun spawnLeviathanPathfinder(run: Run) {
-        if (run.leviathanPathfinder != null || runs[run.player.uid] !== run) return
+        if (run.leviathanPathfinder != null || run(run.player) !== run) return
         val northWest =
             requireNotNull(instances.localCoord(run.session, Dt2Assets.LEVIATHAN_PATHFINDER_START))
         val center = run.boss.coords.translate(run.boss.size / 2, run.boss.size / 2)
@@ -1804,7 +1804,7 @@ constructor(
         val iterator = run.pendingLeviathanDebris.iterator()
         while (iterator.hasNext()) {
             val pending = iterator.next()
-            if (pending.generation != run.generation || runs[run.player.uid] !== run) {
+            if (pending.generation != run.generation || run(run.player) !== run) {
                 iterator.remove()
                 continue
             }
@@ -1891,7 +1891,7 @@ constructor(
     }
 
     fun canAttackWhisperer(npc: Npc, target: Player): Boolean =
-        runs[target.uid]?.let {
+        run(target)?.let {
             it.bossKind == Dt2Boss.WHISPERER &&
                 it.boss === npc &&
                 it.state in setOf(Dt2State.ACTIVE, Dt2State.ENRAGED) &&
@@ -1930,7 +1930,7 @@ constructor(
         target: Player,
         style: Dt2AttackStyle,
     ): NpcAttackOverride {
-        val run = requireNotNull(runs[target.uid])
+        val run = requireNotNull(run(target))
         check(run.bossKind == Dt2Boss.WHISPERER && run.boss === npc)
         if (style == Dt2AttackStyle.MELEE) {
             val protected = run.player.vars["varbit.prayer_protectfrommelee"] == 1
@@ -2028,7 +2028,7 @@ constructor(
     }
 
     fun canAttackVardorvis(npc: Npc, target: Player): Boolean =
-        runs[target.uid]?.let {
+        run(target)?.let {
             it.bossKind == Dt2Boss.VARDORVIS &&
                 it.boss === npc &&
                 it.state in setOf(Dt2State.ACTIVE, Dt2State.ENRAGED)
@@ -2036,7 +2036,7 @@ constructor(
 
     /** Computes per-launch parameters; BossSpec and NvPCombat own selection, launch and cadence. */
     fun vardorvisAttackParameters(npc: Npc, target: Player): NpcAttackOverride {
-        val run = requireNotNull(runs[target.uid])
+        val run = requireNotNull(run(target))
         check(run.bossKind == Dt2Boss.VARDORVIS && run.boss === npc)
         return NpcAttackOverride(
             maxHit = Dt2Rules.vardorvisNormalMaxHit(run.boss.hitpoints),
@@ -2501,7 +2501,7 @@ constructor(
     }
 
     fun destroyVardorvisSpore(player: Player, component: Int): Boolean {
-        val run = runs[player.uid] ?: return false
+        val run = run(player) ?: return false
         if (run.bossKind != Dt2Boss.VARDORVIS || !run.vardorvisQteOpen) return false
         if (!run.vardorvisQteRemaining.remove(component)) return false
         if (run.vardorvisQteRemaining.isEmpty()) finishVardorvisStrangle(run, success = true)
@@ -2607,7 +2607,7 @@ constructor(
      * preparing it never increments accepted attacks or schedules damage.
      */
     fun prepareLeviathanOpportunity(npc: Npc, target: Player): Boolean {
-        val run = runs[target.uid] ?: return false
+        val run = run(target) ?: return false
         run.leviathanOpportunity = null
         if (
             run.bossKind != Dt2Boss.LEVIATHAN ||
@@ -2653,7 +2653,7 @@ constructor(
      * Existing native orb/bite launch and impact mechanics, after the DSL accepts an opportunity.
      */
     fun launchLeviathanOrdinary(access: StandardNpcAccess, npc: Npc, target: Player) {
-        val run = runs[target.uid] ?: return
+        val run = run(target) ?: return
         val prepared = run.leviathanOpportunity ?: return
         run.leviathanOpportunity = null
         check(
@@ -2679,7 +2679,7 @@ constructor(
         val modifier = PlayerHitModifier { target ->
             val builder = this
             with(NpcBypassProtectionPrayerPlayerHitModifier) { builder.modify(target) }
-            if (runs[target.uid] !== run || run.generation != generation) {
+            if (run(target) !== run || run.generation != generation) {
                 builder.damage = 0
             } else if (bite && leviathanProtected(target, Dt2AttackStyle.MELEE)) {
                 builder.damage = 0
@@ -2754,7 +2754,7 @@ constructor(
                     }
                 },
                 onImpact = { _, impact ->
-                    if (runs[run.player.uid] === run && run.generation == generation) {
+                    if (run(run.player) === run && run.generation == generation) {
                         // RSProx sends Leviathan's impact in slot 2 at height 100. Height 0
                         // rendered the impact at the player's feet instead of on their body.
                         contract.impactGraphic?.let { graphic ->
@@ -3168,7 +3168,7 @@ constructor(
         val iterator = run.dangerTiles.iterator()
         while (iterator.hasNext()) {
             val danger = iterator.next()
-            if (danger.generation != run.generation || runs[run.player.uid] !== run) {
+            if (danger.generation != run.generation || run(run.player) !== run) {
                 iterator.remove()
                 continue
             }
@@ -3184,7 +3184,7 @@ constructor(
         val iterator = run.movingHazards.iterator()
         while (iterator.hasNext()) {
             val hazard = iterator.next()
-            if (hazard.generation != run.generation || runs[run.player.uid] !== run) {
+            if (hazard.generation != run.generation || run(run.player) !== run) {
                 hazard.npc?.let { if (it.isSlotAssigned) npcs.del(it, Int.MAX_VALUE) }
                 iterator.remove()
                 continue
@@ -3222,7 +3222,7 @@ constructor(
         val modifier = PlayerHitModifier { target ->
             val builder = this
             with(NpcBypassProtectionPrayerPlayerHitModifier) { builder.modify(target) }
-            if (runs[target.uid] !== run || run.generation != generation) builder.damage = 0
+            if (run(target) !== run || run.generation != generation) builder.damage = 0
         }
         run.player.queueImpactHit(
             source = run.boss,
@@ -3235,7 +3235,7 @@ constructor(
                     HitImpactHandler { impact ->
                         if (
                             impact.damage > 0 &&
-                                runs[run.player.uid] === run &&
+                                run(run.player) === run &&
                                 run.generation == generation
                         ) {
                             val failure = perfectFailure
@@ -3710,6 +3710,9 @@ constructor(
         val dangerTiles: MutableList<DangerTile> = mutableListOf(),
         val movingHazards: MutableList<MovingHazard> = mutableListOf(),
     ) {
+        val playerUid: PlayerUid = player.uid
+        var retired: Boolean = false
+
         val maximumHp: Int
             get() = bossKind.hitpoints(difficulty)
     }

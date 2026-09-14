@@ -11,9 +11,13 @@ import org.rsmod.api.combat.NvPCombat
 import org.rsmod.api.combat.formulas.AccuracyFormulae
 import org.rsmod.api.combat.formulas.MaxHitFormulae
 import org.rsmod.api.death.NpcDeath
+import org.rsmod.api.instances.InstanceAccess
+import org.rsmod.api.instances.InstanceId
 import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.instances.InstanceSession
+import org.rsmod.api.instances.InstanceStateKey
 import org.rsmod.api.instances.RegionLocal
+import org.rsmod.api.instances.region.InstanceAreaResolver
 import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.api.npc.access.StandardNpcAccessContext
 import org.rsmod.api.npc.events.interact.AiPlayerEvents
@@ -33,7 +37,6 @@ import org.rsmod.game.MapClock
 import org.rsmod.game.cheat.CheatCommandMap
 import org.rsmod.game.entity.*
 import org.rsmod.game.entity.npc.NoopNpcInfo
-import org.rsmod.game.entity.player.PlayerUid
 import org.rsmod.game.hit.Hit
 import org.rsmod.game.hit.HitScope
 import org.rsmod.game.proj.ProjAnim
@@ -146,7 +149,17 @@ internal class Dt2NativeCombatFixture(
                 null
             } else Answers.RETURNS_DEFAULTS.answer(call)
         }
-    val session = mock(InstanceSession::class.java)
+    val session =
+        InstanceSession(
+            InstanceId(1),
+            mutableSetOf(),
+            1L,
+            bossKind.key,
+            bossKind.spec(boss.type),
+            (InstanceAreaResolver().resolve(bossKind.area()) as InstanceAreaResolver.Result.Ready)
+                .placement,
+            InstanceAccess.Private,
+        )
     private val instances =
         mock(InstanceManager::class.java) { call ->
             // CoordGrid is a value class, so the JVM name of this nullable-return API is
@@ -154,7 +167,15 @@ internal class Dt2NativeCombatFixture(
             // This fixture uses original map coordinates; preserve each requested axe lane
             // tile.
             if (call.method.name == "sessionForPlayer") {
+                session.takeIf { call.arguments[0] === player }
+            } else if (call.method.name.startsWith("sessionForId")) {
                 session
+            } else if (call.method.name.startsWith("instanceForNpc")) {
+                val npc = call.arguments[0] as Npc
+                session.id.takeIf { npc.isSlotAssigned && npcs[npc.slotId] === npc }
+            } else if (call.method.name == "sessionsForKey") {
+                if (call.arguments[0] == session.key) listOf(session)
+                else emptyList<InstanceSession>()
             } else if (call.method.name.startsWith("localCoord")) {
                 val local = call.arguments[1] as RegionLocal
                 CoordGrid(
@@ -222,12 +243,12 @@ internal class Dt2NativeCombatFixture(
         )
 
     init {
-        // Bootstrap content state without invoking entry UI or adding a production test hook.
-        val field = Dt2EncounterManager::class.java.getDeclaredField("runs")
+        // Bootstrap the same native typed state as entry without scene/UI setup.
+        val field = Dt2EncounterManager::class.java.getDeclaredField("RUN_STATE")
         field.isAccessible = true
         @Suppress("UNCHECKED_CAST")
-        val runs = field.get(manager) as MutableMap<PlayerUid, Dt2EncounterManager.Run>
-        runs[player.uid] = run
+        val key = field.get(manager) as InstanceStateKey<Dt2EncounterManager.Run>
+        session.state(key) { run }
         // Real entry allocates Run.generation with the manager's post-incrementing counter.
         Dt2EncounterManager::class.java.getDeclaredField("generation").apply {
             isAccessible = true

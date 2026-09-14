@@ -79,6 +79,7 @@ import org.rsmod.game.map.collision.isWalkBlocked
 import org.rsmod.game.map.collision.isZoneValid
 import org.rsmod.game.movement.MoveSpeed
 import org.rsmod.game.proj.ProjAnim
+import org.rsmod.game.queue.WorldQueueList
 import org.rsmod.map.CoordGrid
 import org.rsmod.routefinder.StepValidator
 import org.rsmod.routefinder.collision.CollisionFlagMap
@@ -104,6 +105,7 @@ constructor(
     private val rewards: DoomRewardService,
     private val stats: DoomScoreboardService,
     private val routeFactory: RouteFactory,
+    private val worldQueues: WorldQueueList,
 ) {
     private val log = InlineLogger()
     private val stepValidator = StepValidator(collision)
@@ -134,13 +136,14 @@ constructor(
 
     private fun attachRun(run: Run) {
         check(run.session.state(RUN_STATE) { run } === run)
-        // Session teardown removes the native indexes and typed state before invoking this closure.
-        run.session.onCleanup { retire(run) }
         bossEncounters.of(run.boss).apply {
             initializeDecisionSeed(run.generation)
-            transitionTo(doomPhase(run.delve), clock.cycle)
+            transitionTo(DOOM_INACTIVE_PHASE, clock.cycle)
+            run.phases = DoomCombatPhases(this, clock, worldQueues, run.delve)
             lastAbilityTick = clock.cycle - expectedAttackRate()
         }
+        // Session teardown removes the native indexes and typed state before invoking this closure.
+        run.session.onCleanup { retire(run) }
     }
 
     fun validateAssets() {
@@ -438,7 +441,6 @@ constructor(
                 generation++,
                 delve,
                 boss,
-                DoomState.STARTING,
                 clock.cycle,
                 startCycle = bossRevealCycle,
                 nextShockwaveCycle = Int.MAX_VALUE,
@@ -1742,7 +1744,14 @@ constructor(
         run.boss.suppressHitpointHeadbar = true
         run.shieldEpoch++
         run.state = DoomState.SHIELD_TRANSITION
-        run.stateCycle = clock.cycle
+        val encounter = checkNotNull(bossEncounters.existing(run.boss))
+        val epoch = run.shieldEpoch
+        run.phases.armShield(epoch) {
+            run(run.player) === run &&
+                bossEncounters.isAttached(run.boss, encounter) &&
+                run.shieldEpoch == epoch &&
+                run.state == DoomState.SHIELD_TRANSITION
+        }
         syncShieldBossHud(run)
         run.pendingMeleeChargeCycle = Int.MAX_VALUE
         run.meleeChargeAttackClaimed = false
@@ -1755,7 +1764,7 @@ constructor(
     }
 
     private fun processShieldTransition(run: Run) {
-        if (clock.cycle < DoomCombatTimeline.shieldActiveCycle(run.stateCycle)) return
+        if (!run.phases.consumeShieldReady(run.shieldEpoch)) return
         run.normalHitpoints =
             DoomShieldRuntimeRules.captureNormalHitpoints(
                 storedHitpoints = run.normalHitpoints,
@@ -3783,7 +3792,6 @@ constructor(
         val generation: Long,
         val delve: Int,
         var boss: Npc,
-        var state: DoomState,
         var stateCycle: Int,
         var startCycle: Int,
         var bossRevealCycle: Int,
@@ -3860,7 +3868,26 @@ constructor(
         val larvae: MutableMap<Npc, Larva> = linkedMapOf(),
         val volatiles: MutableSet<Npc> = linkedSetOf(),
         val volatileAttackableCycles: MutableMap<Npc, Int> = linkedMapOf(),
-    )
+    ) {
+        lateinit var phases: DoomCombatPhases
+        private var outcome: DoomSessionOutcome? = DoomSessionOutcome.STARTING
+
+        var state: DoomState
+            get() = outcome?.state ?: phases.state
+            set(value) {
+                val sessionOutcome = DoomSessionOutcome.entries.firstOrNull { it.state == value }
+                if (sessionOutcome != null) {
+                    phases.invalidateReadiness()
+                    outcome = sessionOutcome
+                } else {
+                    check(outcome == null || outcome == DoomSessionOutcome.STARTING) {
+                        "A retired Doom session cannot resume combat."
+                    }
+                    phases.state = value
+                    outcome = null
+                }
+            }
+    }
 
     internal data class PendingEarthShield(
         val spawnCentre: CoordGrid,

@@ -14,11 +14,9 @@ import org.rsmod.api.death.UntradeableHandling
 import org.rsmod.api.game.process.GameLifecycle
 import org.rsmod.api.game.process.player.PlayerNpcApLineOfSightHook
 import org.rsmod.api.instances.events.InstanceLeaveRequestEvent
-import org.rsmod.api.instances.events.InstancePlayerExternalTeleportEvent
 import org.rsmod.api.instances.events.InstancePlayerLeaveEvent
 import org.rsmod.api.instances.events.instanceEventId
 import org.rsmod.api.script.onEvent
-import org.rsmod.api.script.onPlayerLogout
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
 import org.rsmod.plugin.scripts.PluginScript
@@ -117,17 +115,6 @@ internal class Dt2Lifecycle @Inject constructor(private val encounters: Dt2Encou
         }
         onEvent<InstancePlayerLeaveEvent>(instanceEventId(Dt2Boss.WHISPERER.key)) {
             encounters.membershipEnded(player, instanceId)
-        }
-        onEvent<InstancePlayerExternalTeleportEvent> {
-            if (key == Dt2Boss.DUKE.key) encounters.externalTeleport(player, instanceId)
-            if (key == Dt2Boss.LEVIATHAN.key) encounters.externalTeleport(player, instanceId)
-            if (key == Dt2Boss.WHISPERER.key) encounters.externalTeleport(player, instanceId)
-            if (key == Dt2Boss.VARDORVIS.key) {
-                encounters.externalTeleport(player, instanceId)
-            }
-        }
-        onPlayerLogout {
-            encounters.abort(player, "logout or disconnect", teleport = false, logout = true)
         }
     }
 }

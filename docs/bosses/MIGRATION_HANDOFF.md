@@ -4,12 +4,13 @@ This is a resumable handoff, not a project-completion or full OSRS-parity claim.
 mechanic mappings, uncertainties, commands and results remain in [DSL_MIGRATION.md](DSL_MIGRATION.md).
 Update this checkpoint after each completed boss and immediately before any authorized deployment.
 
-September14 current checkpoint: the top of `DSL_MIGRATION.md` records the shared seeded selector,
-Doom's declarative three-stream decisions, Leviathan cadence and Duke's declarative interval
-rotation. Full Doom129/DT2158 and boss API72/instances54/25 other boss modules897 pass scoped
-checks: **1,310 cases**. Application assemble and architecture detector/self-tests pass; source
-archives/backups are recorded there. Next: DT2 native session ownership and Doom phase identity/
-deadlines, preserving StartCycle/LateCycle boundaries; then the approved ToA/ToB/CoX order.
+September14 current checkpoint: the top of `DSL_MIGRATION.md` records DT2 native typed session
+ownership/cleanup and Doom native phase identity/two-tick shield readiness, following the verified
+seeded decisions, Leviathan cadence and Duke interval rotation. Full Doom134/DT2164 and still-valid
+boss API72/instances54/25 other boss modules897 pass scoped checks: **1,321 cases**. Application
+assemble and architecture detector/self-tests pass; source archives/backups are recorded there.
+Next: four native DT2 InstanceScript entry/exit owners and Doom shockwave graph/readiness, preserving
+StartCycle/LateCycle boundaries; then remaining specialized timing and the approved ToA/ToB/CoX order.
 Runtime remains c4fc9390f/JVM23812, with deployment/evidence/replay holds unchanged. Read the
 current section before the historical checkpoints below.
 

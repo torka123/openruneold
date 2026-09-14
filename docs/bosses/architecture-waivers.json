@@ -43,18 +43,6 @@
   },
   {
     "boss": "desert-treasure-ii",
-    "rule": "global-runs-map",
-    "maximum": 1,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "desert-treasure-ii",
-    "rule": "manual-lifecycle",
-    "maximum": 3,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "desert-treasure-ii",
     "rule": "direct-combat-review",
     "maximum": 10,
     "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
@@ -69,7 +57,7 @@
     "boss": "doom-of-mokhaiotl",
     "rule": "direct-combat-review",
     "maximum": 10,
-    "reason": "Primary/tongue attacks and seeded primary/style/charge decisions use BossSpec/native selectors; remaining parameter snapshots and spatial hazards use native combat/queues. Session ownership is native. Combat phase identity and fixed phase deadlines remain migration debt; LateCycle spatial ordering must be preserved. See current DSL_MIGRATION.md."
+    "reason": "Primary/tongue attacks, seeded decisions and six live combat phase identities use BossSpec/native selectors. Session ownership and shield deadline readiness are native. Remaining parameter snapshots and spatial hazards use native combat/queues; charge/shockwave/car deadlines remain explicit debt. LateCycle spatial ordering is preserved. See current DSL_MIGRATION.md."
   },
   {
     "boss": "grotesque-guardians",
