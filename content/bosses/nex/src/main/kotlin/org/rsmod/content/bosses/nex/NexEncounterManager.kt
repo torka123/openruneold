@@ -399,6 +399,7 @@ constructor(
                 },
                 current.rewarded,
                 current.arena.spawn,
+                current.boss,
             )
             if (
                 !isActiveRun(current) || !bossEncounters.isAttached(current.boss, current.encounter)

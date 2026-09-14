@@ -69,9 +69,16 @@ claim/full-snapshot SQL composition now passes83 selected cases,2,176 valid resu
 architecture/app assemble and2-file archive; backup/nex-s04-native-snapshot-20260913. Real writers,
 fresh reload, late SQL rollback, lost ACK and both Existing outcomes are verified without a live
 saver wrapper. The52 Sailing cases newly included in the rollup are one new test plus51 existing
-regressions. Next: receipt-aware native full-snapshot/save
-reconciliation and unresolved-operation ownership, pending the runtime choice between world pause
-and complete player isolation. Ground lifecycle/identity and restart-expiry policy remain gates;
+regressions. September13 correction: reuse existing native drop, pickup and account-save systems.
+World pause/isolation and restart-persistent unclaimed loot were not established prerequisites for
+ordinary migration. The stronger approved S04 replay contract remains separately unfinished; do not
+activate recovery alongside unrecorded pickup. Next: bounded RSProx M20 comparison and the existing
+shared Nex item-delivery mapping. M31 is now source-verified:163 Nex/68 drops,2,179 valid cases,
+scoped checks/app assemble/architecture and6-file archive; backup/nex-m31-shared-delivery-20260913.
+No new API. Shared native delivery owns item logging/tracking/clan output; current global chat,
+pet path, rolls and lifetime override are retained. Fresh RSProx search and48 retained Containment
+casts disprove a fixed missing west edge; next is the exact native collision/object-state comparison.
+Full S04/reward accuracy remains open. See the Nex ledger for evidence and the corrected scope;
 SOURCE ONLY, no live V43/V44/V45 migration. M04 cooldown/equipment and
 M20 general placement/clipping remain evidence gaps. Boosted-floor evidence remains
 separate. Full local/pinned searches verified the missing fixed

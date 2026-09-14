@@ -1,15 +1,21 @@
 package org.rsmod.content.bosses.nex
 
 import dev.openrune.ServerCacheManager
+import dev.openrune.rscm.RSCM
+import dev.openrune.rscm.RSCMType
+import dtx.core.RollResult
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import org.rsmod.api.collectionlog.CollectionLogAwardKind
 import org.rsmod.api.collectionlog.CollectionLogAwardSource
 import org.rsmod.api.collectionlog.CollectionLogService
+import org.rsmod.api.death.NpcDeath
+import org.rsmod.api.droptable.DropRollItem
 import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.vars.VarPlayerIntMapSetter
 import org.rsmod.api.random.GameRandom
-import org.rsmod.api.repo.obj.ObjRepository
+import org.rsmod.content.drops.NpcRewardDeliveryService
+import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
 import org.rsmod.game.entity.player.PlayerUid
@@ -19,14 +25,16 @@ internal class NexRewardService
 @Inject
 constructor(
     private val random: GameRandom,
-    private val objects: ObjRepository,
+    private val delivery: NpcRewardDeliveryService,
     private val players: PlayerList,
     private val collectionLog: CollectionLogService,
+    private val npcDeath: NpcDeath,
 ) {
     fun reward(
         contributions: Map<PlayerUid, NexContribution>,
         rewarded: MutableSet<PlayerUid>,
         dropTile: org.rsmod.map.CoordGrid,
+        npc: Npc,
     ): Int {
         val total = contributions.values.sumOf { it.damage }
         if (total <= 0) return 0
@@ -40,11 +48,15 @@ constructor(
                 )
         val mvpUid = eligible.firstOrNull()?.key
         var count = 0
+        var lootTrackerEventId: Int? = null
         for ((uid, contribution) in eligible) {
             if (!rewarded.add(uid)) continue
             val player = uid.resolve(players) ?: continue
             val mvp = uid == mvpUid
-            rewardPlayer(player, contribution.damage, total, mvp, dropTile)
+            val eventId =
+                lootTrackerEventId
+                    ?: npcDeath.nextLootTrackerEventId().also { lootTrackerEventId = it }
+            rewardPlayer(player, contribution.damage, total, mvp, dropTile, npc, eventId)
             count++
         }
         return count
@@ -56,14 +68,14 @@ constructor(
         total: Int,
         mvp: Boolean,
         dropTile: org.rsmod.map.CoordGrid,
+        npc: Npc,
+        eventId: Int,
     ) {
         val killcount = player.vars["varp.total_nex_kills"] + 1
-        val awards = mutableListOf<Pair<Int, Int>>()
-        val duration = player.lootDropDuration ?: NEX_DROP_DURATION
+        val awards = mutableListOf<DropRollItem>()
         fun award(itemId: Int, count: Int) {
             if (count <= 0) return
-            drop(player, itemId, count, dropTile, duration)
-            awards += itemId to count
+            awards += DropRollItem(RSCM.getReverseMapping(RSCMType.OBJ, itemId), count)
         }
         repeat(2) {
             val common = commonPool[random.of(commonPool.size)]
@@ -108,11 +120,13 @@ constructor(
             )
         }
 
-        collectionLog.recordBatch(
-            player = player,
-            awards = awards,
-            source = CollectionLogAwardSource(CollectionLogAwardKind.NpcDrop, "nex"),
-            eventId = "${player.uid}:$killcount",
+        delivery.deliver(
+            receiver = player,
+            npc = npc,
+            result = RollResult.ListOf(awards),
+            coords = dropTile,
+            eventId = eventId,
+            awardIdentity = "${player.uid}:$killcount",
         )
         if (petAwarded) {
             collectionLog.record(
@@ -128,21 +142,6 @@ constructor(
             "Your Nex kill count is: <col=ff0000>$killcount</col>. " +
                 "Contribution: $damage/$total${if (mvp) " (MVP)" else ""}."
         )
-    }
-
-    private fun drop(
-        player: Player,
-        itemId: Int,
-        count: Int,
-        tile: org.rsmod.map.CoordGrid,
-        duration: Int,
-    ) {
-        if (count <= 0) return
-        val type =
-            requireNotNull(ServerCacheManager.getItem(itemId)) {
-                "Missing revision-240 Nex reward item $itemId"
-            }
-        objects.add(type, tile, duration, player, count)
     }
 
     private fun uniqueFor(weight: Int): Int =

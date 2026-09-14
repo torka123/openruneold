@@ -133,6 +133,11 @@ class NexBodyguardDeathDropsIntegrationTest {
                 it.method.name.startsWith("reward")
             },
         )
+        val rewardCall =
+            mockingDetails(f.rewardService).invocations.single {
+                it.method.name.startsWith("reward")
+            }
+        assertSame(boss, rewardCall.arguments[3], "Pass the actual base NPC to shared delivery")
     }
 
     private fun world(

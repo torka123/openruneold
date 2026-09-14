@@ -293,7 +293,7 @@ class NexRoundHandoffIntegrationTest {
                 0
             }
             .`when`(f.rewardService)
-            .reward(current.contributions, current.rewarded, current.arena.spawn)
+            .reward(current.contributions, current.rewarded, current.arena.spawn, current.boss)
         boss.hitpoints = 1
         f.damage(boss, 1)
         var ticks = 0

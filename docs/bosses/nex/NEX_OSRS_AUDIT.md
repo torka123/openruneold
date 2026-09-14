@@ -93,15 +93,181 @@ Independent claim/full native SQL snapshot composition now passes its real Postg
 83 selected cases,2,176 valid results, scoped checks/architecture/app assembly and2-file archive.
 Source backup: `backup/nex-s04-native-snapshot-20260913`. The52 Sailing cases added to this result
 rollup contain one new composition test and51 existing cases; they are not52 newly implemented tests.
-Next concrete deliverable: receipt-aware native full-snapshot/save reconciliation with an owned
-unresolved operation. Its required runtime choice (pause the world until commit/abort is confirmed,
-or add complete player isolation while others play) is still unanswered. Complete receipt/save reconciliation,
-complete unresolved-player handling, tracked ground quantities/lifecycle and restart policy remain gates.
+Current September13 correction: use existing OpenRune gameplay and save systems first. Neither
+restart-persistent unclaimed ground loot nor a world-pause/player-isolation policy was established
+as a prerequisite for ordinary native migration. These are no longer presented as mandatory user
+decisions. The approved S04 replay-safe completion contract remains separately unfinished; ordinary
+saves do not prove exactly-once recovery. V43/V44/V45 stay inactive in production. M31 shared item
+delivery is now source-verified:163 Nex/68 drops,2,179 valid cases including reused results, scoped
+checks/app assemble/architecture and a byte-verified6-file archive. Backup reference:
+`backup/nex-m31-shared-delivery-20260913`. The fresh RSProx search found no new verified normal fight;
+48 retained Containment casts bound geometry but leave its selection predicate unresolved. Next:
+compare those exact M20 tiles with native collision/object state; continue S04 native death-context
+integration separately without inventing a restart-persistent ground or world-pause requirement.
 M04 cooldown/equipment, M20 general placement/clipping and normal timing evidence remain missing. All these
 changes remain SOURCE ONLY; current deployment is unchanged.
 Existing timing/damage/geometry constants remain characterized under E07. Full native public/private
 sessions, other mechanics/rewards/evidence gaps below remain open; Nex is not complete.
 Existing order remains Nex ->Yama ->Doom ->DT2 ->separate Dagannoth Kings review ->ToA ->ToB ->CoX.
+
+## Current correction: existing native systems and the actual S04 boundary
+
+September13 user clarification: "openrune should have a system for almost everything". This
+reinforces the existing conditional approval: trace and reuse a suitable official/current approved
+route before extending it. Do not treat a stronger inferred guarantee as a missing native feature.
+This section supersedes older entries that call world pause/isolation or ground restart policy
+mandatory migration blockers. Completed source and valid tests are retained; nothing is deployed.
+
+Verified native routes, rechecked against pinned upstream `61139e76a` where applicable:
+
+- `api/repo/.../obj/ObjRepository.kt`: native ownership, merge/split, reveal, expiry and respawn
+  scheduling; its timer queues use `MapClock` and `ObjRegistry`. `api/registry/.../ObjRegistry.kt`
+  stores current ground objects in memory. Startup reloads configured map spawns, not abandoned
+  drops. Preserving this behavior needs no additional restart-persistence system. The similarly
+  named `toPersistentObjAdd` builds a client packet; it is not database/disk recovery.
+- Pinned `content/drops/.../NpcDropTableKillHook.kt` already owns ordinary NPC ground delivery,
+  collection logging and loot tracking. The current approved extraction is
+  `content/drops/.../NpcRewardDeliveryService.kt`; it is shared by that hook and Royal Titans
+  deferred claims. It honors `player.lootDropDuration` and the native default. Reuse it.
+- `api/obj-plugin/.../ObjTakePlugin.kt` uses native ground removal and inventory transactions.
+  `api/shops/.../StandardCurrencyShopOperations.kt` uses the same established inventory transaction
+  model for purchases. Neither method promises a synchronous SQL receipt for each gameplay action.
+- `api/account/.../saver/AccountSavingService.kt` already serializes full account/pipeline snapshots
+  and retries failures. Current approved save gates and shutdown drain protections remain intact.
+  Local ToA/Gauntlet durable helpers are useful current comparables, but their mutation helper is
+  absent at pinned upstream and unconditional exception rollback does not resolve a lost commit ACK.
+
+Authority distinction: the approved S04 mapping below expressly includes persistent KC, recorded
+rolls, replay-safe completion and crash-boundary/idempotent pickup tests. Retain that unfinished
+contract and its tested foundations. It does not expressly require already-spawned unpicked drops
+to survive restart or select downtime expiry semantics. No recorded approval selects an indefinite
+world pause or complete player isolation. Normal shared delivery can proceed independently without
+claiming the stronger contract complete. Do not activate journal replay alongside ordinary unrecorded
+pickup: persisted inventory and a still-unconsumed allocation could duplicate a reward.
+
+This correction itself changes documentation/next-step scope, not runtime behavior. Its starting
+2,176-case rollup was `logs/nex-s04-snapshot-valid-test-results-20260913.json` at source `db4e6580b`.
+The subsequent M31 increment below refreshes affected suites; deployed checkpoint stays `c4fc9390f`.
+
+## Fresh RSProx database evidence: M20 normal capture search and placement bounds
+
+September13, user-directed website search: public `POST https://rsprox.net/api/search`, ANY mode,
+NEWEST ordering, 100 results/page. All returned pages were retained under
+`logs/nex-rsprox-search-20260913/`; no existing capture/search was overwritten. Thirteen query groups
+cover main NPC11278-11282, helpers11283-11286/11294, loc42943/42944, sequence9186, Containment speech,
+exact Nex kill-count text, Ancient Prison text and mapsquares11601/11709, plus broader text queries.
+The broad substring Nex searches returned354 TEXT and340 MESSAGE_GAME results; all four pages of
+each were retained, not treated as354/340 fights. Exact actors, sequence, "Contain this" and KC
+still identify only3284/806/807/808, all Grid Master. Indexed loc queries omit known3284 placement,
+so a search match/absence is not independent proof of complete capture contents.
+
+Downloaded two new normal-world candidates from the public database and transcribed with installed
+RSProx CLI `net.rsprox.proxy.cli.TranscribeCommandKt`, retaining raw bins, transcripts and logs:
+
+| Candidate | Actual header / disposition | Raw SHA256 |
+|---|---|---|
+| [3870](https://rsprox.net/download/3870) | revision235.1, world523, Nex FFA; reject as fight evidence. Transcript only names Nex in world activity; POH/TzHaar movement at5086-7273, continues through frame690. | `1D0C96F659B6737A0F788449C31686CECA94B55E915A3DB1F68A4742A3CAFA2F` |
+| [3886](https://rsprox.net/download/3886) | revision235.1, world523, Nex FFA; reject as fight evidence. POH/TzHaar movement at5007-7102 and later Wilderness NPCs, through frame3339; no Nex actor/fight. | `E0B5B65645DE2998B71D4941821D2B0A5101C957C68E4FC92AD0CAF85563A927` |
+
+Both catalog dates are January7,2026. The binaries are108570/486169 bytes; raw and transcript hashes
+are in `capture-hashes.json`. Both CLI exits were0; pure-Java BZip fallback warnings and3886 Netty
+ByteBuf leak warning are retained, not hidden by that exit status. Existing rejected normal-world
+2960/3934 findings were reused. No new normal Nex fight was verified by this search, and none of
+these world tags supplies normal timing evidence. Do not ask the user for a local recording again.
+
+Bounded retained-capture comparison now covers48 Containment casts (3284:1,806:14,807:17,808:16).
+At five captured frames after the cast, all batches contain nine26209 interior blockers at dx,dz0..2
+from Nex's anchor. Visible42943 positions all lie on the surrounding5x5 perimeter, offsets-1..3;
+the union covers all16 perimeter positions. Individual casts show6-14 visible pieces, never all16.
+These are Grid Master observations, not a verified normal-game scheduler duration.
+
+Exact retained `logs/nex-audit-20260909/captures/rsprox-808.txt` references:
+
+- t3269 anchor(2936,5199), line81728; t3274 placement81879-81905 includes all five WEST tiles at
+  x2935/z5198..5202 and omits the east edgex2939. Universal west-edge omission is disproved.
+- t926->931 and2548->2553, anchor(2924,5202), cast24234/64983 and placement24407-24427/65203-65223:
+  same12 visible positions, all corners absent, despite different rotations and changed actor/player
+  observations. Different identities alone do not establish a fully varied roster.
+- t1637->1642, anchor(2924,5195), cast41906 and placement41972-41986: only three north and three
+  south pieces plus all nine interior blockers; both lateral edges are absent.
+- 3284 cast12392/placement12534-12557 and806 cast18970/placement19101-19121 reproduce the same
+  eleven visible positions at(2935,5198), including the originally observed missing west edge.
+
+Location-dependent clipping is a supported inference, not a proven filter. Current native
+`LocRepository.add/findExact/del/onDespawn` and M21 ownership can implement verified placements;
+no missing placement API has been demonstrated. Next evidence step: compare these exact included
+and omitted tiles against native map collision/object state, explicitly retaining revision234 versus
+current240 limits. Do not choose a terrain/occupant/object-layer predicate merely because it fits one
+sample. No M20 geometry, timing or damage change has been made from these observations.
+
+## Completed source increment: M31 existing shared item delivery
+
+Pre-edit mapping, September13: original M31/S04 approve shared Collection Log, broadcast and loot
+tracking through A07/A09. Pinned upstream `61139e76a` supplies the one-hero drop pipeline; current
+approved `NpcRewardDeliveryService.deliver` extracts that same delivery owner, already used by
+`RoyalTitansEncounterManager.claim` with `NpcDeath.nextLootTrackerEventId`. No new API is needed.
+
+Pass the actual run's base Nex actor into its existing delayed reward call. Retain contribution
+selection, current rolls and their RNG order, transient duplicate guard, pet path, KC and callback
+lifecycle. Collect existing item awards as fixed-count `DropRollItem`s and call shared delivery
+once per recipient, with one native loot-tracker event per invocation and distinct award ordinals.
+`DropRollItem.rollCount` consumes no entropy for a fixed count. Remove the duplicate local item
+Collection Log batch; shared delivery owns item logging, loot-tracker output, clan broadcast rules
+and native ground registration. Pet logging and the existing global unique announcement remain
+separate. Review confirmed that clan and global announcements have different audiences; removing
+the global message is not necessary for this bounded routing change.
+
+The active Nex admission path already sets `player.lootDropDuration=18000`, which shared delivery
+honors. Preserve that current override and the current drop coordinate for this routing increment;
+M29 lifetime/drop-tile evidence and roll-topology corrections remain separate. A caller with no
+override follows the native default. This is an incremental M31 migration, not completion of the
+S04 declarative multi-recipient death hook, durable claims, pet API or normal OSRS loot accuracy.
+
+Acceptance: real shared delivery and ground registry preserve exact per-recipient item quantities,
+owners, source actor, current duration and unique ordinal identities; native tracker event IDs do
+not collide between kills; duplicate invocation and unresolved/departed identities do not redeliver;
+fixed concrete delivery consumes no additional randomness. Verify no duplicate local item log and
+preserve the existing global announcement. Rerun affected Nex death/departure/callback regressions,
+then scoped Nex/drop checks, app assemble and architecture checks. No save API or live migration.
+
+Implemented and verified: `NexRewardService` batches existing fixed-count rolls through the actual
+shared service; its local item log batch/direct ground helper are removed. Native event allocation
+is lazy, shared across recipients of that call and advances for the next completion. The real base
+actor11278 remains the tracker source after dying transmog11282. Existing global unique chat and
+pet logging remain separate from the new shared item/clan output. No new API or framework edit.
+
+Changed source files (six, all under `content/bosses/nex`):
+
+- `build.gradle.kts`: existing drop-table/shared delivery dependencies and focused fixture dependencies.
+- `src/main/kotlin/org/rsmod/content/bosses/nex/NexRewards.kt`: native delivery and event allocation.
+- `src/main/kotlin/org/rsmod/content/bosses/nex/NexEncounterManager.kt`: pass the actual run actor.
+- `src/test/kotlin/org/rsmod/content/bosses/nex/NexSharedRewardDeliveryTest.kt`: three real-pipeline groups.
+- `src/test/kotlin/org/rsmod/content/bosses/nex/NexBodyguardDeathDropsIntegrationTest.kt`: actual delayed
+  main-death callback supplies the same base actor; guard/reaver routing remains as before.
+- `src/test/kotlin/org/rsmod/content/bosses/nex/NexRoundHandoffIntegrationTest.kt`: update the exact
+  callback stub while retaining source deletion during reward and round-retirement regressions.
+
+The new tests verify two concrete recipients, exact15-call RNG sequence each, fixed-count native
+delivery with no further entropy, native merging and personal owner/tile quantities, ordinal item log
+and clan identities, exact tracker packets with event1 then2, one pet log, KC, no duplicate replay,
+ineligible/zero/stale-UID rejection, and native reveal at100/expiry at18000 or the null-override native
+default200. An unrelated online spectator receives only the two preserved global unique messages,
+no personal loot/log. These characterize existing Nex rules; they do not certify those rules as OSRS.
+
+Verification history: first compile exposed incorrect reverse-RSCM conversion; corrected to existing
+`RSCM.getReverseMapping`. Second compile required the fixture's explicit InternalApi opt-in. Focus3
+passed24s. The added spectator assertion needed an explicit list type; focus5 then passed19s.
+Final `logs/nex-m31-shared-delivery-checks-20260913.log`: BUILD SUCCESSFUL1m23s,476 tasks
+(15 executed,461 up-to-date), scoped formatting/checks, app assemble and architecture/self-tests.
+All163 Nex plus68 shared drop cases pass, no failures/errors/skips. Unchanged shared, boss, Sailing
+and ToA results are reused in `logs/nex-m31-shared-delivery-valid-test-results-20260913.json`:2,179.
+No live combat/audio/client acceptance, runtime restart, account migration or deployment is claimed.
+
+Byte-verified archive `logs/nex-m31-shared-delivery-source-20260913.zip`:6 files, SHA256
+`D17655CDC8A24C21A3165C5A159245CA2289C099A4474910998D6DB3C143888E`.
+Backup reference `backup/nex-m31-shared-delivery-20260913`. Main Nex's existing deferred death callback,
+custom roll topology/eligibility,18000 lifetime, fixed drop tile, pet API and complete S04 durable
+completion/pickup remain open. This partial M31 reuse does not silently complete those contracts.
 
 ## Completed verification increment: S04 claim and native full-snapshot SQL composition
 
