@@ -177,7 +177,7 @@ class DoomNativeDslTest {
         assertTrue(f.hits().isEmpty())
         assertTrue(f.projectiles().isEmpty())
         f.npc.mode = NpcMode.ApPlayer2
-        f.run.nextAttackNotBeforeCycle = 105
+        f.npc.actionDelay = 105
         f.attack()
         assertEquals(105, f.npc.actionDelay)
         assertTrue(f.registry.of(f.npc).recentAbilityCommitTicks().isEmpty())
@@ -885,7 +885,7 @@ class DoomNativeDslTest {
                     f.clock.cycle,
                 )
             f.callRun("completeZoom")
-            assertEquals(116, f.run.nextAttackNotBeforeCycle)
+            assertEquals(116, f.npc.actionDelay)
             assertEquals(1, f.worldQueues.size, "The original 100-tick queue was cancelled")
             f.at(114)
             f.worldPreInput()
@@ -905,6 +905,117 @@ class DoomNativeDslTest {
                 f.run.phases.shockwaveDue,
                 "The cancelled original deadline cannot reassert readiness",
             )
+        }
+    }
+
+    @Test
+    fun `positive melee impact holds native attacks for each punishment tier without shortening a lock`() {
+        for (delve in 1..9) for (longerLock in listOf(false, true)) {
+            Fixture(delve, standardSeed(delve, DoomAttackStyle.RANGED)).use { f ->
+                val case = "delve=$delve longerLock=$longerLock"
+                f.startCharge(DoomState.MELEE_CHARGE)
+                val impactCycle = f.clock.cycle
+                val punishmentDeadline = impactCycle + DoomRules.meleePunishDelay(delve)
+                val deadline = punishmentDeadline + if (longerLock) 3 else 0
+                if (longerLock) f.npc.actionDelay = deadline
+                val hit = f.queueBossHit(1, HitType.Melee)
+                f.processBossHits()
+                assertTrue(hit.damage > 0, "$case native positive impact")
+                assertEquals(DoomState.ACTIVE, f.run.state, "$case charge interruption")
+                assertEquals(deadline, f.npc.actionDelay, "$case immediate native hold")
+                assertEquals(impactCycle + 2, f.run.meleePunishUntilCycle)
+
+                var rolls = 0
+                f.random.beforeRoll = { rolls++ }
+                val projectiles = f.projectiles().size
+                val counts = f.decisionCounts()
+                for (tick in impactCycle until deadline) {
+                    f.at(tick)
+                    f.attack()
+                    assertEquals(0, rolls, "$case held native RNG at $tick")
+                    assertEquals(counts, f.decisionCounts(), "$case held selectors at $tick")
+                    assertTrue(
+                        f.registry.of(f.npc).recentAbilityCommitTicks().isEmpty(),
+                        "$case held native commit at $tick",
+                    )
+                    assertEquals(projectiles, f.projectiles().size, "$case held launch at $tick")
+                    assertEquals(deadline, f.npc.actionDelay, "$case retained hold at $tick")
+                }
+                f.at(deadline)
+                f.attack()
+                assertEquals(
+                    listOf(deadline),
+                    f.registry.of(f.npc).recentAbilityCommitTicks(),
+                    case,
+                )
+                assertTrue(rolls > 0, "$case first permitted native damage roll")
+                f.assertTurn(DoomAttackFlow.next(delve, f.oracleState, adjacent = false))
+                assertEquals(deadline + DoomRules.attackRate(delve), f.npc.actionDelay, case)
+            }
+        }
+    }
+
+    @Test
+    fun `car emergence native hold survives warning entry and releases its forced rock at the exact tick`() {
+        for (delve in 5..9) for (longerLock in listOf(false, true)) {
+            Fixture(delve, standardSeed(delve, DoomAttackStyle.RANGED)).use { f ->
+                val case = "delve=$delve longerLock=$longerLock"
+                f.at(110)
+                f.run.state = DoomState.BURROWING
+                f.registry
+                    .of(f.npc)
+                    .transitionTo(
+                        doomCarPhase(delve, DoomCarPacket.RECOVERY, DoomRules.carZooms(delve)),
+                        f.clock.cycle,
+                    )
+                val preparationCycle = f.clock.cycle + 6
+                val deadline = preparationCycle + if (longerLock) 3 else 0
+                if (longerLock) f.npc.actionDelay = deadline
+                f.callRun("completeZoom")
+                f.player.coords = f.npc.coords.translateX(8)
+                assertEquals(deadline, f.npc.actionDelay, "$case immediate native hold")
+                var rolls = 0
+                f.random.beforeRoll = { rolls++ }
+                val counts = f.decisionCounts()
+                while (f.clock.cycle < deadline) {
+                    f.worldPreInput()
+                    val rollsBeforeAttack = rolls
+                    val projectilesBeforeAttack = f.projectiles().size
+                    f.attack()
+                    assertEquals(rollsBeforeAttack, rolls, "$case held native RNG")
+                    assertEquals(counts, f.decisionCounts(), "$case held selectors")
+                    assertTrue(f.registry.of(f.npc).recentAbilityCommitTicks().isEmpty(), case)
+                    assertEquals(projectilesBeforeAttack, f.projectiles().size, case)
+                    assertEquals(deadline, f.npc.actionDelay, "$case hold before LateCycle")
+                    f.lateCycle()
+                    assertEquals(deadline, f.npc.actionDelay, "$case hold after LateCycle")
+                }
+                assertTrue(f.run.shockwavePreparing, "$case warning entered at emergence +6")
+                assertTrue(f.run.forceRockBeforeShockwave, "$case unconsumed forced rock")
+                assertEquals(
+                    DoomRules.preShockwaveAttacks(delve),
+                    f.run.preShockwaveAttacksRemaining,
+                )
+                f.worldPreInput()
+                f.attack()
+                assertEquals(
+                    listOf(deadline),
+                    f.registry.of(f.npc).recentAbilityCommitTicks(),
+                    case,
+                )
+                assertEquals(
+                    counts,
+                    f.decisionCounts(),
+                    "$case forced substitution consumes no seed",
+                )
+                assertFalse(f.run.forceRockBeforeShockwave, "$case accepted forced rock")
+                assertEquals(
+                    DoomRules.preShockwaveAttacks(delve) - 1,
+                    f.run.preShockwaveAttacksRemaining,
+                    "$case accepted budget decremented once",
+                )
+                assertEquals(deadline + DoomRules.attackRate(delve), f.npc.actionDelay, case)
+            }
         }
     }
 
@@ -1092,7 +1203,7 @@ class DoomNativeDslTest {
                     assertEquals(Int.MAX_VALUE, f.run.beamFireCycle, "$kind retired deadline")
                     assertEquals(
                         (fire - 1) + DoomRules.meleePunishDelay(4),
-                        f.run.nextAttackNotBeforeCycle,
+                        f.npc.actionDelay,
                         "$kind punishment delay",
                     )
                 } else {
@@ -1390,7 +1501,7 @@ class DoomNativeDslTest {
                     assertEquals(schedules.sumOf { it.projectileCycles.size }.toLong(), shots)
                     assertEquals(DoomAssets.BOSS, f.npc.visType.id)
                     assertEquals(CoordGrid(1309, 9507), f.npc.coords)
-                    assertEquals(f.clock.cycle + 6, f.run.nextAttackNotBeforeCycle)
+                    assertEquals(f.clock.cycle + 6, f.npc.actionDelay)
                     assertEquals(1, f.worldQueues.size, "Only post-car shockwave readiness remains")
                     assertNull(f.run.phases.carSchedule)
                     assertNull(f.run.pendingCarTrample)

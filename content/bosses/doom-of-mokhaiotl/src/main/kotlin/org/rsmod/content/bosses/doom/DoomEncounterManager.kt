@@ -561,10 +561,6 @@ constructor(
         val run = run(target) ?: return false
         if (run.boss !== npc || run.state != DoomState.ACTIVE) return false
         if (npc.actionDelay > clock.cycle) return false
-        if (clock.cycle < run.nextAttackNotBeforeCycle) {
-            npc.actionDelay = run.nextAttackNotBeforeCycle
-            return false
-        }
         if (run.rockVolleysRemaining > 0) return false
         if (run.shockwavePreparing && run.preShockwaveAttacksRemaining <= 0) return false
 
@@ -677,8 +673,11 @@ constructor(
                                 sprayAcidAfterImpact(run)
                             }
                             interruptCharge(run, DoomState.ACTIVE)
-                            run.nextAttackNotBeforeCycle =
-                                clock.cycle + DoomRules.meleePunishDelay(run.delve)
+                            run.boss.actionDelay =
+                                maxOf(
+                                    run.boss.actionDelay,
+                                    clock.cycle + DoomRules.meleePunishDelay(run.delve),
+                                )
                             armShieldPhaseAfterImpact(run)
                         }
                     } else {
@@ -3140,7 +3139,7 @@ constructor(
         run.boss.movementLocked = true
         val preparationCycle = DoomCombatTimeline.postCarShockwavePreparationCycle(clock.cycle)
         run.phases.armShockwaveAt(preparationCycle)
-        run.nextAttackNotBeforeCycle = max(run.nextAttackNotBeforeCycle, preparationCycle)
+        run.boss.actionDelay = maxOf(run.boss.actionDelay, preparationCycle)
         keepAggressive(run)
     }
 
@@ -3731,7 +3730,6 @@ constructor(
         var shieldEpoch: Int = 0,
         var normalHitpoints: Int = -1,
         var shieldLarvaStream: DoomLarvaSpawnDirection? = null,
-        var nextAttackNotBeforeCycle: Int = 0,
         var meleePunishUntilCycle: Int = Int.MIN_VALUE,
         var holyWaterApplied: Boolean = false,
         var demonicCharge: Int = 0,

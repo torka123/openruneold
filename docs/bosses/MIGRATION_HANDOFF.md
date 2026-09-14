@@ -4,7 +4,14 @@ This is a resumable handoff, not a project-completion or full OSRS-parity claim.
 mechanic mappings, uncertainties, commands and results remain in [DSL_MIGRATION.md](DSL_MIGRATION.md).
 Update this checkpoint after each completed boss and immediately before any authorized deployment.
 
-September14 current checkpoint: DT2 native start/respawn and Leviathan opportunity owners,
+September14 current checkpoint: Doom's duplicate attack clock is removed; both writers now extend
+native actionDelay.43 focused/158 full Doom cases, scoped checks and architecture/self-tests pass.
+Its accepted budgets are legitimate native session-owned metadata; the documented presentation and
+spatial boundaries remain. Archive/backup: `logs/doom-native-holds-source-20260914.zip` /
+`backup/doom-native-holds-20260914`. Whisperer manager integration is active, then ToA/ToB/CoX.
+Last application assemble is a48445587 below; final app integration follows Whisperer. Source only;
+runtime c4fc9390f/JVM23812 and all holds unchanged. See current DSL_MIGRATION.md for exact scope.
+Earlier September14 checkpoint: DT2 native start/respawn and Leviathan opportunity owners,
 Whisperer support APIs, and Doom secondary volley/larva/style-hit queues are verified. Full
 DT2 202/Doom156, scoped checks, architecture/self-tests and application assemble pass.1,950 valid
 cases with retained shared/other-boss/ToA results. Archive/backup:

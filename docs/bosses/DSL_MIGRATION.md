@@ -2,7 +2,45 @@
 
 ## Current source increments — September 14
 
-### Current checkpoint: DT2 lifecycle/opportunity owners and Doom secondary queues verified
+### Current checkpoint: Doom duplicate attack clock removed; Whisperer integration active
+
+Doom's remaining duplicate nextAttackNotBeforeCycle is removed. Positive melee punishment and
+final car emergence now extend native npc.actionDelay with maxOf(current, retained deadline).
+The native BossCombat gate rejects before selection/RNG, preserves longer locks and survives the
+existing car-to-warning transition. Two new native groups cover all punishment/car delves,
+ordinary and longer locks, exact release ticks and a single accepted forced-rock budget decrement.
+All **43** native groups pass first run; full Doom **158**, scoped checks and architecture/self-tests
+pass in logs/doom-native-holds-check-20260914.log (36s). Focus log:
+logs/doom-native-holds-focus-20260914.log. Matching results JSONs retained. Changed production/test:
+DoomEncounterManager.kt and DoomNativeDslTest.kt.
+
+Doom's shield/pre-/post-shockwave accepted budgets and forced-rock flags already belong to native
+InstanceSession state and change via native onAbilityCommitted. They are mechanic metadata;
+phaseAbilityCount would incorrectly include tongues and reset across warning transitions. No
+cosmetic move is needed. The approved STARTING session-presentation boundary remains: native
+lifecycleRevealCycle owns actual visibility. Named geometry, exact pending-hit identity and native
+session outcomes remain appropriate. This closes the identified Doom combat-routing debt, with
+retained source/mechanics uncertainty recorded separately; it is not full OSRS parity certification.
+
+Archive: logs/doom-native-holds-source-20260914.zip; backup: backup/doom-native-holds-20260914.
+Doom build/check passed; listed behavior verified; **not deployed**. Last application assemble is
+the a48445587 checkpoint below; final application integration will run with Whisperer. Existing
+runtime c4fc9390f/JVM23812 and all evidence/replay/deployment holds remain unchanged.
+Exact next step: finish and verify active Whisperer manager integration, then ToA, ToB and CoX.
+Raid preparation correction from current source: ToaRules.kt:217-224 implements
+ToaInvocationEffects.attackRate as base.coerceAtLeast(2); its raid argument is unused. Ba-Ba's
+profile therefore remains six ticks for the current invocation set. The earlier retained note
+about a variable invocation attack-rate modifier was overgeneralized; do not add dynamic phase
+machinery for it. Still resolve max-hit/prayer parameters through the existing raid profile.
+Ba-Ba admission order is exact: attackTargetValid -> current native actionDelay -> rolling/special
+opportunity -> suppress-normal gate -> combatProfile -> native NvP attack. Native BossCombat
+canTarget runs before its own actionDelay guard and does not reset mode on false; preserve the old
+reset branches explicitly through native npc.resetMode (the same method StandardNpcAccess calls),
+and preserve cooldown returns without resetting. Existing BossCombat primary/modifier callbacks
+and retained native raid death hooks suffice; exclude only migrated forms from generic AI/Modify
+registrations. This is preparation for the first raid increment after existing bosses, not raid
+implementation or acceptance. No new API gap.
+### Earlier checkpoint: DT2 lifecycle/opportunity owners and Doom secondary queues verified
 
 DT2 start-stage polling is removed. Native session-owned callbacks preserve Whisperer disturb+4,
 Leviathan handhold+1/emergence+4 and post-kill activation+3. Duke wake uses its existing native
