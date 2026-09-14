@@ -103,27 +103,10 @@ class ToaBabaEncounterTest {
         assertTrue(BabaThresholds.crossed(200, 200, 300).isEmpty())
 
         val state = BabaEncounter(UUID(0, 1), 42)
-        state.startIntro(1)
+        state.startIntro()
         state.startNormalCombat()
         assertEquals(listOf(1, 2), state.queueCrossedThresholds(300, 0, 300))
         assertTrue(state.queueCrossedThresholds(300, 0, 300).isEmpty())
-    }
-
-    @Test
-    fun `special cycle is deterministic excludes rock throw and does not repeat`() {
-        val first = BabaEncounter(UUID(1, 1), 91)
-        val second = BabaEncounter(UUID(1, 1), 91)
-        val firstSequence = List(40) { first.nextSpecial(allowRockfall = true) }
-        val secondSequence = List(40) { second.nextSpecial(allowRockfall = true) }
-        assertEquals(firstSequence, secondSequence)
-        assertTrue(firstSequence.none { it == BabaSpecial.ROCK_THROW })
-        assertTrue(firstSequence.zipWithNext().none { (left, right) -> left == right })
-        assertTrue(BabaSpecial.BABOON_DISCHARGE in firstSequence)
-        assertTrue(
-            List(20) { first.nextSpecial(allowRockfall = false) }
-                .none { it == BabaSpecial.ROCKFALL }
-        )
-        assertEquals(2, BabaTuning.SPECIAL_AFTER_AUTOS.value)
     }
 
     @Test

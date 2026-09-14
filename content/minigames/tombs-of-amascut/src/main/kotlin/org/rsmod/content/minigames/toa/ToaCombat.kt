@@ -112,12 +112,25 @@ constructor(
                 if (player == null) hit.damage = 0 else raids.modifyNpcHit(player, npc, hit)
             },
         )
+        registerWardenPhaseTwoBossCombat(
+            this,
+            deps,
+            canTarget = raids::prepareWardenPhaseTwoOpportunity,
+            launch = raids::launchWardenPhaseTwoAttack,
+            modifyHit = {
+                val player =
+                    if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players)
+                    else null
+                if (player == null) hit.damage = 0 else raids.modifyNpcHit(player, npc, hit)
+            },
+        )
         ToaNpcs.allCombat.forEach { id ->
             if (
                 id in TOA_BABA_BOSS_FORMS ||
                     id in ToaNpcs.akkhaBossForms ||
                     id in KephriEncounter.ACTIVE..KephriEncounter.DEAD ||
-                    id in TOA_ZEBAK_BOSS_FORMS
+                    id in TOA_ZEBAK_BOSS_FORMS ||
+                    id in WARDEN_PHASE_TWO_FORMS
             )
                 return@forEach
             val type = ServerCacheManager.getNpc(id) ?: return@forEach
@@ -231,12 +244,6 @@ constructor(
     private fun StandardNpcAccess.attack(target: Player) {
         if (!raids.attackTargetValid(target, npc)) {
             resetMode()
-            return
-        }
-        // Phase two is driven by the Wardens encounter clock. Let the normal AI retain its
-        // target/pathing, but never let the generic combat hook emit a second, cache-default hit.
-        if (raids.usesScriptedWardenPhaseTwoCombat(npc)) {
-            actionDelay = mapClock + 1
             return
         }
         val profile =

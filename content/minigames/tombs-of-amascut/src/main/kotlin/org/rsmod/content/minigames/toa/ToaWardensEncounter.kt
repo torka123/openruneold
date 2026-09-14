@@ -464,27 +464,38 @@ internal object WardenPhaseTwoMechanics {
         WardenObeliskSpecial.entries[index.mod(WardenObeliskSpecial.entries.size)]
 
     fun basicAttack(distance: Int, attackCounter: Int): WardenBasicAttackDefinition =
-        if (distance <= 2) {
-            WardenBasicAttackDefinition(
-                WardenBasicAttack.MELEE,
-                HitType.Melee,
-                MELEE_ATTACK_ANIMATION,
-            )
-        } else if (attackCounter.mod(2) == 0) {
-            WardenBasicAttackDefinition(
-                WardenBasicAttack.MAGIC,
-                HitType.Magic,
-                MAGIC_ATTACK_ANIMATION,
-                MAGIC_PROJECTILE,
-                MAGIC_IMPACT,
-            )
-        } else {
-            WardenBasicAttackDefinition(
-                WardenBasicAttack.RANGED,
-                HitType.Ranged,
-                RANGED_ATTACK_ANIMATION,
-                RANGED_PROJECTILE,
-            )
+        basicAttack(
+            if (distance <= 2) WardenBasicAttack.MELEE
+            else if (attackCounter.mod(2) == 0) WardenBasicAttack.MAGIC
+            else WardenBasicAttack.RANGED
+        )
+
+    fun basicAttack(attack: WardenBasicAttack): WardenBasicAttackDefinition =
+        when (attack) {
+            WardenBasicAttack.MELEE -> {
+                WardenBasicAttackDefinition(
+                    WardenBasicAttack.MELEE,
+                    HitType.Melee,
+                    MELEE_ATTACK_ANIMATION,
+                )
+            }
+            WardenBasicAttack.MAGIC -> {
+                WardenBasicAttackDefinition(
+                    WardenBasicAttack.MAGIC,
+                    HitType.Magic,
+                    MAGIC_ATTACK_ANIMATION,
+                    MAGIC_PROJECTILE,
+                    MAGIC_IMPACT,
+                )
+            }
+            WardenBasicAttack.RANGED -> {
+                WardenBasicAttackDefinition(
+                    WardenBasicAttack.RANGED,
+                    HitType.Ranged,
+                    RANGED_ATTACK_ANIMATION,
+                    RANGED_PROJECTILE,
+                )
+            }
         }
 
     fun divineProjectile(index: Int): WardenDivineProjectileDefinition =

@@ -2,7 +2,57 @@
 
 ## Current source increments — September 14
 
-### Current checkpoint: ToA Akkha, Kephri and Zebak ordinary routes verified
+### Current checkpoint: ToA native special choices, deadline owners and Wardens P2 verified
+
+Ba-Ba intro, special completion, rolling preparation/return and forced Rockfall now use native
+owned world queues at their retained LateCycle positions. Forced Rockfall keeps priority over a
+tied completion, survives rolling preparation and becomes eligible during return. Ba-Ba/Akkha
+special choices use stable native Choose branches and their existing shared encounter RNG;
+forced/chain choices preserve logical history and solo Double Trouble consumes no selection draw.
+Zebak split fanout and helper expiry use independent native owners, preserving insertion order,
+split-time targets/RNG and original launch+8 impacts through preparation/enrage and offline pause.
+Native death/deletion/session cleanup closes these owners.
+
+Wardens P2 now dispatches native BossCombat at its retained LateCycle boundary after the Obelisk.
+Fourteen declared count-offset phases preserve seventh specials and ranged/magic parity across
+core replacements; the exact base-coordinate melee test, target order, true-HP special payload,
+initial+5/replacement+4 and god7/8 or Acceleration4 cadence remain unchanged. Removed the duplicate
+body deadline and generic AI/Modify route. The session count remains replacement-body metadata.
+Native termination tests exposed an ended-session platform-reset error: only that cosmetic reset
+is skipped after native coordinate authority ends; circle metadata cleanup remains unconditional.
+
+All54 focused groups and full ToA470 pass. Scoped formatting/checks, architecture/self-tests and
+application assemble pass (63s). With unaffected retained results,2,019 cases remain valid; this
+is not a scope percentage. Logs/selections/results: logs/toa-native-specials-queues-*20260914;
+passing focused log is warden-focus-lifecycle. Earlier new-test failures: missing hitpoints import,
+value-returning BeforeAll, two incorrect one-player party requests, plus the real cleanup error.
+Independent reviews found no actionable Ba-Ba queue/RNG or Wardens P2 regression. The architecture
+detector scans boss modules only; raid behavior has explicit native integration coverage.
+
+Changed: RaidManager/Combat/Domain, Baba/Akkha/Zebak/Wardens encounter adapters and Crondis runtime;
+new BabaCombatQueues, Baba/Akkha choice declarations, ZebakAttackQueues, WardenPhaseTwo spec/helper;
+native fixture, existing Baba/Akkha/Zebak tests and new schedule/choice/Warden suites (23 Kotlin
+files, exact manifest logs/toa-native-specials-queues-integration-format-20260914.txt), this ledger
+and handoff. Archive: logs/toa-native-specials-queues-source-20260914.zip;
+backup/toa-native-specials-queues-20260914. Build passed; listed behavior verified; not deployed.
+Runtime remains c4fc9390f/JVM23812; save/restart protections, database/cache authority and holds stay.
+
+Next approved mappings use existing APIs and the verified source as preservation evidence:
+- Ba-Ba active states become declared native phases; NORMAL phaseAbilityCount replaces its private
+  two-auto budget. Native transitionTo resets that count without changing lastAbilityTick or
+  actionDelay. The accepted onAttack callback must use prospective phaseAbilityCount+1 for target
+  choice and trace because native commit follows it. Preserve rolling priority, first-auto lower-HP
+  retarget, fresh normal budgets, same-kind forced entries, phase origin across subsequent rows,
+  completion owners across transitions, and terminal session outcomes after native actor deletion.
+- Zebak emergence/roar/wave phases use native phase edges/readiness. One transition per eligible
+  LateCycle, rearmed from actual consumption; independent hazard launch+1/land+6 owners run before
+  jug/wave/split work and survive preparation-to-wave transition. Preserve enrage cancellation,
+  split-owner survival and pause/death/reset semantics. Existing Doom phase/owned-queue precedents
+  provide these routes; no new engine API is needed.
+Then Akkha remaining special/style/final scheduling, other ToA lifecycle/Wardens routes and ToB/CoX.
+These are architecture migrations, not new timing evidence; retained OSRS/replay gaps still apply.
+
+### Earlier checkpoint: ToA Akkha, Kephri and Zebak ordinary routes verified
 
 Akkha's three ordinary styles now use native BossSpec/NpcAttack phases and six-tick cadence,
 preserving special admission precedence, accepted callbacks before RNG, launch prayers, impact

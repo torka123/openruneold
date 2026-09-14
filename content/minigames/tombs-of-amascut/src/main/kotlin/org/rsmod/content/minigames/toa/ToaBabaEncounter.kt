@@ -571,8 +571,6 @@ internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
     var target: PlayerUid? = null
     var previousTarget: PlayerUid? = null
     var attackCounter = 0
-    var lastSpecial: BabaSpecial? = null
-    var specialEndsAt = -1
     var nextRubbleAt = -1
     var activeRollingThreshold: Int? = null
     val pendingRollingThresholds = ArrayDeque<Int>()
@@ -586,10 +584,8 @@ internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
     var previousWeakLane = -1
     var underTargetTicks = 0
     var bouldersReleasedThisSet = 0
-    var returnEndsAt = -1
     var nextBaboonSarcophagusAt = -1
     var baboonSarcophagusRunner: Int? = null
-    var forcedRockfallAt = -1
     val pendingRocks = mutableListOf<BabaPendingRock>()
     val pendingRubble = mutableListOf<BabaPendingRubble>()
     val pendingShockwaves = mutableListOf<BabaPendingShockwave>()
@@ -607,8 +603,6 @@ internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
         target = null
         previousTarget = null
         attackCounter = 0
-        lastSpecial = null
-        specialEndsAt = -1
         nextRubbleAt = -1
         activeRollingThreshold = null
         pendingRollingThresholds.clear()
@@ -622,10 +616,8 @@ internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
         previousWeakLane = -1
         underTargetTicks = 0
         bouldersReleasedThisSet = 0
-        returnEndsAt = -1
         nextBaboonSarcophagusAt = -1
         baboonSarcophagusRunner = null
-        forcedRockfallAt = -1
         pendingRocks.clear()
         pendingRubble.clear()
         pendingShockwaves.clear()
@@ -661,10 +653,9 @@ internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
     fun isCurrent(token: Int) =
         token == generation && state !in setOf(BabaState.DEFEATED, BabaState.RESETTING)
 
-    fun startIntro(endsAt: Int) {
+    fun startIntro() {
         check(state == BabaState.WAITING)
         state = BabaState.INTRO
-        specialEndsAt = endsAt
     }
 
     fun startNormalCombat() {
@@ -680,7 +671,6 @@ internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
                 )
         )
         state = BabaState.NORMAL_COMBAT
-        specialEndsAt = -1
         attackCounter = 0
     }
 
@@ -689,10 +679,6 @@ internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
         attackCounter++
         return attackCounter >= BabaTuning.SPECIAL_AFTER_AUTOS.value
     }
-
-    fun nextSpecial(allowRockfall: Boolean) =
-        BabaSpecialSchedule.select(lastSpecial, allowRockfall) { random.nextInt(it) }
-            .also { lastSpecial = it }
 
     fun rubbleDue(now: Int) = nextRubbleAt < 0 || now >= nextRubbleAt
 
@@ -768,11 +754,10 @@ internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
         return true
     }
 
-    fun finishRollingPhase(endsAt: Int) {
+    fun finishRollingPhase() {
         completedRollingPhases = maxOf(completedRollingPhases, activeRollingThreshold ?: 0)
         activeRollingThreshold = null
         state = BabaState.ROLLING_STONES_RETURN
-        returnEndsAt = endsAt
         pendingBoulderSpawnAt = -1
         pendingBoulderSet = 0
         pendingWeakLane = -1

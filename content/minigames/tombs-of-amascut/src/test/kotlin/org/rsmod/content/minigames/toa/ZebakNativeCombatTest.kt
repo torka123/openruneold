@@ -375,6 +375,195 @@ class ZebakNativeCombatTest {
     }
 
     @Test
+    fun `default world processing cannot launch split or expire helper before retained LateCycle slots`() {
+        ToaNativeCombatFixture().use { f ->
+            val player = f.player()
+            val raid = f.start(player)
+            enterArena(f, player)
+            val body = assertNotNull(raid.zebak.body)
+            val queues = assertNotNull(raid.zebak.attackQueues)
+            f.dispatchLateCycle(raid.zebak.emergesAt)
+            val launch = body.actionDelay
+            f.dispatchLateCycle(launch)
+            assertEquals(1, raid.zebak.splitProjectiles.size)
+            f.advance(4)
+            f.queueProcess.process()
+            assertEquals(1, projectiles(f).size)
+            assertEquals(1, raid.zebak.splitProjectiles.size)
+            assertTrue(raid.zebak.splitVisuals.isEmpty())
+            f.dispatchLateCycle()
+            assertEquals(2, projectiles(f).size)
+            assertTrue(raid.zebak.splitProjectiles.isEmpty())
+            val visual = raid.zebak.splitVisuals.single()
+            assertEquals(launch + 7, visual.removesAt)
+            assertEquals(raid.instance.id, f.instances.instanceForNpc(visual.npc))
+            f.dispatchLateCycle(launch + 6)
+            assertTrue(visual.npc.isSlotAssigned)
+            f.advance(1)
+            f.queueProcess.process()
+            assertTrue(
+                visual.npc.isSlotAssigned,
+                "Default world dispatch cannot expire this helper",
+            )
+            f.dispatchLateCycle()
+            assertFalse(visual.npc.isSlotAssigned)
+            assertFalse(raid.npcRoles.containsKey(visual.npc))
+            assertTrue(raid.zebak.splitVisuals.isEmpty())
+            assertFalse(queues.isClosed)
+        }
+    }
+
+    @Test
+    fun `overdue native split batch keeps insertion RNG order and expires old visual in same LateCycle`() {
+        ToaNativeCombatFixture().use { f ->
+            val player = f.player()
+            val seed = 61L
+            val raid = f.start(player, seed = seed)
+            raid.pathLevels[ToaPath.CRONDIS] = 4
+            enterArena(f, player)
+            val body = assertNotNull(raid.zebak.body)
+            f.dispatchLateCycle(raid.zebak.emergesAt)
+            body.hitpoints = body.baseHitpointsLvl / 4
+            f.dispatchLateCycle()
+            val first = body.actionDelay
+            f.dispatchLateCycle(first)
+            f.dispatchLateCycle(first + 2)
+            val splits = raid.zebak.splitProjectiles.toList()
+            assertEquals(listOf(first + 4, first + 6), splits.map { it.splitAt })
+            val oracle = LegacyRandom(seed xor 0x5A4542414BL)
+            oracle.nextInt(2)
+            val firstStyle =
+                if (oracle.nextInt(2) == 0) ZebakAttackStyle.RANGED else ZebakAttackStyle.MAGIC
+            val secondStyle =
+                if (oracle.nextInt(2) == 0) ZebakAttackStyle.RANGED else ZebakAttackStyle.MAGIC
+            val maxHit = ToaRules.maxHit(16, raid.raidLevel, 4)
+            val damages = listOf(oracle.nextInt(maxHit + 1), oracle.nextInt(maxHit + 1))
+            oracle.nextInt(2) // The overdue ordinary opportunity follows both fanout draws.
+            f.advance(5)
+            f.queueProcess.process()
+            assertEquals(2, projectiles(f).size)
+            assertEquals(splits, raid.zebak.splitProjectiles)
+            f.dispatchLateCycle()
+            assertEquals(
+                listOf(first + 8, first + 10),
+                raid.encounter.pendingHits.map { it.landsAt },
+            )
+            assertEquals(damages, raid.encounter.pendingHits.map { it.damage })
+            val fanout = projectiles(f).drop(2).take(2)
+            assertEquals(
+                listOf(firstStyle, secondStyle).map {
+                    if (it == ZebakAttackStyle.RANGED) ZebakAssets.RANGE_SPLIT
+                    else ZebakAssets.MAGIC_SPLIT
+                },
+                fanout.map { it.spotanim },
+            )
+            assertTrue(fanout.all { it.targetIndex == -(player.slotId + 1) })
+            assertEquals(first + 9, raid.zebak.splitVisuals.single().removesAt)
+            assertEquals(1, f.npcList.count { it.id == ZebakAssets.SPLIT_HELPER })
+            assertEquals(
+                1,
+                raid.zebak.splitProjectiles.size,
+                "Only the new ordinary launch remains",
+            )
+            assertEquals(oracle.nextInt(997), raid.zebak.nextInt(997))
+        }
+    }
+
+    @Test
+    fun `split and helper owners survive preparation then enrage cleanup until original expiry`() {
+        for (special in ZebakSpecial.entries) {
+            ToaNativeCombatFixture().use { f ->
+                val player = f.player()
+                val raid = f.start(player)
+                enterArena(f, player)
+                val body = assertNotNull(raid.zebak.body)
+                val queues = assertNotNull(raid.zebak.attackQueues)
+                f.dispatchLateCycle(raid.zebak.emergesAt)
+                val launch = body.actionDelay
+                f.dispatchLateCycle(launch)
+                raid.zebak.firstSpecial = special
+                f.hitNpc(player, body, body.baseHitpointsLvl * 16 / 100)
+                f.dispatchLateCycle()
+                assertEquals(
+                    if (special == ZebakSpecial.WAVES) ZebakState.PREP_WAVES
+                    else ZebakState.PREP_ROAR,
+                    raid.zebak.state,
+                )
+                assertSame(queues, raid.zebak.attackQueues)
+                assertFalse(queues.isClosed)
+                assertEquals(1, raid.zebak.splitProjectiles.size)
+                f.dispatchLateCycle(launch + 4)
+                assertEquals(1, projectiles(f).count { it.targetIndex == -(player.slotId + 1) })
+                val visual = raid.zebak.splitVisuals.single()
+                body.hitpoints = body.baseHitpointsLvl / 4
+                f.dispatchLateCycle(launch + 5)
+                assertEquals(ZebakState.ENRAGED, raid.zebak.state)
+                assertFalse(queues.isClosed)
+                assertTrue(visual.npc.isSlotAssigned)
+                assertEquals(launch + 7, visual.removesAt)
+                f.dispatchLateCycle(launch + 7)
+                assertFalse(visual.npc.isSlotAssigned)
+                assertTrue(raid.zebak.splitVisuals.isEmpty())
+                assertFalse(queues.isClosed)
+            }
+            framework().clearInlineMocks()
+        }
+    }
+
+    @Test
+    fun `death deletion and room reset close live helper and pending split native owners`() {
+        for (retirement in listOf("death", "delete", "reset")) {
+            ToaNativeCombatFixture().use { f ->
+                val player = f.player()
+                val raid = f.start(player)
+                raid.pathLevels[ToaPath.CRONDIS] = 4
+                enterArena(f, player)
+                val body = assertNotNull(raid.zebak.body)
+                val queues = assertNotNull(raid.zebak.attackQueues)
+                f.dispatchLateCycle(raid.zebak.emergesAt)
+                body.hitpoints = body.baseHitpointsLvl / 4
+                f.dispatchLateCycle()
+                val launch = body.actionDelay
+                f.dispatchLateCycle(launch)
+                f.dispatchLateCycle(launch + 2)
+                f.dispatchLateCycle(launch + 4)
+                val visual = raid.zebak.splitVisuals.single()
+                assertEquals(2, raid.zebak.splitProjectiles.size)
+                val projectileCount = projectiles(f).size
+                when (retirement) {
+                    "death" -> f.manager.handleNpcKill(player, body)
+                    "delete" -> f.npcs.del(body, Int.MAX_VALUE)
+                    "reset" -> enterArena(f, player)
+                }
+                assertTrue(queues.isClosed, retirement)
+                assertTrue(queues.pendingSplits.isEmpty(), retirement)
+                assertTrue(queues.pendingVisuals.isEmpty(), retirement)
+                assertFalse(visual.npc.isSlotAssigned, retirement)
+                assertFalse(raid.npcRoles.containsKey(visual.npc), retirement)
+                assertEquals(
+                    0,
+                    f.worldQueues.size,
+                    "Retirement releases native callback nodes: $retirement",
+                )
+                f.advance(20)
+                f.queueProcess.process()
+                queues.processSplits()
+                queues.processVisuals()
+                assertEquals(projectileCount, projectiles(f).size, retirement)
+                if (retirement == "reset") {
+                    val fresh = assertNotNull(raid.zebak.attackQueues)
+                    assertNotSame(queues, fresh)
+                    assertFalse(fresh.isClosed)
+                    f.dispatchLateCycle() // Preserve the existing overdue emergence return.
+                    f.dispatchLateCycle(f.clock.cycle + 1)
+                    assertEquals(1, fresh.pendingSplits.size)
+                }
+            }
+            framework().clearInlineMocks()
+        }
+    }
+
+    @Test
     fun `room teardown retires native dispatch and pending split generation cannot hit replacement raid`() {
         ToaNativeCombatFixture().use { f ->
             val player = f.player()

@@ -198,6 +198,7 @@ internal class ToaNativeCombatFixture(nativeLifecycleFirst: Boolean = true) : Au
             deps,
             nativeAccess,
             events,
+            queueProcess,
         )
     private val protectedContext =
         mock(ProtectedAccessContext::class.java) { call ->
@@ -254,6 +255,7 @@ internal class ToaNativeCombatFixture(nativeLifecycleFirst: Boolean = true) : Au
             deps,
             nativeAccess,
             events,
+            queueProcess,
         )
     val death =
         NpcDeath(
@@ -352,9 +354,12 @@ internal class ToaNativeCombatFixture(nativeLifecycleFirst: Boolean = true) : Au
     fun enterBaba(player: Player, activate: Boolean = true): ToaRaidSession {
         assertTrue(manager.devEnterRoom(player, "baba"))
         val raid = assertNotNull(manager.raidFor(player))
-        if (activate) dispatchLateCycle(raid.baba.specialEndsAt)
+        if (activate) dispatchLateCycle(babaQueues(raid).completionAt)
         return raid
     }
+
+    fun babaQueues(raid: ToaRaidSession): BabaCombatQueues =
+        assertNotNull(bossEncounters.of(boss(raid)).stateOrNull(BABA_COMBAT_QUEUES))
 
     fun baba(raid: ToaRaidSession): Npc = boss(raid)
 

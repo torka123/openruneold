@@ -503,8 +503,15 @@ internal class ZebakEncounter(val encounterId: UUID, private var rngState: Long)
     val rocks = linkedMapOf<Int, ZebakRockRuntime>()
     val waves = linkedMapOf<Int, ZebakWaveRuntime>()
     val bloodClouds = linkedMapOf<Int, ZebakBloodCloudRuntime>()
-    val splitProjectiles = mutableListOf<ZebakSplitProjectileRuntime>()
-    val splitVisuals = mutableListOf<ZebakSplitVisualRuntime>()
+    var attackQueues: ZebakAttackQueues? = null
+        private set
+
+    val splitProjectiles: List<ZebakSplitProjectileRuntime>
+        get() = attackQueues?.pendingSplits.orEmpty()
+
+    val splitVisuals: List<ZebakSplitVisualRuntime>
+        get() = attackQueues?.pendingVisuals.orEmpty()
+
     val waterSplashes = mutableListOf<ZebakWaterSplashRuntime>()
     val waterCrocodiles = linkedMapOf<PlayerUid, ZebakWaterCrocodileRuntime>()
     val acidTiles = linkedSetOf<CoordGrid>()
@@ -512,7 +519,14 @@ internal class ZebakEncounter(val encounterId: UUID, private var rngState: Long)
     val waveHitAt = linkedMapOf<PlayerUid, Int>()
     val playerState = linkedMapOf<PlayerUid, ZebakPlayerRuntime>()
 
+    fun bindAttackQueues(queues: ZebakAttackQueues) {
+        attackQueues?.close()
+        attackQueues = queues
+    }
+
     fun reset() {
+        attackQueues?.close()
+        attackQueues = null
         generation++
         state = ZebakState.RESET
         body = null
@@ -546,8 +560,6 @@ internal class ZebakEncounter(val encounterId: UUID, private var rngState: Long)
         rocks.clear()
         waves.clear()
         bloodClouds.clear()
-        splitProjectiles.clear()
-        splitVisuals.clear()
         waterSplashes.clear()
         waterCrocodiles.clear()
         acidTiles.clear()

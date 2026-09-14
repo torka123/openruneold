@@ -541,7 +541,6 @@ internal class AkkhaEncounter(val encounterId: UUID, private val seed: Long) {
     var specialEndsAt = -1
     private var autoSinceLastSpecial = false
     private var advanceStyleWhenSpecialFinishes = false
-    var lastSpecial: AkkhaSpecial? = null
     val activeSpecials = linkedSetOf<AkkhaSpecial>()
     private val unusedThresholds = ArrayDeque(AkkhaTuning.SHADOW_THRESHOLDS.value)
     val pendingThresholds = ArrayDeque<Int>()
@@ -609,7 +608,6 @@ internal class AkkhaEncounter(val encounterId: UUID, private val seed: Long) {
         specialEndsAt = -1
         autoSinceLastSpecial = false
         advanceStyleWhenSpecialFinishes = false
-        lastSpecial = null
         activeSpecials.clear()
         unusedThresholds.clear()
         unusedThresholds.addAll(AkkhaTuning.SHADOW_THRESHOLDS.value)
@@ -708,7 +706,6 @@ internal class AkkhaEncounter(val encounterId: UUID, private val seed: Long) {
         val blocking = specials.filterNot { it == AkkhaSpecial.TRAILING_ORBS }
         activeSpecials.clear()
         activeSpecials.addAll(blocking)
-        lastSpecial = specials.lastOrNull()
         attackCounter = 0
         advanceStyleWhenSpecialFinishes = autoSinceLastSpecial
         autoSinceLastSpecial = false

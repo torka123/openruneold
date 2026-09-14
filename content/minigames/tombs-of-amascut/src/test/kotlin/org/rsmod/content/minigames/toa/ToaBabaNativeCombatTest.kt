@@ -22,7 +22,7 @@ class ToaBabaNativeCombatTest {
             f.start(player)
             val raid = f.enterBaba(player, activate = false)
             val npc = f.baba(raid)
-            val ready = raid.baba.specialEndsAt
+            val ready = f.babaQueues(raid).completionAt
             f.attack(npc, player)
             assertEquals(BabaState.INTRO, raid.baba.state)
             assertEquals(0, raid.baba.attackCounter)
@@ -119,10 +119,10 @@ class ToaBabaNativeCombatTest {
                 if (rolling) {
                     assertEquals(BabaState.ROLLING_STONES_PREP, raid.baba.state)
                     assertEquals(1, raid.baba.activeRollingThreshold)
-                    assertNull(raid.baba.lastSpecial)
+                    assertNull(encounter.babaSpecialHistory().previous)
                     assertEquals(f.clock.cycle + 4, npc.actionDelay)
                 } else {
-                    assertNotNull(raid.baba.lastSpecial)
+                    assertNotNull(encounter.babaSpecialHistory().previous)
                     assertTrue(npc.actionDelay > f.clock.cycle)
                 }
                 f.attack(npc, player, op = true)

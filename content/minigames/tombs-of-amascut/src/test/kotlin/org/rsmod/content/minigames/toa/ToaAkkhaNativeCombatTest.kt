@@ -123,7 +123,7 @@ class ToaAkkhaNativeCombatTest {
             assertEquals(count, raid.akkha.attackCounter)
             val encounter = f.bossEncounters.of(npc)
             val oldTraces = encounter.attackTracesAfter(0).toList()
-            raid.akkha.lastSpecial =
+            encounter.akkhaSpecialHistory().previous =
                 AkkhaSpecial.MEMORY_BLAST // Solo eligible pool leaves trailing.
             player.hidden = true
             f.advance(5)
@@ -131,7 +131,7 @@ class ToaAkkhaNativeCombatTest {
             assertEquals(count, raid.akkha.attackCounter)
             f.advance(1)
             f.attack(npc, player)
-            assertEquals(AkkhaSpecial.TRAILING_ORBS, raid.akkha.lastSpecial)
+            assertEquals(AkkhaSpecial.TRAILING_ORBS, encounter.akkhaSpecialHistory().previous)
             assertEquals(AkkhaStyle.RANGED, raid.akkha.style)
             assertEquals(AkkhaState.NORMAL_COMBAT, raid.akkha.state)
             assertEquals(0, raid.akkha.attackCounter)

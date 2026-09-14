@@ -19,6 +19,7 @@ import org.rsmod.api.combat.commons.CombatEffects
 import org.rsmod.api.config.constants
 import org.rsmod.api.config.refs.params
 import org.rsmod.api.death.NpcAttackValidateResult
+import org.rsmod.api.game.process.world.WorldQueueListProcess
 import org.rsmod.api.instances.InstanceAccess
 import org.rsmod.api.instances.InstanceId
 import org.rsmod.api.instances.InstanceManager
@@ -139,6 +140,7 @@ constructor(
     private val bossDeps: BossDeps,
     private val npcAccess: StandardNpcAccessLauncher,
     private val events: EventBus,
+    private val queueProcess: WorldQueueListProcess,
 ) {
     private val log = InlineLogger()
     private val parties = linkedMapOf<PlayerUid, ToaParty>()
@@ -1666,13 +1668,6 @@ constructor(
             raid.currentRoom == ToaRoom.BABA && raid.npcRoles[npc] == ToaNpcRole.BOSS
         } == true
 
-    fun usesScriptedWardenPhaseTwoCombat(npc: Npc): Boolean =
-        raidFor(npc)?.let { raid ->
-            raid.currentRoom == ToaRoom.WARDENS &&
-                raid.encounter.wardenStage == ToaWardenStage.PHASE_TWO &&
-                raid.npcRoles[npc] == ToaNpcRole.WARDEN_PHASE
-        } == true
-
     fun isBabaBaboon(npc: Npc): Boolean =
         raidFor(npc)?.let { raid ->
             raid.currentRoom == ToaRoom.BABA && npc.id == BabaAssets.BABOON
@@ -1730,7 +1725,10 @@ constructor(
             return 4
         }
         if (state.attackCounter < BabaTuning.SPECIAL_AFTER_AUTOS.value) return null
-        val special = state.nextSpecial(allowRockfall = state.rubbleDue(clock.cycle))
+        val special =
+            bossDeps.encounterRegistry
+                .of(source)
+                .selectBabaSpecial(clock.cycle, allowRockfall = state.rubbleDue(clock.cycle))
         return startBabaSpecial(raid, source, special)
     }
 
@@ -1770,12 +1768,12 @@ constructor(
                 )
         )
             return null
+        val encounter = bossDeps.encounterRegistry.of(source)
         val specials =
-            AkkhaSpecialSchedule.select(
+            encounter.selectAkkhaSpecials(
+                clock.cycle,
                 raid.startSnapshot.partySize,
                 ToaInvocation.DOUBLE_TROUBLE in raid.startSnapshot.invocations,
-                state.lastSpecial,
-                state::nextInt,
             )
         var duration = 1
         specials.forEach {
@@ -1783,6 +1781,7 @@ constructor(
         }
         val previousStyle = state.style
         state.startSpecial(specials, clock.cycle + duration)
+        encounter.akkhaSpecialHistory().previous = specials.lastOrNull()
         if (state.state != AkkhaState.SPECIAL_ATTACK) {
             source.transmog(
                 requireNotNull(ServerCacheManager.getNpc(state.style.npcId)),
@@ -4303,13 +4302,11 @@ constructor(
             }
         state.wardenStage = ToaWardenStage.PHASE_TWO
         spawnWardenPhaseTwoShield(raid, reviving = false)
-        state.wardenNextPhaseTwoAttackAt =
-            clock.cycle + state.wardensRuleset.phaseTwoFirstAttackDelay
         state.wardenNextPhaseTwoObeliskAttackAt =
             clock.cycle + state.wardensRuleset.phaseTwoObeliskAttackInterval
         raid.nextMechanicAt =
             WardenPhaseTwoCadence.nextMechanicAt(
-                state.wardenNextPhaseTwoAttackAt,
+                requireNotNull(boss(raid)).actionDelay,
                 state.wardenNextPhaseTwoObeliskAttackAt,
             )
         message(
@@ -4378,6 +4375,20 @@ constructor(
         syncWardenPhaseTwoShieldHud(raid, shield)
         shield.faceSquare(fightCoord(raid, ToaRoom.WARDENS))
         if (reviving) shield.anim(WardenPhaseTwoMechanics.CORE_REVIVE_ANIMATION)
+        val encounter = bossDeps.encounterRegistry.of(shield)
+        val phases =
+            encounter.state(WARDEN_PHASE_TWO_COMBAT) {
+                WardenPhaseTwoCombatPhases(
+                    encounter,
+                    clock,
+                    state.attackCounter,
+                    state.wardensRuleset.phaseTwoWardenAttackInterval(state.wardenPhaseTwoGod),
+                )
+            }
+        phases.start(
+            if (reviving) state.wardensRuleset.phaseTwoRecoveryAttackDelay
+            else state.wardensRuleset.phaseTwoFirstAttackDelay
+        )
     }
 
     private fun syncWardenPhaseTwoShieldHud(raid: ToaRaidSession, warden: Npc) {
@@ -4577,13 +4588,11 @@ constructor(
             }
         state.wardenStage = ToaWardenStage.PHASE_TWO
         spawnWardenPhaseTwoShield(raid, reviving = true)
-        state.wardenNextPhaseTwoAttackAt =
-            clock.cycle + state.wardensRuleset.phaseTwoRecoveryAttackDelay
         state.wardenNextPhaseTwoObeliskAttackAt =
             clock.cycle + state.wardensRuleset.phaseTwoObeliskAttackInterval
         raid.nextMechanicAt =
             WardenPhaseTwoCadence.nextMechanicAt(
-                state.wardenNextPhaseTwoAttackAt,
+                requireNotNull(boss(raid)).actionDelay,
                 state.wardenNextPhaseTwoObeliskAttackAt,
             )
         message(
@@ -5546,6 +5555,24 @@ constructor(
         forEachOnline(raid) { it.soundSynth(6475) }
     }
 
+    private fun babaQueues(raid: ToaRaidSession, source: Npc): BabaCombatQueues {
+        val encounter = bossDeps.encounterRegistry.of(source)
+        return encounter.state(BABA_COMBAT_QUEUES) {
+            val generation = raid.baba.token()
+            BabaCombatQueues(encounter, raid.instance, bossDeps.worldQueues, queueProcess, clock) {
+                raid.currentRoom == ToaRoom.BABA &&
+                    raid.baba.isCurrent(generation) &&
+                    isCurrent(raid) &&
+                    boss(raid) === source &&
+                    source.isSlotAssigned
+            }
+        }
+    }
+
+    private fun armBabaCompletion(raid: ToaRaidSession, source: Npc, deadline: Int) {
+        babaQueues(raid, source).armCompletion(deadline) { completeBabaTransition(raid, source) }
+    }
+
     private fun tickBabaEncounter(raid: ToaRaidSession) {
         val source = boss(raid) ?: return
         val state = raid.baba
@@ -5554,33 +5581,10 @@ constructor(
         processBabaPendingShockwaves(raid, source)
         tickBabaBananas(raid, source)
         tickBabaSarcophagi(raid, source)
-        if (
-            state.forcedRockfallAt >= 0 &&
-                clock.cycle >= state.forcedRockfallAt &&
-                state.state !in
-                    setOf(
-                        BabaState.ROLLING_STONES_PREP,
-                        BabaState.ROLLING_STONES,
-                        BabaState.DEFEATED,
-                    )
-        ) {
-            state.forcedRockfallAt = -1
-            startBabaSpecial(raid, source, BabaSpecial.ROCKFALL)
-            return
-        }
+        val queues = babaQueues(raid, source)
+        if (queues.processForced()) return
+        if (queues.processCompletion()) return
         when (state.state) {
-            BabaState.INTRO ->
-                if (clock.cycle >= state.specialEndsAt) {
-                    state.startNormalCombat()
-                    source.transmog(
-                        requireNotNull(ServerCacheManager.getNpc(BabaAssets.BABA)),
-                        Int.MAX_VALUE,
-                    )
-                    selectBabaTarget(raid, postBoulder = false)?.let {
-                        source.apPlayer2(it, interactions)
-                    }
-                    traceBaba(raid, source, "intro_complete", "autosBeforeSpecial" to 2)
-                }
             BabaState.NORMAL_COMBAT -> {
                 if (state.pendingRollingThresholds.isNotEmpty()) {
                     beginBabaRollingPhase(raid, source)
@@ -5589,77 +5593,87 @@ constructor(
                     tickBabaUnderTargetStomp(raid, source)
                 }
             }
-            BabaState.ROCKFALL ->
-                if (clock.cycle >= state.specialEndsAt) {
-                    startBabaSpecial(raid, source, BabaSpecial.ROCK_THROW)
-                    traceBaba(
-                        raid,
-                        source,
-                        "rockfall_cover_complete",
-                        "next" to BabaSpecial.ROCK_THROW,
-                    )
-                }
-            BabaState.SHOCKWAVE ->
-                if (clock.cycle >= state.specialEndsAt) {
-                    state.startNormalCombat()
-                    selectBabaTarget(raid, postBoulder = false)?.let {
-                        source.apPlayer2(it, interactions)
-                    }
-                    traceBaba(raid, source, "shockwave_complete")
-                }
-            BabaState.ROCK_THROW ->
-                if (clock.cycle >= state.specialEndsAt) {
-                    // Rock Throw is one cast per player, not a loop that continues while any
-                    // rubble survives. Destroyed rubble schedules the separate follow-up Rockfall
-                    // above; surviving cover remains in the arena for later mechanics.
-                    state.startNormalCombat()
-                    selectBabaTarget(raid, postBoulder = false)?.let {
-                        source.apPlayer2(it, interactions)
-                    }
-                    traceBaba(raid, source, "special_complete")
-                }
-            BabaState.BABOON_DISCHARGE ->
-                if (clock.cycle >= state.specialEndsAt) {
-                    state.startNormalCombat()
-                    selectBabaTarget(raid, postBoulder = false)?.let {
-                        source.apPlayer2(it, interactions)
-                    }
-                    traceBaba(raid, source, "special_complete")
-                }
-            BabaState.ROLLING_STONES_PREP ->
-                if (clock.cycle >= state.specialEndsAt) {
-                    state.beginRollingSet(
-                        ToaInvocation.BOULDERDASH in raid.startSnapshot.invocations,
-                        clock.cycle,
-                    )
-                    // Current OSRS releases the first synchronized row immediately after
-                    // the short scream/knockback transition. Three prep ticks elapsed above;
-                    // the following tick completes that four-tick transition.
-                    state.nextBoulderAt = clock.cycle + 1
-                    traceBaba(
-                        raid,
-                        source,
-                        "rolling_set_start",
-                        "set" to state.rollingSet,
-                        "weakLane" to state.weakLane,
-                    )
-                }
             BabaState.ROLLING_STONES -> tickBabaRollingStones(raid, source)
-            BabaState.ROLLING_STONES_RETURN ->
-                if (clock.cycle >= state.returnEndsAt) {
-                    val form =
-                        if (state.completedRollingPhases >= 2) BabaAssets.BABA_COFFIN
-                        else BabaAssets.BABA
-                    source.transmog(requireNotNull(ServerCacheManager.getNpc(form)), Int.MAX_VALUE)
-                    // Resume from the top of the arena. Natural AP pathing brings Ba-Ba back to
-                    // her target; teleporting to BOSS_LOCAL_X/BOSS_LOCAL_Z caused the visible snap
-                    // after both the 66% and 33% rolling-stone thresholds.
-                    state.startNormalCombat()
-                    selectBabaTarget(raid, postBoulder = true)?.let {
-                        source.apPlayer2(it, interactions)
-                    }
-                    traceBaba(raid, source, "rolling_return_complete", "bossTile" to source.coords)
+            else -> Unit
+        }
+    }
+
+    private fun completeBabaTransition(raid: ToaRaidSession, source: Npc) {
+        val state = raid.baba
+        when (state.state) {
+            BabaState.INTRO -> {
+                state.startNormalCombat()
+                source.transmog(
+                    requireNotNull(ServerCacheManager.getNpc(BabaAssets.BABA)),
+                    Int.MAX_VALUE,
+                )
+                selectBabaTarget(raid, postBoulder = false)?.let {
+                    source.apPlayer2(it, interactions)
                 }
+                traceBaba(raid, source, "intro_complete", "autosBeforeSpecial" to 2)
+            }
+            BabaState.ROCKFALL -> {
+                startBabaSpecial(raid, source, BabaSpecial.ROCK_THROW)
+                traceBaba(raid, source, "rockfall_cover_complete", "next" to BabaSpecial.ROCK_THROW)
+            }
+            BabaState.SHOCKWAVE -> {
+                state.startNormalCombat()
+                selectBabaTarget(raid, postBoulder = false)?.let {
+                    source.apPlayer2(it, interactions)
+                }
+                traceBaba(raid, source, "shockwave_complete")
+            }
+            BabaState.ROCK_THROW -> {
+                // Rock Throw is one cast per player, not a loop that continues while any
+                // rubble survives. Destroyed rubble schedules the separate follow-up Rockfall
+                // above; surviving cover remains in the arena for later mechanics.
+                state.startNormalCombat()
+                selectBabaTarget(raid, postBoulder = false)?.let {
+                    source.apPlayer2(it, interactions)
+                }
+                traceBaba(raid, source, "special_complete")
+            }
+            BabaState.BABOON_DISCHARGE -> {
+                state.startNormalCombat()
+                selectBabaTarget(raid, postBoulder = false)?.let {
+                    source.apPlayer2(it, interactions)
+                }
+                traceBaba(raid, source, "special_complete")
+            }
+            BabaState.ROLLING_STONES_PREP -> {
+                state.beginRollingSet(
+                    ToaInvocation.BOULDERDASH in raid.startSnapshot.invocations,
+                    clock.cycle,
+                )
+                // Current OSRS releases the first synchronized row immediately after
+                // the short scream/knockback transition. Three prep ticks elapsed above;
+                // the following tick completes that four-tick transition.
+                state.nextBoulderAt = clock.cycle + 1
+                traceBaba(
+                    raid,
+                    source,
+                    "rolling_set_start",
+                    "set" to state.rollingSet,
+                    "weakLane" to state.weakLane,
+                )
+            }
+
+            BabaState.ROLLING_STONES_RETURN -> {
+                val form =
+                    if (state.completedRollingPhases >= 2) BabaAssets.BABA_COFFIN
+                    else BabaAssets.BABA
+                source.transmog(requireNotNull(ServerCacheManager.getNpc(form)), Int.MAX_VALUE)
+                // Resume from the top of the arena. Natural AP pathing brings Ba-Ba back to
+                // her target; teleporting to BOSS_LOCAL_X/BOSS_LOCAL_Z caused the visible snap
+                // after both the 66% and 33% rolling-stone thresholds.
+                state.startNormalCombat()
+                selectBabaTarget(raid, postBoulder = true)?.let {
+                    source.apPlayer2(it, interactions)
+                }
+                traceBaba(raid, source, "rolling_return_complete", "bossTile" to source.coords)
+            }
+            BabaState.NORMAL_COMBAT,
+            BabaState.ROLLING_STONES,
             BabaState.WAITING,
             BabaState.DEFEATED,
             BabaState.RESETTING -> Unit
@@ -5741,14 +5755,9 @@ constructor(
                     5
                 }
             }
-        state.specialEndsAt = clock.cycle + duration
-        traceBaba(
-            raid,
-            source,
-            "special_start",
-            "special" to special,
-            "endsAt" to state.specialEndsAt,
-        )
+        val endsAt = clock.cycle + duration
+        armBabaCompletion(raid, source, endsAt)
+        traceBaba(raid, source, "special_start", "special" to special, "endsAt" to endsAt)
         return duration
     }
 
@@ -6033,7 +6042,21 @@ constructor(
                     raid.baba.rubble.remove(entry.actorKey)
                     removeNpc(raid, actor)
                     if (raid.baba.state == BabaState.ROCK_THROW) {
-                        raid.baba.forcedRockfallAt = clock.cycle + 2
+                        boss(raid)?.let { source ->
+                            babaQueues(raid, source).armForced(
+                                clock.cycle + 2,
+                                eligible = {
+                                    raid.baba.state !in
+                                        setOf(
+                                            BabaState.ROLLING_STONES_PREP,
+                                            BabaState.ROLLING_STONES,
+                                            BabaState.DEFEATED,
+                                        )
+                                },
+                            ) {
+                                startBabaSpecial(raid, source, BabaSpecial.ROCKFALL)
+                            }
+                        }
                     }
                 }
             }
@@ -6367,7 +6390,7 @@ constructor(
             CombatEffects.bind(player, BabaTuning.BABOON_STUN_TICKS.value)
             pushBabaRollingBoulderPlayer(raid, player, 64)
         }
-        raid.baba.specialEndsAt = clock.cycle + 3
+        armBabaCompletion(raid, source, clock.cycle + 3)
         traceBaba(
             raid,
             source,
@@ -6676,7 +6699,8 @@ constructor(
             Int.MAX_VALUE,
         )
         source.anim(BabaAssets.ROLLING_STONES_END)
-        raid.baba.finishRollingPhase(clock.cycle + 2)
+        raid.baba.finishRollingPhase()
+        armBabaCompletion(raid, source, clock.cycle + 2)
         traceBaba(
             raid,
             source,
@@ -7121,7 +7145,9 @@ constructor(
     }
 
     private fun clearWardenChargeCircle(raid: ToaRaidSession) {
-        WardenGod.entries.forEach { restoreWardenChargePlatform(raid, it) }
+        if (!raid.instance.isEnded) {
+            WardenGod.entries.forEach { restoreWardenChargePlatform(raid, it) }
+        }
         val state = raid.encounter
         state.wardenElidinisCircleUnits = 0
         state.wardenTumekenCircleUnits = 0
@@ -7361,9 +7387,6 @@ constructor(
     private fun tickWardenPhaseTwo(raid: ToaRaidSession, source: Npc, targets: List<Player>) {
         val state = raid.encounter
         val ruleset = state.wardensRuleset
-        if (state.wardenNextPhaseTwoAttackAt < 0) {
-            state.wardenNextPhaseTwoAttackAt = clock.cycle + ruleset.phaseTwoFirstAttackDelay
-        }
         if (state.wardenNextPhaseTwoObeliskAttackAt < 0) {
             state.wardenNextPhaseTwoObeliskAttackAt =
                 clock.cycle + ruleset.phaseTwoObeliskAttackInterval
@@ -7379,29 +7402,53 @@ constructor(
                     ruleset.phaseTwoObeliskAttackInterval,
                 )
         }
-        if (clock.cycle >= state.wardenNextPhaseTwoAttackAt) {
-            performWardenPhaseTwoAttack(raid, source, targets)
-            state.wardenNextPhaseTwoAttackAt =
-                clock.cycle + ruleset.phaseTwoWardenAttackInterval(state.wardenPhaseTwoGod)
+        if (clock.cycle >= source.actionDelay && !source.isBusy) {
+            val phases = wardenPhaseTwoPhases(source)
+            val target = targets[(phases.actionCount + 1) % targets.size]
+            phases.prepareOpportunity(target)
+            phases.dispatch(target) {
+                npcAccess.launch(source) {
+                    events.publish(this, AiPlayerEvents.Ap2(target, source))
+                }
+            }
         }
         raid.nextMechanicAt =
             WardenPhaseTwoCadence.nextMechanicAt(
-                state.wardenNextPhaseTwoAttackAt,
+                source.actionDelay,
                 state.wardenNextPhaseTwoObeliskAttackAt,
             )
     }
 
-    private fun performWardenPhaseTwoAttack(
-        raid: ToaRaidSession,
+    private fun wardenPhaseTwoPhases(source: Npc): WardenPhaseTwoCombatPhases =
+        requireNotNull(bossDeps.encounterRegistry.of(source).stateOrNull(WARDEN_PHASE_TWO_COMBAT))
+
+    fun prepareWardenPhaseTwoOpportunity(source: Npc, target: Player): Boolean {
+        val raid = raidFor(source) ?: return false
+        return raid.currentRoom == ToaRoom.WARDENS &&
+            raid.encounter.wardenStage == ToaWardenStage.PHASE_TWO &&
+            raid.npcRoles[source] == ToaNpcRole.WARDEN_PHASE &&
+            boss(raid) === source &&
+            source.isSlotAssigned &&
+            source.hitpoints > 0 &&
+            !source.isBusy &&
+            clock.cycle >= source.actionDelay &&
+            wardenPhaseTwoPhases(source).ownsDispatch(target)
+    }
+
+    fun launchWardenPhaseTwoAttack(
         source: Npc,
-        targets: List<Player>,
+        target: Player,
+        kind: WardenPhaseTwoAttackKind,
+        actionNumber: Int,
     ) {
+        val raid = requireNotNull(raidFor(source))
+        check(prepareWardenPhaseTwoOpportunity(source, target))
+        val targets = activePlayers(raid)
         val state = raid.encounter
-        val ruleset = state.wardensRuleset
-        state.attackCounter++
-        val target = targets[state.attackCounter % targets.size]
+        // Persist accepted history only for the native replacement body after each core exposure.
+        state.attackCounter = actionNumber
         source.faceSquare(target.coords)
-        if (state.attackCounter % ruleset.phaseTwoAttacksBeforeSpecial == 0) {
+        if (kind == WardenPhaseTwoAttackKind.SPECIAL) {
             source.anim(WardenPhaseTwoMechanics.SPECIAL_ATTACK_ANIMATION)
             val remainingPercent =
                 state.wardenPhaseTwoRemaining * 100 / state.wardenPhaseTwoTrueMax.coerceAtLeast(1)
@@ -7444,11 +7491,7 @@ constructor(
                     )
             }
         } else {
-            val attack =
-                WardenPhaseTwoMechanics.basicAttack(
-                    source.coords.chebyshevDistance(target.coords),
-                    state.attackCounter,
-                )
+            val attack = WardenPhaseTwoMechanics.basicAttack(WardenBasicAttack.valueOf(kind.name))
             val damage =
                 rollWardenDamage(raid, WardenDamageRolls.basicMaximum(state.wardenPhaseTwoGod))
             source.anim(attack.animation)
@@ -9771,7 +9814,10 @@ constructor(
         cleanupBaba(raid, resetState = false)
         val state = raid.baba
         state.reset()
-        state.startIntro(clock.cycle + BabaTuning.INTRO_TICKS.value)
+        state.startIntro()
+        val introEndsAt = clock.cycle + BabaTuning.INTRO_TICKS.value
+        bossDeps.encounterRegistry.of(source, ToaSpecialSelectionRandom(state::nextInt))
+        armBabaCompletion(raid, source, introEndsAt)
         val hp =
             BabaScaling.hitpoints(
                 activePlayers(raid).size.coerceAtLeast(1),
@@ -9797,13 +9843,14 @@ constructor(
             "intro_start",
             "bossHp" to hp,
             "bossTile" to source.coords,
-            "targetableAt" to state.specialEndsAt,
+            "targetableAt" to introEndsAt,
         )
     }
 
     private fun initializeAkkha(raid: ToaRaidSession, source: Npc, initialTarget: Player?) {
         val state = raid.akkha
         state.reset()
+        bossDeps.encounterRegistry.of(source, ToaSpecialSelectionRandom(state::nextInt))
         state.startIntro()
         state.startNormalCombat()
         val hp =
@@ -10404,6 +10451,12 @@ constructor(
     }
 
     private fun cleanupBaba(raid: ToaRaidSession, resetState: Boolean = true) {
+        raid.spawnedNpcs.forEach { npc ->
+            bossDeps.encounterRegistry
+                .existing(npc)
+                ?.stateOrNull<BabaCombatQueues>(BABA_COMBAT_QUEUES)
+                ?.close()
+        }
         val state = raid.baba
         state.pendingRocks.clear()
         state.pendingRubble.clear()
@@ -10878,7 +10931,6 @@ constructor(
         raid.encounter.wardenPhaseOneSpecialQueue.clear()
         raid.encounter.wardenNextEnergyPulseAt = -1
         raid.encounter.wardenNextPassiveChargeAt = -1
-        raid.encounter.wardenNextPhaseTwoAttackAt = -1
         raid.encounter.wardenNextPhaseTwoObeliskAttackAt = -1
         raid.encounter.wardenNextPhantomAttackAt = -1
         raid.encounter.wardenPhantomAttackCounter = 0

@@ -13,6 +13,7 @@ import org.rsmod.api.bosses.runtime.BossDeps
 import org.rsmod.api.combat.commons.types.MeleeAttackType
 import org.rsmod.api.combat.formulas.AccuracyFormulae
 import org.rsmod.api.config.refs.params
+import org.rsmod.api.game.process.world.WorldQueueListProcess
 import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.invtx.invAdd
 import org.rsmod.api.mechanics.toxins.impl.PlayerPoison
@@ -72,6 +73,7 @@ constructor(
     private val bossDeps: BossDeps,
     private val npcAccess: StandardNpcAccessLauncher,
     private val events: EventBus,
+    private val worldQueueProcess: WorldQueueListProcess,
 ) {
     /** A synchronous dispatch token, owned and retired by the native boss encounter. */
     private class OrdinaryDispatch {
@@ -434,7 +436,30 @@ constructor(
             )
         raid.zebak.start(body, tail, clock.cycle)
         // Bind before the first player hit can lazily create the encounter with global RNG.
-        bossDeps.encounterRegistry.of(body, ZebakSelectionRandom(raid.zebak))
+        val encounter = bossDeps.encounterRegistry.of(body, ZebakSelectionRandom(raid.zebak))
+        val generation = raid.zebak.generation
+        val attackQueues =
+            encounter.state("toa.zebak-split-queues") {
+                ZebakAttackQueues(
+                    bossDeps.worldQueues,
+                    worldQueueProcess,
+                    clock,
+                    valid = { capturedGeneration ->
+                        capturedGeneration == generation &&
+                            raid.zebak.generation == generation &&
+                            raid.zebak.body === body &&
+                            raid.zebak.state !in
+                                setOf(ZebakState.DYING, ZebakState.COMPLETE, ZebakState.RESET) &&
+                            instances.instanceForNpc(body) == raid.instance.id &&
+                            bossDeps.encounterRegistry.isCurrent(body, encounter)
+                    },
+                    removeVisual = { visual ->
+                        if (visual.npc.isSlotAssigned) removeNpc(raid, visual.npc)
+                    },
+                )
+            }
+        raid.zebak.bindAttackQueues(attackQueues)
+        encounter.onCleanup(attackQueues::close)
         replaceOrdinaryDeadline(raid, ZebakTimeline.firstAutoAt(clock.cycle))
         faceZebakEast(raid, body)
         animateZebak(raid, body, ZebakAssets.BODY_IDLE)
@@ -546,8 +571,8 @@ constructor(
         processZebakWaterSplashes(raid)
         processZebakRockDeaths(raid)
         processZebakWaves(raid)
-        processZebakProjectileSplits(raid)
-        processZebakSplitVisuals(raid)
+        raid.zebak.attackQueues?.processSplits()
+        raid.zebak.attackQueues?.processVisuals()
         processZebakPlayerMovement(raid, body)
         processZebakSwimming(raid, body)
         processZebakBloodClouds(raid, body)
@@ -1463,13 +1488,16 @@ constructor(
                     delay = 120,
                 )
             }
-            state.splitProjectiles +=
+            checkNotNull(state.attackQueues).scheduleSplit(
                 ZebakSplitProjectileRuntime(
                     tile = splitTile,
                     style = style,
                     splitAt = ZebakTimeline.splitAt(clock.cycle),
                     generation = state.generation,
                 )
+            ) { split ->
+                launchZebakSplit(raid, split)
+            }
         }
         trace(
             raid,
@@ -1478,93 +1506,70 @@ constructor(
         )
     }
 
-    private fun processZebakProjectileSplits(raid: ToaRaidSession) {
+    private fun launchZebakSplit(raid: ToaRaidSession, split: ZebakSplitProjectileRuntime) {
         val state = raid.zebak
-        state.splitProjectiles.toList().forEach { split ->
-            if (clock.cycle < split.splitAt) return@forEach
-            state.splitProjectiles.remove(split)
-            if (
-                split.generation != state.generation ||
-                    state.state in setOf(ZebakState.DYING, ZebakState.COMPLETE, ZebakState.RESET)
-            ) {
-                return@forEach
-            }
-            val ranged = split.style == ZebakAttackStyle.RANGED
-            val splitGraphic = if (ranged) ZebakAssets.RANGE_SPLIT else ZebakAssets.MAGIC_SPLIT
-            val breakGraphic =
-                if (ranged) ZebakAssets.RANGE_SPLIT_VISUAL else ZebakAssets.MAGIC_SPLIT_VISUAL
-            val impactGraphic = if (ranged) ZebakAssets.RANGE_IMPACT else ZebakAssets.MAGIC_IMPACT
-            val helper =
-                spawnNpc(
+        val ranged = split.style == ZebakAttackStyle.RANGED
+        val splitGraphic = if (ranged) ZebakAssets.RANGE_SPLIT else ZebakAssets.MAGIC_SPLIT
+        val breakGraphic =
+            if (ranged) ZebakAssets.RANGE_SPLIT_VISUAL else ZebakAssets.MAGIC_SPLIT_VISUAL
+        val impactGraphic = if (ranged) ZebakAssets.RANGE_IMPACT else ZebakAssets.MAGIC_IMPACT
+        val helper =
+            spawnNpc(
+                raid,
+                ZebakAssets.SPLIT_HELPER,
+                roomCoord(
                     raid,
-                    ZebakAssets.SPLIT_HELPER,
-                    roomCoord(
-                        raid,
-                        ToaRoom.ZEBAK,
-                        ZebakRoomLayout.PROJECTILE_SPLIT_HELPER_LOCAL_X,
-                        ZebakRoomLayout.PROJECTILE_SPLIT_HELPER_LOCAL_Z,
-                    ),
-                    ToaNpcRole.HAZARD,
-                )
-            helper.ignoreCombatInteractions = true
-            lockMovement(helper)
-            helper.spotanim(breakGraphic, height = 750)
-            state.splitVisuals +=
+                    ToaRoom.ZEBAK,
+                    ZebakRoomLayout.PROJECTILE_SPLIT_HELPER_LOCAL_X,
+                    ZebakRoomLayout.PROJECTILE_SPLIT_HELPER_LOCAL_Z,
+                ),
+                ToaNpcRole.HAZARD,
+            )
+        helper.ignoreCombatInteractions = true
+        lockMovement(helper)
+        helper.spotanim(breakGraphic, height = 750)
+        checkNotNull(state.attackQueues)
+            .scheduleVisual(
                 ZebakSplitVisualRuntime(
                     npc = helper,
                     removesAt = ZebakTimeline.splitVisualRemoveAt(split.splitAt),
                     generation = state.generation,
                 )
-            val targets = zebakCombatTargets(raid)
-            targets.forEach { player ->
-                val landingTile = player.coords
-                sendZebakSplitProjectile(split.tile, player, splitGraphic)
-                player.spotanim(impactGraphic, delay = 90, height = 90)
-                player.soundSynth(ZebakSounds.IMPACT, delay = 90)
-                raid.encounter.pendingHits +=
-                    ToaPendingHit(
-                        target = player.uid,
-                        tile = landingTile,
-                        landsAt =
-                            ZebakTimeline.projectileImpactAt(
-                                split.splitAt - ZebakTuning.INITIAL_PROJECTILE_TICKS
-                            ),
-                        damage =
-                            state.nextInt(
-                                scaledDamage(
-                                    raid,
-                                    if (ranged) ZebakTuning.RANGE_MAX_HIT
-                                    else ZebakTuning.MAGIC_MAX_HIT,
-                                ) + 1
-                            ),
-                        impactGraphic = null,
-                        requireTargetOnTile = false,
-                        hitType = if (ranged) HitType.Ranged else HitType.Magic,
-                        prayerReductionPercent = ZebakTuning.RANGE_MAGIC_PRAYER_REDUCTION,
-                        generation = state.generation,
-                    )
-            }
-            trace(
-                raid,
-                "projectile_split",
-                "style=${split.style} targets=${targets.size} impact=" +
-                    (clock.cycle + ZebakTuning.SPLIT_PROJECTILE_TICKS),
             )
+        val targets = zebakCombatTargets(raid)
+        targets.forEach { player ->
+            val landingTile = player.coords
+            sendZebakSplitProjectile(split.tile, player, splitGraphic)
+            player.spotanim(impactGraphic, delay = 90, height = 90)
+            player.soundSynth(ZebakSounds.IMPACT, delay = 90)
+            raid.encounter.pendingHits +=
+                ToaPendingHit(
+                    target = player.uid,
+                    tile = landingTile,
+                    landsAt =
+                        ZebakTimeline.projectileImpactAt(
+                            split.splitAt - ZebakTuning.INITIAL_PROJECTILE_TICKS
+                        ),
+                    damage =
+                        state.nextInt(
+                            scaledDamage(
+                                raid,
+                                if (ranged) ZebakTuning.RANGE_MAX_HIT else ZebakTuning.MAGIC_MAX_HIT,
+                            ) + 1
+                        ),
+                    impactGraphic = null,
+                    requireTargetOnTile = false,
+                    hitType = if (ranged) HitType.Ranged else HitType.Magic,
+                    prayerReductionPercent = ZebakTuning.RANGE_MAGIC_PRAYER_REDUCTION,
+                    generation = state.generation,
+                )
         }
-    }
-
-    private fun processZebakSplitVisuals(raid: ToaRaidSession) {
-        val state = raid.zebak
-        state.splitVisuals.toList().forEach { visual ->
-            val valid =
-                visual.generation == state.generation &&
-                    state.state !in setOf(ZebakState.DYING, ZebakState.COMPLETE, ZebakState.RESET)
-            if (valid && clock.cycle < visual.removesAt) return@forEach
-            state.splitVisuals.remove(visual)
-            if (visual.npc.isSlotAssigned) {
-                removeNpc(raid, visual.npc)
-            }
-        }
+        trace(
+            raid,
+            "projectile_split",
+            "style=${split.style} targets=${targets.size} impact=" +
+                (clock.cycle + ZebakTuning.SPLIT_PROJECTILE_TICKS),
+        )
     }
 
     private fun beginZebakEnrage(raid: ToaRaidSession, body: Npc) {
@@ -2117,12 +2122,7 @@ constructor(
             .toList()
             .forEach { if (it.isSlotAssigned) removeNpc(raid, it) }
         raid.zebak.waterCrocodiles.clear()
-        raid.zebak.splitVisuals
-            .map { it.npc }
-            .toList()
-            .forEach { if (it.isSlotAssigned) removeNpc(raid, it) }
-        raid.zebak.splitVisuals.clear()
-        raid.zebak.splitProjectiles.clear()
+        raid.zebak.attackQueues?.close()
         raid.zebak.playerState.keys
             .mapNotNull { it.resolve(players) }
             .forEach { it.tempMoveSpeed = null }
