@@ -4,7 +4,15 @@ This is a resumable handoff, not a project-completion or full OSRS-parity claim.
 mechanic mappings, uncertainties, commands and results remain in [DSL_MIGRATION.md](DSL_MIGRATION.md).
 Update this checkpoint after each completed boss and immediately before any authorized deployment.
 
-September14 current checkpoint: Leviathan special phases/completion, Vardorvis native choices and
+September14 current checkpoint: DT2 native start/respawn and Leviathan opportunity owners,
+Whisperer support APIs, and Doom secondary volley/larva/style-hit queues are verified. Full
+DT2 202/Doom156, scoped checks, architecture/self-tests and application assemble pass.1,950 valid
+cases with retained shared/other-boss/ToA results. Archive/backup:
+`logs/dt2-lifecycle-doom-queues-source-20260914.zip` / `backup/dt2-lifecycle-doom-queues-20260914`.
+Next: integrate verified Whisperer helper/spec into its manager, finish any actual Doom budget/hold
+routing gap, then ToA/ToB/CoX. Exact forced-roar fix, native timing mappings and remaining scope are
+at the top of DSL_MIGRATION.md. Source only; runtime c4fc9390f/JVM23812 and all holds unchanged.
+Earlier September14 checkpoint: Leviathan special phases/completion, Vardorvis native choices and
 special/respawn queues, and Doom's complete car graph are verified. Full boss API72/DT2 186/Doom151,
 scoped checks, architecture/self-tests and application assemble pass.1,929 valid cases including
 retained shared/other-boss/ToA results. Archive/backup:

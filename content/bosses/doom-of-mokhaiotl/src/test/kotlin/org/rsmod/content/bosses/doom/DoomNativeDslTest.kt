@@ -164,9 +164,9 @@ class DoomNativeDslTest {
         f.run.state = DoomState.MELEE_CHARGE
         f.attack()
         f.run.state = DoomState.ACTIVE
-        f.run.rockVolleysRemaining = 1
+        f.run.attacks.beginRockVolleys(2, tied = true, eligible = { false }, launch = {})
         f.attack()
-        f.run.rockVolleysRemaining = 0
+        f.run.attacks.cancelRockVolleys()
         f.player.pendingLogout = true
         f.attack()
         f.player.pendingLogout = false
@@ -497,7 +497,7 @@ class DoomNativeDslTest {
                             primaryBefore,
                             f.registry.of(f.npc).decisionResult(DOOM_PRIMARY_STREAM),
                         )
-                        f.run.pendingHits.clear()
+                        f.run.attacks.cancelHits()
                         f.run.state = DoomState.ACTIVE
                     }
                     val adjacent = step % 8 == 2
@@ -548,7 +548,7 @@ class DoomNativeDslTest {
                     f.run.larvae.keys.toList().forEach { f.npcs.del(it, Int.MAX_VALUE) }
                     f.run.larvae.clear()
                     f.run.fallingRocks.clear()
-                    f.run.rockVolleysRemaining = 0
+                    f.run.attacks.cancelRockVolleys()
                     f.run.phases.cancelMeleeCharge()
                     f.at(maxOf(f.clock.cycle + 1, f.npc.actionDelay))
                 }
@@ -564,19 +564,20 @@ class DoomNativeDslTest {
     fun `coincident impact substitutes declared style after consuming original seeded draw`() {
         Fixture(4, standardSeed(4, DoomAttackStyle.RANGED)).use { f ->
             val expected = DoomAttackFlow.next(4, f.oracleState, adjacent = false)
-            f.run.pendingHits +=
+            f.scheduleStyleHit(
                 DoomEncounterManager.PendingStyleHit(
                     impactCycle = 100 + DoomRules.standardProjectileTravelTicks(4),
                     style = DoomAttackStyle.MAGIC,
                     maxHit = 1,
                 )
+            )
             f.attack()
             f.assertTurn(expected)
             val decision = assertNotNull(f.registry.of(f.npc).decisionResult(DOOM_STYLE_STREAM))
             assertEquals(DoomAttackStyle.RANGED.name, decision.rolledChoice)
             assertEquals(DoomAttackStyle.MAGIC.name, decision.choice)
             assertEquals(HitType.Magic, f.hits().single().second.type)
-            f.run.pendingHits.clear()
+            f.run.attacks.cancelHits()
             f.at(f.npc.actionDelay)
             val following = DoomAttackFlow.next(4, f.oracleState, adjacent = false)
             f.attack()
@@ -695,7 +696,11 @@ class DoomNativeDslTest {
                 assertEquals(103, f.clock.cycle)
                 assertEquals(DoomState.SHIELDED, f.run.state)
                 assertEquals(epoch, f.run.shieldEpoch)
-                assertEquals(1, f.worldQueues.size, "Shield activation owns one beam deadline")
+                assertEquals(
+                    2,
+                    f.worldQueues.size,
+                    "Shield activation owns beam and larva deadlines",
+                )
             }
         }
     }
@@ -950,7 +955,7 @@ class DoomNativeDslTest {
             assertEquals(102, f.run.pendingMeleeChargeCycle)
             val counts = f.decisionCounts()
             f.run.fallingRocks.clear()
-            f.run.rockVolleysRemaining = 0
+            f.run.attacks.cancelRockVolleys()
             f.callRun("beginShockwavePreparation")
             repeat(2) {
                 f.worldPreInput()
@@ -1194,7 +1199,7 @@ class DoomNativeDslTest {
         Fixture(4, seed).use { f ->
             f.attack()
             f.run.fallingRocks.clear()
-            f.run.rockVolleysRemaining = 0
+            f.run.attacks.cancelRockVolleys()
             f.callRun("beginShockwavePreparation")
             repeat(2) {
                 f.worldPreInput()
@@ -1240,7 +1245,7 @@ class DoomNativeDslTest {
             Fixture(4, seed).use { f ->
                 f.attack()
                 f.run.fallingRocks.clear()
-                f.run.rockVolleysRemaining = 0
+                f.run.attacks.cancelRockVolleys()
                 if (started)
                     repeat(2) {
                         f.worldPreInput()
@@ -1602,7 +1607,241 @@ class DoomNativeDslTest {
         }
     }
 
-    private class Fixture(val delve: Int, val seed: Long, active: Boolean = true) : AutoCloseable {
+    @Test
+    fun `native secondary rock volleys retain phase deferral target sampling and tied output`() {
+        for (delve in 1..9) for (defer in listOf(false, true)) {
+            Fixture(delve, 42).use { f ->
+                assertTrue(
+                    f.registry
+                        .of(f.npc)
+                        .forceNextAbility(doomAbility(delve, DoomPrimaryAttack.ROCKS))
+                )
+                f.attack()
+                val first = f.projectiles().single()
+                assertEquals(1, f.run.fallingRocks.size)
+                assertEquals(DoomRules.rockSets(delve) - 1, f.run.rockVolleysRemaining)
+                if (defer) {
+                    f.run.state = DoomState.SHIELD_TRANSITION
+                    repeat(2) { f.carTick() }
+                    assertEquals(1, f.projectiles().size, "delve=$delve deferred")
+                    f.run.state = DoomState.MELEE_CHARGE
+                }
+                f.player.coords = CoordGrid(1305, 9505)
+                val target =
+                    DoomRockTargeting.splitTile(
+                        f.player.coords,
+                        DoomGeometry.centre(f.npc.coords, f.npc.size),
+                    )
+                var rolls = 0
+                f.random.beforeRoll = { rolls++ }
+                f.worldPreInput()
+                assertEquals(1, f.projectiles().size, "Owned volleys do not run before input")
+                f.lateCycle()
+                assertEquals(DoomRules.rockSets(delve), f.projectiles().size)
+                assertEquals(0, f.run.rockVolleysRemaining)
+                assertEquals(
+                    0,
+                    rolls,
+                    "Secondary volleys retain the first volley style without a fresh draw",
+                )
+                if (delve >= 8) {
+                    val second = f.projectiles().last()
+                    assertEquals(first.spotanim, second.spotanim)
+                    assertEquals(target, f.run.fallingRocks.last().tile)
+                    assertEquals(1, f.run.fallingRocks.last().volleyIndex)
+                    assertEquals(f.clock.cycle + 9, f.run.fallingRocks.last().landCycle)
+                }
+                val count = f.projectiles().size
+                f.manager.tick(f.player)
+                assertEquals(count, f.projectiles().size, "Each queued volley launches once")
+                assertEquals(listOf(0L, 0L, 0L), f.decisionCounts())
+            }
+        }
+    }
+
+    @Test
+    fun `native shield larva queue preserves first spawn recurrence and spawn before beam`() {
+        for (delve in 3..9) {
+            Fixture(delve, 42, nativeRoutes = true).use { f ->
+                f.beginShield()
+                repeat(2) { f.carTick() }
+                assertEquals(107, f.run.nextShieldLarvaCycle)
+                f.run.phases.stopBeamCharge()
+                while (f.clock.cycle < 106) f.carTick()
+                assertTrue(f.run.larvae.isEmpty())
+                f.worldPreInput()
+                assertTrue(
+                    f.run.larvae.isEmpty(),
+                    "Owned spawning stays at the phase's LateCycle position",
+                )
+                val rngLarvaCounts = mutableListOf<Int>()
+                f.random.beforeRoll = { rngLarvaCounts += f.run.larvae.size }
+                f.lateCycle()
+                assertEquals(listOf(107), f.run.larvae.values.map { it.spawnCycle })
+                assertTrue(rngLarvaCounts.dropLast(1).all { it == 0 })
+                assertEquals(1, rngLarvaCounts.last(), "Interval is drawn after spawning")
+                val next = 107 + DoomRules.shieldLarvaIntervalRange(delve).last
+                assertEquals(next, f.run.nextShieldLarvaCycle)
+                f.random.beforeRoll = {}
+                while (f.clock.cycle < next - 1) f.carTick()
+                f.carTick()
+                assertEquals(1, f.run.larvae.values.count { it.spawnCycle == next })
+                assertEquals(
+                    next + DoomRules.shieldLarvaIntervalRange(delve).last,
+                    f.run.nextShieldLarvaCycle,
+                )
+            }
+        }
+        Fixture(4, 42).use { f ->
+            f.beginShield()
+            repeat(2) { f.carTick() }
+            // The first spawn is overdue when the existing beam deadline becomes ready.
+            f.at(f.run.beamFireCycle - 1)
+            f.worldPreInput()
+            assertTrue(f.run.larvae.isEmpty())
+            f.onProjectile = {
+                assertEquals(1, f.run.larvae.size, "Larva precedes every beam segment")
+            }
+            f.lateCycle()
+            assertEquals(5, f.projectiles().size)
+            val spawn = f.run.larvae.values.single().spawnCycle
+            val next = f.run.nextShieldLarvaCycle
+            assertNotNull(f.run.pendingBeamHit)
+            f.at(next)
+            f.callRun("processCharge")
+            assertEquals(
+                listOf(spawn),
+                f.run.larvae.values.map { it.spawnCycle },
+                "Pending native beam pauses the owner",
+            )
+            assertEquals(next, f.run.nextShieldLarvaCycle)
+            f.callRun("cancelPendingBeam")
+            f.callRun("processCharge")
+            assertEquals(1, f.run.larvae.values.count { it.spawnCycle == next })
+            assertEquals(next + 9, f.run.nextShieldLarvaCycle)
+        }
+    }
+
+    @Test
+    fun `native scheduled style hits retain accuracy at impact minus one and prayer at impact`() {
+        for (style in DoomAttackStyle.entries) for (protectAtImpact in listOf(false, true)) {
+            Fixture(4, 42).use { f ->
+                val prayer =
+                    when (style) {
+                        DoomAttackStyle.MELEE -> "varbit.prayer_protectfrommelee"
+                        DoomAttackStyle.RANGED -> "varbit.prayer_protectfrommissiles"
+                        DoomAttackStyle.MAGIC -> "varbit.prayer_protectfrommagic"
+                    }
+                VarPlayerIntMapSetter.set(f.player, prayer, if (protectAtImpact) 0 else 1)
+                val accuracyTicks = mutableListOf<Int>()
+                val damageTicks = mutableListOf<Int>()
+                f.onAccuracy = { accuracyTicks += f.clock.cycle }
+                f.random.beforeRoll = { damageTicks += f.clock.cycle }
+                f.scheduleStyleHit(DoomEncounterManager.PendingStyleHit(104, style, 17))
+                f.run.state = DoomState.MELEE_CHARGE
+                repeat(2) { f.carTick() }
+                assertTrue(accuracyTicks.isEmpty())
+                assertTrue(f.deferredHits().isEmpty())
+                f.worldPreInput()
+                assertTrue(accuracyTicks.isEmpty())
+                f.lateCycle()
+                assertEquals(listOf(103), accuracyTicks)
+                assertEquals(listOf(103), damageTicks)
+                assertTrue(f.run.pendingHits.isEmpty())
+                assertEquals(17, f.deferredHits().single().second.builder.damage)
+                VarPlayerIntMapSetter.set(f.player, prayer, if (protectAtImpact) 1 else 0)
+                f.processPlayerHits(1)
+                assertEquals(if (protectAtImpact) 99 else 82, f.player.hitpoints)
+                assertTrue(f.deferredHits().isEmpty())
+            }
+        }
+    }
+
+    @Test
+    fun `native style dispatch retains equal hit identities insertion order and guaranteed accuracy`() {
+        Fixture(4, 42).use { f ->
+            val first = DoomEncounterManager.PendingStyleHit(103, DoomAttackStyle.MAGIC, 11)
+            val duplicate = first.copy()
+            val guaranteed =
+                DoomEncounterManager.PendingStyleHit(103, DoomAttackStyle.RANGED, 12, true)
+            f.scheduleStyleHit(first)
+            f.scheduleStyleHit(duplicate)
+            f.scheduleStyleHit(guaranteed)
+            val pendingDuringAccuracy = mutableListOf<List<DoomEncounterManager.PendingStyleHit>>()
+            f.onAccuracy = { pendingDuringAccuracy += f.run.pendingHits.toList() }
+            f.at(102)
+            f.worldPreInput()
+            assertTrue(f.hits().isEmpty())
+            f.callRun("processPendingHits")
+            assertEquals(2, pendingDuringAccuracy.size)
+            assertSame(first, pendingDuringAccuracy[0][0])
+            assertSame(duplicate, pendingDuringAccuracy[1][0])
+            assertEquals(listOf(11, 11, 12), f.hits().map { it.second.damage })
+            assertTrue(f.run.pendingHits.isEmpty())
+            f.callRun("processPendingHits")
+            assertEquals(3, f.hits().size)
+        }
+    }
+
+    @Test
+    fun `native attack owners cancel rock larva and style work on death deletion and departure`() {
+        for (kind in listOf("rock", "larva", "style")) for (exit in
+            listOf("death", "delete", "leave")) {
+            Fixture(8, 42).use { f ->
+                when (kind) {
+                    "rock" -> {
+                        f.registry
+                            .of(f.npc)
+                            .forceNextAbility(doomAbility(8, DoomPrimaryAttack.ROCKS))
+                        f.attack()
+                    }
+                    "larva" -> {
+                        f.beginShield()
+                        repeat(2) { f.carTick() }
+                        f.run.phases.stopBeamCharge()
+                    }
+                    else ->
+                        f.scheduleStyleHit(
+                            DoomEncounterManager.PendingStyleHit(120, DoomAttackStyle.MAGIC, 12)
+                        )
+                }
+                assertFalse(f.worldQueues.isEmpty, "$kind $exit")
+                f.at(300)
+                f.worldPreInput()
+                val projectiles = f.projectiles().size
+                var rolls = 0
+                f.random.beforeRoll = { rolls++ }
+                when (exit) {
+                    "death" -> {
+                        // A depleted shield's death path normally starts car. Finish that phase
+                        // before recording actual boss death, while retaining the old owner's work.
+                        if (kind == "larva") f.run.state = DoomState.ACTIVE
+                        f.npc.hitpoints = 0
+                        assertSame(f.run, f.manager.beginNpcDeath(f.npc))
+                    }
+                    "delete" -> f.npcs.del(f.npc, Int.MAX_VALUE)
+                    else -> f.events.publish(SessionStateEvent.Logout(f.player))
+                }
+                assertTrue(f.worldQueues.isEmpty, "$kind $exit")
+                assertEquals(0, f.run.rockVolleysRemaining)
+                assertTrue(f.run.pendingHits.isEmpty())
+                assertEquals(Int.MAX_VALUE, f.run.nextShieldLarvaCycle)
+                f.run.attacks.processRockVolleys()
+                f.run.attacks.processShieldLarvae()
+                f.run.attacks.processHits()
+                assertEquals(projectiles, f.projectiles().size)
+                assertEquals(0, rolls)
+                assertTrue(f.run.larvae.isEmpty())
+            }
+        }
+    }
+
+    private class Fixture(
+        val delve: Int,
+        val seed: Long,
+        active: Boolean = true,
+        private val nativeRoutes: Boolean = false,
+    ) : AutoCloseable {
         var oracleState = DoomAttackFlow.initial(delve, seed)
         private val oracleCounts = longArrayOf(0, 0, 0)
         val clock = MapClock().apply { cycle = 100 }
@@ -1695,10 +1934,13 @@ class DoomNativeDslTest {
             mock(LocRepository::class.java) { call ->
                 if (call.method.name == "add") true else Answers.RETURNS_DEFAULTS.answer(call)
             }
+        var onAccuracy: () -> Unit = {}
         val accuracy =
             mock(AccuracyFormulae::class.java) { call ->
-                if (call.method.name.startsWith("roll")) true
-                else Answers.RETURNS_DEFAULTS.answer(call)
+                if (call.method.name.startsWith("roll")) {
+                    onAccuracy()
+                    true
+                } else Answers.RETURNS_DEFAULTS.answer(call)
             }
         val worldQueues = WorldQueueList()
         private val worldQueueProcess = WorldQueueListProcess(worldQueues)
@@ -1725,6 +1967,8 @@ class DoomNativeDslTest {
                 BossExtensionRegistry(),
                 NvPCombat(accuracy, mock(MaxHitFormulae::class.java), world),
             )
+        private val routes =
+            if (nativeRoutes) RouteFactory(collision) else mock(RouteFactory::class.java)
         val manager =
             DoomEncounterManager(
                 clock,
@@ -1741,8 +1985,9 @@ class DoomNativeDslTest {
                 hpBar,
                 rewards,
                 statistics,
-                mock(RouteFactory::class.java),
+                routes,
                 worldQueues,
+                worldQueueProcess,
             )
         val run =
             DoomEncounterManager.Run(
@@ -1936,7 +2181,7 @@ class DoomNativeDslTest {
                     }
                     // This fixture isolates the beam clock from the separately tested larva
                     // cadence.
-                    run.nextShieldLarvaCycle = Int.MAX_VALUE
+                    run.attacks.cancelShieldLarvae()
                 }
                 DoomState.BURROWING -> {
                     run.state = state
@@ -1958,6 +2203,19 @@ class DoomNativeDslTest {
                 it.isAccessible = true
                 it.invoke(manager, run)
             }
+        }
+
+        fun scheduleStyleHit(pending: DoomEncounterManager.PendingStyleHit) {
+            manager.javaClass
+                .getDeclaredMethod(
+                    "scheduleStyleHit",
+                    DoomEncounterManager.Run::class.java,
+                    DoomEncounterManager.PendingStyleHit::class.java,
+                )
+                .let {
+                    it.isAccessible = true
+                    it.invoke(manager, run, pending)
+                }
         }
 
         fun finishShield() {
@@ -2055,6 +2313,13 @@ class DoomNativeDslTest {
         override fun close() {
             instances.sessionsForKey(DOOM_INSTANCE_KEY).toList().forEach(instances::terminate)
             registry.remove(npc)
+            if (nativeRoutes) {
+                // Native routing caches its collision map on the JUnit thread. Release that
+                // fixture-owned cache alongside inline mocks instead of retaining arena maps.
+                val cache = RouteFactory::class.java.getDeclaredField("threadLocalRouteFinding")
+                cache.isAccessible = true
+                (cache.get(routes) as ThreadLocal<*>).remove()
+            }
             // Inline mock answers retain this fixture and its large native collision map. Release
             // after each matrix case instead of accumulating every case until @AfterEach.
             framework().clearInlineMocks()

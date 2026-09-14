@@ -345,7 +345,7 @@ constructor(
             if (player.hitpoints <= 0) return
             dukeEncounter.tick(run)
             if (run.state == Dt2State.RESPAWNING) {
-                if (clock.cycle >= run.respawnCycle) respawn(run)
+                run.lifecycleTasks?.let(queueProcess::processOwned)
             }
             return
         }
@@ -360,14 +360,14 @@ constructor(
         tickDangerTiles(run)
         tickMovingHazards(run)
         when (run.state) {
-            Dt2State.STARTING -> tickStarting(run)
+            Dt2State.STARTING -> run.lifecycleTasks?.let(queueProcess::processOwned)
             Dt2State.ACTIVE,
             Dt2State.ENRAGED -> {
                 keepAggressive(run)
                 tickActive(run)
             }
             Dt2State.SPECIAL -> tickSpecial(run)
-            Dt2State.RESPAWNING -> if (clock.cycle >= run.respawnCycle) respawn(run)
+            Dt2State.RESPAWNING -> run.lifecycleTasks?.let(queueProcess::processOwned)
             Dt2State.PREPARING,
             Dt2State.STUNNED,
             Dt2State.DYING,
@@ -615,6 +615,7 @@ constructor(
         )
         if (run.bossKind == Dt2Boss.DUKE) {
             dukeEncounter.showCorpse(run)
+            armLifecycle(run, run.respawnCycle, Dt2State.RESPAWNING) { respawn(run) }
             return
         }
         if (run.bossKind == Dt2Boss.VARDORVIS) {
@@ -638,6 +639,7 @@ constructor(
                 if (run.bossKind == Dt2Boss.LEVIATHAN) LEVIATHAN_RESPAWN_TICKS
                 else if (run.bossKind == Dt2Boss.WHISPERER) WHISPERER_RESPAWN_TICKS
                 else DT2_RESPAWN_TICKS
+        armLifecycle(run, run.respawnCycle, Dt2State.RESPAWNING) { respawn(run) }
     }
 
     fun helperDied(npc: Npc) {
@@ -721,9 +723,14 @@ constructor(
         prepare(player)
         player.anim(9799)
         run.boss.anim(10227)
-        run.startStage = 1
         run.startReadyCycle = clock.cycle + 4
         run.state = Dt2State.STARTING
+        armLifecycle(run, run.startReadyCycle, Dt2State.STARTING) {
+            run.boss.transmog(requireNpc(Dt2Assets.WHISPERER_ACTIVE_ID), Int.MAX_VALUE)
+            run.boss.anim(10229)
+            activate(run)
+            run.player.mes("A whisper slips into your mind as the battle begins.")
+        }
         player.mes("The Odd Figure awakens.")
         return true
     }
@@ -764,9 +771,19 @@ constructor(
         }
         prepare(player)
         player.anim(828)
-        run.startStage = 1
         run.startReadyCycle = clock.cycle + 1
         run.state = Dt2State.STARTING
+        armLifecycle(run, run.startReadyCycle, Dt2State.STARTING) {
+            val inside =
+                requireNotNull(instances.localCoord(run.session, Dt2Assets.LEVIATHAN_INSIDE_ENTRY))
+            PathingEntityCommon.telejump(run.player, collision, inside)
+            // The retained handhold entry crosses the revision-240 stair collision seam
+            // immediately.
+            run.boss.anim(10291)
+            run.boss.actionDelay = clock.cycle + 4
+            run.startReadyCycle = clock.cycle + 4
+            armLifecycle(run, run.startReadyCycle, Dt2State.STARTING) { activate(run) }
+        }
         player.mes("The brain holds fall away as you use them.")
         return true
     }
@@ -981,38 +998,25 @@ constructor(
             "sanity=${run.sanity} shadow=${run.shadowRealm} hazards=${run.dangerTiles.size}+${run.movingHazards.size} seed=${run.seed}"
     }
 
-    private fun tickStarting(run: Run) {
-        if (clock.cycle < run.startReadyCycle) return
-        if (run.bossKind == Dt2Boss.WHISPERER && run.startStage == 1) {
-            run.boss.transmog(requireNpc(Dt2Assets.WHISPERER_ACTIVE_ID), Int.MAX_VALUE)
-            run.boss.anim(10229)
-            run.startStage = 2
-            activate(run)
-            run.player.mes("A whisper slips into your mind as the battle begins.")
-            return
-        }
-        if (run.bossKind != Dt2Boss.LEVIATHAN || run.startStage == 0) {
-            activate(run)
-            return
-        }
-        when (run.startStage) {
-            1 -> {
-                val inside =
-                    requireNotNull(
-                        instances.localCoord(run.session, Dt2Assets.LEVIATHAN_INSIDE_ENTRY)
-                    )
-                PathingEntityCommon.telejump(run.player, collision, inside)
-                // The handhold transition places the player at the real arena entrance.
-                // Do not wait for a deeper walk-in tile: the copied revision-240 room
-                // has a stair collision seam that can clip/teleport the player before
-                // the old capture marker is reached. Start the emergence sequence as
-                // soon as the player arrives in the arena instead.
-                run.boss.anim(10291)
-                run.boss.actionDelay = clock.cycle + 4
-                run.startStage = 3
-                run.startReadyCycle = clock.cycle + 4
-            }
-            else -> activate(run)
+    /** Session callbacks survive native actor deletion but never a different run or life. */
+    private fun armLifecycle(run: Run, deadline: Int, state: Dt2State, action: () -> Unit) {
+        val owner =
+            run.lifecycleTasks
+                ?: worldQueues.createOwner().also {
+                    run.lifecycleTasks = it
+                    run.session.onCleanup(it::close)
+                }
+        owner.clear()
+        val actor = run.boss
+        val generation = run.generation
+        owner.add(ready = { clock.cycle >= deadline }) {
+            if (
+                run(run.player) === run &&
+                    run.boss === actor &&
+                    run.generation == generation &&
+                    run.state == state
+            )
+                action()
         }
     }
 
@@ -1024,13 +1028,7 @@ constructor(
         }
         tickLeviathanDebris(run)
         if (run.state !in setOf(Dt2State.ACTIVE, Dt2State.ENRAGED)) return
-        if (
-            !run.enraged &&
-                run.leviathanAction == LeviathanAction.STANDARD_VOLLEY &&
-                clock.cycle >= run.leviathanRoarCycle
-        ) {
-            beginLeviathanRoar(run)
-        }
+        run.leviathanCombatPhases?.dispatchRoar()
         if (run.player.hitpoints > 25) run.leviathanNeverAbove25Hitpoints = false
         if (run.leviathanProjectileEndCycle <= clock.cycle) {
             run.leviathanProjectileEndCycle = Int.MAX_VALUE
@@ -1158,10 +1156,7 @@ constructor(
 
     private fun tickActive(run: Run) {
         if (run.bossKind == Dt2Boss.LEVIATHAN) {
-            if (run.leviathanAction != LeviathanAction.STANDARD_VOLLEY) return
-        }
-        if (run.bossKind != Dt2Boss.WHISPERER && clock.cycle >= run.nextSpecialCycle) {
-            beginSpecial(run, null)
+            run.leviathanCombatPhases?.dispatchSpecial()
         }
     }
 
@@ -1178,6 +1173,7 @@ constructor(
         run.specialProgress = 0
         run.specialRequired = 1
         run.leviathanRoarCycle = Int.MAX_VALUE
+        leviathanPhases(run).roarOwner.clear()
         armLeviathanCompletion(run)
         run.player.soundSynth(Dt2Assets.LEVIATHAN_ROAR_SOUND, delay = 5)
         damagePlayer(run, run.rng.nextInt(Dt2Rules.LEVIATHAN_ROAR_MAX_HIT + 1), 0)
@@ -1815,6 +1811,16 @@ constructor(
         enterLeviathanAction(run, LeviathanAction.STANDARD_VOLLEY)
         if (!run.enraged && completed != LeviathanSpecial.VOLLEY_ROAR) {
             run.nextSpecialCycle = clock.cycle + normalSpecialDelay(run)
+        }
+        // A forced roar may replace a timed special after its opportunity was consumed. Restore
+        // the retained finite deadline at the original post-completion dispatch boundary.
+        if (!run.enraged && run.nextSpecialCycle != Int.MAX_VALUE) {
+            leviathanPhases(run).armSpecial(
+                run.nextSpecialCycle,
+                eligible = { run.leviathanAction == LeviathanAction.STANDARD_VOLLEY },
+            ) {
+                beginLeviathanSpecial(run, null)
+            }
         }
         run.boss.actionDelay = clock.cycle + 2
         syncLeviathanCombat(run)
@@ -2713,6 +2719,15 @@ constructor(
                     if (!run.enraged && Dt2Rules.leviathanVolleyComplete(run.attackCounter)) {
                         val roarCycle = clock.cycle + attackRate
                         run.leviathanRoarCycle = roarCycle
+                        leviathanPhases(run).armRoar(
+                            roarCycle,
+                            eligible = {
+                                !run.enraged &&
+                                    run.leviathanAction == LeviathanAction.STANDARD_VOLLEY
+                            },
+                        ) {
+                            beginLeviathanRoar(run)
+                        }
                         run.boss.actionDelay = roarCycle + 1
                     }
                 },
@@ -2771,6 +2786,8 @@ constructor(
         if (run.bossKind == Dt2Boss.LEVIATHAN) {
             run.nextSpecialCycle = Int.MAX_VALUE
             run.leviathanRoarCycle = Int.MAX_VALUE
+            leviathanPhases(run).roarOwner.clear()
+            leviathanPhases(run).specialOwner.clear()
             run.leviathanPathfinderSpawnCycle =
                 clock.cycle +
                     Dt2Rules.leviathanPathfinderSpawnDelay(run.difficulty == Dt2Difficulty.AWAKENED)
@@ -3401,7 +3418,6 @@ constructor(
         run.leviathanCameraLastShakeCycle = Int.MIN_VALUE
         run.leviathanAppearanceSoundPlayed = false
         run.permanentDebris.clear()
-        run.startStage = if (afterKill && run.bossKind == Dt2Boss.LEVIATHAN) 3 else 0
         run.startReadyCycle =
             clock.cycle + if (afterKill && run.bossKind == Dt2Boss.LEVIATHAN) 3 else 4
         run.killStartCycle = clock.cycle
@@ -3414,6 +3430,9 @@ constructor(
                     Dt2State.PREPARING
                 else -> Dt2State.STARTING
             }
+        if (afterKill && run.bossKind == Dt2Boss.LEVIATHAN) {
+            armLifecycle(run, run.startReadyCycle, Dt2State.STARTING) { activate(run) }
+        }
         if (run.bossKind == Dt2Boss.DUKE) dukeEncounter.prepare(run, preserveVats = afterKill)
     }
 
@@ -3498,6 +3517,7 @@ constructor(
     }
 
     private fun cleanupHazards(run: Run) {
+        run.lifecycleTasks?.clear()
         if (run.bossKind == Dt2Boss.DUKE) dukeEncounter.clear(run)
         if (run.bossKind == Dt2Boss.LEVIATHAN) {
             run.leviathanCombatPhases?.close()
@@ -3600,7 +3620,7 @@ constructor(
         var specialRequired: Int = 0,
         var thresholdIndex: Int = 0,
         var attackCounter: Int = 0,
-        var startStage: Int = 0,
+        var lifecycleTasks: WorldQueueList.Owner? = null,
         var stunCount: Int = 0,
         var leviathanRoarCycle: Int = Int.MAX_VALUE,
         var leviathanOpportunity: LeviathanOpportunity? = null,

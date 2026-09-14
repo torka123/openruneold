@@ -40,6 +40,7 @@ import org.rsmod.game.entity.*
 import org.rsmod.game.entity.npc.NoopNpcInfo
 import org.rsmod.game.hit.Hit
 import org.rsmod.game.hit.HitScope
+import org.rsmod.game.inv.InvObj
 import org.rsmod.game.proj.ProjAnim
 import org.rsmod.game.queue.EngineQueueCache
 import org.rsmod.game.queue.WorldQueueList
@@ -265,18 +266,29 @@ internal class Dt2NativeCombatFixture(
 
     fun activateWhisperer() {
         check(run.bossKind == Dt2Boss.WHISPERER)
-        run.state = Dt2State.STARTING
-        run.startStage = 1
-        run.startReadyCycle = clock.cycle
+        // Exercise the real native activation while retaining this fixture's first combat tick.
+        player.inv[0] =
+            InvObj(requireNotNull(ServerCacheManager.getItem(Dt2Assets.BLACKSTONE_FRAGMENT)), 1)
+        clock.cycle -= 4
+        check(manager.activateWhisperer(player, boss))
+        advance(4)
         manager.tick(player)
     }
 
     fun activateLeviathan() {
         check(run.bossKind == Dt2Boss.LEVIATHAN)
-        run.state = Dt2State.STARTING
-        run.startStage = 0
-        run.startReadyCycle = clock.cycle
+        val attackTile = player.coords
+        clock.cycle -= 5
+        val handholds =
+            requireNotNull(instances.localCoord(session, RegionLocal(0, 32, 99, 22, 32)))
+        val inside = requireNotNull(instances.localCoord(session, Dt2Assets.LEVIATHAN_INSIDE_ENTRY))
+        collision.allocateIfAbsent(inside.x, inside.z, inside.level)
+        check(manager.activateLeviathan(player, Dt2Assets.LEVIATHAN_START_HANDHOLDS, handholds))
+        advance(1)
         manager.tick(player)
+        advance(4)
+        manager.tick(player)
+        player.coords = attackTile
     }
 
     fun advance(ticks: Int) {

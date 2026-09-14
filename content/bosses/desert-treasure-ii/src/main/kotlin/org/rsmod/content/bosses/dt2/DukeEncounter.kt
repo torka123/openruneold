@@ -127,11 +127,6 @@ constructor(
             prepHazards(run)
             return
         }
-        if (run.state == Dt2State.STARTING && clock.cycle >= run.startReadyCycle) {
-            run.state = Dt2State.ACTIVE
-            run.killStartCycle = clock.cycle
-            run.boss.actionDelay = clock.cycle
-        }
         if (run.state !in setOf(Dt2State.ACTIVE, Dt2State.ENRAGED)) return
         run.enraged = DukeRules.enraged(run.boss.hitpoints, awakened(run))
         run.state = if (run.enraged) Dt2State.ENRAGED else Dt2State.ACTIVE
@@ -640,6 +635,13 @@ constructor(
         run.state = Dt2State.STARTING
         run.startReadyCycle = clock.cycle + DukeRules.WAKE_TICKS
         run.boss.actionDelay = run.startReadyCycle
+        schedule(run, DukeRules.WAKE_TICKS) {
+            if (run.state == Dt2State.STARTING) {
+                run.state = Dt2State.ACTIVE
+                run.killStartCycle = clock.cycle
+                run.boss.actionDelay = clock.cycle
+            }
+        }
         run.duke.preparation.mushroomsPicked.clear()
     }
 

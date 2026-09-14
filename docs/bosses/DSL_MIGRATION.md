@@ -2,7 +2,51 @@
 
 ## Current source increments — September 14
 
-### Current checkpoint: Leviathan/Vardorvis special ownership and complete Doom car graph verified
+### Current checkpoint: DT2 lifecycle/opportunity owners and Doom secondary queues verified
+
+DT2 start-stage polling is removed. Native session-owned callbacks preserve Whisperer disturb+4,
+Leviathan handhold+1/emergence+4 and post-kill activation+3. Duke wake uses its existing native
+StartCycle owner. Respawns retain their former dispatch positions and deadline anchors, including
+Duke's death-start deadline and captured post-native-delete completion for the other bosses.
+Exact run/actor/generation/state guards and cleanup prevent stale/duplicate callbacks. Five new
+real lifecycle groups cover all starts, respawns, reset, departure and fresh-room isolation.
+
+Leviathan roar and idle-special opportunities now have separate native owners at the original
+before-special and after-hazard boundaries. Four new groups cover stun deferral, same-tick idle
+recovery, enrage cancellation and forced roar replacing an already-started timed special. Independent
+review caught that forced path could lose its consumed deadline; completion now restores the
+retained finite deadline without moving it. The new regression passes. Duke/Whisperer/Vardorvis
+ordinary and lifecycle regressions remain valid. Minimal combat fixtures now exercise actual start
+callbacks; their initial handhold destination allocation was corrected after the first focused run.
+Whisperer helper/spec support and seven native helper groups are also verified, including seeded
+forced-slot order, completion/form/shot ownership and cleanup; **manager integration is still next**.
+Changed DT2 files: EncounterManager, DukeEncounter, LeviathanCombatPhases, WhispererBossSpec,
+WhispererCombatPhases, NativeCombatFixture, LeviathanBossCombatTest, StartRespawnLifecycleTest,
+WhispererCombatPhasesTest. The helper test now uses native EncounterRegistry.remove for cleanup.
+
+Doom's new encounter-owned DoomAttackQueues uses three native owners for secondary rock volleys,
+shield larva cadence and plain scheduled style hits at their retained LateCycle boundaries.
+Preserved phase deferral, tied delve8+ volleys, live target snapshots, spawn/interval RNG before beam,
+beam pause, impact-minus-one accuracy/damage, insertion identity and impact-time prayers. Five new
+native groups pass first run (41 focused total). Changed: build.gradle.kts (runtime gameProcess),
+DoomAttackQueues, EncounterManager, NativeDslTest. Spatial payloads remain named native adapters.
+Remaining accepted budgets/holds are being classified against the existing native session state;
+do not move mechanic metadata cosmetically. The documented STARTING presentation exception remains.
+
+Focused logs under logs/: dt2-lifecycle-opportunities-retry (66), dt2-start-respawn-focus (5),
+dt2-opportunity-whisperer-support-focus (23), doom-secondary-queues-focus (41), all -20260914.log.
+Full DT2 **202** and Doom **156** pass scoped checks: **358** cases, zero failures/errors/skips.
+Application assemble and architecture/self-tests pass in
+logs/dt2-lifecycle-doom-queues-integration-20260914.log (1m15s), matching results JSON retained.
+With unchanged shared/other-boss/ToA results: **1,950 valid cases**. Archive:
+logs/dt2-lifecycle-doom-queues-source-20260914.zip; backup: backup/dt2-lifecycle-doom-queues-20260914.
+Build passed; listed behavior verified; **not deployed**. Runtime c4fc9390f/JVM23812, caches,
+database and all evidence/replay/deployment holds remain unchanged.
+
+Exact next step: transfer the DT2 manager/fixture to the Whisperer owner to integrate the already
+verified native special choices/identity, +13 form expiry and secondary launches; use native
+started-special metadata. Finish any actual Doom budget/hold routing gap, then ToA, ToB and CoX.
+### Earlier checkpoint: Leviathan/Vardorvis special ownership and complete Doom car graph verified
 
 Leviathan now declares STUNNED/ROAR/LIGHTNING/SMOKE phases, with native owned completion at
 its retained LateCycle boundary after spatial effects. Native selectors preserve first axis choice

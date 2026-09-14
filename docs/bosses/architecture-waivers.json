@@ -39,13 +39,13 @@
     "boss": "desert-treasure-ii",
     "rule": "direct-combat-review",
     "maximum": 10,
-    "reason": "Seven reviewed parameter/projectile adapters and three Whisperer secondary-volley sites remain. Ordinary combat and Duke scheduling use native routes; Leviathan/Whisperer special ownership, secondary volleys and session start/respawn deadlines remain explicit debt. See the current DT2 closure findings in DSL_MIGRATION.md."
+    "reason": "Seven reviewed parameter/projectile adapters and three Whisperer secondary-volley sites remain. Ordinary combat, Duke scheduling, Leviathan/Vardorvis special owners and session start/respawn use native routes. Verified Whisperer support awaits manager integration for special identity/choices, form expiry and secondary launches. See current DSL_MIGRATION.md."
   },
   {
     "boss": "doom-of-mokhaiotl",
     "rule": "direct-combat-review",
     "maximum": 10,
-    "reason": "Primary/tongue attacks, seeded decisions, live identities and complete shockwave/car graphs use BossSpec/native selectors. Session ownership and shield/shockwave/charge/car readiness are native. Named spatial payloads retain LateCycle order. Remaining explicit general scheduling debt: secondary rock volleys, shield larva cadence, scheduled style-hit dispatch and accepted opportunity budgets/holds. STARTING reveal remains the documented session-presentation boundary. See current DSL_MIGRATION.md."
+    "reason": "Primary/tongue attacks, seeded decisions, live identities and complete shockwave/car graphs use BossSpec/native selectors. Session ownership and shield/shockwave/charge/car readiness are native. Named spatial payloads retain LateCycle order. Secondary rock volleys, shield larva cadence and scheduled style-hit dispatch now use native owned queues. Accepted opportunity budgets/holds await final classification against native session ownership. STARTING reveal remains the documented session-presentation boundary. See current DSL_MIGRATION.md."
   },
   {
     "boss": "grotesque-guardians",

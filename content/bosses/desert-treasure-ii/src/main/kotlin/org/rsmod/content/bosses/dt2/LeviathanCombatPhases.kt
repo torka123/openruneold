@@ -18,6 +18,8 @@ internal class LeviathanCombatPhases(
     private val stillAttached: () -> Boolean,
 ) {
     val owner = queues.createOwner()
+    val roarOwner = queues.createOwner()
+    val specialOwner = queues.createOwner()
     private var unregisterEncounter: () -> Unit = {}
     private var unregisterSession: () -> Unit = {}
 
@@ -66,8 +68,28 @@ internal class LeviathanCombatPhases(
 
     fun completeDue() = process.processOwned(owner)
 
+    fun armRoar(deadline: Int, eligible: () -> Boolean, action: () -> Unit) {
+        roarOwner.clear()
+        roarOwner.add(ready = { clock.cycle >= deadline && eligible() }) {
+            if (!encounter.isEnded && stillAttached()) action()
+        }
+    }
+
+    fun armSpecial(deadline: Int, eligible: () -> Boolean, action: () -> Unit) {
+        specialOwner.clear()
+        specialOwner.add(ready = { clock.cycle >= deadline && eligible() }) {
+            if (!encounter.isEnded && stillAttached()) action()
+        }
+    }
+
+    fun dispatchRoar() = process.processOwned(roarOwner)
+
+    fun dispatchSpecial() = process.processOwned(specialOwner)
+
     fun close() {
         owner.close()
+        roarOwner.close()
+        specialOwner.close()
         unregisterEncounter()
         unregisterSession()
     }

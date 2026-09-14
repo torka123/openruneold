@@ -22,6 +22,7 @@ import org.rsmod.api.combat.commons.magic.MagicSpellChecks
 import org.rsmod.api.combat.commons.types.MeleeAttackType
 import org.rsmod.api.combat.formulas.AccuracyFormulae
 import org.rsmod.api.config.refs.params
+import org.rsmod.api.game.process.world.WorldQueueListProcess
 import org.rsmod.api.instances.InstanceAccess
 import org.rsmod.api.instances.InstanceId
 import org.rsmod.api.instances.InstanceManager
@@ -106,6 +107,7 @@ constructor(
     private val stats: DoomScoreboardService,
     private val routeFactory: RouteFactory,
     private val worldQueues: WorldQueueList,
+    private val queueProcess: WorldQueueListProcess,
 ) {
     private val log = InlineLogger()
     private val stepValidator = StepValidator(collision)
@@ -144,6 +146,13 @@ constructor(
                 DoomCombatPhases(this, clock, worldQueues, run.delve) {
                     run(run.player) === run && bossEncounters.isAttached(run.boss, encounter)
                 }
+            run.attacks =
+                state("doom.attack-queues") {
+                    DoomAttackQueues(worldQueues, queueProcess, clock) {
+                        run(run.player) === run && bossEncounters.isAttached(run.boss, encounter)
+                    }
+                }
+            onCleanup(run.attacks::close)
             lastAbilityTick = clock.cycle - expectedAttackRate()
         }
         // Session teardown removes the native indexes and typed state before invoking this closure.
@@ -1152,12 +1161,15 @@ constructor(
     private fun beginRockAttack(access: StandardNpcAccess, run: Run) {
         reserveAttackTurn(access, run)
         run.rockMagic = random.of(2) == 0
-        run.rockVolleysRemaining = DoomRules.rockSets(run.delve)
-        run.rockNextVolleyCycle = clock.cycle
-        launchRockVolley(run)
+        run.attacks.beginRockVolleys(
+            count = DoomRules.rockSets(run.delve),
+            tied = run.delve >= 8,
+            eligible = { run.state in setOf(DoomState.ACTIVE, DoomState.MELEE_CHARGE) },
+            launch = { index -> launchRockVolley(run, index) },
+        )
     }
 
-    private fun launchRockVolley(run: Run) {
+    private fun launchRockVolley(run: Run, volleyIndex: Int) {
         if (run.rockVolleysRemaining <= 0 || !run.boss.isSlotAssigned) return
         val magic = run.rockMagic ?: return
         val playerSnapshot = run.player.coords
@@ -1169,7 +1181,6 @@ constructor(
                 firstStyle,
                 DoomRules.rockProjectiles(run.delve),
             )
-        val volleyIndex = DoomRules.rockSets(run.delve) - run.rockVolleysRemaining
 
         run.boss.anim(anim(DoomAssets.ANIM_ROCK_THROW))
         launchRockProjectile(bossCentre(run), splitTile, projectile, magic, run.delve, volleyIndex)
@@ -1182,24 +1193,10 @@ constructor(
                 followupStyles = followupStyles,
                 volleyIndex = volleyIndex,
             )
-        run.rockVolleysRemaining--
-        run.rockNextVolleyCycle = if (run.delve >= 8) clock.cycle else clock.cycle + 1
     }
 
     private fun processFallingRocks(run: Run): Boolean {
-        if (
-            run.rockVolleysRemaining > 0 &&
-                run.state in setOf(DoomState.ACTIVE, DoomState.MELEE_CHARGE) &&
-                clock.cycle >= run.rockNextVolleyCycle
-        ) {
-            if (run.delve >= 8) {
-                while (run.rockVolleysRemaining > 0 && clock.cycle >= run.rockNextVolleyCycle) {
-                    launchRockVolley(run)
-                }
-            } else {
-                launchRockVolley(run)
-            }
-        }
+        run.attacks.processRockVolleys()
         if (run.state == DoomState.ACTIVE && run.phases.consumeMeleeChargeReady()) {
             beginMeleeCharge(run)
         }
@@ -1384,13 +1381,15 @@ constructor(
                             fallback = falling.tile,
                         )
                     launchRockFollowup(source, run.player, followupMagic, shot.travelTicks)
-                    run.pendingHits +=
+                    scheduleStyleHit(
+                        run,
                         PendingStyleHit(
                             impactCycle = falling.shadowImpactCycle + shot.impactOffsetFromDebris,
                             style = style,
                             maxHit = DoomRules.standardMaxHit(run.delve),
                             guaranteedAccuracy = DoomRockFollowupRules.GUARANTEED_ACCURACY,
-                        )
+                        ),
+                    )
                     falling.followupStage++
                 }
             }
@@ -1407,10 +1406,11 @@ constructor(
     }
 
     private fun processPendingHits(run: Run) {
-        val iterator = run.pendingHits.iterator()
-        while (iterator.hasNext()) {
-            val pending = iterator.next()
-            if (clock.cycle < DoomCombatTimeline.queueCycleForImpact(pending.impactCycle)) continue
+        run.attacks.processHits()
+    }
+
+    private fun scheduleStyleHit(run: Run, pending: PendingStyleHit) {
+        run.attacks.scheduleHit(pending) {
             val accurate =
                 pending.guaranteedAccuracy ||
                     when (pending.style) {
@@ -1439,7 +1439,6 @@ constructor(
                 damage = damageRange?.let(random::of) ?: 0,
                 modifier = StandardPlayerHitModifier,
             )
-            iterator.remove()
         }
     }
 
@@ -1541,16 +1540,7 @@ constructor(
         run.boss.anim(anim(DoomAssets.ANIM_BEAM_CHARGE_LOOP))
         run.boss.spotanim(spotInternal(DoomAssets.GFX_BEAM_CHARGE))
         run.phases.observeChargeProgress()
-        if (run.state == DoomState.SHIELDED && clock.cycle >= run.nextShieldLarvaCycle) {
-            spawnLarvae(run, shieldPhase = true)
-            val interval = random.of(DoomRules.shieldLarvaIntervalRange(run.delve))
-            run.nextShieldLarvaCycle =
-                DoomCombatTimeline.nextShieldLarvaSpawnCycle(
-                    previousSpawnCycle = clock.cycle,
-                    delve = run.delve,
-                    intervalTicks = interval,
-                )
-        }
+        run.attacks.processShieldLarvae()
         if (run.phases.consumeBeamReady()) finishCharge(run)
     }
 
@@ -1766,7 +1756,15 @@ constructor(
         run.boss.suppressHitpointHeadbar = true
         run.boss.suppressHitpointsRegen = true
         run.shieldLarvaStream = null
-        run.nextShieldLarvaCycle = DoomCombatTimeline.firstShieldLarvaSpawnCycle(clock.cycle)
+        val epoch = run.shieldEpoch
+        run.attacks.armShieldLarvae(
+            tick = DoomCombatTimeline.firstShieldLarvaSpawnCycle(clock.cycle),
+            eligible = { run.state == DoomState.SHIELDED && run.shieldEpoch == epoch },
+        ) {
+            spawnLarvae(run, shieldPhase = true)
+            val interval = random.of(DoomRules.shieldLarvaIntervalRange(run.delve))
+            DoomCombatTimeline.nextShieldLarvaSpawnCycle(clock.cycle, run.delve, interval)
+        }
         showShieldHitpointHeadbar(run)
         syncShieldBossHud(run)
         resetCharge(run)
@@ -1783,7 +1781,7 @@ constructor(
         run.boss.scriptedDamageGate = false
         run.boss.suppressHitpointsRegen = false
         run.shieldHitpoints = 0
-        run.nextShieldLarvaCycle = Int.MAX_VALUE
+        run.attacks.cancelShieldLarvae()
         run.shieldLarvaStream = null
         run.phases.stopBeamCharge()
         if (DoomRules.profile(run.delve).carEnabled) beginBurrow(run) else restoreNormal(run)
@@ -3023,13 +3021,15 @@ constructor(
                 graphic,
                 if (style == DoomAttackStyle.MAGIC) "projanim.magic_spell" else "projanim.arrow",
             )
-        run.pendingHits +=
+        scheduleStyleHit(
+            run,
             PendingStyleHit(
                 impactCycle = clock.cycle + delay.coerceAtLeast(1),
                 style = style,
                 maxHit = DoomRules.burrowMaxHit(run.delve),
                 guaranteedAccuracy = DoomCarAttackRules.PROJECTILES_GUARANTEED_ACCURACY,
-            )
+            ),
+        )
     }
 
     private fun resolveDueCarTrample(run: Run) {
@@ -3541,14 +3541,13 @@ constructor(
         run.rocks.forEach { locs.del(it.loc, Int.MAX_VALUE) }
         run.rocks.clear()
         run.fallingRocks.clear()
-        run.pendingHits.clear()
+        run.attacks.clear()
         run.pendingAcid.clear()
         run.carPlan = null
         run.phases.retireCarZoom()
         run.carSegmentIndex = 0
         run.pendingCarTrample = null
         run.boss.pendingExactMove = null
-        run.rockVolleysRemaining = 0
         run.rockMagic = null
         run.phases.cancelMeleeCharge()
         run.meleeChargeAttackClaimed = false
@@ -3560,7 +3559,6 @@ constructor(
         run.hole = null
         run.larvae.keys.toList().forEach { if (it.isSlotAssigned) npcs.del(it, Int.MAX_VALUE) }
         run.larvae.clear()
-        run.nextShieldLarvaCycle = Int.MAX_VALUE
         run.shieldLarvaStream = null
         if (!keepVolatiles) {
             clearVolatileEarth(run)
@@ -3732,14 +3730,11 @@ constructor(
         var shieldHitpoints: Int = 0,
         var shieldEpoch: Int = 0,
         var normalHitpoints: Int = -1,
-        var nextShieldLarvaCycle: Int = Int.MAX_VALUE,
         var shieldLarvaStream: DoomLarvaSpawnDirection? = null,
         var nextAttackNotBeforeCycle: Int = 0,
         var meleePunishUntilCycle: Int = Int.MIN_VALUE,
         var holyWaterApplied: Boolean = false,
         var demonicCharge: Int = 0,
-        var rockVolleysRemaining: Int = 0,
-        var rockNextVolleyCycle: Int = 0,
         var rockMagic: Boolean? = null,
         var firstVolatileTile: CoordGrid? = null,
         var firstVolatileNpc: Npc? = null,
@@ -3762,13 +3757,22 @@ constructor(
         val pendingAcid: MutableList<PendingAcid> = mutableListOf(),
         val rocks: MutableList<ActiveRock> = mutableListOf(),
         val fallingRocks: MutableList<FallingRock> = mutableListOf(),
-        val pendingHits: MutableList<PendingStyleHit> = mutableListOf(),
         val larvae: MutableMap<Npc, Larva> = linkedMapOf(),
         val volatiles: MutableSet<Npc> = linkedSetOf(),
         val volatileAttackableCycles: MutableMap<Npc, Int> = linkedMapOf(),
     ) {
         lateinit var phases: DoomCombatPhases
+        lateinit var attacks: DoomAttackQueues
         private var outcome: DoomSessionOutcome? = DoomSessionOutcome.STARTING
+
+        val rockVolleysRemaining: Int
+            get() = attacks.rockVolleysRemaining
+
+        val nextShieldLarvaCycle: Int
+            get() = attacks.nextShieldLarvaCycle
+
+        val pendingHits: List<PendingStyleHit>
+            get() = attacks.pendingHits
 
         val pendingMeleeChargeCycle: Int
             get() = phases.pendingMeleeChargeCycle

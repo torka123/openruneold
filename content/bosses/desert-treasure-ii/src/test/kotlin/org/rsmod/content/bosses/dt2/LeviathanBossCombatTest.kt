@@ -18,6 +18,120 @@ import org.rsmod.game.loc.LocAngle
 @OptIn(InternalApi::class)
 class LeviathanBossCombatTest {
     @Test
+    fun `forced roar replacing a timed special restores its still due opportunity`() {
+        val f = Dt2NativeCombatFixture(bossKind = Dt2Boss.LEVIATHAN)
+        f.activateLeviathan()
+        assertTrue(f.manager.forcePhase(f.player, LeviathanSpecial.LIGHTNING_BARRAGE.name))
+        f.advance(f.run.specialEndCycle - f.clock.cycle)
+        f.manager.tick(f.player)
+        val phases = assertNotNull(f.run.leviathanCombatPhases)
+        val deadline = f.run.nextSpecialCycle
+        f.advance(deadline - f.clock.cycle)
+        f.manager.tick(f.player)
+        assertEquals(LeviathanAction.SMOKE_BLAST, f.run.leviathanAction)
+        assertEquals(0, phases.specialOwner.size)
+        f.advance(1)
+        assertTrue(f.manager.forcePhase(f.player, LeviathanSpecial.VOLLEY_ROAR.name))
+        val roarEnd = f.run.specialEndCycle
+        f.advance(roarEnd - f.clock.cycle)
+        f.manager.tick(f.player)
+        assertEquals(LeviathanAction.SMOKE_BLAST, f.run.leviathanAction)
+        assertEquals(roarEnd, phases.enteredTick)
+        assertEquals(
+            deadline,
+            f.run.nextSpecialCycle,
+            "Forced roar retains the original due deadline",
+        )
+        assertEquals(0, phases.specialOwner.size)
+        assertEquals(1, phases.owner.size, "Only the resumed smoke completion remains queued")
+    }
+
+    @Test
+    fun `native roar opportunity waits through stun and fires before the next special boundary`() {
+        for (difficulty in Dt2Difficulty.entries) {
+            try {
+                val f =
+                    Dt2NativeCombatFixture(bossKind = Dt2Boss.LEVIATHAN, difficulty = difficulty)
+                f.run.attackCounter = 5
+                f.activateLeviathan()
+                f.attack()
+                val phases = assertNotNull(f.run.leviathanCombatPhases)
+                val roar = f.run.leviathanRoarCycle
+                assertEquals(1, phases.roarOwner.size)
+                f.advance(1)
+                f.damageBoss(1, shadow = true)
+                val stunEnd = f.run.specialEndCycle
+                f.advance(roar - f.clock.cycle)
+                f.queueProcess.process()
+                f.manager.tick(f.player)
+                assertEquals(LeviathanAction.STUNNED, f.run.leviathanAction)
+                assertEquals(1, phases.roarOwner.size)
+                f.advance(stunEnd - f.clock.cycle)
+                f.manager.tick(f.player)
+                assertEquals(LeviathanAction.STANDARD_VOLLEY, f.run.leviathanAction)
+                assertEquals(1, phases.roarOwner.size, "The roar dispatch precedes stun completion")
+                f.advance(1)
+                f.manager.tick(f.player)
+                assertEquals(LeviathanAction.ROAR, f.run.leviathanAction)
+                assertEquals(0, phases.roarOwner.size)
+                val entered = phases.enteredTick
+                f.manager.tick(f.player)
+                assertEquals(entered, phases.enteredTick)
+            } finally {
+                framework().clearInlineMocks()
+            }
+        }
+    }
+
+    @Test
+    fun `native idle opportunity deferred by stun fires after same tick completion`() {
+        val f = Dt2NativeCombatFixture(bossKind = Dt2Boss.LEVIATHAN)
+        f.activateLeviathan()
+        assertTrue(f.manager.forcePhase(f.player, LeviathanSpecial.LIGHTNING_BARRAGE.name))
+        f.advance(f.run.specialEndCycle - f.clock.cycle)
+        f.manager.tick(f.player)
+        val phases = assertNotNull(f.run.leviathanCombatPhases)
+        assertEquals(1, phases.specialOwner.size)
+        val deadline = f.run.nextSpecialCycle
+        f.advance(deadline - 1 - f.clock.cycle)
+        f.damageBoss(1, shadow = true)
+        val stunEnd = f.run.specialEndCycle
+        f.advance(1)
+        f.manager.tick(f.player)
+        assertEquals(LeviathanAction.STUNNED, f.run.leviathanAction)
+        assertEquals(1, phases.specialOwner.size)
+        f.advance(stunEnd - f.clock.cycle)
+        f.manager.tick(f.player)
+        assertEquals(LeviathanAction.SMOKE_BLAST, f.run.leviathanAction)
+        assertEquals(stunEnd, phases.enteredTick)
+        assertEquals(0, phases.specialOwner.size)
+    }
+
+    @Test
+    fun `native enrage cancels both pending opportunity owners and cleanup closes them`() {
+        val f = Dt2NativeCombatFixture(bossKind = Dt2Boss.LEVIATHAN)
+        f.activateLeviathan()
+        assertTrue(f.manager.forcePhase(f.player, LeviathanSpecial.LIGHTNING_BARRAGE.name))
+        f.advance(f.run.specialEndCycle - f.clock.cycle)
+        f.manager.tick(f.player)
+        val phases = assertNotNull(f.run.leviathanCombatPhases)
+        assertEquals(1, phases.specialOwner.size)
+        f.run.attackCounter = 5
+        f.advance(2)
+        f.attack()
+        assertEquals(1, phases.roarOwner.size)
+        f.damageBoss(f.boss.hitpoints - 1)
+        assertTrue(f.run.enraged)
+        assertEquals(0, phases.roarOwner.size)
+        assertEquals(0, phases.specialOwner.size)
+        assertEquals(LeviathanAction.ROAR, f.run.leviathanAction)
+        f.registry.remove(f.boss)
+        assertTrue(phases.roarOwner.isClosed)
+        assertTrue(phases.specialOwner.isClosed)
+        assertEquals(0, phases.owner.size)
+    }
+
+    @Test
     fun `each native AI attempt retains RNG across cooldown bites and a special deadline`() {
         val f = Dt2NativeCombatFixture(bossKind = Dt2Boss.LEVIATHAN)
         val oracle = Dt2SeededRng(42)
