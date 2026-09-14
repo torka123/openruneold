@@ -434,22 +434,6 @@ class AkkhaEncounterTest {
     }
 
     @Test
-    fun `memory state is removed when the special finishes or encounter resets`() {
-        val state =
-            encounter().apply {
-                startIntro()
-                startNormalCombat()
-            }
-        state.memorySteps += MemoryBlastController.schedule(10, 0, 4, 3)
-        state.startSpecial(listOf(AkkhaSpecial.MEMORY_BLAST))
-        state.finishSpecial()
-        assertTrue(state.memorySteps.isEmpty())
-        state.memorySteps += MemoryBlastController.schedule(40, 1, 4, 3)
-        state.reset()
-        assertTrue(state.memorySteps.isEmpty())
-    }
-
-    @Test
     fun `captured floor footprint contains exactly seventy five tiles per quadrant`() {
         AkkhaQuadrant.entries.forEach { quadrant ->
             assertEquals(75, AkkhaArenaLayout.floorTiles(setOf(quadrant)).size)
@@ -665,9 +649,9 @@ class AkkhaEncounterTest {
                 beginFinalStand()
             }
         assertEquals(AkkhaState.FINAL_STAND_INTRO, state.state)
-        state.activateFinalStand(105)
+        val firstOrbAt = state.activateFinalStand(105)
         assertEquals(AkkhaState.FINAL_STAND, state.state)
-        assertEquals(105 + AkkhaTuning.FINAL_ORB_INITIAL_GRACE.value, state.nextFinalOrbAt)
+        assertEquals(105 + AkkhaTuning.FINAL_ORB_INITIAL_GRACE.value, firstOrbAt)
     }
 
     @Test

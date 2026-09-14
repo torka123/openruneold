@@ -128,7 +128,7 @@ class KephriNativeCombatTest {
             f.hitNpc(player, npc, 1)
             val due = npc.actionDelay
             val oldBomb = KephriBombRuntime(player.coords, due, damage = 12, radius = 0)
-            raid.encounter.kephriBombs += oldBomb
+            assertNotNull(raid.encounter.kephriBombQueues).scheduleBomb(oldBomb)
             clearInvocations(f.world)
             f.dispatchLateCycle(due)
             assertTrue(oldBomb.hitQueued)

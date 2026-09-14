@@ -4,7 +4,18 @@ This is a resumable handoff, not a project-completion or full OSRS-parity claim.
 mechanic mappings, uncertainties, commands and results remain in [DSL_MIGRATION.md](DSL_MIGRATION.md).
 Update this checkpoint after each completed boss and immediately before any authorized deployment.
 
-September14 current checkpoint: generic raid hits and Ba-Ba banana/sarcophagus owners verified.
+September14 current checkpoint: Kephri bomb/bomber and Akkha memory/detonation/final-orb owners
+verified. Actual native hit processing covers Kephri impact-time prayer/radius; native manager
+timelines cover Akkha ordering, expiry, cap retry and lifecycle. Fixed post-wipe waiting-actor
+dispatch; corrected test assumptions for queued delays and retained cleanup. Full ToA578, scoped
+checks, architecture/self-tests and app assemble pass (57s). Archive/backup:
+logs/toa-native-kephri-akkha-payload-source-20260914.zip /
+backup/toa-native-kephri-akkha-payload-20260914. Next: mapped Wardens core/P3 handoff, Ba-Ba cooldown,
+native raid wipe owner; remaining Akkha/Kephri/Wardens and ToB/CoX. Exact mappings/results/files at
+top of DSL_MIGRATION.md. Source only; runtime c4fc9390f/JVM23812 and all deployment/save/restart/cache/
+database holds remain unchanged. Continue approved work; this is not whole-task completion.
+
+Earlier September14 checkpoint: generic raid hits and Ba-Ba banana/sarcophagus owners verified.
 Actual manager tests cover native impacts, pause/rejoin, banana arming/expiry/LOC cleanup and
 sarcophagus order/cadence/runner loss.159 focused cases (one old aggregate queue assertion updated;
 all16 affected cases then pass), full ToA558, scoped checks, architecture/self-tests and app assemble

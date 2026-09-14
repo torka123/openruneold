@@ -267,7 +267,10 @@ internal class ToaEncounterState(
     var kephriNextSwarmAt = -1
     var kephriSwarmStartLane = 0
     var kephriNextMedicAt = -1
-    var kephriNextBomberBombAt = -1
+    var kephriBombQueues: KephriBombQueues? = null
+    val kephriNextBomberBombAt: Int
+        get() = kephriBombQueues?.bomberAt ?: -1
+
     var kephriMedicSpawnIndex = 0
     var kephriDungTargetCursor = 0
     var kephriDying = false
@@ -278,8 +281,12 @@ internal class ToaEncounterState(
     val kephriSoldiers = linkedMapOf<Int, KephriSoldierRuntime>()
     val kephriSpitters = linkedMapOf<Int, KephriSpittingRuntime>()
     val kephriArcanes = linkedMapOf<Int, KephriArcaneRuntime>()
-    val kephriBombs = mutableListOf<KephriBombRuntime>()
-    val kephriBombTargets = mutableListOf<KephriBombTargetRuntime>()
+    val kephriBombs: List<KephriBombRuntime>
+        get() = kephriBombQueues?.bombs.orEmpty()
+
+    val kephriBombTargets: List<KephriBombTargetRuntime>
+        get() = kephriBombQueues?.targets.orEmpty()
+
     val kephriEggBatches = mutableListOf<KephriEggBatchRuntime>()
     val kephriPendingDungStrikes = mutableListOf<KephriDungStrikeRuntime>()
     val kephriDungPlacements = mutableListOf<KephriDungPlacementRuntime>()
@@ -384,7 +391,8 @@ internal class ToaEncounterState(
         kephriNextSwarmAt = -1
         kephriSwarmStartLane = 0
         kephriNextMedicAt = -1
-        kephriNextBomberBombAt = -1
+        kephriBombQueues?.close()
+        kephriBombQueues = null
         kephriMedicSpawnIndex = 0
         kephriDungTargetCursor = 0
         kephriDying = false
@@ -395,8 +403,6 @@ internal class ToaEncounterState(
         kephriSoldiers.clear()
         kephriSpitters.clear()
         kephriArcanes.clear()
-        kephriBombs.clear()
-        kephriBombTargets.clear()
         kephriEggBatches.clear()
         kephriPendingDungStrikes.clear()
         kephriDungPlacements.clear()
@@ -485,9 +491,7 @@ internal class ToaEncounterState(
         if (wardenTransitionHero == oldUid) wardenTransitionHero = newUid
         if (kephriDeathHero == oldUid) kephriDeathHero = newUid
         wardenStoneReleaseAt.rebindKey(oldUid, newUid)
-        kephriBombTargets.replaceAll { runtime ->
-            if (runtime.target == oldUid) runtime.copy(target = newUid) else runtime
-        }
+        kephriBombQueues?.rebindPlayer(oldUid, newUid)
         kephriPendingDungStrikes.replaceAll { strike ->
             if (strike.target == oldUid) strike.copy(target = newUid) else strike
         }
@@ -501,7 +505,7 @@ internal class ToaEncounterState(
         if (wardenTransitionHero == uid) wardenTransitionHero = null
         if (kephriDeathHero == uid) kephriDeathHero = null
         wardenStoneReleaseAt.remove(uid)
-        kephriBombTargets.removeAll { it.target == uid }
+        kephriBombQueues?.retirePlayer(uid)
         kephriPendingDungStrikes.removeAll { it.target == uid }
         kephriArcanes.values.forEach { if (it.target == uid) it.target = null }
         pendingHitQueues?.removeIf { it.target == uid }

@@ -536,6 +536,7 @@ internal class AkkhaEncounter(val encounterId: UUID, private val seed: Long) {
         get() = nativeCombat?.actionCount ?: 0
 
     var combatQueues: AkkhaCombatQueues? = null
+    var payloadQueues: AkkhaPayloadQueues? = null
     var lastEmittedAutoAt = -1
     private var autoSinceLastSpecial = false
     private var advanceStyleWhenSpecialFinishes = false
@@ -560,7 +561,9 @@ internal class AkkhaEncounter(val encounterId: UUID, private val seed: Long) {
     val defeatedShadows: Set<AkkhaQuadrant>
         get() = usedShadowQuadrants
 
-    val memorySteps = mutableListOf<AkkhaMemoryStep>()
+    val memorySteps: List<AkkhaMemoryStep>
+        get() = payloadQueues?.memorySteps.orEmpty()
+
     val memoryHideAt: Int
         get() = combatQueues?.visibilityHideAt ?: -1
 
@@ -569,14 +572,18 @@ internal class AkkhaEncounter(val encounterId: UUID, private val seed: Long) {
 
     var memoryHidden = false
 
-    var detonation: AkkhaDetonation? = null
+    val detonation: AkkhaDetonation?
+        get() = payloadQueues?.detonation
+
     var trailStartsAt = -1
     var trailEndsAt = -1
     val trailLastTiles = mutableMapOf<PlayerUid, CoordGrid>()
     val trailOrbs = mutableListOf<AkkhaTrailOrb>()
     var finalStandHitCounter = 0
     var finalStandLocationIndex = -1
-    var nextFinalOrbAt = -1
+    val nextFinalOrbAt: Int
+        get() = payloadQueues?.finalOrbAt ?: -1
+
     private var finalOrbKey = 0
     val finalOrbs = linkedMapOf<Int, AkkhaFinalOrb>()
     var finalStandBossActorKey: Int? = null
@@ -599,6 +606,8 @@ internal class AkkhaEncounter(val encounterId: UUID, private val seed: Long) {
         target = null
         combatQueues?.close()
         combatQueues = null
+        payloadQueues?.close()
+        payloadQueues = null
         nativeCombat = null
         lastEmittedAutoAt = -1
         autoSinceLastSpecial = false
@@ -614,16 +623,13 @@ internal class AkkhaEncounter(val encounterId: UUID, private val seed: Long) {
         shadowHeadbarActors.clear()
         usedShadowQuadrants.clear()
         pendingDisruptedShadow = null
-        memorySteps.clear()
         memoryHidden = false
-        detonation = null
         trailStartsAt = -1
         trailEndsAt = -1
         trailLastTiles.clear()
         trailOrbs.clear()
         finalStandHitCounter = 0
         finalStandLocationIndex = -1
-        nextFinalOrbAt = -1
         finalOrbKey = 0
         finalOrbs.clear()
         finalStandBossActorKey = null
@@ -642,15 +648,7 @@ internal class AkkhaEncounter(val encounterId: UUID, private val seed: Long) {
         trailLastTiles.rebindKey(oldUid, newUid)
         statuses.rebindKey(oldUid, newUid)
         wrongStyleWarnedAt.rebindKey(oldUid, newUid)
-        detonation =
-            detonation?.let { value ->
-                value.copy(
-                    origins =
-                        value.origins.entries.associate { (uid, tile) ->
-                            (if (uid == oldUid) newUid else uid) to tile
-                        }
-                )
-            }
+        payloadQueues?.rebindPlayer(oldUid, newUid)
         trailOrbs.replaceAll { orb -> if (orb.owner == oldUid) orb.copy(owner = newUid) else orb }
     }
 
@@ -659,8 +657,7 @@ internal class AkkhaEncounter(val encounterId: UUID, private val seed: Long) {
         trailLastTiles.remove(uid)
         statuses.remove(uid)
         wrongStyleWarnedAt.remove(uid)
-        val value = detonation
-        if (value != null) detonation = value.copy(origins = value.origins - uid)
+        payloadQueues?.retirePlayer(uid)
         trailOrbs.removeAll { it.owner == uid }
     }
 
@@ -727,7 +724,7 @@ internal class AkkhaEncounter(val encounterId: UUID, private val seed: Long) {
     }
 
     fun clearMemoryLifecycle() {
-        memorySteps.clear()
+        payloadQueues?.clearMemory()
         combatQueues?.clearVisibility()
         memoryHidden = false
     }
@@ -890,11 +887,10 @@ internal class AkkhaEncounter(val encounterId: UUID, private val seed: Long) {
         generation++
         state = AkkhaState.FINAL_STAND_INTRO
         activeSpecials.clear()
-        memorySteps.clear()
+        payloadQueues?.clear()
         shadowBlast = null
         shadowHeadbarActors.clear()
         finalOrbs.clear()
-        detonation = null
         trailStartsAt = -1
         trailEndsAt = -1
         trailLastTiles.clear()
@@ -909,13 +905,13 @@ internal class AkkhaEncounter(val encounterId: UUID, private val seed: Long) {
         pendingFinalStandSwap = null
     }
 
-    fun activateFinalStand(tick: Int) {
+    fun activateFinalStand(tick: Int): Int {
         check(state == AkkhaState.FINAL_STAND_INTRO)
         state = AkkhaState.FINAL_STAND
         if (finalStandLocationIndex !in AkkhaArenaLayout.finalStandAnchors.indices) {
             finalStandLocationIndex = 0
         }
-        nextFinalOrbAt = tick + AkkhaTuning.FINAL_ORB_INITIAL_GRACE.value
+        return tick + AkkhaTuning.FINAL_ORB_INITIAL_GRACE.value
     }
 
     fun registerFinalStandFormation(

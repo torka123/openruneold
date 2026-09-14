@@ -2,7 +2,66 @@
 
 ## Current source increments — September 14
 
-### Current checkpoint: native raid hits and Ba-Ba banana/sarcophagus scheduling verified
+### Current checkpoint: Kephri bombs and Akkha memory/detonation/orb payloads verified
+
+Kephri bomb lock, hit preparation and landing now use separate native owners, retaining one source
+snapshot, ordered batches, launch-time damage RNG and impact-time radius/prayer checks. Actual
+PlayerQueueProcessor/PlayerHitScript tests verify one-tick impact and both radii; the hit plugin is
+a test-only dependency, as in Doom. Aerial bomber cadence stays in its later native dispatch slot,
+first+8 from native incoming impact then actual+12, including no-target advancement. Recovery end
+preserves launched bombs; shield break, native deletion and reset cancel the appropriate owners.
+
+Akkha native owners preserve memory reveal -> render -> remove-all-due -> hit/status order,
+first-reveal sound, completion cancellation, detonation current tiles and final-orb cadence/cap retry
+after movement. Native manager tests cover normal/Feeling Special, overdue memory, logout/departure,
+final generation changes and terminal cleanup. A real integration check exposed the post-wipe
+waiting actor with no active payload owner; nullable consumers now retain its prior empty-list
+no-op. Logout continues retiring Akkha's marked origin; the detonation origin itself remains safe.
+
+Verification: initial136 focused cases had4 failures. The actual waiting-actor defect was fixed;
+new test assumptions were corrected for remaining hit cycles, existing logout/origin behavior and
+bomber arming at native impact rather than launch. Retry89 had only the final origin test correction;
+all4 affected native cases then pass. Full ToA578, scoped checks, architecture/self-tests and app
+assemble pass (57s). Independent changed-path review found no other actionable regression.
+Unchanged shared/boss/ToB/CoX results remain valid. Logs/results/selections:
+logs/toa-native-kephri-akkha-payload-*20260914. Exact12 Kotlin files are in the format manifest;
+build.gradle.kts plus ledger/handoff make15 source files in
+logs/toa-native-kephri-akkha-payload-source-20260914.zip; backup branch
+backup/toa-native-kephri-akkha-payload-20260914. Build passed; described behavior verified; source only.
+Runtime remains c4fc9390f/JVM23812; cache/database authority, save/restart protections, inactive
+stronger replay migrations and deployment holds remain unchanged.
+
+Next approved mappings use existing native owned queues and current source as preservation evidence:
+- Wardens core: one session-owned bundle with separate ejection, return and P3-handoff owners.
+  Arm+5 projectile/+7 spawn together; retain missing-body/tile readiness and same-call overdue order.
+  Exposure rearms from actual spawn with existing21/29/37 durations. Return dispatch remains after
+  area/slam processing; absent core retains its deadline. Cancel old core work before resolving
+  hidden HP/body replacement. P3 handoff remains+3 at its early-return boundary; keep the existing
+  protected camera coroutine. Do not tie these continuations to the discarded P2 body. Verify
+  both gods, late dispatch, core-death/return race, pause/rejoin and session/reset cancellation.
+- Ba-Ba rubble eligibility: extend its existing native combat-queue owner with a cooldown task,
+  armed at every actual Rockfall start, including forced casts. Consume readiness at the ordinary
+  special-selection boundary; preserve50 ticks, current shared RNG pools and forced-cast bypass.
+  Phase/rolling transitions retain the cooldown; reset/deletion cancels it. Remove the old private
+  nextRubbleAt clock and cover boundary, forced rearm, phase survival and cleanup. Native selector
+  cooldowns alone do not capture forced casts that intentionally bypass the selector.
+- Raid wipes: native queue at the very start of manager LateCycle replaces the pending reset map's
+  deadline scan. Preserve+1, original raid insertion order and in-place replacement, stale/non-wipe
+  cancellation, paused raid retention and session cleanup. Remove pending metadata before resetting;
+  a reset scheduled during the callback waits for the next snapshot. Existing native save/reward
+  paths and attempt accounting are unchanged. Verify duplicate/replaced deadlines, pause/rejoin,
+  recovered non-wipe and teardown without resetting a replacement session.
+
+Remaining mapped Akkha shadow work: charge and blast native owners; pause adds exactly+1 per
+processed memory-special pass, not elapsed time. Shadow death removes only its quadrant from the
+current blast, retaining deadline/render metadata. Empty living targets retain overdue charge;
+actual resolution rearms+50. Trail window expiry precedes spawning, then insertion-ordered orb
+expiry/contact (strictly after spawn). Status owners must retain per-player burn/darkness/lightning/
+freeze order and deferred burn spread, one anchored overdue pulse, inclusive burn/darkness expiry
+versus lightning/freeze >= boundaries. Then remaining Kephri/Wardens routes and ToB/CoX.
+Existing OSRS evidence gaps remain separate; this is not whole-project completion.
+
+### Earlier checkpoint: native raid hits and Ba-Ba banana/sarcophagus scheduling verified
 
 Generic raid hits now use a session-owned native queue at the existing late dispatch boundary.
 Insertion/identity, stale future generations, UID replacement, one source snapshot, graphics before

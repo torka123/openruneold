@@ -192,8 +192,6 @@ class ToaKephriInvocationRuntimeTest {
         val state = ToaEncounterState()
         state.kephriActivated = true
         state.kephriRecovering = true
-        state.kephriBombs +=
-            KephriBombRuntime(CoordGrid(1, 1, 0), landsAt = 10, damage = 5, radius = 0)
         state.kephriEggBatches +=
             KephriEggBatchRuntime(spawnsAt = 5, tiles = listOf(CoordGrid(2, 2, 0)), darkCount = 1)
         state.kephriDungPlacements += KephriDungPlacementRuntime(CoordGrid(3, 3, 0), 1, 2, 0)
@@ -203,7 +201,6 @@ class ToaKephriInvocationRuntimeTest {
 
         assertFalse(state.kephriActivated)
         assertFalse(state.kephriRecovering)
-        assertTrue(state.kephriBombs.isEmpty())
         assertTrue(state.kephriEggBatches.isEmpty())
         assertTrue(state.kephriDungPlacements.isEmpty())
         assertTrue(state.kephriDungTiles.isEmpty())

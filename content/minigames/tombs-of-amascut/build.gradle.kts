@@ -40,6 +40,7 @@ dependencies {
     testImplementation(kotlin("test"))
     testImplementation(projects.api.registry)
     testImplementation(projects.api.areaChecker)
+    testImplementation(projects.api.hitPlugin)
     testImplementation(projects.engine.annotations)
     testImplementation(projects.engine.coroutine)
     testImplementation("org.mockito:mockito-core:5.18.0")

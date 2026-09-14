@@ -2514,8 +2514,7 @@ constructor(
             state.kephriDying = true
             state.kephriDeathHero = hero.uid
             state.kephriCompletesAt = clock.cycle + KephriEncounter.DEATH_COMPLETION_TICKS
-            state.kephriBombTargets.clear()
-            state.kephriBombs.clear()
+            state.kephriBombQueues?.clearBombs()
             state.kephriPendingDungStrikes.clear()
             state.kephriEggBatches.clear()
             npc.abortRoute()
@@ -3832,8 +3831,7 @@ constructor(
                 raid.startSnapshot.partySize,
             )
         state.phase++
-        state.kephriBombTargets.clear()
-        state.kephriBombs.clear()
+        state.kephriBombQueues?.clearBombs()
         state.kephriPendingDungStrikes.clear()
         state.kephriEggBatches.clear()
         state.kephriEggs.values.toList().forEach { resolveKephriEgg(raid, it) }
@@ -3879,9 +3877,9 @@ constructor(
                 Int.MAX_VALUE) % KephriArenaLayout.swarmLanes.size
         state.kephriNextSwarmAt =
             clock.cycle + KephriSwarms.FIRST_SPAWN_DELAY + if (state.phase == 2) 1 else 0
-        state.kephriNextBomberBombAt =
-            if (invocationRules.aerialAssault) clock.cycle + KephriBomberScarabs.INITIAL_DELAY
-            else -1
+        if (invocationRules.aerialAssault) {
+            armKephriBomber(raid, clock.cycle + KephriBomberScarabs.INITIAL_DELAY)
+        } else state.kephriBombQueues?.clearBomber()
         source.abortRoute()
         source.clearInteraction()
         source.mode = null
@@ -5460,39 +5458,59 @@ constructor(
         baseDamage: Int,
     ) {
         sendKephriOverheadProjectile(source)
-        raid.encounter.kephriBombTargets +=
-            KephriBombTargetRuntime(
-                target = target.uid,
-                locksAt = clock.cycle + KephriBombs.TARGET_LOCK_DELAY,
-                damage =
-                    Random(
-                            raid.startSnapshot.seed xor
-                                clock.cycle.toLong() xor
-                                (target.coords.x.toLong() shl 32) xor
-                                target.coords.z.toLong()
-                        )
-                        .nextInt(scaledDamage(raid, baseDamage).coerceAtLeast(1) + 1),
-                radius = radius,
+        kephriBombQueues(raid)
+            .scheduleTarget(
+                KephriBombTargetRuntime(
+                    target = target.uid,
+                    locksAt = clock.cycle + KephriBombs.TARGET_LOCK_DELAY,
+                    damage =
+                        Random(
+                                raid.startSnapshot.seed xor
+                                    clock.cycle.toLong() xor
+                                    (target.coords.x.toLong() shl 32) xor
+                                    target.coords.z.toLong()
+                            )
+                            .nextInt(scaledDamage(raid, baseDamage).coerceAtLeast(1) + 1),
+                    radius = radius,
+                )
             )
+    }
+
+    private fun kephriBombQueues(raid: ToaRaidSession): KephriBombQueues =
+        requireNotNull(raid.encounter.kephriBombQueues)
+
+    private fun armKephriBomber(raid: ToaRaidSession, deadline: Int) {
+        kephriBombQueues(raid).armBomber(deadline) {
+            launchKephriBomberBombs(raid)
+            armKephriBomber(raid, clock.cycle + KephriBomberScarabs.INTERVAL)
+        }
     }
 
     private fun processKephriBomberBombs(raid: ToaRaidSession) {
         val state = raid.encounter
-        if (!state.kephriRecovering) return
+        if (!state.kephriRecovering || kephriBombQueues(raid).isClosed) return
         val rules =
             KephriInvocationRules.resolve(
                 raid.startSnapshot.invocations,
                 raid.startSnapshot.partySize,
             )
         if (!rules.aerialAssault) {
-            state.kephriNextBomberBombAt = -1
+            kephriBombQueues(raid).clearBomber()
             return
         }
         if (state.kephriNextBomberBombAt < 0) {
-            state.kephriNextBomberBombAt = clock.cycle + KephriBomberScarabs.INITIAL_DELAY
+            armKephriBomber(raid, clock.cycle + KephriBomberScarabs.INITIAL_DELAY)
             return
         }
-        if (clock.cycle < state.kephriNextBomberBombAt) return
+        kephriBombQueues(raid).processBomber()
+    }
+
+    private fun launchKephriBomberBombs(raid: ToaRaidSession) {
+        val rules =
+            KephriInvocationRules.resolve(
+                raid.startSnapshot.invocations,
+                raid.startSnapshot.partySize,
+            )
         val center = roomCoord(raid, ToaRoom.KEPHRI, true)
         activePlayers(raid)
             .distinctBy { it.coords }
@@ -5507,24 +5525,36 @@ constructor(
                     ToaAssets.KEPHRI_BUG,
                     KephriBombs.IMPACT_AFTER_LOCK,
                 )
-                state.kephriBombs +=
-                    KephriBombRuntime(
-                        tile = tile,
-                        landsAt = clock.cycle + KephriBombs.IMPACT_AFTER_LOCK,
-                        // OSRS documents bomber scarabs as the same attack, including Aerial's
-                        // increased damage and 3x3 area; do not invent a separate bomber max hit.
-                        damage = scaledDamage(raid, rules.bombDamage),
-                        radius = rules.bombRadius,
+                kephriBombQueues(raid)
+                    .scheduleBomb(
+                        KephriBombRuntime(
+                            tile = tile,
+                            landsAt = clock.cycle + KephriBombs.IMPACT_AFTER_LOCK,
+                            // OSRS documents bomber scarabs as the same attack, including Aerial's
+                            // increased damage and 3x3 area; do not invent a separate bomber max
+                            // hit.
+                            damage = scaledDamage(raid, rules.bombDamage),
+                            radius = rules.bombRadius,
+                        )
                     )
             }
-        state.kephriNextBomberBombAt = clock.cycle + KephriBomberScarabs.INTERVAL
     }
 
     private fun processKephriBombs(raid: ToaRaidSession) {
         val source = boss(raid) ?: return
-        val state = raid.encounter
-        val locks = state.kephriBombTargets.filter { clock.cycle >= it.locksAt }
-        state.kephriBombTargets.removeAll(locks.toSet())
+        kephriBombQueues(raid)
+            .processBombs(
+                lock = { lockKephriBombs(raid, source, it) },
+                prepare = { prepareKephriBombHit(raid, source, it) },
+                land = { landKephriBombs(raid, it) },
+            )
+    }
+
+    private fun lockKephriBombs(
+        raid: ToaRaidSession,
+        source: Npc,
+        locks: List<KephriBombTargetRuntime>,
+    ) {
         locks.forEach { pending ->
             val target = pending.target.resolve(players) ?: return@forEach
             val participant = raid.participant(pending.target)
@@ -5536,50 +5566,50 @@ constructor(
                 world.spotanimMap(SpotanimType(KephriBombs.SHADOW), it)
             }
             sendKephriBombProjectile(source, tile)
-            state.kephriBombs +=
-                KephriBombRuntime(
-                    tile = tile,
-                    landsAt = clock.cycle + KephriBombs.IMPACT_AFTER_LOCK,
-                    damage = pending.damage,
-                    radius = pending.radius,
+            kephriBombQueues(raid)
+                .scheduleBomb(
+                    KephriBombRuntime(
+                        tile = tile,
+                        landsAt = clock.cycle + KephriBombs.IMPACT_AFTER_LOCK,
+                        damage = pending.damage,
+                        radius = pending.radius,
+                    )
                 )
         }
-        state.kephriBombs
-            .filter { !it.hitQueued && clock.cycle >= it.landsAt - 1 }
-            .forEach { bomb ->
-                bomb.hitQueued = true
-                activePlayers(raid).forEach { player ->
-                    player.queueImpactHit(
-                        source = source,
-                        delay = 1,
-                        type = HitType.Magic,
-                        damage = bomb.damage,
-                        modifier =
-                            object : PlayerHitModifier {
-                                override fun HitBuilder.modify(target: Player) {
-                                    if (
-                                        target.coords.level != bomb.tile.level ||
-                                            target.coords.chebyshevDistance(bomb.tile) > bomb.radius
-                                    ) {
-                                        damage = 0
-                                        return
-                                    }
-                                    NpcPartialProtectionPrayerPlayerHitModifier(
-                                            ToaRules.prayerReductionPercent(
-                                                66,
-                                                raid.startSnapshot.invocations,
-                                            )
-                                        )
-                                        .run { this@modify.modify(target) }
-                                }
-                            },
-                        impactHandler = prayerImpactHandler(raid, player, HitType.Magic),
-                    )
-                }
-            }
-        val due = state.kephriBombs.filter { clock.cycle >= it.landsAt }
-        if (due.isEmpty()) return
-        state.kephriBombs.removeAll(due.toSet())
+    }
+
+    private fun prepareKephriBombHit(raid: ToaRaidSession, source: Npc, bomb: KephriBombRuntime) {
+        activePlayers(raid).forEach { player ->
+            player.queueImpactHit(
+                source = source,
+                delay = 1,
+                type = HitType.Magic,
+                damage = bomb.damage,
+                modifier =
+                    object : PlayerHitModifier {
+                        override fun HitBuilder.modify(target: Player) {
+                            if (
+                                target.coords.level != bomb.tile.level ||
+                                    target.coords.chebyshevDistance(bomb.tile) > bomb.radius
+                            ) {
+                                damage = 0
+                                return
+                            }
+                            NpcPartialProtectionPrayerPlayerHitModifier(
+                                    ToaRules.prayerReductionPercent(
+                                        66,
+                                        raid.startSnapshot.invocations,
+                                    )
+                                )
+                                .run { this@modify.modify(target) }
+                        }
+                    },
+                impactHandler = prayerImpactHandler(raid, player, HitType.Magic),
+            )
+        }
+    }
+
+    private fun landKephriBombs(raid: ToaRaidSession, due: List<KephriBombRuntime>) {
         due.forEach { bomb ->
             KephriBombs.tiles(bomb.tile, bomb.radius).forEach {
                 val variant = KephriBombs.IMPACT + ((it.x + it.z) and 3)
@@ -6826,14 +6856,18 @@ constructor(
         akkhaQueues(raid).processSwap()
         val real = boss(raid) ?: return
         moveFinalOrbs(raid, real)
-        if (
-            clock.cycle >= state.nextFinalOrbAt &&
-                state.finalOrbs.size < AkkhaTuning.FINAL_ORB_ACTIVE_CAP.value
+        akkhaPayloads(raid).processFinalOrb()
+        raid.nextMechanicAt = clock.cycle + 1
+    }
+
+    private fun armAkkhaFinalOrb(raid: ToaRaidSession, deadline: Int) {
+        akkhaPayloads(raid).armFinalOrb(
+            deadline,
+            eligible = { raid.akkha.finalOrbs.size < AkkhaTuning.FINAL_ORB_ACTIVE_CAP.value },
         ) {
             spawnFinalOrb(raid)
-            state.nextFinalOrbAt = clock.cycle + AkkhaTuning.FINAL_ORB_SPAWN_INTERVAL.value
+            armAkkhaFinalOrb(raid, clock.cycle + AkkhaTuning.FINAL_ORB_SPAWN_INTERVAL.value)
         }
-        raid.nextMechanicAt = clock.cycle + 1
     }
 
     private fun spawnFinalOrb(raid: ToaRaidSession) {
@@ -8000,7 +8034,7 @@ constructor(
         source.mode = null
         state.kephriRecovering = false
         state.kephriNextSwarmAt = -1
-        state.kephriNextBomberBombAt = -1
+        state.kephriBombQueues?.clearBomber()
         state.kephriRecoveryTotal = 0
         state.kephriRecoveryHealCap = 0
         state.kephriRecoveryResolved = 0
@@ -8607,12 +8641,20 @@ constructor(
     private fun akkhaQueues(raid: ToaRaidSession): AkkhaCombatQueues =
         requireNotNull(raid.akkha.combatQueues)
 
+    private fun akkhaPayloads(raid: ToaRaidSession): AkkhaPayloadQueues =
+        requireNotNull(raid.akkha.payloadQueues)
+
     private fun resetAkkhaQueues(raid: ToaRaidSession) {
         val state = raid.akkha
         state.combatQueues?.close()
+        state.payloadQueues?.close()
         val generation = state.token()
         state.combatQueues =
             AkkhaCombatQueues(raid.instance, bossDeps.worldQueues, queueProcess, clock) {
+                isCurrent(raid) && raid.currentRoom == ToaRoom.AKKHA && state.isCurrent(generation)
+            }
+        state.payloadQueues =
+            AkkhaPayloadQueues(raid.instance, bossDeps.worldQueues, queueProcess, clock) {
                 isCurrent(raid) && raid.currentRoom == ToaRoom.AKKHA && state.isCurrent(generation)
             }
     }
@@ -8811,10 +8853,11 @@ constructor(
 
     private fun processAkkhaMemoryBlast(raid: ToaRaidSession, source: Npc) {
         val state = raid.akkha
+        val payloads =
+            state.payloadQueues ?: return // The post-wipe waiting actor has no encounter.
         val center = roomCoord(raid, ToaRoom.AKKHA, true)
-        state.memorySteps
-            .filter { !it.revealed && clock.cycle >= it.revealAt }
-            .forEach { step ->
+        payloads.processMemory(
+            reveal = { step ->
                 val firstReveal = state.memorySteps.none { it.revealed }
                 showAkkhaMemorySymbol(raid, step.safeQuadrant)
                 if (firstReveal) {
@@ -8828,32 +8871,33 @@ constructor(
                     "quadrant" to step.safeQuadrant,
                     "resolveAt" to step.resolvesAt,
                 )
-            }
-        state.memorySteps
-            .filter { clock.cycle >= it.blastStartsAt && it.renderedWaveTick < 0 }
-            .forEach { step ->
+            },
+            render = { step ->
                 renderAkkhaMemoryBlast(center, step.safeQuadrant)
-                // The cache graphics contain their own multi-tile animation. Rendering once keeps
-                // the three unsafe sections synchronized and prevents map-spotanim packet floods.
+                // The cache graphics contain their own multi-tile animation. Rendering once
+                // keeps
+                // the three unsafe sections synchronized and prevents map-spotanim packet
+                // floods.
                 step.renderedWaveTick = 0
-            }
-        val due = state.memorySteps.filter { clock.cycle >= it.resolvesAt }
-        state.memorySteps.removeAll(due.toSet())
-        due.forEach { step ->
-            activePlayers(raid).forEach { player ->
-                val occupied = AkkhaFloorBlastController.quadrantAt(center, player.coords)
-                if (occupied != step.safeQuadrant) {
-                    queueSpecialHit(
-                        player,
-                        source,
-                        scaledDamage(raid, AkkhaTuning.MEMORY_BLAST_MAX_HIT.value),
-                        1,
-                    )
-                    occupied?.let { applyAkkhaElement(raid, player, source, it) }
+            },
+            resolve = { due ->
+                due.forEach { step ->
+                    activePlayers(raid).forEach { player ->
+                        val occupied = AkkhaFloorBlastController.quadrantAt(center, player.coords)
+                        if (occupied != step.safeQuadrant) {
+                            queueSpecialHit(
+                                player,
+                                source,
+                                scaledDamage(raid, AkkhaTuning.MEMORY_BLAST_MAX_HIT.value),
+                                1,
+                            )
+                            occupied?.let { applyAkkhaElement(raid, player, source, it) }
+                        }
+                    }
+                    traceAkkha(raid, source, "memory_resolve", "quadrant" to step.safeQuadrant)
                 }
-            }
-            traceAkkha(raid, source, "memory_resolve", "quadrant" to step.safeQuadrant)
-        }
+            },
+        )
     }
 
     private fun renderAkkhaFloorBlast(center: CoordGrid, quadrants: Set<AkkhaQuadrant>) {
@@ -8926,10 +8970,14 @@ constructor(
     }
 
     private fun processAkkhaDetonation(raid: ToaRaidSession, source: Npc) {
-        val state = raid.akkha
-        val detonation = state.detonation ?: return
-        if (clock.cycle < detonation.resolvesAt) return
-        state.detonation = null
+        raid.akkha.payloadQueues?.processDetonation { resolveAkkhaDetonation(raid, source, it) }
+    }
+
+    private fun resolveAkkhaDetonation(
+        raid: ToaRaidSession,
+        source: Npc,
+        detonation: AkkhaDetonation,
+    ) {
         val center = roomCoord(raid, ToaRoom.AKKHA, true)
         val activeByUid = activePlayers(raid).associateBy { it.uid }
         // Marked participants remain locked from cast, but each explosion follows its marked
@@ -9108,11 +9156,13 @@ constructor(
                 activePlayers(raid).forEach {
                     it.mes("<col=a53fff>You have been marked for detonation!</col>")
                 }
-                state.detonation =
-                    AkkhaDetonation(
-                        activePlayers(raid).associate { it.uid to it.coords },
-                        clock.cycle + AkkhaTuning.DETONATE_TELEGRAPH.value,
-                        ToaInvocation.FEELING_SPECIAL in raid.startSnapshot.invocations,
+                akkhaPayloads(raid)
+                    .armDetonation(
+                        AkkhaDetonation(
+                            activePlayers(raid).associate { it.uid to it.coords },
+                            clock.cycle + AkkhaTuning.DETONATE_TELEGRAPH.value,
+                            ToaInvocation.FEELING_SPECIAL in raid.startSnapshot.invocations,
+                        )
                     )
                 AkkhaTuning.DETONATE_TELEGRAPH.value + 1
             }
@@ -9123,14 +9173,15 @@ constructor(
                     AkkhaInvocationRules.memoryStepWindow(
                         ToaInvocation.FEELING_SPECIAL in raid.startSnapshot.invocations
                     )
-                state.memorySteps.clear()
-                state.memorySteps +=
-                    MemoryBlastController.schedule(
-                        clock.cycle,
-                        state.nextInt(4),
-                        count,
-                        window,
-                        state::nextBoolean,
+                akkhaPayloads(raid)
+                    .armMemory(
+                        MemoryBlastController.schedule(
+                            clock.cycle,
+                            state.nextInt(4),
+                            count,
+                            window,
+                            state::nextBoolean,
+                        )
                     )
                 (armAkkhaMemoryVisibility(raid, source) - clock.cycle).coerceAtLeast(1)
             }
@@ -9435,7 +9486,7 @@ constructor(
                 decoys[index] = decoy.hashCode()
             }
         state.registerFinalStandFormation(source.hashCode(), bossIndex, decoys)
-        state.activateFinalStand(clock.cycle)
+        armAkkhaFinalOrb(raid, state.activateFinalStand(clock.cycle))
         traceAkkha(
             raid,
             source,
@@ -9897,6 +9948,19 @@ constructor(
     private fun initializeKephri(raid: ToaRaidSession, source: Npc) {
         raid.encounter.reset()
         kephriPhases(raid, source)
+        raid.encounter.kephriBombQueues =
+            KephriBombQueues(
+                bossDeps.encounterRegistry.of(source),
+                raid.instance,
+                bossDeps.worldQueues,
+                queueProcess,
+                clock,
+            ) {
+                isCurrent(raid) &&
+                    raid.currentRoom == ToaRoom.KEPHRI &&
+                    boss(raid) === source &&
+                    source.isSlotAssigned
+            }
         val hp =
             ToaRules.hitpoints(
                 KephriEncounter.SHIELD_HITPOINTS,
@@ -11009,8 +11073,7 @@ constructor(
         val state = raid.encounter
         state.kephriPendingDungStrikes.clear()
         state.kephriDungPlacements.clear()
-        state.kephriBombTargets.clear()
-        state.kephriBombs.clear()
+        state.kephriBombQueues?.close()
         state.kephriEggBatches.clear()
         state.kephriEggs.clear()
         state.kephriSwarms.clear()
@@ -11025,7 +11088,7 @@ constructor(
         }
         state.kephriDungTiles.clear()
         state.kephriNextMedicAt = -1
-        state.kephriNextBomberBombAt = -1
+        state.kephriBombQueues?.clearBomber()
         state.kephriDying = false
         state.kephriCompletesAt = -1
         state.kephriDeathHero = null
@@ -11046,7 +11109,6 @@ constructor(
         crondisZebak.cleanup(raid)
         cleanupKephri(raid)
         raid.encounter.pendingHitQueues?.clear()
-        raid.encounter.kephriBombs.clear()
         raid.encounter.kephriSwarms.clear()
         if (raid.currentRoom == ToaRoom.AKKHA) cleanupAkkha(raid)
         if (raid.currentRoom == ToaRoom.BABA) cleanupBaba(raid)
