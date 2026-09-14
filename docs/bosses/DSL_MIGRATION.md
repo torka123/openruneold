@@ -69,7 +69,10 @@ shared Nex item-delivery mapping. M31 is now source-verified:163 Nex/68 drops,2,
 scoped checks/app assemble/architecture and6-file archive; backup/nex-m31-shared-delivery-20260913.
 No new API. Shared native delivery owns item logging/tracking/clan output; current global chat,
 pet path, rolls and lifetime override are retained. Fresh RSProx search and48 retained Containment
-casts disprove a fixed missing west edge; next is the exact native collision/object-state comparison.
+casts disprove a fixed missing west edge. All768 current-map observations match native destination
+blocking flags; directional step checks miss17. Both historical maps are byte-identical and all85
+static loc collision definitions match current native inputs. Geometry mapping is supported; normal
+timing/rotation evidence remains before M20 placement activation. M31 source commit64032d93f.
 Full S04/reward accuracy remains open. See the Nex ledger for evidence and the corrected scope;
 SOURCE ONLY, no live V43/V44/V45 migration. M04 cooldown/equipment and
 M20 placement/clipping remain evidence gaps. The Nex ledger records exact source files,

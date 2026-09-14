@@ -101,8 +101,10 @@ saves do not prove exactly-once recovery. V43/V44/V45 stay inactive in productio
 delivery is now source-verified:163 Nex/68 drops,2,179 valid cases including reused results, scoped
 checks/app assemble/architecture and a byte-verified6-file archive. Backup reference:
 `backup/nex-m31-shared-delivery-20260913`. The fresh RSProx search found no new verified normal fight;
-48 retained Containment casts bound geometry but leave its selection predicate unresolved. Next:
-compare those exact M20 tiles with native collision/object state; continue S04 native death-context
+48 retained Containment casts now match the existing destination collision mask across768 current-map
+observations; directional step checks fail17. Historical terrain/placements and all85 static loc
+collision definitions are now equivalent for this mapsquare. Normal timing remains unverified.
+Next: resolve M20 timing before placement activation; continue S04 native death-context
 integration separately without inventing a restart-persistent ground or world-pause requirement.
 M04 cooldown/equipment, M20 general placement/clipping and normal timing evidence remain missing. All these
 changes remain SOURCE ONLY; current deployment is unchanged.
@@ -199,6 +201,88 @@ no missing placement API has been demonstrated. Next evidence step: compare thes
 and omitted tiles against native map collision/object state, explicitly retaining revision234 versus
 current240 limits. Do not choose a terrain/occupant/object-layer predicate merely because it fits one
 sample. No M20 geometry, timing or damage change has been made from these observations.
+
+### Completed bounded native collision comparison (diagnostic, not gameplay verification)
+
+The existing guard-anchor loader was reused: canonical SERVER indexMAPS/archive11601 files0/1,
+native `MapTileDecoder`, `MapLocListDecoder`, `GameMapDecoder.putMaps/putLocs`, an isolated
+`CollisionFlagMap` and retained `GameMapBuilder`. Terrain was snapshotted before static loc collision;
+no encounter fixture, NPC/player occupancy, global map mutation or test-zone allocation intervened.
+The original3-case probe and the complete48-cast probe ran21s/17s respectively. Their temporary
+test files were byte-checked against retained copies then removed; no permanent test or runtime
+source changed. These evidence probes are not added to the2,179 behavioral-test rollup.
+
+Frozen `logs/nex-rsprox-search-20260913/containment-casts.json`:48 casts,31 anchors,546 visible icicles,
+432 interior blockers, frame/line/rotation records. SHA256
+`05451CEEBD66027FB150927BE9DF24C54AABF16A2B9A9FEA4496BA95318BBA54`.
+Every repeated anchor has the same visible-coordinate set. The full probe compares all16 perimeter
+candidates per cast, including omissions, for768 observations against current revision240 data:
+
+| Existing collision check | Mismatches against captured presence |
+|---|---:|
+| Destination `BLOCK_WALK` only | 1 |
+| Destination `BLOCK_WALK OR LOC OR GROUND_DECOR` | 0 |
+| Native `canStep` from nearest interior tile, size1/default strategy | 17 |
+
+The first three hand-selected cases happened to match both combined destination flags and canStep;
+the full corpus distinguishes them. Directional checks reject17 recorded corner placements because
+adjacent tiles block the step even though the destination is clear. Do not implement that inferred
+nearest-interior movement predicate. The terrain-only counterexample is(2939,5202): terrain0,
+final131328 (`LOC256` plus range-block131072), native altar42965 at layer2/shape10. Plain static loc
+presence also cannot be the filter: walkable decorations remain under captured icicles.
+
+Artifacts in the same evidence directory: `containment-probe-cases.csv`,
+`current240-containment-all-collision.csv`, `current240-containment-summary.json`, both retained
+`NexContainmentCollision*ProbeTest.kt` sources and probe logs. Full CSV SHA256
+`3F1AA3F75BDDE79EA9187A07D2988285EAE8063B8077CBDDB9EE387CD1A2BCD6`.
+
+This is strong support for using existing native destination collision flags, not evidence of a
+missing placement API. It establishes current-map compatibility, not yet historical map equivalence
+or normal-game timing. No production filter/loc placement was enabled from the diagnostic alone.
+
+### Historical map equivalence completed using existing readers
+
+The subsequent bounded comparison resolves the historical-map limitation above. Matching each
+recording's trimmed JS5 master index against RSProx's existing dictionary identifies3284 with cache
+[2332](https://archive.openrs2.org/caches/runescape/2332), and806/807/808 with
+[2327](https://archive.openrs2.org/caches/runescape/2327), both revision234. Exact trimmed-index SHA256:
+2332 `153e6c0db459f4007242cdcea15776c6565ace6477032f3e6b4497220b78cfbe`;
+2327 `e902cb314135c1e79ac88e4baed8037c917b3317e495d03cc2f8e16bcc482fdb`.
+These are local complete RSProx caches at `.rsprox/caches/openrs2-disk/{2327,2332}/cache`.
+
+Installed OpenRS2 `Cache.read(5,"m45_81",0)` reads native named terrain. Locs at named `l45_81`
+(historical group433) require the public archive's mapsquare11601 key; zero-key attempts fail
+decompression and are retained as failures. The two public `keys.json` responses agree. Reads use
+existing `Cache.read(...,SymmetricKey)`; no hydration resolver or binary-recorder writer was used.
+SERVER's repacked MAPS/archive11601 files0/1 must not be confused with historical client group IDs.
+
+Native `MapTileDecoder`/`MapLocListDecoder` diagnostic17s verifies BOTH historical versions against
+current SERVER: terrain62435 bytes and loc placements13020 bytes are byte-for-byte identical,
+all16384 decoded tile flags agree, and all decoded placement records agree. Terrain SHA256
+`ccc753536693186c40dd1c949df4210935b1f692148c56bda73f54c024946e0a`; loc payload SHA256
+`c2b025776f487af549e443b8b623101b52f85f9941bd5cb88c380d9b692611af`.
+
+RSProx has no loc-definition decoder, so the existing OpenRune client `ObjectCodec(234)` from the
+project's `dev.or2`2.4.12 dependency was reused on historical index2/group6/filelocId bytes. All85
+distinct loc types in this mapsquare decode completely. For BOTH caches, their native collision
+inputs match current `ObjectServerType`: `sizeX/sizeY -> width/length`, `solid -> blockWalk`,
+`impenetrable -> blockRange`, `isHollow -> breakRouteFinding`, exactly as the existing
+`ObjectServerCodec.createData` mapping specifies. There are zero field differences. Historical
+definition bytes were not registered in global `ServerCacheManager`; no new decoder/API was added.
+
+Evidence beside the full collision CSV: `historical-map-input-comparison.csv`,
+`historical-map-loc-ids.txt`, `current240-static-loc-collision-fields.csv`, both historical definition
+CSVs, `historical-loc-field-comparison.json`, both public keys responses, retained Java/native probe
+sources and read logs. Historical dat2/index2/index5/index255 files were hash-checked before/after;
+all8 remain unchanged (earlier map-only reads also preserve all6 checked files). Live SERVER/LIVE,
+database authority and running JVM were not modified. Temporary probe test files were byte-checked
+and removed. This is diagnostic evidence, not additional behavioral tests or deployed content.
+
+M20 geometry mapping is now supported across the retained corpus: surrounding5x5 perimeter filtered
+by destination native `BLOCK_WALK OR LOC OR GROUND_DECOR`, plus the observed3x3 interior blockers.
+This does not establish normal-game five-frame placement/duration or exact rotation RNG. Preserve
+that narrower evidence gate before activating the missing loc presentation. Existing damage timing
+and hit rules remain unchanged, with their prior E07 limitations; no approximate timing was added.
 
 ## Completed source increment: M31 existing shared item delivery
 
