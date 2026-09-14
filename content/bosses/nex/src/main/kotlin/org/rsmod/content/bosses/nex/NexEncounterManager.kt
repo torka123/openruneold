@@ -32,6 +32,8 @@ import org.rsmod.api.player.hook.TeleportType
 import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.protect.ProtectedAccess
 import org.rsmod.api.player.stat.hitpoints
+import org.rsmod.api.player.stat.stat
+import org.rsmod.api.player.stat.statBase
 import org.rsmod.api.player.stat.statHeal
 import org.rsmod.api.player.stat.statSub
 import org.rsmod.api.player.vars.VarPlayerIntMapSetter
@@ -197,7 +199,8 @@ constructor(
             player.mes("You cannot reach the power of this altar from here.")
             return
         }
-        player.statHeal("stat.prayer", constant = 0, percent = 100)
+        if (player.stat("stat.prayer") < player.statBase("stat.prayer"))
+            player.statHeal("stat.prayer", constant = 0, percent = 100)
         player.mes("The altar restores your Prayer points.")
     }
 

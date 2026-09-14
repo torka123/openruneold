@@ -2,6 +2,7 @@ package org.rsmod.content.bosses.nex
 
 import dev.openrune.ServerCacheManager
 import dev.openrune.rscm.RSCM
+import dev.openrune.rscm.RSCM.asRSCM
 import dev.openrune.rscm.RSCMType
 import dtx.core.RollResult
 import jakarta.inject.Inject
@@ -13,7 +14,6 @@ import org.rsmod.api.death.NpcDeath
 import org.rsmod.api.death.NpcDeathKillContext
 import org.rsmod.api.droptable.DropRollItem
 import org.rsmod.api.player.output.mes
-import org.rsmod.api.player.vars.VarPlayerIntMapSetter
 import org.rsmod.api.random.GameRandom
 import org.rsmod.content.drops.NpcRewardDeliveryService
 import org.rsmod.game.entity.Npc
@@ -139,11 +139,6 @@ constructor(
                 eventId = "${player.uid}:$killcount",
             )
         }
-        VarPlayerIntMapSetter.set(player, "varp.total_nex_kills", killcount)
-        player.mes(
-            "Your Nex kill count is: <col=ff0000>$killcount</col>. " +
-                "Contribution: $damage/$total${if (mvp) " (MVP)" else ""}."
-        )
         npcDeath.dispatchDeferredKill(
             NpcDeathKillContext(
                 hero = player,
@@ -151,8 +146,11 @@ constructor(
                 lootTrackerEventId = eventId,
                 dropCoords = dropTile,
                 dropTableHandled = true,
-                killcountHandled = true,
             )
+        )
+        player.mes(
+            "Your Nex kill count is: <col=ff0000>${player.vars["varp.total_nex_kills"]}</col>. " +
+                "Contribution: $damage/$total${if (mvp) " (MVP)" else ""}."
         )
     }
 
@@ -171,6 +169,14 @@ constructor(
         }
 
     fun validateAssets() {
+        val nex = requireNotNull(ServerCacheManager.getNpc("npc.nex".asRSCM()))
+        check(
+            nex.paramMap?.primitiveMap?.get("param.killcount_varp".asRSCM()) ==
+                "varp.total_nex_kills".asRSCM() &&
+                nex.paramMap?.primitiveMap?.get("param.killcount_notify".asRSCM()) == 0
+        ) {
+            "Install the canonical npc.nex native killcount parameters before starting Nex."
+        }
         (commonPool.map { it.itemId } +
                 listOf(
                     BIG_BONES,

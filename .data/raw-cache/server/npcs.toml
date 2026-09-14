@@ -4507,3 +4507,11 @@ inherit = "npc.rt_summon_elemental_ice"
 [npc.params]
 "param.elemental_weakness_type" = 3
 "param.elemental_weakness_percent" = 100
+
+# Native kill credit follows Nex's immutable spawn identity through visual forms.
+[[npc]]
+id = "npc.nex"
+inherit = "npc.nex"
+[npc.params]
+"param.killcount_varp" = "varp.total_nex_kills"
+"param.killcount_notify" = false

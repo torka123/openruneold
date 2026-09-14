@@ -637,12 +637,17 @@ internal class NexMinionTestWorld(
     }
 
     fun altarExit(target: Player = player): Boolean {
+        return altar(target, InteractionOp.Op2)
+    }
+
+    fun altarPray(target: Player = player): Boolean = altar(target, InteractionOp.Op1)
+
+    private fun altar(target: Player, op: InteractionOp): Boolean {
         val type = requireNotNull(ServerCacheManager.getObject(42965))
         val loc = BoundLocInfo(LocInfo(1, NEX_ALTAR, LocEntity(42965, 10, 0)), type)
         val trigger =
             requireNotNull(
-                LocInteractions(BoundValidator(collision), events)
-                    .opTrigger(target, loc, InteractionOp.Op2)
+                LocInteractions(BoundValidator(collision), events).opTrigger(target, loc, op)
             )
         return playerLauncher.launch(target) { check(events.publish(this, trigger)) }
     }

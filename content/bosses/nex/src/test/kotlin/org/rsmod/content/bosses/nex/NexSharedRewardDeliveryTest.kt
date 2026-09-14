@@ -1,6 +1,14 @@
 package org.rsmod.content.bosses.nex
 
+import dev.openrune.ParamMap
 import dev.openrune.ServerCacheManager
+import dev.openrune.toml.rsconfig.decodeRuneScape
+import dev.openrune.toml.rsconfig.decodeRuneScapeBlocks
+import dev.openrune.toml.rsconfig.rsconfig
+import dev.openrune.toml.tomlMapper
+import dev.openrune.types.NpcServerType
+import java.nio.file.Path
+import kotlin.reflect.typeOf
 import kotlin.test.*
 import net.rsprot.protocol.game.outgoing.misc.player.MessageGame
 import net.rsprot.protocol.game.outgoing.misc.player.RunClientScript
@@ -66,7 +74,7 @@ class NexSharedRewardDeliveryTest {
         assertEquals(listOf(f.first, f.second), f.kills.map { it.hero })
         assertTrue(f.kills.all { it.npc === f.npc && it.dropCoords == f.tile })
         assertTrue(f.kills.all { it.lootTrackerEventId == 1 })
-        assertTrue(f.kills.all { it.dropTableHandled && it.killcountHandled })
+        assertTrue(f.kills.all { it.dropTableHandled && !it.killcountHandled })
         verifyNoInteractions(f.tables)
         assertEquals<List<Any>>(
             listOf(f.first, f.second).map {
@@ -296,7 +304,7 @@ class NexSharedRewardDeliveryTest {
         val messages = linkedMapOf<Player, MutableList<Any>>()
         val first = player(1, 11).also { players[1] = it }
         val second = player(2, 22).also { players[2] = it }
-        val npc = Npc(assertNotNull(ServerCacheManager.getNpc(11278)), NEX_SPAWN)
+        val npc = Npc(sourceNex, NEX_SPAWN)
         val tile = NEX_SPAWN
         val random = MinimumRandom()
         val logs = mutableListOf<Log>()
@@ -400,6 +408,25 @@ class NexSharedRewardDeliveryTest {
     @AfterEach fun releaseMocks() = framework().clearInlineMocks()
 
     companion object {
+        // Decode the canonical overlay using the same route as the selected-NPC installer.
+        // A copied definition exercises source before installation without changing cache globals.
+        @OptIn(dev.openrune.toml.util.InternalAPI::class)
+        private val sourceNex: NpcServerType by lazy {
+            val mapper = tomlMapper { rsconfig { enableConstantProvider() } }
+            val overlay =
+                mapper
+                    .decodeRuneScapeBlocks(Path.of(".data/raw-cache/server/npcs.toml"))
+                    .filter { it.name == "npc" }
+                    .map {
+                        mapper.decodeRuneScape(typeOf<List<NpcServerType>>(), it.map.properties)
+                            as NpcServerType
+                    }
+                    .single { it.id == 11278 }
+            val base = assertNotNull(ServerCacheManager.getNpc(11278))
+            val raw = (base.paramsRaw.orEmpty() + overlay.paramsRaw.orEmpty()).toMutableMap()
+            base.copy(paramsRaw = raw).apply { paramMap = ParamMap(raw) }
+        }
+
         private val expectedRolls =
             listOf(
                 0..18,

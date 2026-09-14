@@ -17,6 +17,7 @@ class BossMigrationKcCacheAuditTest {
                 "npc.gargboss_dusk_phase1_defensive" to "varp.total_gargboss_kills",
                 "npc.snakeboss_boss_ranged" to "varp.total_snakeboss_kills",
                 "npc.muspah" to "varp.total_muspah_kills",
+                "npc.nex" to "varp.total_nex_kills",
             )) {
             val type = requireNotNull(ServerCacheManager.getNpc(name.asRSCM(RSCMType.NPC)))
             assertEquals(variable.asRSCM(RSCMType.VARP), type.paramsRaw?.get(key), name)

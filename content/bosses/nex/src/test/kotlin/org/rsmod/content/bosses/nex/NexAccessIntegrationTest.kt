@@ -8,11 +8,25 @@ import org.mockito.Mockito.framework
 import org.rsmod.annotations.InternalApi
 import org.rsmod.api.game.process.GameLifecycle
 import org.rsmod.api.player.hook.TeleportType
+import org.rsmod.api.player.stat.stat
 import org.rsmod.map.CoordGrid
 
 /** Production coordinate dispatch and native protected movement, not rendered OSRS timing proof. */
 @OptIn(InternalApi::class)
 class NexAccessIntegrationTest {
+    @Test
+    fun `native altar restores depleted prayer and preserves full or boosted prayer`() {
+        for (prayer in listOf(0, 50, 99, 110)) {
+            val f = NexMinionTestWorld()
+            f.player.statMap.setCurrentLevel("stat.prayer", prayer.toByte())
+            assertTrue(f.altarPray())
+            f.tick()
+            assertEquals(maxOf(99, prayer), f.player.stat("stat.prayer"))
+            assertTrue(f.manager.isParticipant(f.player))
+            framework().clearInlineMocks()
+        }
+    }
+
     @Test
     fun `stationary barrier dispatch commits after native hook and movement`() {
         val f = NexMinionTestWorld(enterRoom = false)

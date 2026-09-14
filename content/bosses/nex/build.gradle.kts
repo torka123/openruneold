@@ -35,6 +35,7 @@ dependencies {
     testImplementation(projects.api.market)
     testImplementation(projects.api.net)
     testImplementation(projects.content.generic.killcount)
+    testImplementation("dev.or2:toml-rsconfig:1.0")
     testImplementation(libs.fastutil)
     testImplementation(libs.rsprot.api)
     testImplementation(projects.api.hitPlugin)

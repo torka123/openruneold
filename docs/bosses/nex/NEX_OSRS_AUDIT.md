@@ -1,6 +1,23 @@
 # Nex revision-240 evidence ledger and approval mapping
 
-## September14 current source: deferred native kill dispatch
+## September14 current source: native personal kill credit and altar guard
+
+Completed bounded M04 robustness mapping: preserve the current Prayer-only altar behavior and use
+existing `Player.stat/statBase` to guard `statHeal`. Its documented contract preserves boosts,
+but its current `coerceIn(current, base)` throws for boosted Prayer. Follow the native caller
+precondition; verify depleted/full/boosted levels through the real registered altar handler.
+This needs no new API and does not resolve the separately recorded cooldown/equipment evidence.
+
+Completed M30 mapping: add only `npc.nex`'s canonical `killcount_varp=total_nex_kills` and
+`killcount_notify=false` overlay. Reuse `:or-cache:installNpcParameters -PnpcParameterNames=npc.nex`
+at the backed-up cache/deployment step, as for Muspah/Zulrah/Guardians. First test decoded source
+metadata through the real generic KC hook across two completions. Remove Nex's manual increment,
+dispatch before its retained contribution message, and preserve the existing item event identity.
+No new KC service or persistence API is required; unrelated raw config and LIVE stay unchanged.
+Nex's manual KC setter is removed. The native hook increments each eligible recipient once before
+the retained contribution message, with generic notification disabled. Startup validates required
+metadata. Tests decode the actual source overlay into a copied definition and exercise two kills,
+duplicate delivery, both recipients and native generic dispatch. The installed audit also passes.
 
 Approved S04 mapping, recorded before editing: keep the existing death coroutine, delayed Wrath,
 recipient eligibility, concrete item rolls and shared delivery. Expose the existing native
@@ -12,14 +29,17 @@ persistence system. The ordinary single-hero path retains its original arguments
 
 Implemented: Nex recipients now reach registered native kill hooks after their personal completion;
 suppressed sources and stale player identities are rejected. The native table hook skips handled
-items and the generic KC hook skips handled KC. The current Nex cache lacks its generic KC param,
-so its existing KC writer remains explicit pending canonical definition integration. Existing rolls,
+items and the generic KC hook can skip already-handled KC for other deferred callers. Nex now uses
+the generic increment through its installed canonical parameter, with that flag false. Existing rolls,
 pet handling, reward eligibility and three-tick Wrath callback remain unchanged.
 
 Changed source: `api/death/.../NpcDeath.kt`, `NpcDeathKillHook.kt`, new `NpcDeferredKillTest.kt`,
 the existing respawn fixture's required InternalApi opt-in, `content/drops/.../NpcDropTableKillHook.kt`,
 `content/generic/killcount/.../KillcountModule.kt`, Nex `NexRewards.kt` and
-`NexSharedRewardDeliveryTest.kt`. Root `AGENTS.md` now retains the user's execution/token rules.
+`NexSharedRewardDeliveryTest.kt`. The subsequent KC/altar increment changes Nex's build file,
+`NexEncounterManager.kt`, `NexAccessIntegrationTest.kt`, the minion fixture's altar dispatcher,
+the single canonical `npc.nex` config block and `BossMigrationKcCacheAuditTest.kt`.
+Root `AGENTS.md` now retains the user's execution/token rules.
 
 Verification: focused dispatch/delivery tests passed, then death/Nex/drops/KC checks and architecture
 self-tests passed:16 death,165 Nex,68 drop cases,249 total, zero failures/errors/skips. The first
@@ -28,9 +48,25 @@ The configured-KBD regression proves handled KC skips while ordinary KC still in
 Logs: `logs/nex-deferred-kill-focus2-20260914.log`, `nex-deferred-kill-checks-20260914.log`,
 `nex-deferred-kill-test-results-20260914.json`. These totals include existing tests.
 
-Source only; application assembly/deployment remain pending this continuation's integration check.
+Latest verification:166 Nex cases and the selected installed cache audit pass;16 death and68 drop
+results above remain valid. Scoped formatting and architecture checks pass. The altar fixture covers
+Prayer0/50/99/110 through actual native location dispatch. Logs: `nex-altar-native-guard-focus-20260914.log`,
+`nex-kc-yama-dsl-focus-20260914.log` (Nex passes; independent Yama fixture OOM remains recorded),
+`nex-native-kc-altar-checks-20260914.log`. The source fixture first needed a mutable-map conversion.
+
+SERVER cache preparation used the existing selected installer for NPC11278 only;27 original files
+are byte-verified in `logs/nex-native-kc-server-before-20260914/`, with hashes and LIVE fingerprint in
+`nex-native-kc-cache-before-20260914.json`. The encoded original NPC backup remains under
+`logs/npc-parameter-backups/`. Installer log `nex-native-kc-install2-20260914.log` passes and LIVE's
+dat2 hash is unchanged. The first command failed before mutation because PowerShell split an
+unquoted Gradle property; the retry used the standard explicit argument array.
+
+Initial dispatch commit `35c898803` has backup `backup/nex-deferred-kill-20260914` and an11-file
+byte-verified archive `logs/nex-deferred-kill-source-20260914.zip`. Latest source still awaits
+application assembly/deployment under the existing holds; prepared SERVER metadata is not a live
+gameplay deployment. No restart, live SQL migration or client acceptance is claimed.
 The last deployed checkpoint remains `c4fc9390f`; doctor and listeners were rechecked September14.
-Full S04, native Nex KC metadata, personal table accuracy, pets/CA and existing mechanics evidence
+Full S04, personal table accuracy, pets/CA and existing mechanics evidence
 gaps remain open. Next: finish independent native integrations; leave unverified M04/M20 behavior
 unchanged and continue approved architecture work without reopening the recorded evidence audits.
 
