@@ -3,6 +3,8 @@ package org.rsmod.content.bosses.yama
 import dev.openrune.ServerCacheManager
 import dev.or2.central.account.Rights
 import jakarta.inject.Inject
+import org.rsmod.api.instances.BossInstanceRegistry
+import org.rsmod.api.instances.InstanceScript
 import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.protect.ProtectedAccess
 import org.rsmod.api.script.onApLoc1
@@ -14,15 +16,21 @@ import org.rsmod.api.script.onOpNpc1
 import org.rsmod.api.script.onOpNpc2
 import org.rsmod.api.script.onOpNpc3
 import org.rsmod.api.script.onOpNpc4
-import org.rsmod.plugin.scripts.PluginScript
 import org.rsmod.plugin.scripts.ScriptContext
 
 internal class YamaWorld
 @Inject
-constructor(private val encounters: YamaEncounterManager, private val storage: YamaDeathStorage) :
-    PluginScript() {
-    override fun ScriptContext.startup() {
+constructor(
+    private val encounters: YamaEncounterManager,
+    private val storage: YamaDeathStorage,
+    registry: BossInstanceRegistry,
+) : InstanceScript(registry, YAMA_INSTANCE_KEY, yamaSpec()) {
+    override fun ScriptContext.configure() {
         encounters.validateAssets()
+        onInstancePlayerJoin {
+            manager.sessionForId(instanceId)?.let { encounters.onJoin(player, it) }
+        }
+        onInstancePlayerLeave { encounters.onLeave(player, instanceId) }
 
         val voiceTypes =
             listOf(

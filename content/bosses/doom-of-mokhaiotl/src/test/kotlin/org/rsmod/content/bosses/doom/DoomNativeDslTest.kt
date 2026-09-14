@@ -14,10 +14,15 @@ import org.rsmod.api.combat.NvPCombat
 import org.rsmod.api.combat.formulas.AccuracyFormulae
 import org.rsmod.api.combat.formulas.MaxHitFormulae
 import org.rsmod.api.death.NpcDeath
+import org.rsmod.api.death.PlayerDeathCleanupHook
 import org.rsmod.api.game.process.player.PlayerQueueProcessor
 import org.rsmod.api.hit.plugin.PlayerHitScript
+import org.rsmod.api.instances.BossInstanceRegistry
+import org.rsmod.api.instances.InstanceAccess
+import org.rsmod.api.instances.InstanceAttributes
 import org.rsmod.api.instances.InstanceManager
-import org.rsmod.api.instances.InstanceSession
+import org.rsmod.api.instances.events.InstancePlayerLeaveEvent
+import org.rsmod.api.instances.region.InstanceAreaResolver
 import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.api.npc.access.StandardNpcAccessContext
 import org.rsmod.api.npc.events.interact.AiPlayerEvents
@@ -25,6 +30,7 @@ import org.rsmod.api.npc.hit.modifier.StandardNpcHitModifier
 import org.rsmod.api.npc.hit.processor.StandardNpcHitProcessor
 import org.rsmod.api.npc.interact.AiPlayerInteractions
 import org.rsmod.api.player.bonus.WornBonuses
+import org.rsmod.api.player.events.PlayerMovementEvent
 import org.rsmod.api.player.hit.DeferredPlayerHit
 import org.rsmod.api.player.hit.modifier.StandardPlayerHitModifier
 import org.rsmod.api.player.protect.ProtectedAccessContext
@@ -33,10 +39,13 @@ import org.rsmod.api.player.protect.ProtectedAccessLauncher
 import org.rsmod.api.player.stat.hitpoints
 import org.rsmod.api.player.vars.VarPlayerIntMapSetter
 import org.rsmod.api.random.GameRandom
+import org.rsmod.api.registry.npc.NpcRegistry
 import org.rsmod.api.repo.loc.LocRepository
 import org.rsmod.api.repo.npc.NpcRepository
+import org.rsmod.api.repo.region.RegionRepository
 import org.rsmod.api.repo.world.WorldRepository
 import org.rsmod.api.route.RouteFactory
+import org.rsmod.api.specials.energy.SpecialAttackEnergyRegeneration
 import org.rsmod.events.EventBus
 import org.rsmod.game.MapClock
 import org.rsmod.game.cheat.CheatCommandMap
@@ -45,13 +54,17 @@ import org.rsmod.game.entity.NpcList
 import org.rsmod.game.entity.Player
 import org.rsmod.game.entity.PlayerList
 import org.rsmod.game.entity.npc.NpcStateEvents
-import org.rsmod.game.entity.player.PlayerUid
+import org.rsmod.game.entity.player.SessionStateEvent
 import org.rsmod.game.hit.Hit
 import org.rsmod.game.hit.HitType
 import org.rsmod.game.proj.ProjAnim
 import org.rsmod.game.queue.EngineQueueCache
 import org.rsmod.game.queue.WorldQueueList
+import org.rsmod.game.region.Region
+import org.rsmod.game.region.zone.RegionZoneCopy
 import org.rsmod.map.CoordGrid
+import org.rsmod.map.zone.ZoneKey
+import org.rsmod.plugin.scripts.PluginScript
 import org.rsmod.plugin.scripts.ScriptContext
 import org.rsmod.routefinder.collision.CollisionFlagMap
 
@@ -270,6 +283,183 @@ class DoomNativeDslTest {
         }
     }
 
+    @Test
+    fun `native logout retires owned state and delayed hits before deferred region reclaim`() {
+        Fixture(8, standardSeed(8, DoomAttackStyle.MAGIC)).use { f ->
+            assertTrue(assertNotNull(f.instanceSpecs.get(DOOM_INSTANCE_KEY)).destroyWhenEmpty)
+            f.attack()
+            val hit = f.hits().single().second
+            f.run.preparedAttack = DoomAttackFlow.next(8, f.run.attackFlowState, false)
+            f.player.lootDropDuration = 100
+            SpecialAttackEnergyRegeneration.pause(f.player)
+            f.events.publish(SessionStateEvent.Logout(f.player))
+
+            assertTrue(f.run.retired)
+            assertEquals(DoomState.INVALIDATED, f.run.state)
+            assertNull(f.run.preparedAttack)
+            assertFalse(f.manager.isActive(f.player))
+            assertFalse(f.npc.isSlotAssigned)
+            assertFalse(hit.isValidNow())
+            assertNull(f.player.lootDropDuration)
+            assertFalse(SpecialAttackEnergyRegeneration.isPaused(f.player))
+            assertEquals(DOOM_LOBBY, f.player.coords)
+            assertEquals(DOOM_LOBBY.packed, f.player.attr[InstanceAttributes.LOGIN_EXIT_COORD])
+            assertSame(f.session, f.instances.sessionForId(f.session.id))
+            f.instances.tickReclaim(101)
+            assertTrue(f.session.isEnded)
+            assertNull(f.instances.sessionForId(f.session.id))
+            verify(f.hpBar, times(1)).onClose(f.player, f.npc, instant = true)
+            verify(f.rewards, never()).clear(f.player)
+            verify(f.statistics, never()).recordDeath(f.player, "native-dsl-test:death")
+            f.processPlayerHits(3)
+            assertEquals(99, f.player.hitpoints)
+        }
+    }
+
+    @Test
+    fun `native external teleport and session termination clean state exactly once`() {
+        for (terminate in listOf(false, true)) {
+            Fixture(8, standardSeed(8, DoomAttackStyle.RANGED)).use { f ->
+                f.attack()
+                val pending = f.hits().single().second
+                if (terminate) assertTrue(f.instances.terminate(f.session))
+                else {
+                    val before = f.player.coords
+                    f.player.coords = DOOM_LOBBY
+                    f.events.publish(PlayerMovementEvent.CoordsMovedEvent(f.player, before))
+                }
+                assertTrue(f.session.isEnded)
+                assertTrue(f.run.retired)
+                assertFalse(pending.isValidNow())
+                assertFalse(f.manager.isActive(f.player))
+                assertTrue(f.instances.npcsForInstance(f.session.id).isEmpty())
+                f.events.publish(
+                    InstancePlayerLeaveEvent(f.player, DOOM_INSTANCE_KEY, f.session.id, 1L)
+                )
+                assertFalse(f.instances.terminate(f.session))
+                verify(f.hpBar, times(1)).onClose(f.player, f.npc, instant = true)
+                verify(f.rewards, never()).clear(f.player)
+            }
+        }
+    }
+
+    @Test
+    fun `death observation forfeits once whether native teleport detaches before cleanup or afterward`() {
+        for (teleportFirst in listOf(false, true)) {
+            Fixture(4, standardSeed(4, DoomAttackStyle.RANGED)).use { f ->
+                doReturn(listOf(DoomReward(995, 100))).`when`(f.rewards).pending(f.player)
+                f.player.statMap.setCurrentLevel("stat.hitpoints", 0)
+                val cleanup = DoomDeathCleanup(f.manager)
+                assertEquals(1, cleanup.priority)
+                if (teleportFirst) {
+                    val before = f.player.coords
+                    f.player.coords = CoordGrid(3200, 3200)
+                    f.events.publish(PlayerMovementEvent.CoordsMovedEvent(f.player, before))
+                    cleanup.cleanup(f.player)
+                } else {
+                    f.player.coords = CoordGrid(3200, 3200)
+                    cleanup.cleanup(f.player)
+                    assertTrue(
+                        f.manager.isActive(f.player),
+                        "Native instance death hook owns departure",
+                    )
+                    val nativeDeath =
+                        Class.forName("org.rsmod.api.instances.hook.InstanceDeathCleanupHook")
+                            .getDeclaredConstructor(
+                                InstanceManager::class.java,
+                                MapClock::class.java,
+                            )
+                            .newInstance(f.instances, f.clock) as PlayerDeathCleanupHook
+                    nativeDeath.cleanup(f.player)
+                }
+                cleanup.cleanup(f.player)
+                f.events.publish(
+                    InstancePlayerLeaveEvent(f.player, DOOM_INSTANCE_KEY, f.session.id, 1L)
+                )
+                assertTrue(f.run.deathRecorded)
+                assertEquals(DOOM_LOBBY, f.player.coords)
+                assertTrue(f.run.retired)
+                assertTrue(f.session.isEnded)
+                verify(f.rewards, times(1)).clear(f.player)
+                verify(f.statistics, times(1)).recordDeath(f.player, "native-dsl-test:death")
+            }
+        }
+    }
+
+    @Test
+    fun `session ownership rejects replacement player identity and stale old delve callbacks`() {
+        Fixture(4, standardSeed(4, DoomAttackStyle.RANGED)).use { f ->
+            val replacement =
+                Player().apply {
+                    slotId = f.player.slotId
+                    uuid = f.player.uuid
+                    assignUid()
+                }
+            assertSame(f.session, f.instances.sessionForPlayer(replacement))
+            assertFalse(f.manager.isActive(replacement))
+            assertFalse(f.manager.isOwnedBy(replacement, f.npc))
+            f.events.publish(
+                InstancePlayerLeaveEvent(replacement, DOOM_INSTANCE_KEY, f.session.id, 1L)
+            )
+            assertFalse(f.run.retired)
+            assertTrue(f.manager.leave(f.player))
+            assertTrue(f.manager.enter(f.player))
+            val current = assertNotNull(f.instances.sessionForPlayer(f.player))
+            assertNotEquals(f.session.id, current.id)
+            val newBoss = f.instances.npcsForInstance(current.id).single()
+            f.events.publish(
+                InstancePlayerLeaveEvent(f.player, DOOM_INSTANCE_KEY, f.session.id, 1L)
+            )
+            f.manager.finishNpcDeath(f.run)
+            f.manager.finishAuxiliaryDeath(newBoss, f.run)
+            assertTrue(f.manager.isActive(f.player))
+            assertTrue(newBoss.isSlotAssigned)
+            verify(f.rewards, never())
+                .accumulate(f.player, f.delve, "native-dsl-test", "native-dsl-test:${f.delve}")
+        }
+    }
+
+    @Test
+    fun `retained boss death token completes once after native NPC identity detachment`() {
+        Fixture(4, standardSeed(4, DoomAttackStyle.RANGED)).use { f ->
+            f.npc.hitpoints = 0
+            val token = assertNotNull(f.manager.beginNpcDeath(f.npc))
+            f.npcs.del(f.npc, Int.MAX_VALUE)
+            assertNull(f.instances.instanceForNpc(f.npc))
+            f.manager.finishNpcDeath(token)
+            assertEquals(DoomState.DEFEATED, token.state)
+            assertNotNull(token.hole)
+            f.manager.finishNpcDeath(token)
+            verify(f.rewards, times(1))
+                .accumulate(f.player, 4, "native-dsl-test", "native-dsl-test:4")
+            assertEquals(1, f.player.attr[DOOM_KILL_COUNT])
+        }
+    }
+
+    @Test
+    fun `retained auxiliary death token cleans its own actor after native identity detachment`() {
+        Fixture(4, standardSeed(4, DoomAttackStyle.RANGED)).use { f ->
+            val volatile =
+                Npc(
+                    assertNotNull(ServerCacheManager.getNpc(DoomAssets.VOLATILE_EARTH)),
+                    f.npc.coords.translateX(10),
+                )
+            f.npcs.add(volatile, 1000)
+            f.instances.attachNpc(f.session.id, volatile)
+            f.run.volatiles += volatile
+            f.run.volatileAttackableCycles[volatile] = 102
+            val token = assertNotNull(f.manager.beginAuxiliaryDeath(volatile))
+            f.npcs.del(volatile, Int.MAX_VALUE)
+            assertNull(f.instances.instanceForNpc(volatile))
+            f.manager.finishAuxiliaryDeath(volatile, token)
+            assertFalse(volatile in f.run.volatiles)
+            assertFalse(volatile in f.run.volatileAttackableCycles)
+            f.manager.finishAuxiliaryDeath(volatile, token)
+            assertFalse(f.run.retired)
+            assertTrue(f.npc.isSlotAssigned)
+        }
+    }
+
     private class Fixture(val delve: Int, seed: Long) : AutoCloseable {
         val clock = MapClock().apply { cycle = 100 }
         val random = MaximumRandom()
@@ -291,8 +481,6 @@ class DoomNativeDslTest {
         val npc =
             Npc(assertNotNull(ServerCacheManager.getNpc(DoomAssets.BOSS)), CoordGrid(1300, 9510))
                 .apply {
-                    slotId = 1
-                    assignUid()
                     currentMapClock = 100
                     processedMapClock = 100
                     hitpoints = 600
@@ -300,9 +488,64 @@ class DoomNativeDslTest {
                     spawnOwner = player.uid
                 }
         val registry = EncounterRegistry(random)
-        val npcList = NpcList().apply { this[1] = npc }
+        val npcList = NpcList()
         val world = mock(WorldRepository::class.java)
-        val npcs = mock(NpcRepository::class.java)
+        val npcs = NpcRepository(clock, NpcRegistry(npcList, collision, events), npcList)
+        private var nextRegion = 0
+        private val regions =
+            mock(RegionRepository::class.java) { call ->
+                when (call.method.name) {
+                    "add" -> {
+                        val base = 1280 + 64 * nextRegion++
+                        // Initial selected delve; the stale-session test subsequently enters delve
+                        // 1.
+                        val arena = arenaForDelve(if (nextRegion == 1) delve else 1)
+                        Region(CoordGrid(base, 9472), CoordGrid(base + 64, 9536), 1, 1).apply {
+                            for (x in 0..7) for (z in 0..7) {
+                                registerZone(
+                                    RegionZoneCopy(
+                                        ZoneKey(arena.regionX * 8 + x, arena.regionZ * 8 + z, 0),
+                                        0,
+                                        null,
+                                    ),
+                                    ZoneKey(base / 8 + x, 1184 + z, 0),
+                                )
+                                collision.allocateIfAbsent(base + x * 8, 9472 + z * 8, 0)
+                            }
+                        }
+                    }
+                    "isValid" -> true
+                    else -> Answers.RETURNS_DEFAULTS.answer(call)
+                }
+            }
+        val instances =
+            InstanceManager(
+                regions,
+                npcs,
+                players,
+                events,
+                InstanceAreaResolver(),
+                clock,
+                collision,
+                npcList,
+            )
+        val session =
+            (instances.create(
+                    player,
+                    DOOM_INSTANCE_KEY,
+                    doomSpec(delve, npc.type),
+                    InstanceAccess.Private,
+                    clock.cycle,
+                ) as InstanceManager.Result.Created)
+                .session
+        val rewards = mock(DoomRewardService::class.java)
+        val statistics = mock(DoomScoreboardService::class.java)
+        val hpBar = mock(BossHpBarScript::class.java)
+        val instanceSpecs = BossInstanceRegistry()
+        val locs =
+            mock(LocRepository::class.java) { call ->
+                if (call.method.name == "add") true else Answers.RETURNS_DEFAULTS.answer(call)
+            }
         val accuracy =
             mock(AccuracyFormulae::class.java) { call ->
                 if (call.method.name.startsWith("roll")) true
@@ -325,9 +568,9 @@ class DoomNativeDslTest {
         val manager =
             DoomEncounterManager(
                 clock,
-                mock(InstanceManager::class.java),
+                instances,
                 npcs,
-                mock(LocRepository::class.java),
+                locs,
                 mock(AiPlayerInteractions::class.java),
                 collision,
                 random,
@@ -335,15 +578,15 @@ class DoomNativeDslTest {
                 accuracy,
                 mock(WornBonuses::class.java),
                 world,
-                mock(BossHpBarScript::class.java),
-                mock(DoomRewardService::class.java),
-                mock(DoomScoreboardService::class.java),
+                hpBar,
+                rewards,
+                statistics,
                 mock(RouteFactory::class.java),
             )
         val run =
             DoomEncounterManager.Run(
                 player = player,
-                session = mock(InstanceSession::class.java),
+                session = session,
                 generation = seed,
                 delve = delve,
                 boss = npc,
@@ -377,14 +620,23 @@ class DoomNativeDslTest {
             )
 
         init {
-            @Suppress("UNCHECKED_CAST")
-            val runs =
-                manager.javaClass.getDeclaredField("runs").let {
-                    it.isAccessible = true
-                    it.get(manager) as MutableMap<PlayerUid, DoomEncounterManager.Run>
-                }
-            runs[player.uid] = run
+            collision.allocateIfAbsent(DOOM_LOBBY.x, DOOM_LOBBY.z, DOOM_LOBBY.level)
             val scripts = ScriptContext(events, CheatCommandMap(), EngineQueueCache())
+            with(DoomWorld(instanceSpecs, manager, events)) { scripts.startup() }
+            val nativeLifecycle =
+                Class.forName("org.rsmod.api.instances.hook.InstanceLifecycleScript")
+                    .getDeclaredConstructor(InstanceManager::class.java, MapClock::class.java)
+                    .newInstance(instances, clock) as PluginScript
+            with(nativeLifecycle) { scripts.startup() }
+            instances.finalizeEntry(player, session, clock.cycle)
+            npcs.add(npc, 10000)
+            instances.attachNpc(session.id, npc)
+            manager.javaClass
+                .getDeclaredMethod("attachRun", DoomEncounterManager.Run::class.java)
+                .let {
+                    it.isAccessible = true
+                    it.invoke(manager, run)
+                }
             with(PlayerHitScript()) { scripts.startup() }
             with(DoomCombat(manager, mock(NpcDeath::class.java), players, npcList, deps)) {
                 scripts.startup()
@@ -458,6 +710,7 @@ class DoomNativeDslTest {
         }
 
         override fun close() {
+            instances.sessionsForKey(DOOM_INSTANCE_KEY).toList().forEach(instances::terminate)
             registry.remove(npc)
             // Inline mock answers retain this fixture and its large native collision map. Release
             // after each matrix case instead of accumulating every case until @AfterEach.

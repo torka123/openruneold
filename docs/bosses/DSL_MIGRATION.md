@@ -101,8 +101,70 @@ Both increments: `logs/doom-check-dks-vardorvis-focus2-20260914.log` and
 Archive `logs/dks-vardorvis-dsl-source-20260914.zip`, backup `backup/dks-vardorvis-dsl-20260914`.
 Source only. Existing specialized handlers and full lifecycle debt remain explicit.
 
-Next concrete deliverable: Whisperer's native ordinary/volley selection and phase cadence,
-then remaining DT2 routes, ToA, ToB and CoX in the approved order. Nex M04/M20
+### Yama/Doom: native session ownership verified
+
+Both worlds now register through the existing `InstanceScript`; `InstanceStateKey<Run>` and
+native session/player/NPC lookup replace the global run indexes. Keyed native leave callbacks
+release content resources after membership detaches; `session.onCleanup` closes over the exact
+run and performs idempotent final cleanup. Existing `InstanceLifecycleScript` owns logout,
+disconnect, external teleport and death departure. No new API or persistence policy. The mapping
+reuses `RoyalTitansWorld`/`RoyalTitansEncounterManager`, native instance lifecycle and typed state.
+
+Yama retains a session-owned set of active combat roles: it excludes native-owned meteor helpers
+and consumes death completion once; it is not teardown ownership. Boss/auxiliary death callbacks
+carry the captured run across native NPC deletion, when the native NPC index no longer exists.
+Native membership identity replaces account-only fallback. Per-participant native `HitScope`
+(the existing Royal Titans mapping) expires queued hits on leave, coordinate escape/disconnect,
+and never revives them on reentry. Duo owner departure retains the partner, boss and target.
+Death cleanup duplication is removed; the remaining post-tick/logout hooks only serve public
+Voice/storage presentation. Changed Yama files: build, Combat, EncounterManager, World,
+Lifecycle, Module, plus new `YamaNativeLifecycleFixture.kt`/`YamaNativeLifecycleTest.kt`.
+
+Doom retains its captured entry/descent presentation and per-delve specification. Death
+observation remains once-only across both native callback orderings, preserving reward forfeit,
+statistics and lobby return; native membership cleanup remains the sole owner. Ordinary leave/
+logout preserves pending rewards. Boss/auxiliary completion carries the same guarded pre-death
+run token; stale/replaced player or session cannot complete it. Changed Doom files: build,
+Combat, EncounterManager, World, Lifecycle, and expanded `DoomNativeDslTest.kt`.
+
+Verification: seven new Yama lifecycle groups (real instance/NPC registries and queued hits),
+six new Doom lifecycle groups plus its six attack groups. Full suites now pass **Yama124** and
+**Doom127**. Yama focus passed initially; Doom test-only compile errors (internal region builder,
+read-only player HP) were corrected with public region registration/native stat setters.
+Specialized hazard handlers remain; this followup completes membership/resource ownership,
+not every spatial mechanic's DSL mapping. Doom's three independently seeded decision streams,
+conditional draws and accepted-launch commit still need a native declarative selector route:
+existing weighted/rotation selectors and effect extensions cannot preserve that contract. The
+current pure decision policy remains explicit debt; conditional missing-route approval applies.
+
+### Whisperer: native primary selection and phase cadence verified
+
+`WhispererBossSpec`/`BossCombat`/`Effect.NpcAttack` own primary attacks, normal alternating styles
+at ten ticks, enrage R/R/M/M at two ticks, and the existing melee form at two ticks. Phase changes
+align the DSL clock with native `actionDelay`, preserving special resumes, the 13-tick melee
+window, movement policy and the existing visual-first enrage branch. Named parameters retain
+stage followups, launch-prayer snapshots, native impact behavior and accepted attack counters.
+Evidence: existing `Dt2Rules`/manager/native combat and retained DT2 characterization; no new
+OSRS timing claim. Changed DT2 files: Combat, EncounterManager, new WhispererBossSpec,
+WhispererBossCombatTest and shared Dt2NativeCombatFixture; Vardorvis test fixture extraction
+retains its four groups. Eight focused Whisperer groups and full **DT2 145** pass. The reversible
+target-rejection fixture now uses visibility: native pendingLogout correctly closes hit scope
+permanently and cannot be used as a reversible test flag. Specialized followups/hazards and
+DT2's remaining instance ownership/Leviathan/Duke routes are still pending.
+
+Integrated checkpoint: `logs/session-whisperer-integration-20260914.log` passes affected scoped
+checks, **511 cases** (Yama124/Doom127/DT2145/boss API61/instances54), and application assemble.
+Counts: `logs/session-whisperer-integration-test-results-20260914.json`. Focus evidence:
+`logs/yama-session-focus-20260914.log`, `logs/whisperer-check-yama-doom-session-focus-20260914.log`.
+Architecture detector/self-tests pass; nine obsolete waivers removed and three remaining
+budgets reduced in `architecture-waivers.json`. This is migration debt accounting, not a parity
+certificate. Source manifest/archive: `logs/session-whisperer-source-manifest-20260914.txt`,
+`logs/session-whisperer-source-20260914.zip`; backup `backup/session-whisperer-20260914`.
+**Build passed; the listed behaviors are verified in tests; not deployed.**
+
+Next concrete deliverables: Leviathan's native opportunity/cadence mapping (preserve existing
+cooldown-attempt RNG draws), Duke/DT2 lifecycle, and the missing shared Doom selector mapping;
+then ToA, ToB and CoX in the approved order. Nex M04/M20
 evidence and stronger S04 replay remain separately open, without blocking independent routing.
 
 ## Authority and preservation

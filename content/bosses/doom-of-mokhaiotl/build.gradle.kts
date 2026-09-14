@@ -36,6 +36,7 @@ dependencies {
     testImplementation("org.mockito:mockito-core:5.18.0")
     testImplementation(projects.api.gameProcess)
     testImplementation(projects.api.hitPlugin)
+    testImplementation(projects.api.registry)
     testImplementation(projects.engine.coroutine)
     testImplementation(projects.engine.events)
 }

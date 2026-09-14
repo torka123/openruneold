@@ -24,6 +24,25 @@ constructor(
     private val deps: BossDeps,
 ) : PluginScript() {
     override fun ScriptContext.startup() {
+        deps.extensionRegistry.registerAttackParameters(WHISPERER_ATTACK_PARAMETERS) {
+            npc,
+            target,
+            data ->
+            encounters.whispererAttackParameters(npc, target, data as Dt2AttackStyle)
+        }
+        BossCombat.register(
+            this,
+            whispererBossSpec(),
+            deps,
+            ownerSlug = "whisperer",
+            canTarget = encounters::canAttackWhisperer,
+            onModifyHit = {
+                val player =
+                    if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players)
+                    else null
+                if (player == null) hit.damage = 0 else encounters.modifyNpcHit(player, npc, hit)
+            },
+        )
         deps.extensionRegistry.registerAttackParameters(VARDORVIS_ATTACK_PARAMETERS) {
             npc,
             target,
@@ -44,7 +63,7 @@ constructor(
             },
         )
         encounters.combatNpcTypes().forEach { type ->
-            if (type.id != Dt2Boss.VARDORVIS.normalNpcId) {
+            if (type.id !in setOf(12203, 12204, 12205, Dt2Boss.VARDORVIS.normalNpcId)) {
                 onAiApPlayer2(type) { encounters.attack(this, it.target) }
                 onModifyNpcHit(type) {
                     val player =

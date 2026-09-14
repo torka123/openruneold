@@ -30,6 +30,7 @@ import org.rsmod.api.instances.InstanceAccess
 import org.rsmod.api.instances.InstanceId
 import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.instances.InstanceSession
+import org.rsmod.api.instances.InstanceStateKey
 import org.rsmod.api.instances.RaidLeaveResult
 import org.rsmod.api.instances.RegionLocal
 import org.rsmod.api.invtx.invAdd
@@ -82,6 +83,7 @@ import org.rsmod.game.entity.util.PathingEntityCommon
 import org.rsmod.game.headbar.Headbar
 import org.rsmod.game.hit.HitBuilder
 import org.rsmod.game.hit.HitImpactHandler
+import org.rsmod.game.hit.HitScope
 import org.rsmod.game.hit.HitType
 import org.rsmod.game.inv.isAnyType
 import org.rsmod.game.inv.isType
@@ -91,6 +93,7 @@ import org.rsmod.game.loc.LocShape
 import org.rsmod.game.movement.MoveSpeed
 import org.rsmod.game.proj.ProjAnim
 import org.rsmod.map.CoordGrid
+import org.rsmod.map.util.Bounds
 import org.rsmod.routefinder.collision.CollisionFlagMap
 
 @Singleton
@@ -117,13 +120,81 @@ constructor(
     private val bossEncounters: EncounterRegistry,
 ) {
     private val log = InlineLogger()
-    private val runs = mutableMapOf<InstanceId, Run>()
-    private val participantRuns = mutableMapOf<Long, Run>()
-    private val npcRuns = mutableMapOf<Npc, Run>()
+    private val RUN_STATE = InstanceStateKey<Run>("yama-encounter")
     private val invitations = mutableMapOf<Long, Long>()
     private val pendingContracts = mutableMapOf<Long, YamaContract>()
     private val recordsImps = mutableMapOf<Long, Npc>()
     private var generation = 1L
+
+    private fun run(player: Player): Run? =
+        instances
+            .sessionForPlayer(player)
+            ?.takeIf { it.key == YAMA_INSTANCE_KEY }
+            ?.stateOrNull(RUN_STATE)
+            ?.takeIf {
+                it.state != YamaState.INVALIDATED &&
+                    it.participants[player.accountHash]?.uid == player.uid
+            }
+
+    private fun run(npc: Npc): Run? =
+        instances
+            .instanceForNpc(npc)
+            ?.let(instances::sessionForId)
+            ?.takeIf { it.key == YAMA_INSTANCE_KEY }
+            ?.stateOrNull(RUN_STATE)
+            ?.takeIf { it.state != YamaState.INVALIDATED && npc in it.combatActors }
+
+    private fun isCurrent(run: Run): Boolean =
+        instances.sessionForId(run.session.id) === run.session &&
+            run.session.stateOrNull(RUN_STATE) === run &&
+            run.state != YamaState.INVALIDATED
+
+    fun onJoin(player: Player, session: InstanceSession) {
+        if (session.key != YAMA_INSTANCE_KEY || instances.sessionForPlayer(player) !== session)
+            return
+        val run =
+            session.state(RUN_STATE) {
+                val throne =
+                    spawnNpc(player, session, YamaAssets.THRONE_PARENT, local(session, 28, 41))
+                throne.movementLocked = true
+                Run(
+                        ownerHash = player.accountHash,
+                        session = session,
+                        generation = generation++,
+                        throne = throne,
+                        state = YamaState.LOBBY,
+                        stateCycle = clock.cycle,
+                        startCycle = clock.cycle,
+                    )
+                    .also { state ->
+                        state.combatActors.add(throne)
+                        session.onCleanup { retire(state) }
+                    }
+            }
+        if (run.state == YamaState.INVALIDATED || player.accountHash in run.participants) return
+        player.lootDropDuration = YAMA_DROP_DURATION
+        val scope = HitScope(Bounds(local(session, 0, 0), 64, 64), player.clientDisconnected)
+        player.combatHitScope = scope
+        run.participants[player.accountHash] =
+            Participant(player.accountHash, player.uid, run.participants.size, hitScope = scope)
+    }
+
+    /** Native membership is already detached; content releases only its own mechanic state. */
+    fun onLeave(player: Player, instanceId: InstanceId) {
+        val run = instances.sessionForId(instanceId)?.stateOrNull(RUN_STATE) ?: return
+        if (run.participants[player.accountHash]?.uid != player.uid) return
+        clearPendingLobbyState(setOf(player.accountHash))
+        closeEncounterBars(run, player)
+        detachParticipantState(run, player)
+        if (run.participants.isEmpty()) {
+            retire(run)
+        } else if (run.state != YamaState.INVALIDATED) {
+            if (run.ownerHash == player.accountHash) run.ownerHash = run.participants.keys.first()
+            owner(run)?.mes("${player.displayName} has left the Yama pact.")
+            switchTarget(run)
+            keepAggressive(run)
+        }
+    }
 
     fun validateAssets() {
         YamaAssets.npcIds.forEach {
@@ -233,9 +304,7 @@ constructor(
     }
 
     fun teleportOutside(player: Player): Boolean {
-        participantRuns[player.accountHash]?.let {
-            removeParticipant(player, "admin travel", teleport = false)
-        }
+        run(player)?.let { removeParticipant(player, "admin travel", teleport = false) }
         instances.sessionForPlayer(player)?.let {
             player.mes("Leave your current instance before travelling to Yama.")
             return false
@@ -248,7 +317,7 @@ constructor(
     }
 
     fun invite(leader: Player, targetName: String): Boolean {
-        if (participantRuns.containsKey(leader.accountHash)) {
+        if ((run(leader) != null)) {
             leader.mes("You cannot change your pact after entering the Domain.")
             return false
         }
@@ -260,10 +329,7 @@ constructor(
             leader.mes("That player is not available.")
             return false
         }
-        if (
-            participantRuns.containsKey(target.accountHash) ||
-                instances.sessionForPlayer(target) != null
-        ) {
+        if ((run(target) != null) || instances.sessionForPlayer(target) != null) {
             leader.mes("${target.displayName} is already occupied.")
             return false
         }
@@ -276,10 +342,7 @@ constructor(
     }
 
     fun travel(player: Player): Boolean {
-        if (
-            participantRuns.containsKey(player.accountHash) ||
-                instances.sessionForPlayer(player) != null
-        ) {
+        if ((run(player) != null) || instances.sessionForPlayer(player) != null) {
             player.mes("You already have an active instance.")
             return false
         }
@@ -302,29 +365,7 @@ constructor(
         resetEncounterClientState(player)
         PathingEntityCommon.telejump(player, collision, result.enter)
         instances.finalizeEntry(player, result.session, clock.cycle)
-        player.lootDropDuration = YAMA_DROP_DURATION
-        val throne =
-            spawnNpc(
-                player,
-                result.session,
-                YamaAssets.THRONE_PARENT,
-                local(result.session, 28, 41),
-            )
-        throne.movementLocked = true
-        val run =
-            Run(
-                ownerHash = player.accountHash,
-                session = result.session,
-                generation = generation++,
-                throne = throne,
-                state = YamaState.LOBBY,
-                stateCycle = clock.cycle,
-                startCycle = clock.cycle,
-            )
-        run.participants[player.accountHash] = Participant(player.accountHash, player.uid, 0)
-        runs[result.session.id] = run
-        participantRuns[player.accountHash] = run
-        npcRuns[throne] = run
+        val run = run(player) ?: return false
         player.mes("You enter Yama's Domain.")
         log.info {
             "[Yama] generation=${run.generation} owner=${player.displayName} instance=${run.session.id} lobby"
@@ -333,10 +374,7 @@ constructor(
     }
 
     fun joinInvitation(player: Player): Boolean {
-        if (
-            participantRuns.containsKey(player.accountHash) ||
-                instances.sessionForPlayer(player) != null
-        ) {
+        if ((run(player) != null) || instances.sessionForPlayer(player) != null) {
             player.mes("You already have an active instance.")
             return false
         }
@@ -345,7 +383,8 @@ constructor(
             player.mes("You do not have a pending Yama invitation.")
             return false
         }
-        val run = participantRuns[leaderHash]
+        val run =
+            players.firstOrNull { it.accountHash == leaderHash && it.isSlotAssigned }?.let(::run)
         if (run == null || run.state != YamaState.LOBBY || run.participants.size >= 2) {
             player.mes("That invitation is no longer available.")
             invitations.remove(player.accountHash)
@@ -363,10 +402,7 @@ constructor(
         resetEncounterClientState(player)
         PathingEntityCommon.telejump(player, collision, result.enter)
         instances.finalizeEntry(player, run.session, clock.cycle)
-        player.lootDropDuration = YAMA_DROP_DURATION
-        run.participants[player.accountHash] =
-            Participant(player.accountHash, player.uid, run.participants.size)
-        participantRuns[player.accountHash] = run
+        if (run(player) !== run) return false
         invitations.remove(player.accountHash)
         player.mes("You join the pact in Yama's Domain.")
         owner(run)?.mes("${player.displayName} joins your Yama pact.")
@@ -374,7 +410,7 @@ constructor(
     }
 
     fun selectContract(player: Player, contract: YamaContract) {
-        val run = participantRuns[player.accountHash]
+        val run = run(player)
         if (run != null && (run.ownerHash != player.accountHash || run.state != YamaState.LOBBY)) {
             player.mes("Only the pact leader can select a contract before the fight.")
             return
@@ -393,7 +429,7 @@ constructor(
     }
 
     fun challenge(player: Player): Boolean {
-        val run = participantRuns[player.accountHash]
+        val run = run(player)
         if (run == null || run.state != YamaState.LOBBY) {
             player.mes("Yama cannot be challenged right now.")
             return false
@@ -469,38 +505,19 @@ constructor(
     }
 
     fun tickAll() {
-        runs.values.toList().forEach(::tick)
+        instances
+            .sessionsForKey(YAMA_INSTANCE_KEY)
+            .mapNotNull { it.stateOrNull(RUN_STATE) }
+            .filter { it.state != YamaState.INVALIDATED }
+            .forEach(::tick)
     }
 
     fun tick(player: Player) {
-        participantRuns[player.accountHash]?.let(::tick)
-    }
-
-    fun externalTeleport(player: Player, instanceId: InstanceId) {
-        clearPendingLobbyState(setOf(player.accountHash))
-        val run = participantRuns[player.accountHash] ?: return
-        if (run.session.id != instanceId) return
-
-        closeEncounterBars(run, player)
-        detachParticipantState(run, player)
-        instances.leave(player, run.session, clock.cycle)
-        player.mes("Your Yama encounter ended because you teleported out of its instance.")
-        if (run.participants.isEmpty()) {
-            abort(run, "last participant teleported out", teleport = false)
-        } else {
-            if (run.ownerHash == player.accountHash) {
-                run.ownerHash = run.participants.keys.first()
-            }
-            online(run).forEach { member ->
-                member.mes("${player.displayName} teleported out; your Yama pact continues.")
-            }
-            switchTarget(run)
-            keepAggressive(run)
-        }
+        run(player)?.let(::tick)
     }
 
     fun leaveFromLogoutTab(player: Player, expectedInstanceId: InstanceId): RaidLeaveResult {
-        val run = participantRuns[player.accountHash] ?: return RaidLeaveResult.Failed
+        val run = run(player) ?: return RaidLeaveResult.Failed
         if (
             run.session.id != expectedInstanceId ||
                 instances.sessionForPlayer(player)?.id != expectedInstanceId
@@ -508,7 +525,7 @@ constructor(
             return RaidLeaveResult.Failed
         }
         removeParticipant(player, "leave instance", teleport = true)
-        val leftRun = participantRuns[player.accountHash] !== run
+        val leftRun = run(player) !== run
         val leftSession = instances.sessionForPlayer(player)?.id != expectedInstanceId
         return if (leftRun && leftSession) {
             player.mes("You leave Yama's Domain and return to the lobby.")
@@ -524,11 +541,6 @@ constructor(
         val online = online(run)
         if (online.isEmpty()) {
             abort(run, "empty party", teleport = false)
-            return
-        }
-        val outside = online.firstOrNull { instances.sessionForPlayer(it)?.id != run.session.id }
-        if (outside != null) {
-            externalTeleport(outside, run.session.id)
             return
         }
         // Player attacks resolve before LateCycle. Start transition immunity before any pending
@@ -620,7 +632,7 @@ constructor(
     fun canAttack(npc: Npc, target: Player): Boolean = combatRun(npc, target) != null
 
     private fun combatRun(npc: Npc, target: Player): Run? {
-        val run = participantRuns[target.accountHash] ?: return null
+        val run = run(target) ?: return null
         return run.takeIf {
             it.boss === npc &&
                 it.state in setOf(YamaState.PHASE_ONE, YamaState.PHASE_TWO, YamaState.PHASE_THREE)
@@ -731,7 +743,7 @@ constructor(
         var accurate = false
         var absorbed = false
         val modifier = PlayerHitModifier { player ->
-            val active = participantRuns[player.accountHash] === run
+            val active = run(player) === run
             if (!active || !accurate) {
                 damage = 0
             } else if (glyph != null && absorbWithGlyph(run, player, glyph)) {
@@ -780,7 +792,7 @@ constructor(
                 hitModifier = modifier,
                 onSuccessfulAttack = { _, _ -> accurate = true },
                 onImpact = { _, _ ->
-                    if (!absorbed && participantRuns[target.accountHash] === run) {
+                    if (!absorbed && run(target) === run) {
                         impactGraphic?.let { target.spotanim(spot(it)) }
                     }
                 },
@@ -957,7 +969,7 @@ constructor(
                     explodeCycle = clock.cycle + YamaRules.VOID_FLARE_BASE_LIFETIME,
                     damagedBy = mutableSetOf(),
                 )
-            npcRuns[flare] = run
+            run.combatActors.add(flare)
         }
     }
 
@@ -1110,7 +1122,7 @@ constructor(
             judge.hitpoints = YamaRules.JUDGE_HITPOINTS
             judge.movementLocked = true
             run.judges += judge
-            npcRuns[judge] = run
+            run.combatActors.add(judge)
             run.judgeBlockedStyles[participant.accountHash] =
                 mutableSetOf(YamaAttackStyle.MELEE, YamaAttackStyle.RANGED)
             participant.nextJudgeSurgeCycle = clock.cycle
@@ -1118,7 +1130,7 @@ constructor(
     }
 
     fun jumpStone(player: Player, destination: CoordGrid): Boolean {
-        val run = participantRuns[player.accountHash] ?: return false
+        val run = run(player) ?: return false
         if (run.state !in setOf(YamaState.JUDGE_ONE, YamaState.JUDGE_TWO)) return false
         val participant = run.participants[player.accountHash] ?: return false
         if (!run.judgeStarted) {
@@ -1296,7 +1308,7 @@ constructor(
             surge.movementLocked = true
             surge.hideAllOps()
             run.judgeSurges += ActiveJudgeSurge(surge, participant.slot, clock.cycle)
-            npcRuns[surge] = run
+            run.combatActors.add(surge)
         }
         recordJudgeAttack(run, participant, target)
     }
@@ -1322,7 +1334,7 @@ constructor(
             val surge = active.npc
             if (!surge.isSlotAssigned) {
                 iterator.remove()
-                npcRuns.remove(surge)
+                run.combatActors.remove(surge)
                 continue
             }
             if (clock.cycle <= active.spawnCycle) continue
@@ -1351,7 +1363,7 @@ constructor(
                 }
             if (destination.z - arenaOrigin.z < 28) {
                 iterator.remove()
-                npcRuns.remove(surge)
+                run.combatActors.remove(surge)
                 npcs.del(surge, Int.MAX_VALUE)
             }
         }
@@ -1363,7 +1375,7 @@ constructor(
             val active = iterator.next()
             if (slot != null && active.slot != slot) continue
             iterator.remove()
-            npcRuns.remove(active.npc)
+            run.combatActors.remove(active.npc)
             if (active.npc.isSlotAssigned) npcs.del(active.npc, Int.MAX_VALUE)
         }
         if (slot == null) run.lastJudgeSurgeHit.clear()
@@ -1377,7 +1389,7 @@ constructor(
                 ?.let(::resolve)
                 ?.let { bossHpBar.onClose(it, judge, instant = true) }
             if (judge.isSlotAssigned) npcs.del(judge, Int.MAX_VALUE)
-            npcRuns.remove(judge)
+            run.combatActors.remove(judge)
         }
         run.judges.clear()
         run.participants.values.forEach { participant ->
@@ -1421,7 +1433,7 @@ constructor(
     }
 
     fun modifyNpcHit(player: Player, npc: Npc, hit: HitBuilder) {
-        val run = npcRuns[npc]
+        val run = run(npc)
         if (run == null || player.accountHash !in run.participants || hit.damage < 0) {
             hit.damage = 0
             return
@@ -1521,7 +1533,7 @@ constructor(
     }
 
     fun onJudgeHit(npc: Npc, damage: Int) {
-        val run = npcRuns[npc] ?: return
+        val run = run(npc) ?: return
         if (npc !in run.judges || damage <= 0) return
         if (run.judgeDeathQueued) return
         synchronizeJudgeHitpoints(
@@ -1532,7 +1544,7 @@ constructor(
     }
 
     fun judgeMeleeApRange(player: Player, npc: Npc): Int? {
-        val run = npcRuns[npc] ?: return null
+        val run = run(npc) ?: return null
         if (npc !in run.judges) return null
         val participant = run.participants[player.accountHash] ?: return null
         return if (YamaRules.judgeCrossingComplete(participant.stoneStep)) {
@@ -1543,7 +1555,7 @@ constructor(
     }
 
     fun beginBossDeath(npc: Npc): Run? {
-        val run = npcRuns[npc] ?: return null
+        val run = run(npc) ?: return null
         if (
             run.boss !== npc ||
                 run.state in setOf(YamaState.DYING, YamaState.DEFEATED, YamaState.INVALIDATED)
@@ -1559,9 +1571,10 @@ constructor(
         return run
     }
 
-    fun finishBossDeath(npc: Npc) {
-        val run = npcRuns.remove(npc) ?: return
-        if (run.state != YamaState.DYING) return
+    fun finishBossDeath(npc: Npc, run: Run) {
+        // The native death coroutine has already deleted/detached the NPC. The captured session
+        // token and consumed actor role guard completion without a second global NPC registry.
+        if (!isCurrent(run) || run.state != YamaState.DYING || !run.combatActors.remove(npc)) return
         val ticks = clock.cycle - run.startCycle
         var returnedContract = false
         online(run).forEach { player ->
@@ -1703,8 +1716,10 @@ constructor(
     private fun giveItem(player: Player, internal: String, count: Int, rewardTile: CoordGrid) =
         objects.add(internal, rewardTile, YAMA_DROP_DURATION, player, count)
 
-    fun finishAuxiliaryDeath(npc: Npc) {
-        val run = npcRuns.remove(npc) ?: return
+    fun auxiliaryDeathRun(npc: Npc): Run? = run(npc)
+
+    fun finishAuxiliaryDeath(npc: Npc, run: Run) {
+        if (!isCurrent(run) || !run.combatActors.remove(npc)) return
         if (run.flares.remove(npc) != null) return
         if (npc in run.judges && run.judgeDeathQueued) return
     }
@@ -2004,7 +2019,7 @@ constructor(
         val expired = run.flares.filterValues { clock.cycle >= it.explodeCycle }.toList()
         expired.forEach { (npc, flare) ->
             run.flares.remove(npc)
-            npcRuns.remove(npc)
+            run.combatActors.remove(npc)
             if (!npc.isSlotAssigned) return@forEach
             npc.anim(anim(YamaAssets.ANIM_VOID_FLARE_EXPLODE))
             npc.spotanim(spot(YamaAssets.GFX_FLARE_EXPLODE))
@@ -2196,7 +2211,7 @@ constructor(
     }
 
     fun passFirewall(player: Player, quick: Boolean): Boolean {
-        val run = participantRuns[player.accountHash] ?: return false
+        val run = run(player) ?: return false
         if (run.state !in setOf(YamaState.LOBBY, YamaState.DEFEATED)) {
             player.mes("You cannot leave while the pact is active.")
             return false
@@ -2205,41 +2220,29 @@ constructor(
         return true
     }
 
-    fun removeParticipant(
-        player: Player,
-        reason: String,
-        teleport: Boolean,
-        logout: Boolean = false,
-    ) {
+    fun removeParticipant(player: Player, reason: String, teleport: Boolean) {
         clearPendingLobbyState(setOf(player.accountHash))
-        val run = participantRuns[player.accountHash] ?: return
-        closeEncounterBars(run, player)
-        detachParticipantState(run, player)
-        if (logout) instances.handleLogout(player, clock.cycle)
-        else {
-            val exit = instances.leave(player, run.session, clock.cycle)
-            if (teleport && player.isSlotAssigned)
-                PathingEntityCommon.telejump(player, collision, exit)
+        val run = run(player) ?: return
+        val exit = instances.leave(player, run.session, clock.cycle)
+        if (teleport && player.isSlotAssigned) PathingEntityCommon.telejump(player, collision, exit)
+        log.info {
+            "[Yama] generation=${run.generation} departure=$reason player=${player.displayName}"
         }
-        if (run.participants.isEmpty()) {
-            abort(run, reason, teleport = false)
-        } else {
-            if (run.ownerHash == player.accountHash) {
-                run.ownerHash = run.participants.keys.first()
-            }
-            owner(run)?.mes("${player.displayName} has left the Yama pact.")
-            switchTarget(run)
-            keepAggressive(run)
-        }
+    }
+
+    fun logoutPresentation(player: Player) {
+        removeRecordsImp(player)
+        clearPendingLobbyState(setOf(player.accountHash))
     }
 
     private fun detachParticipantState(run: Run, player: Player) {
         val accountHash = player.accountHash
+        val participant = run.participants.remove(accountHash) ?: return
+        participant.hitScope.close()
+        if (player.combatHitScope === participant.hitScope) player.combatHitScope = null
         prepare(player)
         burns.consumeRemainingDamage(player)
         clearContractPlayerState(player)
-        participantRuns.remove(accountHash)
-        run.participants.remove(accountHash)
         run.protections.remove(accountHash)
         run.divinePrayerStarted.remove(accountHash)
         run.lastFireHit.remove(accountHash)
@@ -2265,41 +2268,40 @@ constructor(
 
     private fun abort(run: Run, reason: String, teleport: Boolean) {
         if (run.state == YamaState.INVALIDATED) return
-        clearPendingLobbyState(run.participants.keys)
         val members = online(run)
+        retire(run)
         members.forEach { member ->
-            closeEncounterBars(run, member)
-            clearContractPlayerState(member)
-            prepare(member)
-        }
-        run.state = YamaState.INVALIDATED
-        run.boss?.let(bossEncounters::remove)
-        runs.remove(run.session.id)
-        clearTransientHazards(run)
-        clearGlyphs(run)
-        run.firewalls.forEach { locs.del(it, Int.MAX_VALUE) }
-        run.firewalls.clear()
-        npcRuns
-            .filterValues { it === run }
-            .keys
-            .toList()
-            .forEach { npc ->
-                npcRuns.remove(npc)
-                if (npc.isSlotAssigned) npcs.del(npc, Int.MAX_VALUE)
-            }
-        members.forEach { member ->
-            participantRuns.remove(member.accountHash)
             val exit = instances.leave(member, run.session, clock.cycle)
             if (teleport) PathingEntityCommon.telejump(member, collision, exit)
-            resetEncounterClientState(member)
         }
-        run.participants.keys.forEach(participantRuns::remove)
         instances.terminate(run.session)
         log.info { "[Yama] generation=${run.generation} abort=$reason" }
     }
 
+    /**
+     * Session cleanup owns content resources; InstanceManager owns actors, membership and region.
+     */
+    private fun retire(run: Run) {
+        if (run.state == YamaState.INVALIDATED) return
+        run.state = YamaState.INVALIDATED
+        clearPendingLobbyState(run.participants.keys)
+        val members = run.participants.values.mapNotNull(::resolve)
+        members.forEach { member ->
+            closeEncounterBars(run, member)
+            detachParticipantState(run, member)
+        }
+        run.boss?.let(bossEncounters::remove)
+        clearTransientHazards(run)
+        clearGlyphs(run)
+        run.firewalls.forEach { locs.del(it, Int.MAX_VALUE) }
+        run.firewalls.clear()
+        run.combatActors.clear()
+        run.participants.values.forEach { it.hitScope.close() }
+        run.participants.clear()
+    }
+
     fun attackDenial(player: Player, npc: Npc): String? {
-        val run = npcRuns[npc] ?: return "That creature is not part of your pact."
+        val run = run(npc) ?: return "That creature is not part of your pact."
         if (player.accountHash !in run.participants) return "That creature belongs to another pact."
         if (npc === run.boss)
             return if (
@@ -2317,16 +2319,15 @@ constructor(
         return "You cannot attack that."
     }
 
-    fun isEncounterNpc(npc: Npc): Boolean = npcRuns.containsKey(npc)
+    fun isEncounterNpc(npc: Npc): Boolean = (run(npc) != null)
 
     fun isOwnedBy(player: Player, npc: Npc): Boolean =
-        npcRuns[npc]?.participants?.containsKey(player.accountHash) == true
+        run(npc)?.participants?.containsKey(player.accountHash) == true
 
-    fun isActive(player: Player): Boolean = participantRuns.containsKey(player.accountHash)
+    fun isActive(player: Player): Boolean = (run(player) != null)
 
     fun debugPhase(player: Player, phase: Int) {
-        val run =
-            participantRuns[player.accountHash] ?: return player.mes("Yama: no active encounter.")
+        val run = run(player) ?: return player.mes("Yama: no active encounter.")
         val boss = run.boss ?: return player.mes("Yama: the boss is not currently active.")
         val maxHp = YamaRules.profile(run.contract).hitpoints
         when (phase) {
@@ -2349,7 +2350,7 @@ constructor(
     }
 
     fun debugStatus(player: Player): String {
-        val run = participantRuns[player.accountHash] ?: return "Yama: no active encounter."
+        val run = run(player) ?: return "Yama: no active encounter."
         return "Yama generation=${run.generation} state=${run.state} phase=${run.phase} contract=${run.contract} hp=${run.boss?.hitpoints ?: run.savedBossHitpoints} judge=${run.judgeHitpoints} flares=${run.flares.size} waves=${run.waves.size} fire=${run.fireStreaks.size} contribution=${run.contribution[player.accountHash] ?: 0}"
     }
 
@@ -2394,7 +2395,7 @@ constructor(
         boss.maxOpRangeOverride = YamaRules.ACTIVE_FIGHT_RANGE
         boss.apRequiresLineOfSight = true
         run.boss = boss
-        npcRuns[boss] = run
+        run.combatActors.add(boss)
         return boss
     }
 
@@ -2437,7 +2438,7 @@ constructor(
         clearJudgeSurges(run)
         run.boss?.let(burns::clearSource)
         run.flares.keys.toList().forEach {
-            npcRuns.remove(it)
+            run.combatActors.remove(it)
             if (it.isSlotAssigned) npcs.del(it, Int.MAX_VALUE)
         }
         run.flares.clear()
@@ -2647,10 +2648,7 @@ constructor(
         }
 
     private fun resolve(participant: Participant): Player? =
-        participant.uid.resolve(players)
-            ?: players.firstOrNull {
-                it.accountHash == participant.accountHash && it.isSlotAssigned
-            }
+        participant.uid.resolve(players)?.takeIf { it.accountHash == participant.accountHash }
 
     private fun applyContractPlayerState(player: Player, contract: YamaContract) {
         clearContractPlayerState(player)
@@ -2724,6 +2722,7 @@ constructor(
         var judgeAttackCount: Int = 0,
         var lastJudgeDamageCycle: Int = Int.MIN_VALUE,
         var judgeCameraResetCycle: Int = Int.MAX_VALUE,
+        val hitScope: HitScope = HitScope(),
     )
 
     internal data class GlyphProtection(val type: YamaGlyph, val untilCycle: Int)
@@ -2815,6 +2814,8 @@ constructor(
         val session: InstanceSession,
         val generation: Long,
         val throne: Npc,
+        // Active combat roles and one-shot death continuations, not instance teardown ownership.
+        val combatActors: MutableSet<Npc> = mutableSetOf(),
         var state: YamaState,
         var stateCycle: Int,
         var startCycle: Int,

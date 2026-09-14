@@ -4,11 +4,12 @@ This is a resumable handoff, not a project-completion or full OSRS-parity claim.
 mechanic mappings, uncertainties, commands and results remain in [DSL_MIGRATION.md](DSL_MIGRATION.md).
 Update this checkpoint after each completed boss and immediately before any authorized deployment.
 
-September14 continuation: the current section of `DSL_MIGRATION.md` records Yama's verified native
-cadence/count-based specials (117 module cases), Doom's native primary attacks (121 cases),
-Vardorvis (137 DT2 cases), and the three Dagannoth Kings (14 cases), with retained adapter
-boundaries. Next: Whisperer and remaining DT2 routes, then ToA/ToB/CoX. No deployment of these
-changes is claimed.
+September14 continuation: the current section of `DSL_MIGRATION.md` records native Yama/Doom
+session ownership (124/127 cases), Whisperer/Vardorvis (145 DT2 cases), and the three Dagannoth
+Kings (14 cases). The integrated 511-case selection, scoped checks, architecture and application
+assemble pass. Source archive/backup and exact retained adapter/selector boundaries are recorded
+there. Next: Leviathan, Duke/DT2 lifecycle and Doom's missing declarative selector route, then
+ToA/ToB/CoX. Runtime remains `c4fc9390f`; no deployment of these changes is claimed.
 The current Nex ledger's top section records deferred native kill hooks,
 generic personal KC (manual increment removed), and the boosted-Prayer altar guard.166 Nex cases
 and installed KC metadata pass;16 death/68 drop results remain valid. SERVER NPC11278 metadata is

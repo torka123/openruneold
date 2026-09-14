@@ -1,0 +1,254 @@
+package org.rsmod.content.bosses.dt2
+
+import dev.openrune.ServerCacheManager
+import dev.openrune.types.NpcMode
+import org.mockito.Answers
+import org.mockito.Mockito.*
+import org.rsmod.annotations.InternalApi
+import org.rsmod.api.bossbar.plugin.BossHpBarScript
+import org.rsmod.api.bosses.runtime.*
+import org.rsmod.api.combat.NvPCombat
+import org.rsmod.api.combat.formulas.AccuracyFormulae
+import org.rsmod.api.combat.formulas.MaxHitFormulae
+import org.rsmod.api.death.NpcDeath
+import org.rsmod.api.instances.InstanceManager
+import org.rsmod.api.instances.InstanceSession
+import org.rsmod.api.instances.RegionLocal
+import org.rsmod.api.npc.access.StandardNpcAccess
+import org.rsmod.api.npc.access.StandardNpcAccessContext
+import org.rsmod.api.npc.events.interact.AiPlayerEvents
+import org.rsmod.api.npc.hit.modifier.StandardNpcHitModifier
+import org.rsmod.api.npc.hit.processor.StandardNpcHitProcessor
+import org.rsmod.api.npc.interact.AiPlayerInteractions
+import org.rsmod.api.npc.owner.assignSpawnOwner
+import org.rsmod.api.player.music.MusicPlayer
+import org.rsmod.api.random.GameRandom
+import org.rsmod.api.repo.loc.LocRepository
+import org.rsmod.api.repo.npc.NpcRepository
+import org.rsmod.api.repo.world.WorldRepository
+import org.rsmod.api.route.RouteFactory
+import org.rsmod.events.EventBus
+import org.rsmod.game.MapClock
+import org.rsmod.game.cheat.CheatCommandMap
+import org.rsmod.game.entity.*
+import org.rsmod.game.entity.npc.NoopNpcInfo
+import org.rsmod.game.entity.player.PlayerUid
+import org.rsmod.game.hit.Hit
+import org.rsmod.game.hit.HitScope
+import org.rsmod.game.queue.EngineQueueCache
+import org.rsmod.game.queue.WorldQueueList
+import org.rsmod.map.CoordGrid
+import org.rsmod.plugin.scripts.ScriptContext
+import org.rsmod.routefinder.collision.CollisionFlagMap
+
+/** Native combat and real content manager, with scene IO isolated for focused behavior tests. */
+@OptIn(InternalApi::class)
+internal class Dt2NativeCombatFixture(
+    accurate: Boolean = true,
+    bossKind: Dt2Boss = Dt2Boss.VARDORVIS,
+    difficulty: Dt2Difficulty = Dt2Difficulty.NORMAL,
+) {
+    val clock = MapClock().apply { cycle = 100 }
+    val events = EventBus()
+    val player =
+        Player().apply {
+            slotId = 1
+            uuid = 1L
+            assignUid()
+            coords =
+                if (bossKind == Dt2Boss.WHISPERER) CoordGrid(2654, 6368) else CoordGrid(1126, 3419)
+            for (stat in listOf("hitpoints", "prayer", "defence")) {
+                statMap.setBaseLevel("stat.$stat", 99)
+                statMap.setCurrentLevel("stat.$stat", 99)
+            }
+            inv = invMap.getOrPut("inv.inv")
+            worn = invMap.getOrPut("inv.worn")
+            combatHitScope = HitScope()
+        }
+    val boss =
+        Npc(
+                requireNotNull(
+                    ServerCacheManager.getNpc(
+                        if (bossKind == Dt2Boss.WHISPERER) Dt2Assets.WHISPERER_SPAWN_ID
+                        else bossKind.normalNpcId
+                    )
+                ),
+                if (bossKind == Dt2Boss.WHISPERER) CoordGrid(2655, 6368) else CoordGrid(1127, 3419),
+            )
+            .apply {
+                slotId = 1
+                assignUid()
+                infoProtocol = NoopNpcInfo
+                currentMapClock = 100
+                processedMapClock = 100
+                baseHitpointsLvl = bossKind.hitpoints(difficulty)
+                hitpoints = baseHitpointsLvl
+                mode = NpcMode.ApPlayer2
+                assignSpawnOwner(player, 100)
+            }
+    val players = PlayerList().apply { this[1] = player }
+    val npcs = NpcList().apply { this[1] = boss }
+    val rollBounds = mutableListOf<Int>()
+    private val random =
+        mock(GameRandom::class.java) { call ->
+            if (
+                call.method.name == "of" &&
+                    call.arguments.size == 1 &&
+                    call.arguments[0] is IntRange
+            ) {
+                // NvPCombat.rollDamage uses the inclusive-range overload. Mockito does not
+                // execute its default delegation to the bounded overload automatically.
+                val range = call.arguments[0] as IntRange
+                rollBounds += range.last - range.first + 1
+                range.last
+            } else if (
+                call.method.name == "of" && call.arguments.size == 1 && call.arguments[0] is Int
+            ) {
+                val bound = call.arguments[0] as Int
+                rollBounds += bound
+                bound - 1
+            } else Answers.RETURNS_DEFAULTS.answer(call)
+        }
+    private val accuracy =
+        mock(AccuracyFormulae::class.java) { call ->
+            if (call.method.name.startsWith("roll")) accurate
+            else Answers.RETURNS_DEFAULTS.answer(call)
+        }
+    private val world = mock(WorldRepository::class.java)
+    private val native = NvPCombat(accuracy, mock(MaxHitFormulae::class.java), world)
+    private val collision = CollisionFlagMap()
+    private var nextNpcSlot = 2
+    private val repository =
+        mock(NpcRepository::class.java) { call ->
+            if (call.method.name == "add") {
+                val npc = call.arguments[0] as Npc
+                npc.slotId = nextNpcSlot++
+                npc.assignUid()
+                npc.infoProtocol = NoopNpcInfo
+                npcs[npc.slotId] = npc
+                null
+            } else Answers.RETURNS_DEFAULTS.answer(call)
+        }
+    val session = mock(InstanceSession::class.java)
+    private val instances =
+        mock(InstanceManager::class.java) { call ->
+            // CoordGrid is a value class, so the JVM name of this nullable-return API is
+            // mangled.
+            // This fixture uses original map coordinates; preserve each requested axe lane
+            // tile.
+            if (call.method.name == "sessionForPlayer") {
+                session
+            } else if (call.method.name.startsWith("localCoord")) {
+                val local = call.arguments[1] as RegionLocal
+                CoordGrid(
+                    local.level,
+                    local.regionZoneX,
+                    local.regionZoneZ,
+                    local.localX,
+                    local.localZ,
+                )
+            } else Answers.RETURNS_DEFAULTS.answer(call)
+        }
+    val run =
+        Dt2EncounterManager.Run(
+            player,
+            session,
+            1,
+            bossKind,
+            difficulty,
+            boss,
+            if (bossKind == Dt2Boss.WHISPERER) Dt2State.PREPARING else Dt2State.ACTIVE,
+            Dt2SeededRng(42),
+            42,
+            100,
+            100,
+        )
+    val registry = EncounterRegistry(random)
+    val manager =
+        Dt2EncounterManager(
+            clock,
+            instances,
+            mock(BossHpBarScript::class.java),
+            repository,
+            mock(LocRepository::class.java),
+            mock(AiPlayerInteractions::class.java),
+            collision,
+            native,
+            world,
+            events,
+            mock(LeviathanRecordService::class.java),
+            mock(MusicPlayer::class.java),
+            mock(RouteFactory::class.java),
+            mock(DukeEncounter::class.java),
+            registry,
+        )
+    private val deps =
+        BossDeps(
+            random,
+            accuracy,
+            world,
+            repository,
+            players,
+            clock,
+            WorldQueueList(),
+            collision,
+            registry,
+            BossExtensionRegistry(),
+            native,
+        )
+
+    init {
+        // Bootstrap content state without invoking entry UI or adding a production test hook.
+        val field = Dt2EncounterManager::class.java.getDeclaredField("runs")
+        field.isAccessible = true
+        @Suppress("UNCHECKED_CAST")
+        val runs = field.get(manager) as MutableMap<PlayerUid, Dt2EncounterManager.Run>
+        runs[player.uid] = run
+        val context = ScriptContext(events, CheatCommandMap(), EngineQueueCache())
+        with(Dt2Combat(manager, mock(NpcDeath::class.java), players, deps)) { context.startup() }
+    }
+
+    fun activateWhisperer() {
+        check(run.bossKind == Dt2Boss.WHISPERER)
+        run.state = Dt2State.STARTING
+        run.startStage = 1
+        run.startReadyCycle = clock.cycle
+        manager.tick(player)
+    }
+
+    fun advance(ticks: Int) {
+        clock.cycle += ticks
+        boss.currentMapClock = clock.cycle
+        boss.processedMapClock = clock.cycle
+    }
+
+    fun attack() {
+        boss.launch {
+            val access =
+                StandardNpcAccess(
+                    boss,
+                    this,
+                    StandardNpcAccessContext(
+                        { random },
+                        { StandardNpcHitModifier(events) },
+                        { StandardNpcHitProcessor(players, events, emptySet()) },
+                    ),
+                )
+            events.publish(access, AiPlayerEvents.Ap2(player, boss))
+        }
+    }
+
+    fun hits(): List<Pair<Int, Hit>> {
+        val iterator = player.queueList.iterator() ?: return emptyList()
+        return try {
+            buildList {
+                while (iterator.hasNext()) {
+                    val queue = iterator.next()
+                    (queue.args as? Hit)?.let { add(queue.remainingCycles to it) }
+                }
+            }
+        } finally {
+            iterator.cleanUp()
+        }
+    }
+}

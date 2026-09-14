@@ -31,21 +31,9 @@
   },
   {
     "boss": "dagannoth-kings",
-    "rule": "boss-api-dependency",
-    "maximum": 1,
-    "reason": "Separate pending audit of native NvPCombat and spinolyp lifecycle; no mechanical defect inferred."
-  },
-  {
-    "boss": "dagannoth-kings",
     "rule": "direct-combat-review",
-    "maximum": 7,
-    "reason": "Separate pending audit of native NvPCombat and spinolyp lifecycle; no mechanical defect inferred."
-  },
-  {
-    "boss": "desert-treasure-ii",
-    "rule": "boss-api-dependency",
-    "maximum": 1,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+    "maximum": 5,
+    "reason": "Three kings use BossSpec/NpcAttack. Reviewed Prime secondary splash and unchanged Spinolyp native combat/poison/prayer handlers remain explicit. See current DSL_MIGRATION.md."
   },
   {
     "boss": "desert-treasure-ii",
@@ -79,33 +67,9 @@
   },
   {
     "boss": "doom-of-mokhaiotl",
-    "rule": "boss-api-dependency",
-    "maximum": 1,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "doom-of-mokhaiotl",
-    "rule": "global-runs-map",
-    "maximum": 1,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "doom-of-mokhaiotl",
-    "rule": "manual-lifecycle",
-    "maximum": 3,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "doom-of-mokhaiotl",
     "rule": "direct-combat-review",
-    "maximum": 11,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "doom-of-mokhaiotl",
-    "rule": "instance-script",
-    "maximum": 1,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+    "maximum": 10,
+    "reason": "Primary and tongue attacks use BossSpec/NpcAttack; remaining parameter snapshots and specialized spatial hazards use native combat/queues. Session ownership is native; seeded decision selection remains separate migration debt. See current DSL_MIGRATION.md."
   },
   {
     "boss": "grotesque-guardians",
@@ -169,32 +133,14 @@
   },
   {
     "boss": "yama",
-    "rule": "boss-api-dependency",
-    "maximum": 1,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "yama",
-    "rule": "global-runs-map",
-    "maximum": 1,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "yama",
     "rule": "manual-lifecycle",
-    "maximum": 7,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
+    "maximum": 5,
+    "reason": "Only PlayerPostTickHook imports/interface/binding for public Voice options/storage reminders and the public-lobby logout presentation callback remain. InstanceScript/InstanceLifecycleScript and session-owned state now own all encounter departure/cleanup."
   },
   {
     "boss": "yama",
     "rule": "direct-combat-review",
     "maximum": 4,
-    "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
-  },
-  {
-    "boss": "yama",
-    "rule": "instance-script",
-    "maximum": 1,
     "reason": "Temporary migration debt at source baseline 798b8c320; reduce/remove this budget when the boss is migrated. See DSL_MIGRATION.md."
   },
   {

@@ -5,7 +5,6 @@ import jakarta.inject.Singleton
 import org.rsmod.api.combat.scripts.NpcMeleeApRangeHook
 import org.rsmod.api.death.NpcAttackValidateHook
 import org.rsmod.api.death.NpcAttackValidateResult
-import org.rsmod.api.death.PlayerDeathCleanupHook
 import org.rsmod.api.death.PlayerDeathContext
 import org.rsmod.api.death.PlayerDeathDrops.Companion.DROP_DURATION_STANDARD
 import org.rsmod.api.death.PlayerDeathDrops.Companion.standardKeepCount
@@ -13,7 +12,6 @@ import org.rsmod.api.death.PlayerDeathHandling
 import org.rsmod.api.death.PlayerDeathHook
 import org.rsmod.api.death.UntradeableHandling
 import org.rsmod.api.game.process.GameLifecycle
-import org.rsmod.api.instances.events.InstancePlayerExternalTeleportEvent
 import org.rsmod.api.instances.events.RaidLeaveRequestEvent
 import org.rsmod.api.instances.events.instanceEventId
 import org.rsmod.api.player.hook.PlayerPostTickHook
@@ -63,14 +61,6 @@ constructor(private val encounters: YamaEncounterManager) : PlayerDeathHook {
     }
 }
 
-@Singleton
-internal class YamaDeathCleanup @Inject constructor(private val encounters: YamaEncounterManager) :
-    PlayerDeathCleanupHook {
-    override fun cleanup(player: Player) {
-        encounters.removeParticipant(player, "player death", teleport = true)
-    }
-}
-
 internal class YamaLifecycle
 @Inject
 constructor(private val encounters: YamaEncounterManager, private val storage: YamaDeathStorage) :
@@ -82,18 +72,8 @@ constructor(private val encounters: YamaEncounterManager, private val storage: Y
         onEvent<RaidLeaveRequestEvent>(instanceEventId(YAMA_INSTANCE_KEY)) {
             result = encounters.leaveFromLogoutTab(player, instanceId)
         }
-        onEvent<InstancePlayerExternalTeleportEvent> {
-            if (key == YAMA_INSTANCE_KEY) encounters.externalTeleport(player, instanceId)
-        }
-        onPlayerLogout {
-            encounters.removeRecordsImp(player)
-            encounters.removeParticipant(
-                player,
-                "logout or disconnect",
-                teleport = false,
-                logout = true,
-            )
-        }
+        // Public-lobby presentation only. InstanceLifecycleScript owns encounter departure.
+        onPlayerLogout { encounters.logoutPresentation(player) }
     }
 
     override fun onPostTick(player: Player) {

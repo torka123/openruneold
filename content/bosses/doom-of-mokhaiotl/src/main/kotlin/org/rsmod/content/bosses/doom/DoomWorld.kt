@@ -6,12 +6,17 @@ import dev.openrune.rscm.RSCM
 import dev.openrune.rscm.RSCMType
 import dev.or2.central.account.Rights
 import jakarta.inject.Inject
+import org.rsmod.api.instances.BossInstanceRegistry
+import org.rsmod.api.instances.InstanceScript
+import org.rsmod.api.instances.events.InstanceLeaveRequestEvent
+import org.rsmod.api.instances.events.instanceEventId
 import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.protect.ProtectedAccess
 import org.rsmod.api.player.ui.IfModalButton
 import org.rsmod.api.player.ui.IfModalPauseButton
 import org.rsmod.api.player.ui.ifClose
 import org.rsmod.api.script.onCommand
+import org.rsmod.api.script.onEvent
 import org.rsmod.api.script.onOpLoc1
 import org.rsmod.api.script.onOpLoc2
 import org.rsmod.api.script.onOpLoc3
@@ -19,15 +24,26 @@ import org.rsmod.api.script.onProtectedEvent
 import org.rsmod.events.EventBus
 import org.rsmod.game.inv.InvObj
 import org.rsmod.game.inv.Inventory
-import org.rsmod.plugin.scripts.PluginScript
 import org.rsmod.plugin.scripts.ScriptContext
 
 internal class DoomWorld
 @Inject
-constructor(private val encounters: DoomEncounterManager, private val eventBus: EventBus) :
-    PluginScript() {
-    override fun ScriptContext.startup() {
+constructor(
+    registry: BossInstanceRegistry,
+    private val encounters: DoomEncounterManager,
+    private val eventBus: EventBus,
+) :
+    InstanceScript(
+        registry,
+        DOOM_INSTANCE_KEY,
+        doomSpec(1, requireNotNull(ServerCacheManager.getNpc(DoomAssets.BOSS))),
+    ) {
+    override fun ScriptContext.configure() {
         encounters.validateAssets()
+        onInstancePlayerLeave { encounters.membershipEnded(player, instanceId) }
+        onEvent<InstanceLeaveRequestEvent>(instanceEventId(DOOM_INSTANCE_KEY)) {
+            result = encounters.leaveFromLogoutTab(player, instanceId)
+        }
         for (id in listOf(DoomAssets.GAP, DoomAssets.GAP_ALT)) {
             val action = requireNotNull(DoomGapRouting.actionFor(id))
             onOpLoc1(requireLoc(id)) {

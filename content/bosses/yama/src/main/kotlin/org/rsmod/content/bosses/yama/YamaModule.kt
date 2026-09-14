@@ -2,7 +2,6 @@ package org.rsmod.content.bosses.yama
 
 import org.rsmod.api.combat.scripts.NpcMeleeApRangeHook
 import org.rsmod.api.death.NpcAttackValidateHook
-import org.rsmod.api.death.PlayerDeathCleanupHook
 import org.rsmod.api.death.PlayerDeathHook
 import org.rsmod.api.death.PlayerDeathStorageHook
 import org.rsmod.api.player.hook.PlayerPostTickHook
@@ -14,7 +13,6 @@ public class YamaModule : PluginModule() {
         addSetBinding<NpcMeleeApRangeHook>(YamaJudgeMeleeApRangeHook::class.java)
         addSetBinding<PlayerDeathHook>(YamaPlayerDeathHook::class.java)
         addSetBinding<PlayerDeathStorageHook>(YamaDeathStorage::class.java)
-        addSetBinding<PlayerDeathCleanupHook>(YamaDeathCleanup::class.java)
         addSetBinding<PlayerPostTickHook>(YamaLifecycle::class.java)
     }
 }

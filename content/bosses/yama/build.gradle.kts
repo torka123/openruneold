@@ -30,6 +30,7 @@ dependencies {
     implementation(projects.engine.plugin)
     implementation(projects.engine.routefinder)
     testImplementation(projects.api.combat.combatFormulas)
+    testImplementation(projects.api.registry)
     testImplementation(kotlin("test"))
     testImplementation("org.mockito:mockito-core:5.18.0")
     testImplementation(projects.engine.coroutine)

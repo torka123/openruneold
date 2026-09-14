@@ -26,6 +26,7 @@ import org.rsmod.api.instances.InstanceAccess
 import org.rsmod.api.instances.InstanceId
 import org.rsmod.api.instances.InstanceManager
 import org.rsmod.api.instances.InstanceSession
+import org.rsmod.api.instances.InstanceStateKey
 import org.rsmod.api.instances.RaidLeaveResult
 import org.rsmod.api.instances.RegionLocal
 import org.rsmod.api.mechanics.toxins.impl.PlayerVenom
@@ -105,8 +106,36 @@ constructor(
 ) {
     private val log = InlineLogger()
     private val stepValidator = StepValidator(collision)
-    private val runs = mutableMapOf<PlayerUid, Run>()
+    private val RUN_STATE = InstanceStateKey<Run>("doom-of-mokhaiotl-encounter")
     private var generation = 1L
+
+    private fun run(player: Player): Run? =
+        instances
+            .sessionForPlayer(player)
+            ?.takeIf { it.key == DOOM_INSTANCE_KEY && !it.isEnded }
+            ?.stateOrNull(RUN_STATE)
+            ?.takeIf { !it.retired && it.player === player && it.playerUid == player.uid }
+
+    private fun run(npc: Npc): Run? =
+        instances
+            .instanceForNpc(npc)
+            ?.let(instances::sessionForId)
+            ?.takeIf { it.key == DOOM_INSTANCE_KEY && !it.isEnded }
+            ?.stateOrNull(RUN_STATE)
+            ?.takeUnless { it.retired }
+
+    private fun activeRuns(): List<Run> =
+        instances
+            .sessionsForKey(DOOM_INSTANCE_KEY)
+            .filterNot { it.isEnded }
+            .mapNotNull { it.stateOrNull(RUN_STATE) }
+            .filterNot { it.retired }
+
+    private fun attachRun(run: Run) {
+        check(run.session.state(RUN_STATE) { run } === run)
+        // Session teardown removes the native indexes and typed state before invoking this closure.
+        run.session.onCleanup { retire(run) }
+    }
 
     fun validateAssets() {
         rewards.validateAssets()
@@ -148,7 +177,7 @@ constructor(
             player.mes("Leave your current instance before travelling to the Mokhaiotl delve.")
             return false
         }
-        runs[player.uid]?.let { abort(player, "admin travel", teleport = false) }
+        run(player)?.let { abort(player, "admin travel", teleport = false) }
         instances.sessionForPlayer(player)?.let { instances.leave(player, it, clock.cycle) }
         prepare(player)
         PathingEntityCommon.telejump(player, collision, DOOM_OUTSIDE)
@@ -183,7 +212,7 @@ constructor(
             player.mes("Leave your current instance before starting a Doom test delve.")
             return false
         }
-        runs[player.uid]?.let { abort(player, "admin direct-delve test", teleport = false) }
+        run(player)?.let { abort(player, "admin direct-delve test", teleport = false) }
         instances.sessionForPlayer(player)?.let { instances.leave(player, it, clock.cycle) }
         val created = createRun(player, delve, allowProtected = true, debug = true)
         if (created) {
@@ -195,7 +224,7 @@ constructor(
     }
 
     fun beginDescend(player: Player): Descent? {
-        val current = runs[player.uid] ?: return null
+        val current = run(player) ?: return null
         if (current.state != DoomState.DEFEATED) {
             player.mes("Defeat the Doom of Mokhaiotl before descending further.")
             return null
@@ -257,18 +286,18 @@ constructor(
 
     fun inspect(player: Player) {
         player.mes(rewards.summary(player))
-        val run = runs[player.uid]
+        val run = run(player)
         if (run?.state == DoomState.DEFEATED) {
             player.mes("You may claim the rewards now or descend to delve ${run.delve + 1}.")
         }
     }
 
-    fun canDescend(player: Player) = runs[player.uid]?.state == DoomState.DEFEATED
+    fun canDescend(player: Player) = run(player)?.state == DoomState.DEFEATED
 
-    fun currentDelve(player: Player): Int? = runs[player.uid]?.delve
+    fun currentDelve(player: Player): Int? = run(player)?.delve
 
     fun advanceEntryPrompt(player: Player): Boolean {
-        val run = runs[player.uid] ?: return false
+        val run = run(player) ?: return false
         if (run.state != DoomState.STARTING || run.bossRevealCycle != Int.MAX_VALUE) return false
         val revealCycle = DoomActivationRules.spawnCycle(clock.cycle)
         run.bossRevealCycle = revealCycle
@@ -293,8 +322,24 @@ constructor(
     fun scoreboardSnapshot(player: Player) = stats.snapshot(player)
 
     fun recordDeath(player: Player) {
-        val run = runs[player.uid] ?: return
+        run(player)?.let(::recordDeath)
+    }
+
+    private fun recordDeath(run: Run) {
+        if (run.deathRecorded) return
+        run.deathRecorded = true
+        val player = run.player
+        val hasCompletedRewards = rewards.pending(player).isNotEmpty()
         stats.recordDeath(player, "${run.runId}:death")
+        rewards.clear(player)
+        // Native PlayerDeath first selects the realm respawn. Preserve Doom's lobby return;
+        // InstanceDeathCleanupHook and keyed leave still own membership/region teardown.
+        PathingEntityCommon.telejump(player, collision, run.session.placement.exitCoord)
+        player.mes(
+            if (hasCompletedRewards)
+                "Every reward accumulated during this delve has been forfeited."
+            else "You return to the Mokhaiotl lobby."
+        )
     }
 
     fun claim(player: Player): Boolean {
@@ -312,7 +357,7 @@ constructor(
     }
 
     private fun finishRewardClaim(player: Player) {
-        val run = runs[player.uid]
+        val run = run(player)
         if (run != null && run.state == DoomState.DEFEATED) {
             abort(player, "rewards claimed", teleport = true)
         }
@@ -333,7 +378,7 @@ constructor(
             player.mes("Finish what you are doing before entering the delve.")
             return false
         }
-        if (runs.containsKey(player.uid) || instances.sessionForPlayer(player) != null) {
+        if ((run(player) != null) || instances.sessionForPlayer(player) != null) {
             player.mes("You already have an active instance.")
             return false
         }
@@ -400,7 +445,7 @@ constructor(
                 runId = runId,
                 chainStartCycle = chainStartCycle,
             )
-        runs[player.uid] = run
+        attachRun(run)
         run.demonicCharge = demonicCharge
         val arenaSouthWest = local(result.session, delve, 22, 28)
         carriedAcid.forEach { offset ->
@@ -419,11 +464,11 @@ constructor(
     }
 
     fun tickAll() {
-        runs.values.toList().forEach { tick(it.player) }
+        activeRuns().forEach { tick(it.player) }
     }
 
     fun tick(player: Player) {
-        val run = runs[player.uid] ?: return
+        val run = run(player) ?: return
         if (!player.isSlotAssigned || player.pendingLogout || player.loggingOut) return
         if (instances.sessionForPlayer(player)?.id != run.session.id) {
             abort(player, "left instance unexpectedly", teleport = false)
@@ -496,7 +541,7 @@ constructor(
     }
 
     fun prepareAttack(npc: Npc, target: Player): Boolean {
-        val run = runs[target.uid] ?: return false
+        val run = run(target) ?: return false
         if (run.boss !== npc || run.state != DoomState.ACTIVE) return false
         if (!DoomAttackFlow.canStartTurn(npc.actionDelay, clock.cycle)) return false
         if (clock.cycle < run.nextAttackNotBeforeCycle) {
@@ -543,7 +588,7 @@ constructor(
     }
 
     fun attackParameters(npc: Npc, target: Player, primary: DoomPrimaryAttack): NpcAttackOverride {
-        val run = checkNotNull(runs[target.uid])
+        val run = checkNotNull(run(target))
         check(run.boss === npc && run.preparedAttack?.primary == primary)
         return NpcAttackOverride(
             applyModifierOnImpact = primary == DoomPrimaryAttack.STANDARD,
@@ -553,7 +598,7 @@ constructor(
     }
 
     fun rockAttack(access: StandardNpcAccess, target: Player) {
-        val run = runs[target.uid] ?: return
+        val run = run(target) ?: return
         if (run.boss !== access.npc || run.preparedAttack?.primary != DoomPrimaryAttack.ROCKS)
             return
         beginRockAttack(access, run)
@@ -561,7 +606,7 @@ constructor(
     }
 
     fun afterAttack(npc: Npc, target: Player) {
-        val run = runs[target.uid] ?: return
+        val run = run(target) ?: return
         if (run.boss !== npc) return
         val turn = run.preparedAttack ?: return
         run.preparedAttack = null
@@ -584,7 +629,7 @@ constructor(
     }
 
     fun modifyNpcHit(player: Player, npc: Npc, hit: HitBuilder) {
-        val run = runs[player.uid]
+        val run = run(player)
         if (
             run == null ||
                 !npc.isSpawnOwnedBy(player) ||
@@ -727,18 +772,14 @@ constructor(
                 val existing = hit.impactHandler
                 hit.impactHandler = HitImpactHandler { impact ->
                     existing?.onImpact(impact)
-                    if (
-                        impact.target === npc &&
-                            runs[player.uid] === run &&
-                            run.larvae[npc] === larva
-                    ) {
+                    if (impact.target === npc && run(player) === run && run.larvae[npc] === larva) {
                         larva.lethalClaimExpiryCycle = Int.MAX_VALUE
                     }
                     if (
                         impact.target === npc &&
                             impact.damage > 0 &&
                             npc.hitpoints == 0 &&
-                            runs[player.uid] === run &&
+                            run(player) === run &&
                             run.larvae[npc] === larva
                     ) {
                         npc.abortRoute()
@@ -767,7 +808,7 @@ constructor(
                         if (
                             impact.target === npc &&
                                 impact.damage > 0 &&
-                                runs[player.uid] === run &&
+                                run(player) === run &&
                                 npc in run.volatiles
                         ) {
                             selectVolatileEarth(run, npc)
@@ -791,7 +832,7 @@ constructor(
             if (
                 impact.target === run.boss &&
                     impact.damage > 0 &&
-                    runs[run.player.uid] === run &&
+                    run(run.player) === run &&
                     run.boss.isSlotAssigned
             ) {
                 bossHpBar.onUpdate(
@@ -806,7 +847,7 @@ constructor(
     }
 
     fun beginNpcDeath(npc: Npc): Run? {
-        val run = runs.values.firstOrNull { it.boss === npc } ?: return null
+        val run = run(npc)?.takeIf { it.boss === npc } ?: return null
         if (run.state in setOf(DoomState.DYING, DoomState.DEFEATED, DoomState.INVALIDATED))
             return null
         when (DoomEncounterRuntimeRules.bossDeathQueueAction(run.state, run.boss.hitpoints)) {
@@ -833,9 +874,10 @@ constructor(
         return run
     }
 
-    fun finishNpcDeath(npc: Npc) {
-        val run = runs.values.firstOrNull { it.boss === npc } ?: return
-        if (runs[run.player.uid] !== run) return
+    fun finishNpcDeath(run: Run) {
+        // Native death deletes the NPC/index before resuming this continuation. The retained
+        // session token still authorizes exactly this defeated delve, never a replacement run.
+        if (run(run.player) !== run || run.state != DoomState.DYING) return
         val resultId = "${run.runId}:${run.delve}"
         if (!run.debug) {
             rewards.accumulate(
@@ -897,10 +939,11 @@ constructor(
         run.player.mes("Investigate the burrow to view rewards, or descend to continue deeper.")
     }
 
-    fun finishAuxiliaryDeath(npc: Npc) {
-        val run =
-            runs.values.firstOrNull { npc in it.larvae || npc in it.volatiles || npc === it.shield }
-                ?: return
+    fun beginAuxiliaryDeath(npc: Npc): Run? =
+        run(npc)?.takeIf { npc in it.larvae || npc in it.volatiles || npc === it.shield }
+
+    fun finishAuxiliaryDeath(npc: Npc, run: Run) {
+        if (run(run.player) !== run) return
         val larva = run.larvae.remove(npc)
         if (larva != null) {
             val explosion = DoomLarvaRules.explosionTiles(npc.coords, larva.giant)
@@ -927,56 +970,52 @@ constructor(
         if (npc === run.shield) run.shield = null
     }
 
-    fun isActive(player: Player) = runs.containsKey(player.uid)
+    fun isActive(player: Player) = run(player) != null
 
     fun leave(player: Player): Boolean {
-        if (!runs.containsKey(player.uid)) return false
+        if (run(player) == null) return false
         abort(player, "explicit leave", teleport = true, clearRewards = false)
         player.mes("You leave the Doom of Mokhaiotl delve.")
         return true
     }
 
     fun leaveFromLogoutTab(player: Player, expected: InstanceId): RaidLeaveResult {
-        val run = runs[player.uid] ?: return RaidLeaveResult.Unhandled
+        val run = run(player) ?: return RaidLeaveResult.Unhandled
         if (run.session.id != expected) return RaidLeaveResult.Unhandled
         return if (leave(player)) RaidLeaveResult.Left else RaidLeaveResult.Failed
     }
 
     fun membershipEnded(player: Player, instanceId: InstanceId) {
-        val run = runs[player.uid] ?: return
-        if (run.session.id != instanceId) return
-        runs.remove(player.uid)
-        run.state = DoomState.INVALIDATED
-        cleanupHazards(run)
-        player.lootDropDuration = null
-        prepare(player)
-        SpecialAttackEnergyRegeneration.restart(player)
-    }
-
-    fun externalTeleport(player: Player, instanceId: InstanceId) {
-        membershipEnded(player, instanceId)
+        // Native leave has already cleared the player index; the keyed event retains session ID.
+        val session = instances.sessionForId(instanceId) ?: return
+        if (session.key != DOOM_INSTANCE_KEY) return
+        val run = session.stateOrNull(RUN_STATE) ?: return
+        if (run.retired || run.player !== player || run.playerUid != player.uid) return
+        // Native unsafe death can teleport before cleanup hooks, while HP is still zero.
+        if (player.hitpoints <= 0) recordDeath(run)
+        retire(run)
     }
 
     fun isEncounterNpc(npc: Npc) =
-        runs.values.any {
+        run(npc)?.let {
             it.boss === npc || npc in it.larvae || npc in it.volatiles || npc === it.shield
-        }
+        } == true
 
     fun isOwnedBy(player: Player, npc: Npc) =
-        runs[player.uid]?.let {
+        run(player)?.let {
             npc.isSpawnOwnedBy(player) &&
                 (it.boss === npc || npc in it.larvae || npc in it.volatiles || npc === it.shield)
         } == true
 
     fun forcePlayerAccuracy(player: Player, npc: Npc): Boolean =
-        runs[player.uid]?.let { run ->
+        run(player)?.let { run ->
             npc === run.boss &&
                 npc.isSpawnOwnedBy(player) &&
                 run.state in setOf(DoomState.MELEE_CHARGE, DoomState.SHIELDED, DoomState.BURROWING)
         } == true
 
     fun consumeMeleeChargeAttackDelayBypass(player: Player, npc: Npc): Boolean {
-        val run = runs[player.uid] ?: return false
+        val run = run(player) ?: return false
         if (
             !DoomMeleeChargeAttackDelayRules.mayClaim(
                 state = run.state,
@@ -991,7 +1030,7 @@ constructor(
     }
 
     fun attackDenial(player: Player, npc: Npc): String? {
-        val run = runs[player.uid] ?: return "You do not have an active Mokhaiotl encounter."
+        val run = run(player) ?: return "You do not have an active Mokhaiotl encounter."
         if (!isOwnedBy(player, npc)) return "That creature belongs to another encounter."
         if (npc === run.shield) return "The moving earthen shield cannot be attacked."
         if (npc in run.volatiles) {
@@ -1021,34 +1060,17 @@ constructor(
         }
     }
 
-    fun abort(
-        player: Player,
-        reason: String,
-        teleport: Boolean,
-        logout: Boolean = false,
-        clearRewards: Boolean = false,
-    ) {
-
-        val run = runs.remove(player.uid) ?: return
-        run.state = DoomState.INVALIDATED
-        cleanupHazards(run)
-        player.lootDropDuration = null
+    fun abort(player: Player, reason: String, teleport: Boolean, clearRewards: Boolean = false) {
+        val run = run(player) ?: return
         if (clearRewards) rewards.clear(player)
-        if (logout) instances.handleLogout(player, clock.cycle)
-        else {
-            val exit = instances.leave(player, run.session, clock.cycle)
-            if (teleport && player.isSlotAssigned)
-                PathingEntityCommon.telejump(player, collision, exit)
-        }
-        prepare(player)
-        SpecialAttackEnergyRegeneration.restart(player)
+        endInstance(run, teleport && player.isSlotAssigned)
         log.info {
             "[Doom] player=${player.displayName} generation=${run.generation} abort=$reason"
         }
     }
 
     fun debugStatus(player: Player): String {
-        val run = runs[player.uid] ?: return "Doom: no active encounter. ${rewards.summary(player)}"
+        val run = run(player) ?: return "Doom: no active encounter. ${rewards.summary(player)}"
         return "Doom generation=${run.generation} delve=${run.delve} state=${run.state} " +
             "hp=${run.boss.hitpoints} shield=${run.shieldHitpoints} charge=${run.chargeProgress} " +
             "larvae=${run.larvae.size} demonicCharge=${run.demonicCharge} " +
@@ -1789,7 +1811,7 @@ constructor(
         val demonbane = isShieldDemonbane(hit)
         hit.impactHandler = HitImpactHandler { impact ->
             existing?.onImpact(impact)
-            if (impact.target !== run.boss || runs[run.player.uid] !== run) {
+            if (impact.target !== run.boss || run(run.player) !== run) {
                 return@HitImpactHandler
             }
             val resolution =
@@ -1829,7 +1851,7 @@ constructor(
         damage: Int,
         resetChargeOnImpact: Boolean = true,
     ) {
-        if (runs[run.player.uid] !== run || !run.boss.isSlotAssigned) return
+        if (run(run.player) !== run || !run.boss.isSlotAssigned) return
         if (shieldEpoch != run.shieldEpoch || run.state != DoomState.SHIELDED) {
             restoreStaleShieldImpact(run, damage)
             return
@@ -2116,7 +2138,7 @@ constructor(
                 modifier = NpcBypassProtectionPrayerPlayerHitModifier,
                 impactHandler =
                     HitImpactHandler { impact ->
-                        if (runs[run.player.uid] === run && impact.damage > 0) {
+                        if (run(run.player) === run && impact.damage > 0) {
                             PlayerVenom.tryVenom(run.player)
                         }
                     },
@@ -3551,11 +3573,18 @@ constructor(
     }
 
     private fun endInstance(run: Run, teleport: Boolean) {
-        runs.remove(run.player.uid)
-        bossHpBar.onClose(run.player, run.boss, instant = true)
-        cleanupHazards(run)
         val exit = instances.leave(run.player, run.session, clock.cycle)
         if (teleport) PathingEntityCommon.telejump(run.player, collision, exit)
+    }
+
+    private fun retire(run: Run) {
+        if (run.retired) return
+        run.retired = true
+        run.state = DoomState.INVALIDATED
+        run.preparedAttack = null
+        run.preparedForceRock = false
+        run.attackLaunched = false
+        cleanupHazards(run)
         prepare(run.player)
         run.player.lootDropDuration = null
         SpecialAttackEnergyRegeneration.restart(run.player)
@@ -3765,6 +3794,9 @@ constructor(
         val runId: String,
         val chainStartCycle: Int,
         var attackFlowState: DoomAttackFlowState = DoomAttackFlow.initial(delve, generation),
+        val playerUid: PlayerUid = player.uid,
+        var retired: Boolean = false,
+        var deathRecorded: Boolean = false,
         var preparedAttack: DoomAttackTurn? = null,
         var preparedForceRock: Boolean = false,
         var attackLaunched: Boolean = false,

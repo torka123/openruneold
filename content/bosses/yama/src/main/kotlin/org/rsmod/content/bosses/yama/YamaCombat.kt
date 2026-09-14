@@ -51,7 +51,7 @@ constructor(
         onNpcQueue(boss, "queue.death") {
             val run = encounters.beginBossDeath(npc)
             death.deathNoDrops(this)
-            if (run != null) encounters.finishBossDeath(npc)
+            if (run != null) encounters.finishBossDeath(npc, run)
         }
 
         for (id in listOf(YamaAssets.VOID_FLARE, YamaAssets.JUDGE)) {
@@ -62,8 +62,9 @@ constructor(
             }
 
             onNpcQueue(type, "queue.death") {
+                val run = encounters.auxiliaryDeathRun(npc)
                 death.deathNoDrops(this)
-                encounters.finishAuxiliaryDeath(npc)
+                if (run != null) encounters.finishAuxiliaryDeath(npc, run)
             }
         }
     }

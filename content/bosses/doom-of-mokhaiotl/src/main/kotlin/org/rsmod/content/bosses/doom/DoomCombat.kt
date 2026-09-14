@@ -51,7 +51,7 @@ constructor(
                 val run = encounters.beginNpcDeath(npc)
                 if (run != null) {
                     death.deathNoDrops(this)
-                    encounters.finishNpcDeath(npc)
+                    encounters.finishNpcDeath(run)
                 }
             }
         }
@@ -67,8 +67,9 @@ constructor(
                 if (player == null) hit.damage = 0 else encounters.modifyNpcHit(player, npc, hit)
             }
             onNpcQueue(type, "queue.death") {
+                val run = encounters.beginAuxiliaryDeath(npc)
                 death.deathNoDrops(this)
-                encounters.finishAuxiliaryDeath(npc)
+                if (run != null) encounters.finishAuxiliaryDeath(npc, run)
             }
         }
     }

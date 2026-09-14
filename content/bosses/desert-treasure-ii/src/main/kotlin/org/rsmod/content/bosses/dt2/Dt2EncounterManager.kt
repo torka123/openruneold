@@ -16,6 +16,7 @@ import kotlin.math.atan2
 import kotlin.math.max
 import kotlin.math.roundToInt
 import org.rsmod.api.bossbar.plugin.BossHpBarScript
+import org.rsmod.api.bosses.runtime.EncounterRegistry
 import org.rsmod.api.combat.NpcAttackOverride
 import org.rsmod.api.combat.NpcProjectile
 import org.rsmod.api.combat.NvPCombat
@@ -36,6 +37,7 @@ import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.api.npc.apPlayer2
 import org.rsmod.api.npc.heal
 import org.rsmod.api.npc.interact.AiPlayerInteractions
+import org.rsmod.api.npc.isInCombat
 import org.rsmod.api.npc.owner.assignSpawnOwner
 import org.rsmod.api.npc.owner.isSpawnOwnedBy
 import org.rsmod.api.player.combatClearQueue
@@ -45,6 +47,7 @@ import org.rsmod.api.player.hit.modifier.NpcPartialProtectionPrayerPlayerHitModi
 import org.rsmod.api.player.hit.modifier.PlayerHitModifier
 import org.rsmod.api.player.hit.queueHit
 import org.rsmod.api.player.hit.queueImpactHit
+import org.rsmod.api.player.isValidTarget
 import org.rsmod.api.player.music.MusicPlayer
 import org.rsmod.api.player.output.Camera
 import org.rsmod.api.player.output.mes
@@ -100,6 +103,7 @@ constructor(
     private val musicPlayer: MusicPlayer,
     private val routeFactory: RouteFactory,
     private val dukeEncounter: DukeEncounter,
+    private val bossEncounters: EncounterRegistry,
 ) {
     private val log = InlineLogger()
     private val runs = mutableMapOf<PlayerUid, Run>()
@@ -401,7 +405,7 @@ constructor(
             return
         }
         when (run.bossKind) {
-            Dt2Boss.WHISPERER -> attackWhisperer(access, run)
+            Dt2Boss.WHISPERER -> Unit
             Dt2Boss.VARDORVIS -> Unit
             Dt2Boss.LEVIATHAN -> attackLeviathan(access, run)
             Dt2Boss.DUKE -> Unit // Duke's clock-driven state machine owns every attack.
@@ -476,6 +480,7 @@ constructor(
         run.attackCounter = 0
         run.nextSpecialCycle = Int.MAX_VALUE
         run.boss.actionDelay = clock.cycle + 3
+        syncWhispererCombat(run)
         run.boss.anim(10250)
         run.player.mes("The Whisperer pulls you into the Shadow Realm for her final stand!")
         setShadowRealm(run, true)
@@ -607,6 +612,7 @@ constructor(
         if (run.state in setOf(Dt2State.DYING, Dt2State.RESPAWNING)) return null
         run.generation = generation++
         run.state = Dt2State.DYING
+        if (run.bossKind == Dt2Boss.WHISPERER) syncWhispererCombat(run)
         if (run.bossKind == Dt2Boss.LEVIATHAN) run.leviathanAction = LeviathanAction.DYING
         if (run.bossKind == Dt2Boss.VARDORVIS) {
             run.boss.anim(Dt2Assets.VARDORVIS_DEATH_ANIM)
@@ -1203,6 +1209,7 @@ constructor(
         run.nextSpecialCycle =
             if (run.bossKind in setOf(Dt2Boss.WHISPERER, Dt2Boss.LEVIATHAN)) Int.MAX_VALUE
             else clock.cycle + normalSpecialDelay(run)
+        if (run.bossKind == Dt2Boss.WHISPERER) syncWhispererCombat(run)
         run.boss.apPlayer2(run.player, interactions)
     }
 
@@ -1447,6 +1454,7 @@ constructor(
         run.state = Dt2State.SPECIAL
         run.boss.clearInteraction()
         run.boss.actionDelay = clock.cycle + 12
+        if (run.bossKind == Dt2Boss.WHISPERER) syncWhispererCombat(run)
         run.specialStartCycle = clock.cycle
         run.specialProgress = 0
         run.specialRequired = 1
@@ -1640,6 +1648,7 @@ constructor(
             run.whispererMeleeEndCycle = clock.cycle + 13
         }
         run.boss.actionDelay = clock.cycle + 2
+        if (run.bossKind == Dt2Boss.WHISPERER) syncWhispererCombat(run)
         run.boss.apPlayer2(run.player, interactions)
     }
 
@@ -1859,71 +1868,92 @@ constructor(
         run.boss.apPlayer2(run.player, interactions)
     }
 
-    private fun attackWhisperer(access: StandardNpcAccess, run: Run) {
-        if (run.boss.visType.id == Dt2Assets.WHISPERER_MELEE_ID) {
+    fun canAttackWhisperer(npc: Npc, target: Player): Boolean =
+        runs[target.uid]?.let {
+            it.bossKind == Dt2Boss.WHISPERER &&
+                it.boss === npc &&
+                it.state in setOf(Dt2State.ACTIVE, Dt2State.ENRAGED) &&
+                target.isValidTarget() &&
+                npc.isInCombat() &&
+                npc.hitpoints > 0
+        } == true
+
+    /**
+     * Phase changes happen at existing content transitions; native actionDelay remains
+     * authoritative.
+     */
+    private fun syncWhispererCombat(run: Run) {
+        val phase =
+            when {
+                run.state !in setOf(Dt2State.ACTIVE, Dt2State.ENRAGED) -> WHISPERER_INACTIVE
+                // Preserve the existing visual-first branch, including enrage during the melee
+                // form.
+                run.boss.visType.id == Dt2Assets.WHISPERER_MELEE_ID -> WHISPERER_MELEE
+                else -> whispererDistancePhase(run.attackCounter, run.enraged)
+            }
+        val movementLocked = run.boss.movementLocked
+        val encounter = bossEncounters.of(run.boss)
+        encounter.transitionTo(phase, clock.cycle)
+        // Special/death transitions retain the current form's native movement policy.
+        if (phase == WHISPERER_INACTIVE) run.boss.movementLocked = movementLocked
+        encounter.lastAbilityTick =
+            max(clock.cycle, run.boss.actionDelay) - encounter.expectedAttackRate()
+    }
+
+    /**
+     * Named native parameter resolver; selection, launch and primary cadence belong to BossSpec.
+     */
+    fun whispererAttackParameters(
+        npc: Npc,
+        target: Player,
+        style: Dt2AttackStyle,
+    ): NpcAttackOverride {
+        val run = requireNotNull(runs[target.uid])
+        check(run.bossKind == Dt2Boss.WHISPERER && run.boss === npc)
+        if (style == Dt2AttackStyle.MELEE) {
             val protected = run.player.vars["varbit.prayer_protectfrommelee"] == 1
-            combat.attack(
-                access,
-                run.player,
-                CombatAttack.NpcMelee(MeleeAttackType.Crush),
-                NpcAttackOverride(
-                    attackAnimation = animation(10234),
-                    maxHit =
-                        Dt2Rules.whispererMaximumHit(
+            return NpcAttackOverride(
+                maxHit =
+                    Dt2Rules.whispererMaximumHit(
+                        Dt2AttackStyle.MELEE,
+                        run.difficulty == Dt2Difficulty.AWAKENED,
+                    ),
+                hitModifier = NpcPartialProtectionPrayerPlayerHitModifier(if (protected) 50 else 0),
+                onAttack = {
+                    run.pendingWhispererShots +=
+                        PendingWhispererShot(
                             Dt2AttackStyle.MELEE,
-                            run.difficulty == Dt2Difficulty.AWAKENED,
-                        ),
-                    attackRate = 2,
-                    hitModifier =
-                        NpcPartialProtectionPrayerPlayerHitModifier(if (protected) 50 else 0),
-                    onAttack = {
-                        run.pendingWhispererShots +=
-                            PendingWhispererShot(
-                                Dt2AttackStyle.MELEE,
-                                clock.cycle + 1,
-                                projectile = false,
-                            )
-                    },
-                ),
+                            clock.cycle + 1,
+                            projectile = false,
+                        )
+                },
             )
-            return
         }
         val volley = Dt2Rules.whispererVolley(run.attackCounter, run.specialIndex, run.enraged)
-        val style = volley.styles.first()
+        check(style == volley.styles.first()) {
+            "Whisperer native selection diverged from its accepted volley count"
+        }
         val protected = whispererProtected(run, style)
-        combat.attack(
-            access,
-            run.player,
-            if (style == Dt2AttackStyle.MAGIC)
-                CombatAttack.NpcMagic(
-                    Dt2Rules.whispererMaximumHit(style, run.difficulty == Dt2Difficulty.AWAKENED)
-                )
-            else CombatAttack.NpcRanged(RangedAttackType.Standard),
-            NpcAttackOverride(
-                attackAnimation = animation(if (style == Dt2AttackStyle.MAGIC) 10243 else 10237),
-                maxHit =
-                    Dt2Rules.whispererMaximumHit(style, run.difficulty == Dt2Difficulty.AWAKENED),
-                projectile =
-                    NpcProjectile(
-                        spotanimName(Dt2Rules.whispererProjectile(style)),
-                        WHISPERER_PROJECTILE_TYPE,
-                    ),
-                impactDelay = 2,
-                attackRate = volley.attackRate,
-                hitModifier = NpcCalculatedProtectionPrayerPlayerHitModifier(protected, 100),
-                onAttack = {
-                    volley.styles.drop(1).forEachIndexed { index, followUp ->
-                        run.pendingWhispererShots +=
-                            PendingWhispererShot(followUp, clock.cycle + index + 1)
-                    }
-                    run.attackCounter++
-                    if (run.enraged || run.specialIndex >= 2) spawnTentaclePattern(run)
-                },
-                onImpact = { _, _ ->
-                    if (style == Dt2AttackStyle.MAGIC)
-                        run.player.spotanim(Dt2Assets.WHISPERER_MAGIC_IMPACT)
-                },
-            ),
+        return NpcAttackOverride(
+            maxHit = Dt2Rules.whispererMaximumHit(style, run.difficulty == Dt2Difficulty.AWAKENED),
+            projectile =
+                NpcProjectile(
+                    spotanimName(Dt2Rules.whispererProjectile(style)),
+                    WHISPERER_PROJECTILE_TYPE,
+                ),
+            hitModifier = NpcCalculatedProtectionPrayerPlayerHitModifier(protected, 100),
+            onAttack = {
+                volley.styles.drop(1).forEachIndexed { index, followUp ->
+                    run.pendingWhispererShots +=
+                        PendingWhispererShot(followUp, clock.cycle + index + 1)
+                }
+                run.attackCounter++
+                if (run.enraged || run.specialIndex >= 2) spawnTentaclePattern(run)
+            },
+            onImpact = { _, _ ->
+                if (style == Dt2AttackStyle.MAGIC)
+                    run.player.spotanim(Dt2Assets.WHISPERER_MAGIC_IMPACT)
+            },
         )
     }
 
@@ -2806,6 +2836,7 @@ constructor(
             run.boss.movementLocked = true
             run.boss.apRangeOverride = 12
             run.whispererMeleeEndCycle = Int.MAX_VALUE
+            syncWhispererCombat(run)
         }
         tickWhispererShots(run)
         tickWhispererTentacles(run)
