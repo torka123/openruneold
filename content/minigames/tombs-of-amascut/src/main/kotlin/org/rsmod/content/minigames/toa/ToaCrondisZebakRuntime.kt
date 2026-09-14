@@ -561,12 +561,12 @@ constructor(
             return true
         }
         if (npc.id in setOf(ZebakAssets.JUG, ZebakAssets.ROLLING_JUG)) {
-            state.jugs.remove(npc.hashCode())
+            state.jugs.remove(npc.hashCode())?.let { state.payloadQueues?.cancelJug(it) }
             splashJug(raid, npc.coords)
             return true
         }
         if (npc.id == ZebakAssets.ROCK) {
-            state.rocks.remove(npc.hashCode())
+            state.rocks.remove(npc.hashCode())?.let { state.payloadQueues?.cancelRock(it) }
             return true
         }
         return npc.id in ZebakAssets.npcIds
@@ -1239,10 +1239,10 @@ constructor(
         liveRocks.forEach { runtime ->
             runtime.hitpoints -= ZebakTuning.ROCK_ROAR_DAMAGE
             runtime.npc.hitpoints = runtime.hitpoints.coerceAtLeast(0)
-            if (runtime.hitpoints <= 0 && runtime.destroysAt < 0) {
+            if (runtime.hitpoints <= 0 && !runtime.collapsing) {
                 runtime.npc.anim(7717)
                 replaceZebakRockLoc(raid, runtime.npc, ZebakAssets.COLLAPSED_ROCK_LOC)
-                runtime.destroysAt = clock.cycle + ZebakTuning.ROAR_ROCK_CLEANUP_DELAY
+                state.payloadQueues?.armRockCorpse(runtime)
             }
         }
     }
@@ -1632,6 +1632,7 @@ constructor(
     }
 
     private fun processZebakAcid(raid: ToaRaidSession, body: Npc) {
+        raid.zebak.payloadQueues?.processAcidReadiness()
         activePlayers(raid).forEach { player ->
             val runtime =
                 raid.zebak.playerState.getOrPut(player.uid) {
@@ -1639,10 +1640,10 @@ constructor(
                 }
             if (player.coords !in raid.zebak.acidTiles) {
                 runtime.acidStack = 0
-                runtime.nextAcidAt = clock.cycle
+                raid.zebak.payloadQueues?.resetAcidExposure(runtime)
                 return@forEach
             }
-            if (clock.cycle < runtime.nextAcidAt) return@forEach
+            if (!runtime.acidReady) return@forEach
             if (runtime.acidStack == 0) {
                 PlayerPoison.tryPoison(
                     player,
@@ -1651,7 +1652,7 @@ constructor(
                 )
             }
             runtime.acidStack++
-            runtime.nextAcidAt = clock.cycle + ZebakTuning.ACID_TICK_INTERVAL
+            raid.zebak.payloadQueues?.armAcidExposure(runtime)
             val damage =
                 (ZebakTuning.ACID_BASE_DAMAGE +
                         (runtime.acidStack - 1) * ZebakTuning.ACID_RAMP_DAMAGE)
@@ -1673,7 +1674,7 @@ constructor(
             return false
         }
         val existing = raid.zebak.jugs[npc.hashCode()] ?: return false
-        if (!npc.isWithinDistance(player, 1) || existing.rolling || existing.breaksAt >= 0) {
+        if (!npc.isWithinDistance(player, 1) || existing.rolling || existing.collisionPending) {
             return false
         }
         val dx = (npc.coords.x - player.coords.x).sign
@@ -1696,14 +1697,16 @@ constructor(
     }
 
     private fun processZebakJugs(raid: ToaRaidSession) {
+        raid.zebak.payloadQueues?.processJugReadiness()
         raid.zebak.jugs.values.toList().forEach { runtime ->
             val npc = runtime.npc
             if (!npc.isSlotAssigned) {
                 raid.zebak.jugs.remove(npc.hashCode())
+                raid.zebak.payloadQueues?.cancelJug(runtime)
                 return@forEach
             }
-            if (runtime.breaksAt >= 0) {
-                if (clock.cycle >= runtime.breaksAt) breakJug(raid, npc, runtime.tile)
+            if (runtime.collisionPending) {
+                if (runtime.collisionReady) breakJug(raid, npc, runtime.tile)
                 return@forEach
             }
             if (!runtime.rolling) return@forEach
@@ -1745,28 +1748,30 @@ constructor(
         runtime.tile = collisionTile
         runtime.rolling = false
         runtime.remainingSteps = 0
-        runtime.breaksAt = clock.cycle + 1
+        raid.zebak.payloadQueues?.armJugCollision(runtime)
         PathingEntityCommon.telejump(runtime.npc, collision, collisionTile)
-        trace(raid, "jug_rock_collision", "tile=$collisionTile breaks=${runtime.breaksAt}")
+        trace(raid, "jug_rock_collision", "tile=$collisionTile breaks=${clock.cycle + 1}")
     }
 
     private fun processZebakWaterSplashes(raid: ToaRaidSession) {
-        raid.zebak.waterSplashes.toList().forEach { splash ->
-            if (clock.cycle < splash.clearsAt) return@forEach
-            raid.zebak.waterSplashes.remove(splash)
-            splash.tiles.forEach { tile ->
-                if (tile in raid.zebak.acidTiles) {
-                    clearAcidAt(raid, tile)
-                    world.spotanimMap(SpotanimType(ZebakAssets.WATER_CLEANSE), tile)
-                }
+        raid.zebak.payloadQueues?.processWaterSplashes()
+    }
+
+    private fun cleanseZebakSplash(raid: ToaRaidSession, splash: ZebakWaterSplashRuntime) {
+        splash.tiles.forEach { tile ->
+            if (tile in raid.zebak.acidTiles) {
+                clearAcidAt(raid, tile)
+                world.spotanimMap(SpotanimType(ZebakAssets.WATER_CLEANSE), tile)
             }
         }
     }
 
     private fun processZebakRockDeaths(raid: ToaRaidSession) {
+        raid.zebak.payloadQueues?.processRockReadiness()
         raid.zebak.rocks.values.toList().forEach { runtime ->
-            if (runtime.destroysAt < 0 || clock.cycle < runtime.destroysAt) return@forEach
+            if (!runtime.collapseReady) return@forEach
             raid.zebak.rocks.remove(runtime.npc.hashCode())
+            raid.zebak.payloadQueues?.cancelRock(runtime)
             removeZebakRockLoc(raid, runtime.npc)
             if (runtime.npc.isSlotAssigned) {
                 val tile = runtime.npc.coords
@@ -1816,6 +1821,7 @@ constructor(
     private fun breakJug(raid: ToaRaidSession, npc: Npc, tile: CoordGrid): Boolean {
         if (npc.id !in setOf(ZebakAssets.JUG, ZebakAssets.ROLLING_JUG)) return false
         val runtime = raid.zebak.jugs.remove(npc.hashCode()) ?: return false
+        raid.zebak.payloadQueues?.cancelJug(runtime)
         if (runtime.npc.isSlotAssigned) removeNpc(raid, runtime.npc)
         world.spotanimMap(SpotanimType(ZebakAssets.JUG_BREAK), tile)
         activePlayers(raid).forEach { it.soundSynth(2496) }
@@ -1826,6 +1832,7 @@ constructor(
 
     private fun sinkJug(raid: ToaRaidSession, npc: Npc, tile: CoordGrid) {
         val runtime = raid.zebak.jugs.remove(npc.hashCode()) ?: return
+        raid.zebak.payloadQueues?.cancelJug(runtime)
         if (runtime.npc.isSlotAssigned) removeNpc(raid, runtime.npc)
         // A jug entering the surrounding water simply disappears. It neither splashes nor
         // creates the 5x5 cleansing footprint on the arena.
@@ -1844,7 +1851,8 @@ constructor(
         footprint.forEach { target ->
             sendProjectile(tile, target, ZebakAssets.JUG_SPLASH, travelTicks = 1)
         }
-        raid.zebak.waterSplashes += ZebakWaterSplashRuntime(footprint, clock.cycle + 1)
+        val splash = ZebakWaterSplashRuntime(footprint)
+        raid.zebak.payloadQueues?.scheduleWaterSplash(splash) { cleanseZebakSplash(raid, splash) }
     }
 
     private fun clearAcidAt(raid: ToaRaidSession, tile: CoordGrid) {
@@ -2024,7 +2032,14 @@ constructor(
 
     private fun processZebakPlayerMovement(raid: ToaRaidSession, body: Npc) {
         val active = activePlayers(raid)
-        raid.zebak.playerState.keys.retainAll(trackedPlayerUids(raid))
+        val tracked = trackedPlayerUids(raid)
+        raid.zebak.playerState.entries.removeIf { (uid, runtime) ->
+            if (uid in tracked) false
+            else {
+                raid.zebak.payloadQueues?.cancelAcidExposure(runtime)
+                true
+            }
+        }
         active.forEach { player ->
             val runtime =
                 raid.zebak.playerState.getOrPut(player.uid) {
@@ -2091,10 +2106,10 @@ constructor(
             .toList()
             .forEach { if (it.isSlotAssigned) removeNpc(raid, it) }
         raid.zebak.waves.clear()
-        raid.zebak.rocks.values
-            .map { it.npc }
-            .toList()
-            .forEach { if (it.isSlotAssigned) removeNpc(raid, it) }
+        raid.zebak.rocks.values.toList().forEach {
+            raid.zebak.payloadQueues?.cancelRock(it)
+            if (it.npc.isSlotAssigned) removeNpc(raid, it.npc)
+        }
         raid.zebak.rocks.clear()
         zebakRockLocs.remove(raid.instance.id)?.values?.forEach { locs.del(it, Int.MAX_VALUE) }
         raid.zebak.phases?.cancelHazards()
@@ -2102,10 +2117,10 @@ constructor(
         raid.zebak.pendingJugCount = 0
         raid.zebak.pendingRockCount = 0
         if (!keepJugs) {
-            raid.zebak.jugs.values
-                .map { it.npc }
-                .toList()
-                .forEach { if (it.isSlotAssigned) removeNpc(raid, it) }
+            raid.zebak.jugs.values.toList().forEach {
+                raid.zebak.payloadQueues?.cancelJug(it)
+                if (it.npc.isSlotAssigned) removeNpc(raid, it.npc)
+            }
             raid.zebak.jugs.clear()
         }
     }

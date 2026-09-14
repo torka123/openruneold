@@ -419,15 +419,22 @@ internal data class ZebakJugRuntime(
     var directionX: Int = 0,
     var directionZ: Int = 0,
     var remainingSteps: Int = 0,
-    var breaksAt: Int = -1,
+    var collisionPending: Boolean = false,
+    var collisionReady: Boolean = false,
+    var collisionTask: WorldQueueList.Cancellation? = null,
 )
 
-internal data class ZebakWaterSplashRuntime(val tiles: Set<CoordGrid>, val clearsAt: Int)
+internal data class ZebakWaterSplashRuntime(
+    val tiles: Set<CoordGrid>,
+    var cleanseTask: WorldQueueList.Cancellation? = null,
+)
 
 internal data class ZebakRockRuntime(
     val npc: Npc,
     var hitpoints: Int = ZebakTuning.ROCK_HITPOINTS,
-    var destroysAt: Int = -1,
+    var collapsing: Boolean = false,
+    var collapseReady: Boolean = false,
+    var collapseTask: WorldQueueList.Cancellation? = null,
 )
 
 internal data class ZebakWaveRuntime(
@@ -467,7 +474,8 @@ internal data class ZebakWaterCrocodileRuntime(
 internal data class ZebakPlayerRuntime(
     var previousTile: CoordGrid? = null,
     var acidStack: Int = 0,
-    var nextAcidAt: Int = 0,
+    var acidReady: Boolean = true,
+    var acidTask: WorldQueueList.Cancellation? = null,
     var bleedMoves: Int = 0,
     var swimming: Boolean = false,
 )
@@ -609,7 +617,7 @@ internal class ZebakEncounter(val encounterId: UUID, private var rngState: Long)
         if (primaryTarget == uid) primaryTarget = null
         waterCrocodiles.remove(uid)?.let { payloadQueues?.cancelCrocodile(it) }
         waveHitAt.remove(uid)
-        playerState.remove(uid)
+        playerState.remove(uid)?.let { payloadQueues?.cancelAcidExposure(it) }
         bloodClouds.entries.removeIf {
             if (it.value.target != uid) false
             else {

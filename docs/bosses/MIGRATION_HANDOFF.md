@@ -4,7 +4,18 @@ This is a resumable handoff, not a project-completion or full OSRS-parity claim.
 mechanic mappings, uncertainties, commands and results remain in [DSL_MIGRATION.md](DSL_MIGRATION.md).
 Update this checkpoint after each completed boss and immediately before any authorized deployment.
 
-September14 current checkpoint: Ba-Ba rocks/rubble/shockwave owners, Akkha final-intro/memory
+September14 current checkpoint: Ba-Ba rolling cast/release, Zebak jug/splash/rock/acid owners and
+native Wardens P2 Obelisk rotation/cadence are verified. Full ten-row/Boulderdash timelines, actual
+native melee exit, hazard/rejoin/retirement, anchored Obelisk timing/core-history and retained movement
+lock are tested.211 focus and12 final Wardens focus pass; full ToA530, scoped checks, architecture/
+self-tests and app assemble pass (56s). Archive/backup: logs/toa-native-rolling-obelisk-source-20260914.zip /
+backup/toa-native-rolling-obelisk-20260914. Next: mapped generic ToA pending-hit owner plus Ba-Ba banana
+and sarcophagus scheduling, then remaining ToA/Akkha/Kephri/Wardens and ToB/CoX. Exact files, failed-test
+correction, review finding, mappings and acceptance are at the top of DSL_MIGRATION.md. Source only;
+runtime c4fc9390f/JVM23812, cache/database authority and all save/restart/deployment holds remain.
+Continue approved work; this checkpoint is not whole-project completion or full OSRS parity.
+
+Earlier September14 checkpoint: Ba-Ba rocks/rubble/shockwave owners, Akkha final-intro/memory
 visibility and Zebak blood/cloud/crocodile native owners are verified. Actual native manager tests
 cover impact/visibility ordering, pause/rebind and cleanup; shared fixture uses real route requests.
 185 focused (one test base-ID assertion corrected, all6 affected schedule cases then pass), full

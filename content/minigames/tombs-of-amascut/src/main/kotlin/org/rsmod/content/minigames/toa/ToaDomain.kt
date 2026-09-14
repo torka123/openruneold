@@ -326,8 +326,10 @@ internal class ToaEncounterState(
     var wardenPhaseTwoTrueMax = 0
     var wardenPhaseTwoRemaining = 0
     var wardenLastForm = ElidinisWarden.MAGIC_FORM
-    var wardenObeliskSpecialStep = 0
-    var wardenNextPhaseTwoObeliskAttackAt = -1
+    var wardenObeliskQueues: WardenObeliskQueues? = null
+    val wardenNextPhaseTwoObeliskAttackAt: Int
+        get() = wardenObeliskQueues?.nextAt ?: -1
+
     val wardenStoneReleaseAt = mutableMapOf<PlayerUid, Int>()
     val wardenAreaPulses = mutableListOf<WardenAreaPulse>()
     var wardenSkullsSent = 0
@@ -434,8 +436,8 @@ internal class ToaEncounterState(
         wardenPhaseTwoTrueMax = 0
         wardenPhaseTwoRemaining = 0
         wardenLastForm = ElidinisWarden.MAGIC_FORM
-        wardenObeliskSpecialStep = 0
-        wardenNextPhaseTwoObeliskAttackAt = -1
+        wardenObeliskQueues?.close()
+        wardenObeliskQueues = null
         wardenStoneReleaseAt.clear()
         wardenAreaPulses.clear()
         wardenSkullsSent = 0

@@ -85,8 +85,17 @@ class WardenPhaseTwoNativeCombatTest {
             far(f, source, leader, partner)
             val due = source.actionDelay
             // Keep the independent Obelisk active and choose its directly observable skull turn.
-            raid.encounter.wardenObeliskSpecialStep = WardenObeliskSpecial.LIGHTNING_SKULL.ordinal
-            raid.encounter.wardenNextPhaseTwoObeliskAttackAt = due
+            val obelisk = raid.spawnedNpcs.single { it.id == WardenObelisk.EXHAUSTED }
+            val obeliskEncounter = f.bossEncounters.of(obelisk)
+            assertEquals(
+                WardenObeliskSpecial.CONVERGING_BEAM,
+                obeliskEncounter.selectWardenObelisk(f.clock.cycle),
+            )
+            assertEquals(
+                WardenObeliskSpecial.WINDMILL_BEAM,
+                obeliskEncounter.selectWardenObelisk(f.clock.cycle),
+            )
+            armObelisk(f, raid, due)
             clearInvocations(f.world)
             f.dispatchLateCycle(due)
             assertEquals(
@@ -97,7 +106,11 @@ class WardenPhaseTwoNativeCombatTest {
                 ),
                 projectiles(f).map { it.spotanim },
             )
-            assertEquals(3, raid.encounter.wardenObeliskSpecialStep)
+            assertEquals(
+                0,
+                obeliskEncounter.phaseAbilityCount,
+                "Independent branch does not consume body opportunities",
+            )
             assertEquals(
                 due + raid.encounter.wardensRuleset.phaseTwoObeliskAttackInterval,
                 raid.encounter.wardenNextPhaseTwoObeliskAttackAt,
@@ -218,6 +231,129 @@ class WardenPhaseTwoNativeCombatTest {
         }
     }
 
+    @Test
+    fun `Obelisk native rotation retains anchored overdue cadence at both invocation intervals`() {
+        for (accelerated in listOf(false, true)) {
+            ToaNativeCombatFixture().use { f ->
+                val player = f.player()
+                val party = f.manager.createParty(player)
+                if (accelerated) assertTrue(party.invocations.toggle(ToaInvocation.ACCELERATION))
+                f.start(player)
+                val raid = enterPhaseTwo(f, listOf(player), WardenGod.ELIDINIS)
+                val source = body(raid)
+                far(f, source, player)
+                val queues = assertNotNull(raid.encounter.wardenObeliskQueues)
+                val interval = if (accelerated) 30 else 40
+                assertEquals(interval, raid.encounter.wardensRuleset.phaseTwoObeliskAttackInterval)
+                assertEquals(f.clock.cycle + interval, queues.nextAt)
+                for ((index, pulseCount) in listOf(12, 8, 1, 12, 8, 1).withIndex()) {
+                    val due = queues.nextAt
+                    val now = if (index == 1) due + interval * 2 + 3 else due
+                    f.advance(now - f.clock.cycle)
+                    f.queueProcess.process()
+                    assertEquals(
+                        due,
+                        queues.nextAt,
+                        "Global queue cannot consume Obelisk opportunities",
+                    )
+                    f.dispatchLateCycle()
+                    assertEquals(
+                        pulseCount,
+                        raid.encounter.wardenAreaPulses.size,
+                        "One retained rotation payload per eligible pass at index $index",
+                    )
+                    assertEquals(
+                        WardenPhaseTwoCadence.advancePast(now, due, interval),
+                        queues.nextAt,
+                    )
+                    val count = raid.encounter.wardenAreaPulses.size
+                    f.dispatchLateCycle()
+                    assertEquals(count, raid.encounter.wardenAreaPulses.size)
+                }
+                assertTrue(
+                    f.selectionRandom.bounds.isEmpty(),
+                    "Rotation has no selection RNG draws",
+                )
+            }
+            framework().clearInlineMocks()
+        }
+    }
+
+    @Test
+    fun `core replacement and empty raid rejoin retain Obelisk rotation while rearming cadence`() {
+        ToaNativeCombatFixture().use { f ->
+            val player = f.player()
+            f.start(player)
+            val raid = enterPhaseTwo(f, listOf(player), WardenGod.TUMEKEN)
+            far(f, body(raid), player)
+            val queues = assertNotNull(raid.encounter.wardenObeliskQueues)
+            val obelisk = raid.spawnedNpcs.single { it.id == WardenObelisk.EXHAUSTED }
+            val native = f.bossEncounters.of(obelisk)
+            repeat(2) { f.dispatchLateCycle(queues.nextAt) }
+            returnCore(f, raid, player)
+            val due = queues.nextAt
+            assertEquals(
+                f.clock.cycle + raid.encounter.wardensRuleset.phaseTwoObeliskAttackInterval,
+                due,
+            )
+            assertSame(native, f.bossEncounters.of(obelisk))
+            assertTrue(
+                obelisk.movementLocked,
+                "Core return preserves the native Obelisk movement lock",
+            )
+            f.events.publish(SessionStateEvent.Logout(player))
+            f.dispatchLateCycle(due + 5)
+            assertEquals(due, queues.nextAt)
+            assertTrue(f.manager.rejoin(player, raid))
+            assertSame(native, f.bossEncounters.of(obelisk))
+            f.dispatchLateCycle()
+            assertEquals(
+                1,
+                raid.encounter.wardenAreaPulses.size,
+                "Skull follows the two earlier choices",
+            )
+            f.instances.terminate(raid.instance)
+            assertEquals(-1, queues.nextAt)
+            assertFalse(queues.process())
+        }
+    }
+
+    @Test
+    fun `native Obelisk deletion retires selection but preserves missing actor cadence until cleanup`() {
+        ToaNativeCombatFixture().use { f ->
+            val player = f.player()
+            f.start(player)
+            val raid = enterPhaseTwo(f, listOf(player), WardenGod.ELIDINIS)
+            val obelisk = raid.spawnedNpcs.single { it.id == WardenObelisk.EXHAUSTED }
+            val native = f.bossEncounters.of(obelisk)
+            val queues = assertNotNull(raid.encounter.wardenObeliskQueues)
+            val due = queues.nextAt
+            f.npcs.del(obelisk, Int.MAX_VALUE)
+            assertTrue(native.isEnded)
+            f.dispatchLateCycle(due)
+            assertTrue(raid.encounter.wardenAreaPulses.isEmpty())
+            assertEquals(
+                due + raid.encounter.wardensRuleset.phaseTwoObeliskAttackInterval,
+                queues.nextAt,
+            )
+            f.instances.terminate(raid.instance)
+            assertFalse(queues.process())
+        }
+    }
+
+    private fun armObelisk(f: ToaNativeCombatFixture, raid: ToaRaidSession, deadline: Int) {
+        val method =
+            ToaRaidManager::class
+                .java
+                .getDeclaredMethod(
+                    "armWardenObelisk",
+                    ToaRaidSession::class.java,
+                    Int::class.javaPrimitiveType,
+                )
+        method.isAccessible = true
+        method.invoke(f.manager, raid, deadline)
+    }
+
     private fun enterPhaseTwo(
         f: ToaNativeCombatFixture,
         members: List<Player>,
@@ -237,6 +373,7 @@ class WardenPhaseTwoNativeCombatTest {
         f.dispatchLateCycle(raid.encounter.wardenTransitionEndsAt)
         assertEquals(ToaWardenStage.PHASE_TWO, raid.encounter.wardenStage)
         assertEquals(god, raid.encounter.wardenPhaseTwoGod)
+        assertTrue(raid.spawnedNpcs.single { it.id == WardenObelisk.EXHAUSTED }.movementLocked)
         return raid
     }
 

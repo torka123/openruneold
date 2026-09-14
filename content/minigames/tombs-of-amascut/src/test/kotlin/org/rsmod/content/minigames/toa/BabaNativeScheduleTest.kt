@@ -12,6 +12,118 @@ import org.rsmod.game.entity.player.SessionStateEvent
 @OptIn(InternalApi::class)
 class BabaNativeScheduleTest {
     @Test
+    fun `native rolling casts release all ten rows without moving new actors and drain naturally`() {
+        for (boulderdash in listOf(false, true)) {
+            ToaNativeCombatFixture().use { f ->
+                val player = f.player()
+                val party = f.manager.createParty(player)
+                if (boulderdash) assertTrue(party.invocations.toggle(ToaInvocation.BOULDERDASH))
+                f.start(player)
+                val raid = f.enterBaba(player)
+                val source = f.baba(raid)
+                raid.baba.trace.enabled = true
+                raid.baba.pendingRollingThresholds += 1
+                val started = f.clock.cycle
+                f.attack(source, player)
+                val startX =
+                    assertNotNull(
+                            f.instances.localCoord(
+                                raid.instance,
+                                ToaInstanceLayout.roomLocal(
+                                    ToaRoom.BABA,
+                                    BabaArenaLayout.BOULDER_START_LOCAL_X,
+                                    BabaArenaLayout.BOSS_LOCAL_Z,
+                                ),
+                            )
+                        )
+                        .x
+                val known = mutableSetOf<Int>()
+                var passes = 0
+                while (raid.baba.state != BabaState.ROLLING_STONES_RETURN && passes++ < 150) {
+                    f.dispatchLateCycle(f.clock.cycle + 1)
+                    for ((key, rock) in raid.baba.rollingBoulders) {
+                        if (known.add(key))
+                            assertEquals(
+                                startX,
+                                rock.tile.x,
+                                "A newly released boulder must wait until the next spatial pass",
+                            )
+                    }
+                }
+                assertEquals(BabaState.ROLLING_STONES_RETURN, raid.baba.state)
+                val trace = raid.baba.trace.snapshot(400)
+                val casts = trace.filter { it.event == "boulder_row_cast" }
+                val releases = trace.filter { it.event == "boulder_row_release" }
+                val interval = if (boulderdash) 4 else 8
+                assertEquals(
+                    (0 until 10).map { started + 4 + it * interval },
+                    casts.map { it.tick },
+                )
+                assertEquals(casts.map { it.tick + 2 }, releases.map { it.tick })
+                assertEquals((1..10).toList(), releases.map { it.fields["set"] })
+                assertEquals(
+                    casts.map { it.fields["weakLane"] },
+                    releases.map { it.fields["weakLane"] },
+                )
+                assertEquals(10 * BabaArenaLayout.laneLocalZ.size, known.size)
+                assertEquals(-1, raid.baba.nextBoulderAt)
+                assertEquals(-1, raid.baba.pendingBoulderSpawnAt)
+                assertTrue(raid.baba.rollingBoulders.isEmpty())
+            }
+            framework().clearInlineMocks()
+        }
+    }
+
+    @Test
+    fun `overdue release precedes next cast and native melee exit cancels that pending release`() {
+        ToaNativeCombatFixture().use { f ->
+            val player = f.player()
+            f.start(player)
+            val raid = f.enterBaba(player)
+            val source = f.baba(raid)
+            raid.baba.trace.enabled = true
+            raid.baba.pendingRollingThresholds += 1
+            val started = f.clock.cycle
+            f.attack(source, player)
+            f.dispatchLateCycle(started + 3)
+            f.dispatchLateCycle(started + 4)
+            val firstRow = assertNotNull(raid.baba.rollingQueues).pendingRow
+            f.advance(20)
+            f.queueProcess.process()
+            assertSame(firstRow, raid.baba.rollingQueues!!.pendingRow)
+            f.dispatchLateCycle()
+            val events = raid.baba.trace.snapshot(400).filter { it.tick == f.clock.cycle }
+            assertTrue(
+                events.indexOfFirst { it.event == "boulder_row_release" } <
+                    events.indexOfFirst { it.event == "boulder_row_cast" }
+            )
+            assertEquals(2, raid.baba.pendingBoulderSet)
+            assertEquals(f.clock.cycle + 2, raid.baba.pendingBoulderSpawnAt)
+            val old = assertNotNull(raid.baba.rollingQueues)
+            player.coords =
+                assertNotNull(
+                    f.instances.localCoord(
+                        raid.instance,
+                        ToaInstanceLayout.roomLocal(
+                            ToaRoom.BABA,
+                            BabaArenaLayout.BOULDER_START_LOCAL_X + 1,
+                            BabaArenaLayout.BOSS_LOCAL_Z,
+                        ),
+                    )
+                )
+            f.hitNpc(player, source, 1)
+            assertEquals(BabaState.ROLLING_STONES_RETURN, raid.baba.state)
+            assertNull(old.pendingRow)
+            assertEquals(-1, old.castAt)
+            f.dispatchLateCycle(f.clock.cycle + 10)
+            assertEquals(BabaState.NORMAL_COMBAT, raid.baba.state)
+            assertTrue(raid.baba.rollingBoulders.isEmpty())
+            old.processRelease()
+            assertTrue(raid.baba.rollingBoulders.isEmpty())
+        }
+    }
+
+    @Test
     fun `thrown rock resolves before tied new rubble and reserves rubble until native landing`() {
         ToaNativeCombatFixture().use { f ->
             val player = f.player()
@@ -128,8 +240,7 @@ class BabaNativeScheduleTest {
             assertEquals(started + 6, raid.baba.pendingBoulderSpawnAt)
             // Represent a drained final row; movement/row geometry has separate retained tests.
             raid.baba.rollingSet = BabaTuning.BOULDER_MAX_SETS.value
-            raid.baba.nextBoulderAt = -1
-            raid.baba.pendingBoulderSpawnAt = -1
+            assertNotNull(raid.baba.rollingQueues).clear()
             f.dispatchLateCycle(started + 5)
             assertEquals(BabaState.ROLLING_STONES_RETURN, raid.baba.state)
             val top = source.coords
@@ -226,8 +337,7 @@ class BabaNativeScheduleTest {
             f.dispatchLateCycle(thrown + 11)
             assertEquals(BabaState.ROLLING_STONES, raid.baba.state)
             raid.baba.rollingSet = BabaTuning.BOULDER_MAX_SETS.value
-            raid.baba.nextBoulderAt = -1
-            raid.baba.pendingBoulderSpawnAt = -1
+            assertNotNull(raid.baba.rollingQueues).clear()
             f.dispatchLateCycle(thrown + 12)
             assertEquals(BabaState.ROLLING_STONES_RETURN, raid.baba.state)
             f.dispatchLateCycle(thrown + 13)

@@ -121,11 +121,11 @@ class ToaBabaEncounterTest {
     fun `weak lane starts in middle three and stays within two lanes`() {
         val state = BabaNativePhaseFixture(UUID(2, 2), 7).state
         state.state = BabaState.ROLLING_STONES_PREP
-        state.beginRollingSet(boulderdash = false, now = 0)
+        state.beginRollingSet()
         assertTrue(state.weakLane in 1..3)
         repeat(30) {
             val previous = state.weakLane
-            state.beginRollingSet(boulderdash = false, now = it + 1)
+            state.beginRollingSet()
             assertTrue(abs(state.weakLane - previous) <= 2)
         }
     }
@@ -152,41 +152,45 @@ class ToaBabaEncounterTest {
 
     @Test
     fun `baseline rolling rows retain the captured eight tick cadence`() {
-        val state = BabaNativePhaseFixture(UUID(4, 4), 19).state
-        state.state = BabaState.ROLLING_STONES_PREP
-        state.beginRollingSet(boulderdash = false, now = 100)
-        assertEquals(108, state.nextBoulderAt)
-        state.beginRollingSet(boulderdash = true, now = 108)
-        assertEquals(112, state.nextBoulderAt)
+        for (interval in
+            listOf(
+                BabaTuning.BOULDER_RELEASE_INTERVAL.value,
+                BabaTuning.BOULDERDASH_RELEASE_INTERVAL.value,
+            )) {
+            BabaRollingQueueFixture(UUID(4, 4), 19).use { f ->
+                f.state.state = BabaState.ROLLING_STONES_PREP
+                f.state.beginRollingSet()
+                f.armSequence(100 + interval, interval)
+                assertEquals(100 + interval, f.state.nextBoulderAt)
+                f.dispatch(100 + interval - 1)
+                assertTrue(f.casts.isEmpty())
+                f.dispatch(100 + interval)
+                assertEquals(1, f.casts.size)
+                assertEquals(100 + 2 * interval, f.state.nextBoulderAt)
+            }
+        }
     }
 
     @Test
     fun `the terminal rolling row disables further casts so the phase can drain`() {
-        val state = BabaNativePhaseFixture(UUID(4, 5), 23).state
-        state.state = BabaState.ROLLING_STONES_PREP
-        state.beginRollingSet(boulderdash = false, now = 100)
-
-        repeat(BabaTuning.BOULDER_MAX_SETS.value - 1) { index ->
-            assertTrue(
-                state.advanceRollingScheduleAfterCast(
-                    boulderdash = false,
-                    now = 108 + index * BabaTuning.BOULDER_RELEASE_INTERVAL.value,
-                    maximumSets = BabaTuning.BOULDER_MAX_SETS.value,
-                )
-            )
+        BabaRollingQueueFixture(UUID(4, 5), 23).use { f ->
+            f.state.state = BabaState.ROLLING_STONES_PREP
+            f.state.beginRollingSet()
+            f.armSequence(108, BabaTuning.BOULDER_RELEASE_INTERVAL.value)
+            repeat(BabaTuning.BOULDER_MAX_SETS.value) { index ->
+                f.dispatch(108 + index * BabaTuning.BOULDER_RELEASE_INTERVAL.value)
+            }
+            assertEquals(BabaTuning.BOULDER_MAX_SETS.value, f.state.rollingSet)
+            assertEquals(BabaTuning.BOULDER_MAX_SETS.value, f.casts.size)
+            assertFalse(f.state.advanceRollingSetAfterCast(BabaTuning.BOULDER_MAX_SETS.value))
+            assertEquals(-1, f.state.nextBoulderAt)
+            f.dispatch(f.state.pendingBoulderSpawnAt)
+            assertEquals(BabaTuning.BOULDER_MAX_SETS.value, f.releases.size)
+            assertEquals(-1, f.state.pendingBoulderSpawnAt)
+            f.dispatch(Int.MAX_VALUE)
+            assertEquals(BabaTuning.BOULDER_MAX_SETS.value, f.casts.size)
+            assertEquals(0, f.nativeQueues.size)
         }
-
-        assertEquals(BabaTuning.BOULDER_MAX_SETS.value, state.rollingSet)
-        assertTrue(state.isRollingCastDue(state.nextBoulderAt))
-        assertFalse(
-            state.advanceRollingScheduleAfterCast(
-                boulderdash = false,
-                now = state.nextBoulderAt,
-                maximumSets = BabaTuning.BOULDER_MAX_SETS.value,
-            )
-        )
-        assertEquals(-1, state.nextBoulderAt)
-        assertFalse(state.isRollingCastDue(Int.MAX_VALUE))
     }
 
     @Test

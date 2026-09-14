@@ -16,6 +16,10 @@ internal class ZebakPayloadQueues(
     private val cloudExpiry = queues.createOwner()
     private val cloudContact = queues.createOwner()
     private val crocodileBites = queues.createOwner()
+    private val jugCollisions = queues.createOwner()
+    private val waterSplashes = queues.createOwner()
+    private val rockCorpses = queues.createOwner()
+    private val acidExposure = queues.createOwner()
 
     val isClosed: Boolean
         get() = blood.isClosed
@@ -97,12 +101,111 @@ internal class ZebakPayloadQueues(
     private fun validCloud(runtime: ZebakBloodCloudRuntime): Boolean =
         valid() && state.bloodClouds[runtime.npc.hashCode()] === runtime
 
+    fun armJugCollision(runtime: ZebakJugRuntime) {
+        runtime.collisionTask?.cancel()
+        runtime.collisionPending = true
+        runtime.collisionReady = false
+        if (jugCollisions.isClosed) return
+        val tick = clock.cycle + 1
+        runtime.collisionTask =
+            jugCollisions.add(ready = { clock.cycle >= tick }) {
+                runtime.collisionTask = null
+                if (valid() && state.jugs[runtime.npc.hashCode()] === runtime) {
+                    runtime.collisionReady = true
+                }
+            }
+    }
+
+    fun processJugReadiness() = process.processOwned(jugCollisions)
+
+    fun cancelJug(runtime: ZebakJugRuntime) {
+        runtime.collisionTask?.cancel()
+        runtime.collisionTask = null
+        runtime.collisionPending = false
+        runtime.collisionReady = false
+    }
+
+    fun scheduleWaterSplash(runtime: ZebakWaterSplashRuntime, cleanse: () -> Unit) {
+        if (waterSplashes.isClosed) return
+        state.waterSplashes += runtime
+        val tick = clock.cycle + 1
+        runtime.cleanseTask =
+            waterSplashes.add(ready = { clock.cycle >= tick }) {
+                runtime.cleanseTask = null
+                val present = state.waterSplashes.removeAll { it === runtime }
+                if (valid() && present) cleanse()
+            }
+    }
+
+    fun processWaterSplashes() = process.processOwned(waterSplashes)
+
+    fun armRockCorpse(runtime: ZebakRockRuntime) {
+        runtime.collapseTask?.cancel()
+        runtime.collapsing = true
+        runtime.collapseReady = false
+        if (rockCorpses.isClosed) return
+        val tick = clock.cycle + ZebakTuning.ROAR_ROCK_CLEANUP_DELAY
+        runtime.collapseTask =
+            rockCorpses.add(ready = { clock.cycle >= tick }) {
+                runtime.collapseTask = null
+                if (valid() && state.rocks[runtime.npc.hashCode()] === runtime) {
+                    runtime.collapseReady = true
+                }
+            }
+    }
+
+    fun processRockReadiness() = process.processOwned(rockCorpses)
+
+    fun cancelRock(runtime: ZebakRockRuntime) {
+        runtime.collapseTask?.cancel()
+        runtime.collapseTask = null
+        runtime.collapseReady = false
+    }
+
+    fun armAcidExposure(runtime: ZebakPlayerRuntime) {
+        cancelAcidExposure(runtime)
+        if (acidExposure.isClosed) return
+        val tick = clock.cycle + ZebakTuning.ACID_TICK_INTERVAL
+        runtime.acidTask =
+            acidExposure.add(ready = { clock.cycle >= tick }) {
+                runtime.acidTask = null
+                // Player rebinding preserves the exposure object; do not capture an old UID.
+                if (valid() && state.playerState.values.any { it === runtime }) {
+                    runtime.acidReady = true
+                }
+            }
+    }
+
+    fun processAcidReadiness() = process.processOwned(acidExposure)
+
+    fun resetAcidExposure(runtime: ZebakPlayerRuntime) {
+        cancelAcidExposure(runtime)
+        runtime.acidReady = true
+    }
+
+    fun cancelAcidExposure(runtime: ZebakPlayerRuntime) {
+        runtime.acidTask?.cancel()
+        runtime.acidTask = null
+        runtime.acidReady = false
+    }
+
     fun close() {
         blood.close()
         cloudExpiry.close()
         cloudContact.close()
         crocodileBites.close()
+        jugCollisions.close()
+        waterSplashes.close()
+        rockCorpses.close()
+        acidExposure.close()
         state.bloodClouds.values.forEach(::cancelCloud)
         state.waterCrocodiles.values.forEach(::cancelCrocodile)
+        state.jugs.values.forEach(::cancelJug)
+        state.rocks.values.forEach(::cancelRock)
+        state.waterSplashes.forEach {
+            it.cleanseTask?.cancel()
+            it.cleanseTask = null
+        }
+        state.playerState.values.forEach(::cancelAcidExposure)
     }
 }

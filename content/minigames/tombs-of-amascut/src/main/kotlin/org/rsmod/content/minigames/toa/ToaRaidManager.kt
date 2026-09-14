@@ -4302,7 +4302,6 @@ constructor(
         state.wardenPhaseTwoRemaining = state.wardenPhaseTwoTrueMax
         state.wardenCoreDowns = 0
         state.attackCounter = 0
-        state.wardenObeliskSpecialStep = 0
         clearEncounterNpcs(raid)
         spawnNpc(
                 raid,
@@ -4318,11 +4317,16 @@ constructor(
             .also { exhausted ->
                 lockWardenActor(exhausted)
                 state.wardenObeliskActor = exhausted.hashCode()
+                bossDeps.encounterRegistry.of(exhausted)
             }
         state.wardenStage = ToaWardenStage.PHASE_TWO
         spawnWardenPhaseTwoShield(raid, reviving = false)
-        state.wardenNextPhaseTwoObeliskAttackAt =
-            clock.cycle + state.wardensRuleset.phaseTwoObeliskAttackInterval
+        state.wardenObeliskQueues?.close()
+        state.wardenObeliskQueues =
+            WardenObeliskQueues(raid.instance, bossDeps.worldQueues, queueProcess, clock) {
+                isCurrent(raid) && raid.currentRoom == ToaRoom.WARDENS
+            }
+        armWardenObelisk(raid, clock.cycle + state.wardensRuleset.phaseTwoObeliskAttackInterval)
         raid.nextMechanicAt =
             WardenPhaseTwoCadence.nextMechanicAt(
                 requireNotNull(boss(raid)).actionDelay,
@@ -4607,8 +4611,7 @@ constructor(
             }
         state.wardenStage = ToaWardenStage.PHASE_TWO
         spawnWardenPhaseTwoShield(raid, reviving = true)
-        state.wardenNextPhaseTwoObeliskAttackAt =
-            clock.cycle + state.wardensRuleset.phaseTwoObeliskAttackInterval
+        armWardenObelisk(raid, clock.cycle + state.wardensRuleset.phaseTwoObeliskAttackInterval)
         raid.nextMechanicAt =
             WardenPhaseTwoCadence.nextMechanicAt(
                 requireNotNull(boss(raid)).actionDelay,
@@ -5660,14 +5663,11 @@ constructor(
                 traceBaba(raid, source, "special_complete")
             }
             BabaState.ROLLING_STONES_PREP -> {
-                state.beginRollingSet(
-                    ToaInvocation.BOULDERDASH in raid.startSnapshot.invocations,
-                    clock.cycle,
-                )
+                state.beginRollingSet()
                 // Current OSRS releases the first synchronized row immediately after
                 // the short scream/knockback transition. Three prep ticks elapsed above;
                 // the following tick completes that four-tick transition.
-                state.nextBoulderAt = clock.cycle + 1
+                armBabaRollingCast(raid, source, clock.cycle + 1)
                 traceBaba(
                     raid,
                     source,
@@ -6404,72 +6404,77 @@ constructor(
     private fun tickBabaRollingStones(raid: ToaRaidSession, source: Npc) {
         val state = raid.baba
         advanceBabaBoulders(raid, source)
-        if (state.pendingBoulderSpawnAt >= 0 && clock.cycle >= state.pendingBoulderSpawnAt) {
-            val releasedSet = state.pendingBoulderSet
-            val releasedWeakLane = state.pendingWeakLane
-            BabaArenaLayout.laneLocalZ.indices.forEach { lane ->
-                releaseBabaBoulder(raid, lane, releasedWeakLane)
-            }
-            state.bouldersReleasedThisSet = BabaArenaLayout.laneLocalZ.size
-            state.pendingBoulderSpawnAt = -1
-            state.pendingBoulderSet = 0
-            state.pendingWeakLane = -1
-            traceBaba(
-                raid,
-                source,
-                "boulder_row_release",
-                "set" to releasedSet,
-                "count" to BabaArenaLayout.laneLocalZ.size,
-                "weakLane" to releasedWeakLane,
-            )
-        }
-        if (state.isRollingCastDue(clock.cycle)) {
-            val castSet = state.rollingSet
-            val castWeakLane = state.weakLane
-            source.anim(BabaAssets.ROLLING_STONES_CAST)
-            BabaArenaLayout.laneLocalZ.indices.forEach { lane ->
-                val tile =
-                    babaCoord(
-                        raid,
-                        BabaArenaLayout.BOULDER_START_LOCAL_X + 2,
-                        BabaArenaLayout.laneLocalZ[lane],
-                    )
-                sendProjectile(source, tile, BabaAssets.BOULDER_LAUNCH, 2)
-            }
-            forEachOnline(raid) { it.soundSynth(5960) }
-            state.pendingBoulderSpawnAt = clock.cycle + 2
-            state.pendingBoulderSet = castSet
-            state.pendingWeakLane = castWeakLane
-            traceBaba(
-                raid,
-                source,
-                "boulder_row_cast",
-                "set" to castSet,
-                "weakLane" to castWeakLane,
-                "spawnsAt" to state.pendingBoulderSpawnAt,
-            )
-            val nextSetScheduled =
-                state.advanceRollingScheduleAfterCast(
-                    ToaInvocation.BOULDERDASH in raid.startSnapshot.invocations,
-                    clock.cycle,
-                    BabaTuning.BOULDER_MAX_SETS.value,
-                )
-            if (nextSetScheduled) {
-                traceBaba(
-                    raid,
-                    source,
-                    "rolling_set_start",
-                    "set" to state.rollingSet,
-                    "weakLane" to state.weakLane,
-                )
-            }
-        }
+        state.rollingQueues?.processRelease()
+        state.rollingQueues?.processCast()
         if (
             state.rollingSet >= BabaTuning.BOULDER_MAX_SETS.value &&
                 state.pendingBoulderSpawnAt < 0 &&
                 state.rollingBoulders.isEmpty()
         ) {
             finishBabaRollingPhase(raid, source, "ten_rows_complete")
+        }
+    }
+
+    private fun armBabaRollingCast(raid: ToaRaidSession, source: Npc, deadline: Int) {
+        val state = raid.baba
+        val queues = requireNotNull(state.rollingQueues)
+        queues.armCast(
+            deadline,
+            eligible = { state.state == BabaState.ROLLING_STONES && queues.pendingRow == null },
+        ) {
+            castBabaRollingRow(raid, source)
+        }
+    }
+
+    private fun castBabaRollingRow(raid: ToaRaidSession, source: Npc) {
+        val state = raid.baba
+        val row = BabaRollingRow(state.rollingSet, state.weakLane)
+        source.anim(BabaAssets.ROLLING_STONES_CAST)
+        BabaArenaLayout.laneLocalZ.indices.forEach { lane ->
+            val tile =
+                babaCoord(
+                    raid,
+                    BabaArenaLayout.BOULDER_START_LOCAL_X + 2,
+                    BabaArenaLayout.laneLocalZ[lane],
+                )
+            sendProjectile(source, tile, BabaAssets.BOULDER_LAUNCH, 2)
+        }
+        forEachOnline(raid) { it.soundSynth(5960) }
+        requireNotNull(state.rollingQueues).armRelease(clock.cycle + 2, row) { released ->
+            BabaArenaLayout.laneLocalZ.indices.forEach { lane ->
+                releaseBabaBoulder(raid, lane, released.weakLane)
+            }
+            state.bouldersReleasedThisSet = BabaArenaLayout.laneLocalZ.size
+            traceBaba(
+                raid,
+                source,
+                "boulder_row_release",
+                "set" to released.set,
+                "count" to BabaArenaLayout.laneLocalZ.size,
+                "weakLane" to released.weakLane,
+            )
+        }
+        traceBaba(
+            raid,
+            source,
+            "boulder_row_cast",
+            "set" to row.set,
+            "weakLane" to row.weakLane,
+            "spawnsAt" to state.pendingBoulderSpawnAt,
+        )
+        if (state.advanceRollingSetAfterCast(BabaTuning.BOULDER_MAX_SETS.value)) {
+            val interval =
+                if (ToaInvocation.BOULDERDASH in raid.startSnapshot.invocations)
+                    BabaTuning.BOULDERDASH_RELEASE_INTERVAL.value
+                else BabaTuning.BOULDER_RELEASE_INTERVAL.value
+            armBabaRollingCast(raid, source, clock.cycle + interval)
+            traceBaba(
+                raid,
+                source,
+                "rolling_set_start",
+                "set" to state.rollingSet,
+                "weakLane" to state.weakLane,
+            )
         }
     }
 
@@ -7385,20 +7390,9 @@ constructor(
         val state = raid.encounter
         val ruleset = state.wardensRuleset
         if (state.wardenNextPhaseTwoObeliskAttackAt < 0) {
-            state.wardenNextPhaseTwoObeliskAttackAt =
-                clock.cycle + ruleset.phaseTwoObeliskAttackInterval
+            armWardenObelisk(raid, clock.cycle + ruleset.phaseTwoObeliskAttackInterval)
         }
-        if (clock.cycle >= state.wardenNextPhaseTwoObeliskAttackAt) {
-            raid.spawnedNpcs
-                .firstOrNull { it.hashCode() == state.wardenObeliskActor }
-                ?.let { performWardenObeliskAttack(raid, it, targets) }
-            state.wardenNextPhaseTwoObeliskAttackAt =
-                WardenPhaseTwoCadence.advancePast(
-                    clock.cycle,
-                    state.wardenNextPhaseTwoObeliskAttackAt,
-                    ruleset.phaseTwoObeliskAttackInterval,
-                )
-        }
+        requireNotNull(state.wardenObeliskQueues).process()
         if (clock.cycle >= source.actionDelay && !source.isBusy) {
             val phases = wardenPhaseTwoPhases(source)
             val target = targets[(phases.actionCount + 1) % targets.size]
@@ -7414,6 +7408,22 @@ constructor(
                 source.actionDelay,
                 state.wardenNextPhaseTwoObeliskAttackAt,
             )
+    }
+
+    private fun armWardenObelisk(raid: ToaRaidSession, deadline: Int) {
+        val state = raid.encounter
+        requireNotNull(state.wardenObeliskQueues).arm(
+            deadline,
+            state.wardensRuleset.phaseTwoObeliskAttackInterval,
+        ) {
+            val obelisk =
+                raid.spawnedNpcs.firstOrNull { it.hashCode() == state.wardenObeliskActor }
+                    ?: return@arm
+            val native = bossDeps.encounterRegistry.existing(obelisk) ?: return@arm
+            if (bossDeps.encounterRegistry.isAttached(obelisk, native)) {
+                performWardenObeliskAttack(raid, obelisk, activePlayers(raid))
+            }
+        }
     }
 
     private fun wardenPhaseTwoPhases(source: Npc): WardenPhaseTwoCombatPhases =
@@ -7523,7 +7533,7 @@ constructor(
         targets: List<Player>,
     ) {
         val damage = raid.encounter.wardensRuleset.phaseTwoObeliskDamage(45)
-        val special = WardenPhaseTwoMechanics.special(raid.encounter.wardenObeliskSpecialStep++)
+        val special = bossDeps.encounterRegistry.of(obelisk).selectWardenObelisk(clock.cycle)
         obelisk.anim(WardenPhaseTwoMechanics.obeliskAnimation(special))
         when (special) {
             WardenObeliskSpecial.CONVERGING_BEAM -> {
@@ -9885,6 +9895,15 @@ constructor(
                     source.isSlotAssigned
             }
         )
+        state.bindRolling(
+            BabaRollingQueues(encounter, raid.instance, bossDeps.worldQueues, queueProcess, clock) {
+                raid.currentRoom == ToaRoom.BABA &&
+                    state.isCurrent(generation) &&
+                    isCurrent(raid) &&
+                    boss(raid) === source &&
+                    source.isSlotAssigned
+            }
+        )
         state.startIntro()
         val introEndsAt = clock.cycle + BabaTuning.INTRO_TICKS.value
         armBabaCompletion(raid, source, introEndsAt)
@@ -10533,6 +10552,7 @@ constructor(
         }
         val state = raid.baba
         state.hazardQueues?.close()
+        state.rollingQueues?.close()
         state.bananas.values.toList().forEach { pile ->
             locs
                 .findAll(pile.tile)
@@ -11008,7 +11028,7 @@ constructor(
         raid.encounter.wardenPhaseOneSpecialQueue.clear()
         raid.encounter.wardenNextEnergyPulseAt = -1
         raid.encounter.wardenNextPassiveChargeAt = -1
-        raid.encounter.wardenNextPhaseTwoObeliskAttackAt = -1
+        raid.encounter.wardenObeliskQueues?.clear()
         raid.encounter.wardenNextPhantomAttackAt = -1
         raid.encounter.wardenPhantomAttackCounter = 0
         raid.encounter.wardenChargeBalls.clear()

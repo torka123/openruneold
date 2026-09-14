@@ -124,13 +124,27 @@ constructor(
                 if (player == null) hit.damage = 0 else raids.modifyNpcHit(player, npc, hit)
             },
         )
+        BossCombat.register(
+            this,
+            wardenObeliskBossSpec(),
+            deps,
+            ownerSlug = "toa-warden-obelisk",
+            canTarget = { _, _ -> false },
+            onModifyHit = {
+                val player =
+                    if (hit.isFromPlayer) hit.sourceUid?.let(::PlayerUid)?.resolve(players)
+                    else null
+                if (player == null) hit.damage = 0 else raids.modifyNpcHit(player, npc, hit)
+            },
+        )
         ToaNpcs.allCombat.forEach { id ->
             if (
                 id in TOA_BABA_BOSS_FORMS ||
                     id in ToaNpcs.akkhaBossForms ||
                     id in KephriEncounter.ACTIVE..KephriEncounter.DEAD ||
                     id in TOA_ZEBAK_BOSS_FORMS ||
-                    id in WARDEN_PHASE_TWO_FORMS
+                    id in WARDEN_PHASE_TWO_FORMS ||
+                    id == WardenObelisk.EXHAUSTED
             )
                 return@forEach
             val type = ServerCacheManager.getNpc(id) ?: return@forEach

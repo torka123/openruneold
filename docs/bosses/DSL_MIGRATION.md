@@ -2,7 +2,68 @@
 
 ## Current source increments — September 14
 
-### Current checkpoint: Ba-Ba hazard, Akkha visibility and Zebak payload owners verified
+### Current checkpoint: Ba-Ba rolling, Zebak remaining payloads and Wardens Obelisk verified
+
+Ba-Ba rolling cast/release now use two native owners in movement -> release -> cast -> existing
+final-drain order. The current row is captured before next-row weak-lane RNG. First cast remains
+prep completion+1, releases actual cast+2, subsequent casts actual cast+8/Boulderdash+4. Geometry
+retains previousWeakLane across thresholds. Native manager tests run all ten rows/50 actors at both
+cadences, verify no movement on spawn tick, overdue ordering, natural drain and native melee exit.
+
+Zebak jug collision, following splash cleanse, rock-corpse removal and acid-exposure readiness now
+use native owners at the retained spatial boundaries. Jug order remains actor insertion order;
+launched splashes survive special cleanup. Off-acid reset cancels the previous exposure before
+immediate reentry; account rebind preserves runtime identity/deadline. Actual native tests verify
++1/+1 jug/cleanse, third-roar+4 corpses, poison/ramp, special survival and retirement paths.
+
+Wardens exhausted Obelisk11752 now has a registered native BossSpec with an empty ordinary selector
+and a stable Choose/Rotation for converging/windmill/skull. Its session-owned deadline preserves
+anchored advancePast cadence, one overdue action, no-op missing-actor advancement and dispatch before
+the P2 body. Core return rearms cadence without resetting the same Obelisk branch history. Explicit
+native attachment checks prevent branch lookup from recreating a deleted actor. Review caught native
+encounter initialization clearing the existing movement lock; the declared phase now retains that
+lock, verified after real admission and core return. Callback clear/close/rearm wins over recurrence;
+a thrown payload retains its original pending deadline and propagates the exception as before.
+
+Verification:211 focused cases pass; after the reviewed lock correction all12 affected Wardens
+native/helper cases pass. Full ToA530, scoped checks, architecture/self-tests and app assemble pass
+(56s). First attempt failed only test Kotlin inference comparing EnumEntries with MutableList;
+expected entries.toList fixed it. Unchanged shared/boss/ToB/CoX results remain valid. No broad rebuild
+or source waiver change. Logs/results/selections: logs/toa-native-rolling-obelisk-*20260914; focused
+passing log is focus-retry, with lock-focus covering the final spec correction. Exact17 Kotlin-file
+manifest: logs/toa-native-rolling-obelisk-format-20260914.txt. Manager/Combat/Domain, Baba/Zebak adapters,
+three native helpers, existing/new focused suites, plus ledger/handoff are the19-file source archive:
+logs/toa-native-rolling-obelisk-source-20260914.zip; backup/toa-native-rolling-obelisk-20260914.
+Build passed; listed behavior verified; not deployed. Runtime remains c4fc9390f/JVM23812; database/cache
+authority, inactive stronger replay migrations, save/restart protections and deployment holds remain.
+
+Next approved mappings use existing native owned queues and current source as preservation evidence:
+- Generic ToA pending hits: one session-owned queue, bound at attachRaid and dispatched only at the
+  existing processPendingHits slot after room mechanics/before boss opportunities. Identity entries
+  preserve equal hits, insertion order, UID replacement and individual cancellation. Native readiness
+  is stale Zebak generation OR due deadline; remove stale future hits before any graphic and recheck
+  before delivery. Capture current boss once per dispatch; remove metadata then show map graphic
+  before target/source/membership/tile checks. Retain native delay1, prayers, exact blood-heal impact
+  guard and immediate element/imprisonment effects. Six direct producers cover pyramid, stone,
+  tile/tracking helpers, Zebak split and blood. All current clear/remove predicates cancel tasks;
+  encounter resets clear/reuse the owner, native session termination closes it. Verify mixed/equal
+  hits, stale future generations, rebind, cancellation during dispatch, source/targetless graphics,
+  native delayed/prayer/blood behavior, pause and terminal cleanup. No shared API extension needed.
+- Ba-Ba bananas: one native owner with per-pile cancellation/read-only insertion-order metadata.
+  Readiness is expiry or armed+occupancy; expiry wins the boundary. Preserve placement/replacement,
+  first eligible player, current/previous tile collision and native bind/hit calls. Dispatch before
+  sarcophagi. Verify+1 arming/+50 expiry, adjacent piles, replacement, phase survival and cleanup.
+- Ba-Ba sarcophagi: native runner owner after dead-runner reconciliation/closed-target snapshot and
+  before baboon actions, preserving+8 eligible retries and first live/nearest closed selection.
+  Keep global cycle%4 alignment of runner strikes/path updates and per-tick nearby route clearing.
+  Per-sarcophagus native energy owners dispatch in room-map order: opening+3 then successful+6/+4,
+  overdue no-target retry without RNG, and existing missing-actor boss fallback. Avoid one opening-
+  ordered owner that would reorder shared target draws. Verify tied order, no-target retry, runner
+  loss/reassignment, open/closed transitions and native cleanup before retiring old clock fields.
+Then remaining ToA/Akkha/Kephri/Wardens routing, followed by ToB/CoX. Existing OSRS evidence gaps
+remain unchanged; these are architecture-preservation results, not whole-project completion.
+
+### Earlier checkpoint: Ba-Ba hazard, Akkha visibility and Zebak payload owners verified
 
 Ba-Ba rocks, rubble and shockwaves now use three native world-queue owners at their existing
 ordered LateCycle slots. Native actor/session cleanup, player retirement, queued UID rebinding and

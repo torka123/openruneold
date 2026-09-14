@@ -77,13 +77,13 @@ class BabaCombatPhasesTest {
         assertEquals(1, f.state.beginNextRollingPhase())
         assertEquals(BabaState.ROLLING_STONES_PREP, f.state.state)
         f.clock.cycle = 103
-        f.state.beginRollingSet(boulderdash = false, now = 103)
+        f.state.beginRollingSet()
         assertEquals(103, f.encounter.phaseEnteredTick)
         f.clock.cycle = 111
-        f.state.beginRollingSet(boulderdash = false, now = 111)
+        f.state.beginRollingSet()
         assertEquals(103, f.encounter.phaseEnteredTick)
         assertEquals(2, f.state.rollingSet)
-        assertEquals(119, f.state.nextBoulderAt)
+        assertEquals(-1, f.state.nextBoulderAt, "Geometry alone does not arm a private deadline")
         f.state.finishRollingPhase()
         assertEquals(BabaState.ROLLING_STONES_RETURN, f.state.state)
         assertEquals(111, f.encounter.phaseEnteredTick)

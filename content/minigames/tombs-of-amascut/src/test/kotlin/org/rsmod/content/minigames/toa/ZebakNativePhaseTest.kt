@@ -49,7 +49,8 @@ class ZebakNativePhaseTest {
                     assertEquals(List(2) { 150 - pulse * 50 }, rocks.map { it.hitpoints })
                     assertEquals(offset < 37, state.jugs.isNotEmpty(), "first pulse breaks jugs")
                     if (offset >= 41) {
-                        assertEquals(List(2) { prepared + 45 }, rocks.map { it.destroysAt })
+                        assertTrue(rocks.all { it.collapsing && it.collapseTask != null })
+                        assertTrue(rocks.none { it.collapseReady })
                         assertTrue(rocks.all { it.npc.isSlotAssigned })
                     }
                 }

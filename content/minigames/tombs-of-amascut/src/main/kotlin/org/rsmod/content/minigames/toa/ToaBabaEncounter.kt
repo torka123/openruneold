@@ -601,10 +601,21 @@ internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
     val pendingRollingThresholds = ArrayDeque<Int>()
     var completedRollingPhases = 0
     var rollingSet = 0
-    var nextBoulderAt = -1
-    var pendingBoulderSpawnAt = -1
-    var pendingBoulderSet = 0
-    var pendingWeakLane = -1
+    var rollingQueues: BabaRollingQueues? = null
+        private set
+
+    val nextBoulderAt: Int
+        get() = rollingQueues?.castAt ?: -1
+
+    val pendingBoulderSpawnAt: Int
+        get() = rollingQueues?.releaseAt ?: -1
+
+    val pendingBoulderSet: Int
+        get() = rollingQueues?.pendingRow?.set ?: 0
+
+    val pendingWeakLane: Int
+        get() = rollingQueues?.pendingRow?.weakLane ?: -1
+
     var weakLane = -1
     var previousWeakLane = -1
     var underTargetTicks = 0
@@ -658,6 +669,12 @@ internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
         hazardQueues = queues
     }
 
+    fun bindRolling(queues: BabaRollingQueues) {
+        check(nativePhases != null) { "Bind Ba-Ba's native encounter before its rolling rows." }
+        check(rollingQueues == null && !queues.isClosed)
+        rollingQueues = queues
+    }
+
     fun reset() {
         generation++
         state = BabaState.RESETTING
@@ -668,10 +685,8 @@ internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
         pendingRollingThresholds.clear()
         completedRollingPhases = 0
         rollingSet = 0
-        nextBoulderAt = -1
-        pendingBoulderSpawnAt = -1
-        pendingBoulderSet = 0
-        pendingWeakLane = -1
+        rollingQueues?.close()
+        rollingQueues = null
         weakLane = -1
         previousWeakLane = -1
         underTargetTicks = 0
@@ -754,14 +769,12 @@ internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
         activeRollingThreshold = threshold
         state = BabaState.ROLLING_STONES_PREP
         rollingSet = 0
-        pendingBoulderSpawnAt = -1
-        pendingBoulderSet = 0
-        pendingWeakLane = -1
+        rollingQueues?.clear()
         weakLane = -1
         return threshold
     }
 
-    fun beginRollingSet(boulderdash: Boolean, now: Int) {
+    fun beginRollingSet(): BabaRollingRow {
         check(state in setOf(BabaState.ROLLING_STONES_PREP, BabaState.ROLLING_STONES))
         if (state != BabaState.ROLLING_STONES) state = BabaState.ROLLING_STONES
         rollingSet++
@@ -774,33 +787,15 @@ internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
         weakLane = candidates[random.nextInt(candidates.size)]
         previousWeakLane = weakLane
         bouldersReleasedThisSet = 0
-        nextBoulderAt =
-            now +
-                if (boulderdash) BabaTuning.BOULDERDASH_RELEASE_INTERVAL.value
-                else BabaTuning.BOULDER_RELEASE_INTERVAL.value
+        return BabaRollingRow(rollingSet, weakLane)
     }
 
-    fun isRollingCastDue(now: Int): Boolean =
-        state == BabaState.ROLLING_STONES &&
-            pendingBoulderSpawnAt < 0 &&
-            nextBoulderAt >= 0 &&
-            now >= nextBoulderAt
-
-    /**
-     * Advances to the next rolling row after the current row has been cast.
-     *
-     * The terminal row must explicitly disable [nextBoulderAt]. Leaving the previous due tick in
-     * place makes the final row recast every time its two-tick launch delay completes, preventing
-     * the rolling phase from ever draining.
-     */
-    fun advanceRollingScheduleAfterCast(boulderdash: Boolean, now: Int, maximumSets: Int): Boolean {
+    /** Selects the next row during the current cast; the native owner schedules its deadline. */
+    fun advanceRollingSetAfterCast(maximumSets: Int): Boolean {
         require(maximumSets > 0) { "`maximumSets` must be greater than zero." }
         check(state == BabaState.ROLLING_STONES)
-        if (rollingSet >= maximumSets) {
-            nextBoulderAt = -1
-            return false
-        }
-        beginRollingSet(boulderdash, now)
+        if (rollingSet >= maximumSets) return false
+        beginRollingSet()
         return true
     }
 
@@ -808,9 +803,7 @@ internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
         completedRollingPhases = maxOf(completedRollingPhases, activeRollingThreshold ?: 0)
         activeRollingThreshold = null
         state = BabaState.ROLLING_STONES_RETURN
-        pendingBoulderSpawnAt = -1
-        pendingBoulderSet = 0
-        pendingWeakLane = -1
+        rollingQueues?.clear()
         rollingBoulders.clear()
     }
 
