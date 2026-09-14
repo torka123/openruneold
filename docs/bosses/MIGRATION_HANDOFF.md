@@ -4,6 +4,10 @@ This is a resumable handoff, not a project-completion or full OSRS-parity claim.
 mechanic mappings, uncertainties, commands and results remain in [DSL_MIGRATION.md](DSL_MIGRATION.md).
 Update this checkpoint after each completed boss and immediately before any authorized deployment.
 
+September14 continuation: the current Nex ledger's top section records the new deferred native
+kill-hook integration and249 passing affected cases. It is source-only; runtime remains
+`c4fc9390f`. Read that section before the historical September13 checkpoints below.
+
 ## Current runtime checkpoint: September13, two verified restarts complete
 
 JVM23812 is ONLINE from04:40 EDT on43594/8080/9091, canonical checkpoint `c4fc9390f`.

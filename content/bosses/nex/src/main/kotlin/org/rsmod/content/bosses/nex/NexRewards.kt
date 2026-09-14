@@ -10,6 +10,7 @@ import org.rsmod.api.collectionlog.CollectionLogAwardKind
 import org.rsmod.api.collectionlog.CollectionLogAwardSource
 import org.rsmod.api.collectionlog.CollectionLogService
 import org.rsmod.api.death.NpcDeath
+import org.rsmod.api.death.NpcDeathKillContext
 import org.rsmod.api.droptable.DropRollItem
 import org.rsmod.api.player.output.mes
 import org.rsmod.api.player.vars.VarPlayerIntMapSetter
@@ -36,6 +37,7 @@ constructor(
         dropTile: org.rsmod.map.CoordGrid,
         npc: Npc,
     ): Int {
+        if (npc.suppressRewards) return 0
         val total = contributions.values.sumOf { it.damage }
         if (total <= 0) return 0
         val eligible =
@@ -141,6 +143,16 @@ constructor(
         player.mes(
             "Your Nex kill count is: <col=ff0000>$killcount</col>. " +
                 "Contribution: $damage/$total${if (mvp) " (MVP)" else ""}."
+        )
+        npcDeath.dispatchDeferredKill(
+            NpcDeathKillContext(
+                hero = player,
+                npc = npc,
+                lootTrackerEventId = eventId,
+                dropCoords = dropTile,
+                dropTableHandled = true,
+                killcountHandled = true,
+            )
         )
     }
 

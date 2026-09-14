@@ -1,5 +1,39 @@
 # Nex revision-240 evidence ledger and approval mapping
 
+## September14 current source: deferred native kill dispatch
+
+Approved S04 mapping, recorded before editing: keep the existing death coroutine, delayed Wrath,
+recipient eligibility, concrete item rolls and shared delivery. Expose the existing native
+`NpcDeathKillContext` hook dispatch for each deferred recipient, sharing the allocated loot event.
+The existing public death/drop methods select one hero; no explicit-recipient dispatch existed.
+Use default-false handled flags to prevent the already-delivered personal items and recorded KC
+from being duplicated by generic hooks. This is the approved narrow S04 extension, with no new
+persistence system. The ordinary single-hero path retains its original arguments and hook order.
+
+Implemented: Nex recipients now reach registered native kill hooks after their personal completion;
+suppressed sources and stale player identities are rejected. The native table hook skips handled
+items and the generic KC hook skips handled KC. The current Nex cache lacks its generic KC param,
+so its existing KC writer remains explicit pending canonical definition integration. Existing rolls,
+pet handling, reward eligibility and three-tick Wrath callback remain unchanged.
+
+Changed source: `api/death/.../NpcDeath.kt`, `NpcDeathKillHook.kt`, new `NpcDeferredKillTest.kt`,
+the existing respawn fixture's required InternalApi opt-in, `content/drops/.../NpcDropTableKillHook.kt`,
+`content/generic/killcount/.../KillcountModule.kt`, Nex `NexRewards.kt` and
+`NexSharedRewardDeliveryTest.kt`. Root `AGENTS.md` now retains the user's execution/token rules.
+
+Verification: focused dispatch/delivery tests passed, then death/Nex/drops/KC checks and architecture
+self-tests passed:16 death,165 Nex,68 drop cases,249 total, zero failures/errors/skips. The first
+compile exposed a missing opt-in in the existing respawn fixture; only its annotation was fixed.
+The configured-KBD regression proves handled KC skips while ordinary KC still increments.
+Logs: `logs/nex-deferred-kill-focus2-20260914.log`, `nex-deferred-kill-checks-20260914.log`,
+`nex-deferred-kill-test-results-20260914.json`. These totals include existing tests.
+
+Source only; application assembly/deployment remain pending this continuation's integration check.
+The last deployed checkpoint remains `c4fc9390f`; doctor and listeners were rechecked September14.
+Full S04, native Nex KC metadata, personal table accuracy, pets/CA and existing mechanics evidence
+gaps remain open. Next: finish independent native integrations; leave unverified M04/M20 behavior
+unchanged and continue approved architecture work without reopening the recorded evidence audits.
+
 ## Current deployed checkpoint: September13, 04:40 EDT
 
 JVM23812 is ONLINE on game43594/HTTP8080/WorldLink9091, canonical source checkpoint `c4fc9390f`.

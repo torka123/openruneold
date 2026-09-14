@@ -17,6 +17,7 @@ public class KillcountModule : PluginModule() {
 /** Increments the player's killcount varp for the killed npc. */
 public class KillcountNpcKillHook @Inject constructor() : NpcDeathKillHook {
     override fun onKill(context: NpcDeathKillContext) {
+        if (context.killcountHandled) return
         if (context.npc.type.internalName in CHEST_AWARDED_KILLCOUNT_NPCS) {
             return
         }

@@ -24,7 +24,7 @@ constructor(
 ) : NpcDeathKillHook {
 
     override fun onKill(context: NpcDeathKillContext) {
-        if (context.npc.suppressDrops) return
+        if (context.dropTableHandled || context.npc.suppressDrops) return
         val table = registry.forNpc(context.npc, areaChecker) ?: return
 
         val player = context.hero

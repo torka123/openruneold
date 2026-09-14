@@ -100,10 +100,27 @@ constructor(
                     lootTrackerEventId = lootTrackerEventId,
                     dropCoords = dropCoords,
                 )
-            for (hook in deathKillHooks) {
-                hook.onKill(killCtx)
-            }
+            notifyKill(killCtx)
         }
+    }
+
+    /**
+     * Dispatches a deferred personal completion through the normal registered kill hooks.
+     *
+     * Callers allocate one loot event for the NPC life and retain their completion guard. This
+     * synchronous dispatch does not provide persistence or retry semantics. The native corpse may
+     * already be hidden or removed; its reward recipient must still be the registered player.
+     */
+    public fun dispatchDeferredKill(context: NpcDeathKillContext): Boolean {
+        require(context.lootTrackerEventId > 0) { "A native loot event is required." }
+        if (context.npc.suppressRewards) return false
+        if (context.hero.uid.resolve(players) !== context.hero) return false
+        notifyKill(context)
+        return true
+    }
+
+    private fun notifyKill(context: NpcDeathKillContext) {
+        for (hook in deathKillHooks) hook.onKill(context)
     }
 
     /** Allocates a game-thread loot event for normal deaths or deferred personal NPC rewards. */

@@ -9,6 +9,10 @@ public data class NpcDeathKillContext(
     public val npc: Npc,
     public val lootTrackerEventId: Int,
     public val dropCoords: CoordGrid,
+    /** A deferred personal reward has already used the shared item-delivery service. */
+    public val dropTableHandled: Boolean = false,
+    /** A deferred completion has already recorded its kill count. */
+    public val killcountHandled: Boolean = false,
 )
 
 /**

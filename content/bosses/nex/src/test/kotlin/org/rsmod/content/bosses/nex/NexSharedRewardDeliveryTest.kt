@@ -13,7 +13,11 @@ import org.rsmod.api.collectionlog.CollectionLogAwardKind
 import org.rsmod.api.collectionlog.CollectionLogAwardSource
 import org.rsmod.api.collectionlog.CollectionLogService
 import org.rsmod.api.config.constants
+import org.rsmod.api.config.refs.BaseParams
 import org.rsmod.api.death.NpcDeath
+import org.rsmod.api.death.NpcDeathKillContext
+import org.rsmod.api.death.NpcDeathKillHook
+import org.rsmod.api.droptable.DropTableRegistry
 import org.rsmod.api.market.MarketPrices
 import org.rsmod.api.net.social.ClanChatService
 import org.rsmod.api.player.output.ChatType
@@ -25,7 +29,10 @@ import org.rsmod.api.repo.controller.ControllerRepository
 import org.rsmod.api.repo.loc.LocRepository
 import org.rsmod.api.repo.npc.NpcRepository
 import org.rsmod.api.repo.obj.ObjRepository
+import org.rsmod.content.drops.Dt2AwakenedCompletionService
+import org.rsmod.content.drops.NpcDropTableKillHook
 import org.rsmod.content.drops.NpcRewardDeliveryService
+import org.rsmod.content.generic.killcount.KillcountNpcKillHook
 import org.rsmod.game.MapClock
 import org.rsmod.game.client.Client
 import org.rsmod.game.client.NoopClient
@@ -56,6 +63,11 @@ class NexSharedRewardDeliveryTest {
         assertEquals(11278, f.npc.id)
         assertEquals(11282, f.npc.visType.id)
         assertEquals(expectedRolls + expectedRolls, f.random.calls)
+        assertEquals(listOf(f.first, f.second), f.kills.map { it.hero })
+        assertTrue(f.kills.all { it.npc === f.npc && it.dropCoords == f.tile })
+        assertTrue(f.kills.all { it.lootTrackerEventId == 1 })
+        assertTrue(f.kills.all { it.dropTableHandled && it.killcountHandled })
+        verifyNoInteractions(f.tables)
         assertEquals<List<Any>>(
             listOf(f.first, f.second).map {
                 MessageGame(
@@ -127,6 +139,7 @@ class NexSharedRewardDeliveryTest {
         assertEquals(beforeLogs, f.logs)
         assertEquals(beforeGround, f.objects.findAll(f.tile).map { it to it.count }.toList())
         assertEquals(beforeMessages, f.messages)
+        assertEquals(2, f.kills.size)
         assertEquals(expectedRolls + expectedRolls, f.random.calls)
 
         // A fresh completion gets a new native event, while the already unlocked pet is not logged
@@ -165,6 +178,7 @@ class NexSharedRewardDeliveryTest {
             },
         )
         assertEquals(3 * expectedRolls.size, f.random.calls.size)
+        assertEquals(listOf(1, 1, 2), f.kills.map { it.lootTrackerEventId })
     }
 
     @Test
@@ -225,6 +239,35 @@ class NexSharedRewardDeliveryTest {
         assertTrue(f.messages.values.all { it.isEmpty() })
         assertTrue(f.objects.findAll(f.tile).none())
         assertEquals(0, replacement.vars["varp.total_nex_kills"])
+        assertTrue(f.kills.isEmpty())
+    }
+
+    @Test
+    fun `suppressed source cannot roll deliver or publish a personal completion`() {
+        val f = Fixture()
+        f.npc.suppressRewards = true
+        assertEquals(
+            0,
+            f.service.reward(mapOf(f.first.uid to NexContribution(1)), linkedSetOf(), f.tile, f.npc),
+        )
+        assertTrue(f.random.calls.isEmpty())
+        assertTrue(f.kills.isEmpty())
+        assertTrue(f.objects.findAll(f.tile).none())
+        assertEquals(0, f.first.vars["varp.total_nex_kills"])
+    }
+
+    @Test
+    fun `native configured KC skips handled completion and still counts ordinary kills`() {
+        val f = Fixture()
+        val npc = Npc(assertNotNull(ServerCacheManager.getNpc(239)), f.tile)
+        val varp = assertNotNull(npc.paramOrNull(BaseParams.killcount_varp))
+        val hook = KillcountNpcKillHook()
+        val context = NpcDeathKillContext(f.first, npc, 1, f.tile, killcountHandled = true)
+        assertEquals(0, f.first.vars[varp])
+        hook.onKill(context)
+        assertEquals(0, f.first.vars[varp])
+        hook.onKill(context.copy(killcountHandled = false))
+        assertEquals(1, f.first.vars[varp])
     }
 
     private data class Log(
@@ -258,6 +301,8 @@ class NexSharedRewardDeliveryTest {
         val random = MinimumRandom()
         val logs = mutableListOf<Log>()
         val broadcasts = mutableListOf<List<Any?>>()
+        val kills = mutableListOf<NpcDeathKillContext>()
+        val tables = mock(DropTableRegistry::class.java)
         private val log =
             mock(CollectionLogService::class.java) { call ->
                 check(call.method.name == "record") {
@@ -304,7 +349,22 @@ class NexSharedRewardDeliveryTest {
                 delivery,
                 players,
                 log,
-                NpcDeath(npcs, players, objects, emptySet(), emptySet()),
+                NpcDeath(
+                    npcs,
+                    players,
+                    objects,
+                    emptySet(),
+                    linkedSetOf(
+                        NpcDeathKillHook { kills += it },
+                        NpcDropTableKillHook(
+                            tables,
+                            mock(AreaChecker::class.java),
+                            delivery,
+                            mock(Dt2AwakenedCompletionService::class.java),
+                        ),
+                        KillcountNpcKillHook(),
+                    ),
+                ),
             )
 
         fun player(slot: Int, identity: Long): Player {

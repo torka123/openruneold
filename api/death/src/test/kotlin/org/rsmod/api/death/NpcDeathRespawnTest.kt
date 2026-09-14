@@ -5,6 +5,7 @@ import kotlin.test.*
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeAll
 import org.mockito.Mockito.*
+import org.rsmod.annotations.InternalApi
 import org.rsmod.api.death.plugin.NpcDeathScript
 import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.api.npc.access.StandardNpcAccessContext
@@ -27,6 +28,7 @@ import org.rsmod.plugin.scripts.ScriptContext
 import org.rsmod.routefinder.collision.CollisionFlagMap
 
 /** Native death coroutine and repository respawn processor, with no boss-specific scheduler. */
+@OptIn(InternalApi::class)
 class NpcDeathRespawnTest {
     @Test
     fun `default death preserves cache cadence while a custom delay uses the same actor`() {
