@@ -46,4 +46,5 @@ isServerOnly = true
 id = "inv.looting_bag"
 inherit = "inv.looting_bag"
 scope = "Perm"
-protect = true
+# Bag modal and bankside handlers already run with protected access, as inventory/bank do.
+protect = false

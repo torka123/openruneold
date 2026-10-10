@@ -1,0 +1,56 @@
+warning: in the working copy of '.data/gamevals-binary/max-ids.toml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.data/gamevals/area.rscm', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.data/gamevals/component.rscm', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.data/gamevals/dbrow.rscm', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.data/gamevals/interface.rscm', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.data/gamevals/obj.rscm', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.data/raw-cache/server/inv.toml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.data/raw-cache/server/npcs.toml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'content/minigames/corrupted-gauntlet/build.gradle.kts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'content/minigames/corrupted-gauntlet/docs/CORRUPTED_GAUNTLET_BEHAVIOUR.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'content/minigames/corrupted-gauntlet/src/main/kotlin/org/rsmod/content/minigames/corruptedgauntlet/CorruptedGauntletConfig.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'content/minigames/corrupted-gauntlet/src/main/kotlin/org/rsmod/content/minigames/corruptedgauntlet/CorruptedGauntletRunManager.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'content/minigames/corrupted-gauntlet/src/main/kotlin/org/rsmod/content/minigames/corruptedgauntlet/CorruptedGauntletWorld.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'content/minigames/corrupted-gauntlet/src/test/kotlin/org/rsmod/content/minigames/corruptedgauntlet/CorruptedGauntletAssetManifestTest.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'content/minigames/tombs-of-amascut/src/main/kotlin/org/rsmod/content/minigames/toa/AkkhaPayloadQueues.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'content/minigames/tombs-of-amascut/src/main/kotlin/org/rsmod/content/minigames/toa/ToaAkkhaEncounter.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'content/minigames/tombs-of-amascut/src/main/kotlin/org/rsmod/content/minigames/toa/ToaDomain.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'content/minigames/tombs-of-amascut/src/main/kotlin/org/rsmod/content/minigames/toa/ToaRaidManager.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'content/minigames/tombs-of-amascut/src/test/kotlin/org/rsmod/content/minigames/toa/AkkhaEncounterTest.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'content/minigames/tombs-of-amascut/src/test/kotlin/org/rsmod/content/minigames/toa/AkkhaPayloadQueuesTest.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'content/other/consumables/src/main/kotlin/resources/gamevals.toml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/bosses/DSL_MIGRATION.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/bosses/MIGRATION_HANDOFF.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'or-cache/src/main/kotlin/dev/openrune/PkLoadoutInterfaceBuilder.kt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scripts/CerberusAuditShutdown.java', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scripts/cerberus-controlled-restart.ps1', LF will be replaced by CRLF the next time Git touches it
+ .data/gamevals-binary/max-ids.toml                 |  22 [32m+[m[31m-[m
+ .data/gamevals/area.rscm                           |   1 [32m+[m
+ .data/gamevals/component.rscm                      | 518 [32m++++++++++[m[31m-----------[m
+ .data/gamevals/dbrow.rscm                          |   1 [32m+[m
+ .data/gamevals/interface.rscm                      |   2 [32m+[m[31m-[m
+ .data/gamevals/obj.rscm                            |   2 [32m+[m[31m-[m
+ .data/raw-cache/server/inv.toml                    |   3 [32m+[m[31m-[m
+ .data/raw-cache/server/npcs.toml                   | 158 [32m++++++[m[31m-[m
+ .../minigames/corrupted-gauntlet/build.gradle.kts  |   1 [32m+[m
+ .../docs/CORRUPTED_GAUNTLET_BEHAVIOUR.md           |  29 [32m++[m
+ .../corruptedgauntlet/CorruptedGauntletConfig.kt   |   6 [32m+[m[31m-[m
+ .../CorruptedGauntletRunManager.kt                 |  25 [32m+[m
+ .../corruptedgauntlet/CorruptedGauntletWorld.kt    |  28 [32m+[m[31m-[m
+ .../CorruptedGauntletAssetManifestTest.kt          |   7 [32m+[m
+ .../content/minigames/toa/AkkhaPayloadQueues.kt    | 184 [32m++++++++[m
+ .../content/minigames/toa/BabaCombatQueues.kt      |  32 [32m++[m
+ .../content/minigames/toa/ToaAkkhaEncounter.kt     |  19 [32m+[m[31m-[m
+ .../content/minigames/toa/ToaBabaEncounter.kt      |   8 [31m-[m
+ .../org/rsmod/content/minigames/toa/ToaDomain.kt   |  38 [32m+[m[31m-[m
+ .../rsmod/content/minigames/toa/ToaRaidManager.kt  | 411 [32m+++++++++++[m[31m-----[m
+ .../content/minigames/toa/AkkhaEncounterTest.kt    |  28 [32m++[m
+ .../minigames/toa/AkkhaPayloadQueuesTest.kt        | 107 [32m+++++[m
+ .../content/minigames/toa/ToaBabaEncounterTest.kt  |  10 [31m-[m
+ .../src/main/kotlin/resources/gamevals.toml        |   2 [32m+[m[31m-[m
+ docs/bosses/DSL_MIGRATION.md                       |  25 [32m+[m
+ docs/bosses/MIGRATION_HANDOFF.md                   |  10 [32m+[m
+ .../dev/openrune/PkLoadoutInterfaceBuilder.kt      |   9 [32m+[m[31m-[m
+ scripts/CerberusAuditShutdown.java                 | 131 [32m++++[m[31m--[m
+ scripts/cerberus-controlled-restart.ps1            |  18 [32m+[m[31m-[m
+ 29 files changed, 1364 insertions(+), 471 deletions(-)

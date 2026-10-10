@@ -6,18 +6,18 @@
 revision = 240
 
 [max_ids]
-component = 63438864
-dbrow = 16954
+component = 63504390
+dbrow = 16978
 dbtable = 258
-interface = 968
-inv = 1027
+interface = 969
+inv = 1028
 jingle = 1196
-loc = 62430
-npc = 16346
-obj = 34067
-seq = 14496
-spotanim = 4017
+loc = 62521
+npc = 16575
+obj = 34603
+seq = 14520
+spotanim = 4022
 sprites = 8560
 varbit = 20396
-varcs = 1507
-varp = 5725
+varcs = 1511
+varp = 5751

@@ -482,7 +482,7 @@ effect_toa_smelling_salts=64134
 effect_toa_silk_dressing=64133
 effect_toa_blessed_crystal_scarab=64132
 [gamevals.obj]
-mystery_box=34068
+mystery_box=34604
 
 [gamevals.models]
 mystery_box=61869

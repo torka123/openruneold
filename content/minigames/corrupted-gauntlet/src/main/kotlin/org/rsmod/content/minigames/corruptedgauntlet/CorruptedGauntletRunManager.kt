@@ -679,6 +679,31 @@ constructor(
         return true
     }
 
+    fun teleportToRewardChest(player: Player): Boolean {
+        val run = runs[player.uid]
+        if (run != null) {
+            if (run.bossKilled) {
+                retryCompletedResult(run)
+                return runs[player.uid] == null
+            }
+            return leave(player)
+        }
+        if (instances.sessionForPlayer(player) != null) {
+            player.mes("Leave your current instance before going to the Gauntlet lobby.")
+            return false
+        }
+        PathingEntityCommon.telejump(
+            player,
+            collision,
+            CoordGrid(
+                CorruptedGauntletConfig.LOBBY_X,
+                CorruptedGauntletConfig.LOBBY_Z,
+                CorruptedGauntletConfig.LOBBY_LEVEL,
+            ),
+        )
+        return true
+    }
+
     fun claim(player: Player): Boolean {
         val claimed = rewards.claim(player) ?: return false
         ui.setRewardAvailable(player, false)

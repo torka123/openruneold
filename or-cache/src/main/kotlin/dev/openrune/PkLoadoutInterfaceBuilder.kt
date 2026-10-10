@@ -14,9 +14,10 @@ import java.nio.file.Paths
 /**
  * Reproducible revision-240 cache builder for the PK loadout interface.
  *
- * Interface 969 is the first group above the stock revision-240 maximum (968). The component layout
- * is shared with the server through [PkLoadoutInterfaceIds]. No sprites are replaced: the
- * RuneScape-style frame comes from stock clientscript 227 and the panels use native IF3 colours.
+ * Interface 1201 follows the existing SERVER cache archives through 1200 and remains available in
+ * LIVE. The component layout is shared with the server through [PkLoadoutInterfaceIds]. No sprites
+ * are replaced: the RuneScape-style frame comes from stock clientscript 227 and the panels use
+ * native IF3 colours.
  */
 public fun main() {
     val root = Paths.get(System.getProperty("user.dir")).normalize()
@@ -114,7 +115,7 @@ private fun verifyPackedInterface(cachePaths: List<Path>, components: Map<Int, C
 
 public object PkLoadoutInterfaceIds {
     public const val Revision: Int = 240
-    public const val Id: Int = 969
+    public const val Id: Int = 1201
     public const val MaxPremadeRows: Int = 30
     public const val MaxCustomRows: Int = 20
 

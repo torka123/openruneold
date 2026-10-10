@@ -264,9 +264,12 @@ internal class ToaEncounterState(
     var kephriRecoveryTotal = 0
     var kephriRecoveryHealCap = 0
     var kephriRecoveryResolved = 0
-    var kephriNextSwarmAt = -1
+    val kephriNextSwarmAt: Int
+        get() = kephriEncounterQueues?.recoveryAt ?: -1
     var kephriSwarmStartLane = 0
-    var kephriNextMedicAt = -1
+    val kephriNextMedicAt: Int
+        get() = kephriEncounterQueues?.medicAt ?: -1
+    var kephriEncounterQueues: KephriEncounterQueues? = null
     var kephriBombQueues: KephriBombQueues? = null
     val kephriNextBomberBombAt: Int
         get() = kephriBombQueues?.bomberAt ?: -1
@@ -274,7 +277,8 @@ internal class ToaEncounterState(
     var kephriMedicSpawnIndex = 0
     var kephriDungTargetCursor = 0
     var kephriDying = false
-    var kephriCompletesAt = -1
+    val kephriCompletesAt: Int
+        get() = kephriEncounterQueues?.deathAt ?: -1
     var kephriDeathHero: PlayerUid? = null
     val kephriSwarms = linkedMapOf<Int, KephriSwarmRuntime>()
     val kephriEggs = linkedMapOf<Int, KephriEggRuntime>()
@@ -321,11 +325,20 @@ internal class ToaEncounterState(
     var wardenTransitionDestroyedAt = -1
     var wardenTransitionDyingActor = -1
     var wardenTransitionDestroyed = false
-    var wardenPhaseThreeTransitionEndsAt = -1
+    var wardenCoreQueues: WardenCoreQueues? = null
+    val wardenPhaseThreeTransitionEndsAt: Int
+        get() = wardenCoreQueues?.phaseThreeAt ?: -1
+
     var wardenCoreDowns = 0
-    var wardenCoreReturnsAt = -1
-    var wardenCoreProjectileAt = -1
-    var wardenCoreSpawnsAt = -1
+    val wardenCoreReturnsAt: Int
+        get() = wardenCoreQueues?.returnAt ?: -1
+
+    val wardenCoreProjectileAt: Int
+        get() = wardenCoreQueues?.projectileAt ?: -1
+
+    val wardenCoreSpawnsAt: Int
+        get() = wardenCoreQueues?.spawnAt ?: -1
+
     var wardenCorePendingBody = -1
     var wardenCorePendingTile: CoordGrid? = null
     var wardenCoreStartHitpoints = 0
@@ -388,15 +401,14 @@ internal class ToaEncounterState(
         kephriRecoveryTotal = 0
         kephriRecoveryHealCap = 0
         kephriRecoveryResolved = 0
-        kephriNextSwarmAt = -1
         kephriSwarmStartLane = 0
-        kephriNextMedicAt = -1
+        kephriEncounterQueues?.close()
+        kephriEncounterQueues = null
         kephriBombQueues?.close()
         kephriBombQueues = null
         kephriMedicSpawnIndex = 0
         kephriDungTargetCursor = 0
         kephriDying = false
-        kephriCompletesAt = -1
         kephriDeathHero = null
         kephriSwarms.clear()
         kephriEggs.clear()
@@ -437,11 +449,9 @@ internal class ToaEncounterState(
         wardenTransitionDestroyedAt = -1
         wardenTransitionDyingActor = -1
         wardenTransitionDestroyed = false
-        wardenPhaseThreeTransitionEndsAt = -1
+        wardenCoreQueues?.close()
+        wardenCoreQueues = null
         wardenCoreDowns = 0
-        wardenCoreReturnsAt = -1
-        wardenCoreProjectileAt = -1
-        wardenCoreSpawnsAt = -1
         wardenCorePendingBody = -1
         wardenCorePendingTile = null
         wardenCoreStartHitpoints = 0

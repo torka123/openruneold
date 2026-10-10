@@ -101,6 +101,35 @@ column is populated from durable personal completions, actual encounter deaths, 
 complete run time. Standard-Gauntlet and global aggregate fields are clearly unavailable rather
 than displaying invented records, because those systems are outside this milestone.
 
+## Lobby entry and chest interactions
+
+The revision-240 lobby map places entrance object `37340` at `(3032,6128,1)` and reward chest
+`37341` at `(3027,6123,1)`. The entrance transforms on normal-completion varp `2353` to disabled
+object `36083` or enabled object `36084`; on the enabled object, option 2 (`Enter-corrupted`) calls
+the existing run manager. The standard `Enter` option explains that standard Gauntlet is unavailable.
+Talking to Bryn (`npc.gauntlet_instructor`, id `9020`) offers `Start a New Game` and calls that same
+manager, which checks eligibility, pending rewards, protected state and existing instances before
+creating the private run.
+
+The lobby chest base transforms on pending-reward varbit `9179`: state 0 is open/empty object
+`36088`, state 1 is closed/reward-ready object `36087`. Only the closed object's native `Open`
+option claims. It routes through the existing reward service, which preserves the CG table and rare
+rolls, atomically delivers items and records the Collection Log, and leaves a reward pending when
+inventory space is insufficient. The existing claim lock prevents duplicate delivery; the varbit
+returns the chest to its empty state after a successful claim. Bare admin command `::cg` teleports
+the administrator to the public lobby containing this chest; a seeded command remains available
+for test runs.
+
+Revision-240 cache coverage checks the transform IDs/actions and both map placements. On 2026-10-08
+the CG module suite passed all 44 tests, the server app classes compiled, and the live server passed
+two save-first controlled restarts (`51132 -> 38220 -> 1900`). Both startups printed the custom-build
+marker, reached ready on revision 240, and opened the existing embedded PostgreSQL store with zero
+pending migrations. The doctor confirmed the canonical workspace and unchanged SERVER/LIVE cache
+fingerprints after each restart. Deployment source backup and doctor logs are under
+`logs/cg-chest-entry-deploy-20261008-161928`. A completed live CG run and reward claim were not
+performed as part of this deployment; the manual completion/reclaim scenario below remains useful
+for in-client acceptance.
+
 ## Cache compatibility manifest
 
 ### Already present and ready

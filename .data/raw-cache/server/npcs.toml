@@ -4479,11 +4479,37 @@ inherit = "npc.dom_demonic_energy_melee"
 [npc.params]
 "param.demon" = 1
 
-# Royal Titans live elemental weaknesses (OSRS Wiki, revision-240 active IDs).
+# Royal Titans combat parameters. OSRS Wiki Branda oldid=15200593 / Eldric oldid=15271709;
+# native param units: npc_com_xp_multiplier=1000 means 1x, venom_immunity=2 means fully immune.
+# Base levels/size remain inherited from the revision-240 definitions.
 [[npc]]
 id = "npc.rt_fire_queen"
 inherit = "npc.rt_fire_queen"
 [npc.params]
+"param.attackrate" = 7
+"param.attack_anim" = 11974
+"param.npc_attack_type" = "category.attacktype_crush"
+"param.attack_melee" = 150
+"param.melee_strength" = 0
+"param.attack_magic" = 100
+"param.npc_magic_damage_bonus" = 100
+"param.attack_ranged" = 100
+"param.ranged_strength" = 100
+"param.defence_stab" = 12
+"param.defence_slash" = 12
+"param.defence_crush" = 0
+"param.defence_magic" = 700
+"param.defence_ranged" = 700
+"param.defence_light" = 700
+"param.defence_standard" = 700
+"param.defence_heavy" = 700
+"param.poison_immunity" = 1
+"param.venom_immunity" = 2
+"param.cannon_immunity" = 1
+"param.burn_immunity" = 0
+"param.freeze_resistance" = 100
+"param.slayer_experience" = 735
+"param.npc_com_xp_multiplier" = 1225
 "param.elemental_weakness_type" = 1
 "param.elemental_weakness_percent" = 50
 
@@ -4491,22 +4517,152 @@ inherit = "npc.rt_fire_queen"
 id = "npc.rt_ice_king"
 inherit = "npc.rt_ice_king"
 [npc.params]
+"param.attackrate" = 7
+"param.attack_anim" = 11973
+"param.npc_attack_type" = "category.attacktype_crush"
+"param.attack_melee" = 150
+"param.melee_strength" = 0
+"param.attack_magic" = 100
+"param.npc_magic_damage_bonus" = 100
+"param.attack_ranged" = 100
+"param.ranged_strength" = 100
+"param.defence_stab" = 12
+"param.defence_slash" = 12
+"param.defence_crush" = 0
+"param.defence_magic" = 700
+"param.defence_ranged" = 700
+"param.defence_light" = 700
+"param.defence_standard" = 700
+"param.defence_heavy" = 700
+"param.poison_immunity" = 1
+"param.venom_immunity" = 2
+"param.cannon_immunity" = 1
+"param.burn_immunity" = 0
+"param.freeze_resistance" = 100
+"param.slayer_experience" = 735
+"param.npc_com_xp_multiplier" = 1225
 "param.elemental_weakness_type" = 3
 "param.elemental_weakness_percent" = 50
 
 [[npc]]
 id = "npc.rt_summon_elemental_fire"
 inherit = "npc.rt_summon_elemental_fire"
+blockWalk = "None"
+# Native pursuit leash spans the instanced map square; attackRange remains one tile.
+maxRange = 64
 [npc.params]
+"param.npc_attack_type" = "category.attacktype_slash"
+"param.attackrate" = 4
 "param.elemental_weakness_type" = 1
 "param.elemental_weakness_percent" = 100
 
 [[npc]]
 id = "npc.rt_summon_elemental_ice"
 inherit = "npc.rt_summon_elemental_ice"
+blockWalk = "None"
+maxRange = 64
 [npc.params]
+"param.npc_attack_type" = "category.attacktype_stab"
+"param.attackrate" = 4
 "param.elemental_weakness_type" = 3
 "param.elemental_weakness_percent" = 100
+
+# Grand Exchange staff stay at their desks (PR #216 GE configuration).
+[[npc]]
+id = "npc.ge_clerk_1"
+inherit = "npc.ge_clerk_1"
+moveRestrict = "NoMove"
+wanderRange = 0
+
+[[npc]]
+id = "npc.ge_clerk_2"
+inherit = "npc.ge_clerk_2"
+moveRestrict = "NoMove"
+wanderRange = 0
+
+[[npc]]
+id = "npc.ge_clerk_3"
+inherit = "npc.ge_clerk_3"
+moveRestrict = "NoMove"
+wanderRange = 0
+
+[[npc]]
+id = "npc.ge_clerk_4"
+inherit = "npc.ge_clerk_4"
+moveRestrict = "NoMove"
+wanderRange = 0
+
+[[npc]]
+id = "npc.ge_boss"
+inherit = "npc.ge_boss"
+moveRestrict = "NoMove"
+wanderRange = 0
+
+[[npc]]
+id = "npc.ge_expert_ores"
+inherit = "npc.ge_expert_ores"
+moveRestrict = "NoMove"
+wanderRange = 0
+
+[[npc]]
+id = "npc.ge_expert_herbs"
+inherit = "npc.ge_expert_herbs"
+moveRestrict = "NoMove"
+wanderRange = 0
+
+[[npc]]
+id = "npc.ge_expert_runes"
+inherit = "npc.ge_expert_runes"
+moveRestrict = "NoMove"
+wanderRange = 0
+
+[[npc]]
+id = "npc.ge_expert_logs"
+inherit = "npc.ge_expert_logs"
+moveRestrict = "NoMove"
+wanderRange = 0
+
+[[npc]]
+id = "npc.ge_expert_combat"
+inherit = "npc.ge_expert_combat"
+moveRestrict = "NoMove"
+wanderRange = 0
+
+[[npc]]
+id = "npc.banker1_west"
+inherit = "npc.banker1_west"
+moveRestrict = "NoMove"
+wanderRange = 0
+
+[[npc]]
+id = "npc.banker1_east"
+inherit = "npc.banker1_east"
+moveRestrict = "NoMove"
+wanderRange = 0
+
+[[npc]]
+id = "npc.banker2_east"
+inherit = "npc.banker2_east"
+moveRestrict = "NoMove"
+wanderRange = 0
+
+[[npc]]
+id = "npc.deadman_banker_grey_west"
+inherit = "npc.deadman_banker_grey_west"
+moveRestrict = "NoMove"
+wanderRange = 0
+
+[[npc]]
+id = "npc.bond_james_visible"
+inherit = "npc.bond_james_visible"
+moveRestrict = "NoMove"
+wanderRange = 0
+
+[[npc]]
+id = "npc.clan_clerk"
+inherit = "npc.clan_clerk"
+moveRestrict = "NoMove"
+wanderRange = 0
 
 # Native kill credit follows Nex's immutable spawn identity through visual forms.
 [[npc]]

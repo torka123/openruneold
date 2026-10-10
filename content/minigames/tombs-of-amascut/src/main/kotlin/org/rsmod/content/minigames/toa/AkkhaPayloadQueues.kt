@@ -19,9 +19,20 @@ internal class AkkhaPayloadQueues(
     private val memoryResolve = queues.createOwner()
     private val detonationOwner = queues.createOwner()
     private val finalOrb = queues.createOwner()
+    private val shadowCharge = queues.createOwner()
+    private val shadowBlast = queues.createOwner()
+    private val trailWindow = queues.createOwner()
+    private val trailOrbs = queues.createOwner()
+    private val statusPass = queues.createOwner()
     private val memory = linkedSetOf<MemoryEntry>()
     private var memoryDispatch: MemoryDispatch? = null
     private var detonationDispatch: ((AkkhaDetonation) -> Unit)? = null
+    private var trailWindowStart: (() -> Unit)? = null
+    private var trailWindowEnd: (() -> Unit)? = null
+    private var trailOrbActive: (() -> Boolean)? = null
+    private var trailOrbReady: (() -> Boolean)? = null
+    private var trailOrbDispatch: (() -> Unit)? = null
+    private var trailOrbQueued = false
     private var unregisterSession: () -> Unit = {}
 
     val memorySteps: List<AkkhaMemoryStep>
@@ -31,6 +42,21 @@ internal class AkkhaPayloadQueues(
         private set
 
     var finalOrbAt: Int = -1
+        private set
+
+    var shadowChargeAt: Int = -1
+        private set
+
+    var shadowBlastAt: Int = -1
+        private set
+
+    var trailStartsAt: Int = -1
+        private set
+
+    var trailEndsAt: Int = -1
+        private set
+
+    var statusAt: Int = -1
         private set
 
     val isClosed: Boolean
@@ -162,10 +188,152 @@ internal class AkkhaPayloadQueues(
         finalOrbAt = -1
     }
 
+    fun armShadowCharge(deadline: Int, ready: () -> Boolean, resolve: () -> Unit) {
+        check(!isClosed) { "Akkha payload queues are closed." }
+        shadowCharge.clear()
+        shadowChargeAt = deadline
+        shadowCharge.add(ready = { clock.cycle >= deadline && ready() }) {
+            shadowChargeAt = -1
+            if (stillAttached()) resolve()
+        }
+    }
+
+    fun clearShadowCharge() {
+        shadowCharge.clear()
+        shadowChargeAt = -1
+    }
+
+    fun processShadowCharge() = process.processOwned(shadowCharge)
+
+    fun armShadowBlast(deadline: Int, ready: () -> Boolean, resolve: () -> Unit) {
+        check(!isClosed) { "Akkha payload queues are closed." }
+        shadowBlast.clear()
+        shadowBlastAt = deadline
+        shadowBlast.add(ready = { clock.cycle >= deadline && ready() }) {
+            shadowBlastAt = -1
+            if (stillAttached()) resolve()
+        }
+    }
+
+    fun clearShadowBlast() {
+        shadowBlast.clear()
+        shadowBlastAt = -1
+    }
+
+    fun processShadowBlast() = process.processOwned(shadowBlast)
+
+    fun armTrailWindow(
+        startsAt: Int,
+        endsAt: Int,
+        onStart: () -> Unit,
+        onEnd: () -> Unit,
+    ) {
+        check(!isClosed) { "Akkha payload queues are closed." }
+        clearTrailWindow()
+        trailStartsAt = startsAt
+        trailEndsAt = endsAt
+        trailWindowStart = onStart
+        trailWindowEnd = onEnd
+        enqueueTrailWindowStart()
+    }
+
+    private fun enqueueTrailWindowStart() {
+        if (trailStartsAt < 0 || trailEndsAt < 0) return
+        val start = trailStartsAt
+        trailWindow.add(ready = { clock.cycle >= start || clock.cycle >= trailEndsAt }) {
+            if (trailEndsAt < 0) return@add
+            if (clock.cycle >= trailEndsAt) {
+                val callback = trailWindowEnd
+                clearTrailWindow()
+                if (stillAttached()) callback?.invoke()
+            } else if (clock.cycle >= start) {
+                val callback = trailWindowStart
+                trailWindowStart = null
+                if (stillAttached()) callback?.invoke()
+                enqueueTrailWindowEnd()
+            }
+        }
+    }
+
+    private fun enqueueTrailWindowEnd() {
+        val end = trailEndsAt
+        if (end < 0) return
+        trailWindow.add(ready = { clock.cycle >= end }) {
+            val callback = trailWindowEnd
+            clearTrailWindow()
+            if (stillAttached()) callback?.invoke()
+        }
+    }
+
+    fun processTrailWindow() = process.processOwned(trailWindow)
+
+    fun clearTrailWindow() {
+        trailWindow.clear()
+        trailStartsAt = -1
+        trailEndsAt = -1
+        trailWindowStart = null
+        trailWindowEnd = null
+    }
+
+    /** One ordered owner visits all active orbs once per manager pass, after their spawn tick. */
+    fun processTrailOrbs(
+        hasOrbs: () -> Boolean,
+        ready: () -> Boolean,
+        dispatch: () -> Unit,
+    ) {
+        trailOrbActive = hasOrbs
+        trailOrbReady = ready
+        trailOrbDispatch = dispatch
+        if (!hasOrbs()) {
+            trailOrbs.clear()
+            trailOrbQueued = false
+            return
+        }
+        if (!trailOrbQueued) enqueueTrailOrbPass()
+        process.processOwned(trailOrbs)
+    }
+
+    private fun enqueueTrailOrbPass() {
+        if (trailOrbs.isClosed || trailOrbActive?.invoke() != true) return
+        trailOrbQueued = true
+        trailOrbs.add(ready = { trailOrbReady?.invoke() == true }) {
+            trailOrbQueued = false
+            if (stillAttached()) trailOrbDispatch?.invoke()
+            if (!trailOrbs.isClosed && trailOrbActive?.invoke() == true) enqueueTrailOrbPass()
+        }
+    }
+
+    fun armStatusPass(deadline: Int, dispatch: () -> Unit) {
+        check(!isClosed) { "Akkha payload queues are closed." }
+        if (statusAt == deadline) return
+        statusPass.clear()
+        statusAt = deadline
+        statusPass.add(ready = { clock.cycle >= deadline }) {
+            statusAt = -1
+            if (stillAttached()) dispatch()
+        }
+    }
+
+    fun processStatusPass() = process.processOwned(statusPass)
+
+    fun clearStatusPass() {
+        statusPass.clear()
+        statusAt = -1
+    }
+
     fun clear() {
         clearMemory()
         clearDetonation()
         clearFinalOrb()
+        clearShadowCharge()
+        clearShadowBlast()
+        clearTrailWindow()
+        trailOrbs.clear()
+        trailOrbQueued = false
+        trailOrbActive = null
+        trailOrbReady = null
+        trailOrbDispatch = null
+        clearStatusPass()
     }
 
     fun close() {
@@ -174,9 +342,25 @@ internal class AkkhaPayloadQueues(
         memoryResolve.close()
         detonationOwner.close()
         finalOrb.close()
+        shadowCharge.close()
+        shadowBlast.close()
+        trailWindow.close()
+        trailOrbs.close()
+        statusPass.close()
         memory.clear()
         detonation = null
         finalOrbAt = -1
+        shadowChargeAt = -1
+        shadowBlastAt = -1
+        trailStartsAt = -1
+        trailEndsAt = -1
+        statusAt = -1
+        trailWindowStart = null
+        trailWindowEnd = null
+        trailOrbActive = null
+        trailOrbReady = null
+        trailOrbDispatch = null
+        trailOrbQueued = false
         unregisterSession()
     }
 

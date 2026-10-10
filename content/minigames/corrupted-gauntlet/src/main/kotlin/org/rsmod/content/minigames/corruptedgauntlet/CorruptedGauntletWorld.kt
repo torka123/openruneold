@@ -23,10 +23,12 @@ import org.rsmod.api.script.onOpHeldU
 import org.rsmod.api.script.onOpLoc1
 import org.rsmod.api.script.onOpLoc2
 import org.rsmod.api.script.onOpLocU
+import org.rsmod.api.script.onOpNpc1
 import org.rsmod.api.table.PotionEffectRow
 import org.rsmod.content.other.consumables.ConsumableDelayState
 import org.rsmod.content.other.consumables.ConsumableType
 import org.rsmod.content.other.consumables.potion.PotionEffectService
+import org.rsmod.game.entity.Npc
 import org.rsmod.plugin.scripts.PluginScript
 import org.rsmod.plugin.scripts.ScriptContext
 
@@ -41,8 +43,11 @@ constructor(
         runs.validateAssets()
 
         val entrance = loc(CorruptedGauntletConfig.Loc.ENABLED_ENTRANCE)
-        onOpLoc1(entrance) { runs.enter(player) }
+        onOpLoc1(entrance) {
+            mes("The standard Gauntlet is unavailable here. Choose Enter-corrupted to begin.")
+        }
         onOpLoc2(entrance) { runs.enter(player) }
+        onOpNpc1("npc.gauntlet_instructor") { talkToGauntletInstructor(it.npc) }
 
         val barrier = loc(CorruptedGauntletConfig.Loc.BOSS_BARRIER)
         onOpLoc1(barrier) {
@@ -109,11 +114,10 @@ constructor(
         onOpLoc1(loc(CorruptedGauntletConfig.Loc.EGNIOL_BOOK)) { readEgniolBook() }
 
         val closedChest = loc(CorruptedGauntletConfig.Loc.REWARD_CHEST_CLOSED)
-        val openChest = loc(CorruptedGauntletConfig.Loc.REWARD_CHEST_OPEN)
-        onOpLoc1(closedChest) { runs.claim(player) }
-        onOpLoc2(closedChest) { runs.claim(player) }
-        onOpLoc1(openChest) { runs.claim(player) }
-        onOpLoc2(openChest) { runs.claim(player) }
+        onOpLoc1(closedChest) {
+            arriveDelay()
+            if (runs.claim(player)) anim("seq.human_openchest")
+        }
 
         val pestle = item(CorruptedGauntletConfig.Obj.PESTLE_AND_MORTAR)
         val shards = item(CorruptedGauntletConfig.Obj.SHARDS)
@@ -149,11 +153,12 @@ constructor(
 
         onCommand("cg") {
             requiredRights = Rights.ADMINISTRATOR
-            desc = "Create a deterministic private Corrupted Gauntlet"
+            desc = "Go to the Gauntlet chest or create a seeded test run"
             invalidArgs = "Use ::cg [seed]"
             cheat {
                 val seed = args.firstOrNull()?.toLongOrNull()
-                runs.enter(player, seed ?: System.nanoTime(), bypass = true)
+                if (args.isEmpty()) runs.teleportToRewardChest(player)
+                else runs.enter(player, seed ?: System.nanoTime(), bypass = true)
             }
         }
         onCommand("corruptedgauntlet") {
@@ -207,6 +212,13 @@ constructor(
         if (runs.harvest(player, clicked) == null)
             player.mes("There is nothing left to gather there.")
         resetAnim()
+    }
+
+    private suspend fun ProtectedAccess.talkToGauntletInstructor(npc: Npc) {
+        startDialogue(npc) {
+            chatNpc(neutral, "Would you like to take on the Corrupted Gauntlet?")
+            if (choice2("Start a New Game", 1, "Not now.", 2) == 1) runs.enter(player)
+        }
     }
 
     private suspend fun ProtectedAccess.cook() {

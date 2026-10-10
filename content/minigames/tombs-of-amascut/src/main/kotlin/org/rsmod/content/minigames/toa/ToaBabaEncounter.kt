@@ -595,7 +595,6 @@ internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
     val attackCounter: Int
         get() = nativePhases?.acceptedAutos ?: 0
 
-    var nextRubbleAt = -1
     var activeRollingThreshold: Int? = null
     val pendingRollingThresholds = ArrayDeque<Int>()
     var completedRollingPhases = 0
@@ -699,7 +698,6 @@ internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
         state = BabaState.RESETTING
         target = null
         previousTarget = null
-        nextRubbleAt = -1
         activeRollingThreshold = null
         pendingRollingThresholds.clear()
         completedRollingPhases = 0
@@ -764,12 +762,6 @@ internal class BabaEncounter(val encounterId: UUID, private val seed: Long) {
                 )
         )
         state = BabaState.NORMAL_COMBAT
-    }
-
-    fun rubbleDue(now: Int) = nextRubbleAt < 0 || now >= nextRubbleAt
-
-    fun markRubbleSequenceStarted(now: Int) {
-        nextRubbleAt = now + BabaTuning.RUBBLE_COOLDOWN_TICKS.value
     }
 
     fun queueCrossedThresholds(previousHp: Int, currentHp: Int, maximumHp: Int): List<Int> {

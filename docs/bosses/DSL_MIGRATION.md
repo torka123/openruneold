@@ -2,6 +2,31 @@
 
 ## Current source increments — September 14
 
+## Current continuation — October 5
+
+### ToA native-owner source batch implemented and fully tested
+
+The current worktree carries the approved Ba-Ba rubble-cooldown, raid-reset and Wardens core/P3
+owners, Akkha shadow charge/blast, trail-window/orb and status-pass owners, and Kephri recovery-wave,
+medic-cadence and delayed-death owners. Kephri swarm geometry/movement and shield effects remain at
+their existing LateCycle handlers. Its session-owned death timer survives native encounter removal;
+missing-source/player readiness retains due timers, recovery emits one batch per pass, and medic
+cadence rearms from actual dispatch. Akkha status deadlines preserve one anchored overdue pulse per
+manager pass and the verified expiry boundaries; memory-special passes advance shadow charge exactly
+one tick, and an in-flight blast resolves if its last live shadow disappears. These routes use the
+established session/encounter-owned `WorldQueueList` pipeline; no engine API or private combat hook
+was added.
+
+Verification: ToA `compileKotlin` and `compileTestKotlin` pass; the complete module suite passes all
+608 tests, including the 33 focused Kephri/Akkha/Ba-Ba/Wardens/reset manager tests. All nine
+cache-independent native-owner tests pass as well. The architecture detector, its self-tests and
+`git diff --check` pass. The test cache uses `mystery_box=34604` above object max `34603`; this
+continuation did not edit `.data`. Integration exposed and fixed two boundary defects: Wardens now
+binds its session owner at Phase 2 entry, and Akkha's post-wipe WAITING tick safely no-ops when its
+payload owner and trail/status state are empty. The approved ToA source mapping set is implemented
+and verified; source only, no deployment or restart. ToB/CoX remains outside this ToA completion
+checkpoint and the overall migration is not complete.
+
 ### Current checkpoint: Kephri bombs and Akkha memory/detonation/orb payloads verified
 
 Kephri bomb lock, hit preparation and landing now use separate native owners, retaining one source

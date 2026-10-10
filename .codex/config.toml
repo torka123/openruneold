@@ -1,0 +1,4 @@
+# This project connects through RSProx (OpenRune Server, revision 240).
+# The global openrune MCP belongs to the separate stock RuneLite DeveloperTools setup.
+[mcp_servers.openrune]
+enabled = false

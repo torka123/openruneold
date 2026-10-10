@@ -276,6 +276,113 @@ class AkkhaPayloadQueuesTest {
     }
 
     @Test
+    fun `shadow charge retries overdue readiness and blast recharges through separate owners`() {
+        ToaNativeCombatFixture().use { f ->
+            val raid = f.start()
+            val queues = WorldQueueList()
+            val helper = AkkhaPayloadQueues(raid.instance, queues, WorldQueueListProcess(queues), f.clock) {
+                true
+            }
+            val startedAt = f.clock.cycle
+            val events = mutableListOf<String>()
+            var chargeReady = false
+            helper.armShadowCharge(startedAt + 1, ready = { chargeReady }) {
+                events += "charge"
+                helper.armShadowBlast(f.clock.cycle + 2, ready = { true }) {
+                    events += "blast"
+                    helper.armShadowCharge(f.clock.cycle + 3, ready = { true }) {
+                        events += "recharge"
+                    }
+                }
+            }
+            f.advance(4)
+            helper.processShadowCharge()
+            assertTrue(events.isEmpty())
+            assertEquals(startedAt + 1, helper.shadowChargeAt)
+            assertEquals(1, queues.size)
+
+            chargeReady = true
+            helper.processShadowCharge()
+            assertEquals(listOf("charge"), events)
+            assertEquals(-1, helper.shadowChargeAt)
+            assertEquals(f.clock.cycle + 2, helper.shadowBlastAt)
+            helper.processShadowBlast()
+            assertEquals(listOf("charge"), events)
+            f.advance(2)
+            helper.processShadowBlast()
+            assertEquals(listOf("charge", "blast"), events)
+            assertEquals(f.clock.cycle + 3, helper.shadowChargeAt)
+            f.advance(3)
+            helper.processShadowCharge()
+            assertEquals(listOf("charge", "blast", "recharge"), events)
+            assertEquals(-1, helper.shadowChargeAt)
+            helper.clear()
+            assertEquals(0, queues.size)
+        }
+    }
+
+    @Test
+    fun `trail window and aggregate orb owner preserve start end and ordered pass boundaries`() {
+        ToaNativeCombatFixture().use { f ->
+            val raid = f.start()
+            val queues = WorldQueueList()
+            val helper = AkkhaPayloadQueues(raid.instance, queues, WorldQueueListProcess(queues), f.clock) {
+                true
+            }
+            val startedAt = f.clock.cycle
+            val events = mutableListOf<String>()
+            var hasOrbs = true
+            helper.armTrailWindow(
+                startsAt = startedAt + 2,
+                endsAt = startedAt + 4,
+                onStart = { events += "trail-start" },
+                onEnd = { events += "trail-end" },
+            )
+            helper.armStatusPass(startedAt + 1) {
+                assertEquals(-1, helper.statusAt, "The native owner clears before dispatch")
+                events += "status"
+            }
+            helper.processTrailOrbs(
+                hasOrbs = { hasOrbs },
+                ready = { f.clock.cycle >= startedAt + 2 },
+                dispatch = { events += "orb-pass" },
+            )
+
+            f.advance(1)
+            helper.processTrailWindow()
+            helper.processStatusPass()
+            helper.processTrailOrbs(
+                hasOrbs = { hasOrbs },
+                ready = { f.clock.cycle >= startedAt + 2 },
+                dispatch = { events += "orb-pass" },
+            )
+            assertEquals(listOf("status"), events)
+
+            f.advance(1)
+            helper.processTrailWindow()
+            helper.processTrailOrbs(
+                hasOrbs = { hasOrbs },
+                ready = { f.clock.cycle >= startedAt + 2 },
+                dispatch = { events += "orb-pass" },
+            )
+            assertEquals(listOf("status", "trail-start", "orb-pass"), events)
+            hasOrbs = false
+            helper.processTrailOrbs(
+                hasOrbs = { hasOrbs },
+                ready = { true },
+                dispatch = { events += "duplicate-orb-pass" },
+            )
+
+            f.advance(2)
+            helper.processTrailWindow()
+            assertEquals(listOf("status", "trail-start", "orb-pass", "trail-end"), events)
+            assertEquals(-1, helper.trailStartsAt)
+            assertEquals(-1, helper.trailEndsAt)
+            assertEquals(0, queues.size)
+        }
+    }
+
+    @Test
     fun `clear permits reuse while detached delivery and native session termination cancel all payloads`() {
         ToaNativeCombatFixture().use { f ->
             val raid = f.start()

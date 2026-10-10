@@ -4,6 +4,16 @@ This is a resumable handoff, not a project-completion or full OSRS-parity claim.
 mechanic mappings, uncertainties, commands and results remain in [DSL_MIGRATION.md](DSL_MIGRATION.md).
 Update this checkpoint after each completed boss and immediately before any authorized deployment.
 
+October 5 continuation: the approved ToA native-owner source mapping is implemented and verified
+for Ba-Ba rubble cooldown, raid wipe reset, Wardens core/P3 handoff, Akkha shadow/trail/status routing,
+and Kephri recovery waves, medic cadence and delayed death completion. ToA Kotlin compile and test
+compile pass; all 608 module tests and 33 focused integration tests pass, along with nine
+cache-independent native-owner tests, diff check and architecture checks. Integration caught and
+fixed the Warden Phase 2 owner attachment boundary and Akkha's empty post-wipe WAITING pass. The
+current cache maps `mystery_box=34604` above max `34603`; this continuation did not edit `.data`.
+Source only, not deployed; no runtime restart occurred. Overall ToB/CoX migration remains. Exact
+status is at the top of [DSL_MIGRATION.md](DSL_MIGRATION.md).
+
 September14 current checkpoint: Kephri bomb/bomber and Akkha memory/detonation/final-orb owners
 verified. Actual native hit processing covers Kephri impact-time prayer/radius; native manager
 timelines cover Akkha ordering, expiry, cap retry and lifecycle. Fixed post-wipe waiting-actor

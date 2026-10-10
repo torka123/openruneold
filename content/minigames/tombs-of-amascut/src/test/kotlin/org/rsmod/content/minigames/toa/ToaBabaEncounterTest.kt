@@ -217,16 +217,6 @@ class ToaBabaEncounterTest {
     }
 
     @Test
-    fun `rubble sequence has a thirty second cooldown`() {
-        val state = BabaEncounter(UUID(3, 3), 11)
-        assertTrue(state.rubbleDue(100))
-        state.markRubbleSequenceStarted(100)
-        assertFalse(state.rubbleDue(149))
-        assertTrue(state.rubbleDue(150))
-        assertEquals(50, BabaTuning.RUBBLE_COOLDOWN_TICKS.value)
-    }
-
-    @Test
     fun `shockwave has directional base and expanded masks`() {
         val boss = CoordGrid(100, 100, 0)
         val targets =

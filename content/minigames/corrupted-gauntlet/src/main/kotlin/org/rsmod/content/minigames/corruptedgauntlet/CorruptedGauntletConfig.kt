@@ -105,8 +105,8 @@ internal object CorruptedGauntletConfig {
         const val LOBBY_EXIT = 35_985
         const val ENTRANCE = 35_986
         const val COMBAT_DUMMY = 35_987
-        const val REWARD_CHEST_CLOSED = 35_988
-        const val REWARD_CHEST_OPEN = 35_989
+        const val REWARD_CHEST_CLOSED = 36_087
+        const val REWARD_CHEST_OPEN = 36_088
         const val SAFE_FLOOR = 36_046
         const val WARNING_FLOOR = 36_047
         const val DAMAGING_FLOOR = 36_048
@@ -246,6 +246,8 @@ internal object CorruptedGauntletAssetManifest {
         add(CorruptedGauntletConfig.Loc.PORTAL)
         add(CorruptedGauntletConfig.Loc.LOBBY_PLATFORM)
         add(CorruptedGauntletConfig.Loc.ENABLED_ENTRANCE)
+        add(CorruptedGauntletConfig.Loc.REWARD_CHEST_CLOSED)
+        add(CorruptedGauntletConfig.Loc.REWARD_CHEST_OPEN)
     }
     val interfaceIds =
         setOf(

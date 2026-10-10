@@ -148,7 +148,14 @@ constructor(
     private val viewedParties = mutableMapOf<PlayerUid, java.util.UUID>()
     private val RAID_STATE = InstanceStateKey<ToaRaidSession>("tombs-of-amascut-raid")
     private val devSeedOverrides = ToaDevSeedOverrides()
-    private val pendingResets = mutableMapOf<InstanceId, Int>()
+    private val pendingResets =
+        ToaResetQueues(
+            bossDeps.worldQueues,
+            queueProcess,
+            clock,
+            ::canDispatchRaidReset,
+            ::resetRaidIfNeeded,
+        )
     private val wardenFloorOriginalLocs = WardenFloorLocJournal<InstanceId, CoordGrid, LocInfo?>()
     private val stepValidator = StepValidator(collision)
     private val apmeken = ToaApmekenLiveRuntime()
@@ -1745,7 +1752,10 @@ constructor(
         val special =
             bossDeps.encounterRegistry
                 .of(source)
-                .selectBabaSpecial(clock.cycle, allowRockfall = state.rubbleDue(clock.cycle))
+                .selectBabaSpecial(
+                    clock.cycle,
+                    allowRockfall = babaQueues(raid, source).rubbleAvailable(),
+                )
         return startBabaSpecial(raid, source, special)
     }
 
@@ -2513,7 +2523,17 @@ constructor(
             if (state.kephriDying) return
             state.kephriDying = true
             state.kephriDeathHero = hero.uid
-            state.kephriCompletesAt = clock.cycle + KephriEncounter.DEATH_COMPLETION_TICKS
+            requireNotNull(state.kephriEncounterQueues) {
+                "Bind Kephri's native encounter timers before processing its death."
+            }.armDeath(
+                deadline = clock.cycle + KephriEncounter.DEATH_COMPLETION_TICKS,
+                ready = {
+                    state.kephriDying &&
+                        (state.kephriDeathHero?.resolve(players) != null ||
+                            activePlayers(raid).isNotEmpty())
+                },
+                action = { processKephriDeathCompletion(raid) },
+            )
             state.kephriBombQueues?.clearBombs()
             state.kephriPendingDungStrikes.clear()
             state.kephriEggBatches.clear()
@@ -2634,7 +2654,7 @@ constructor(
             "The team has wiped. Attempts ${raid.attemptsUsed}/${limit ?: "unlimited"}.",
         )
         supplies.queueWipeSupplies(raid)
-        pendingResets[raid.instance.id] = clock.cycle + 1
+        pendingResets.schedule(raid.instance, clock.cycle + 1)
     }
 
     fun respawnAfterDeath(player: Player) {
@@ -2708,25 +2728,24 @@ constructor(
         }
     }
 
+    private fun canDispatchRaidReset(id: InstanceId): Boolean {
+        val raid = sessionRaid(id)?.takeUnless { it.cleanupStarted } ?: return true
+        return !ToaWipeRules.isTrueWipe(raid.participants.values, raid.completionPending) ||
+            ToaRaidPauseRules.shouldAdvance(raid.participants.values)
+    }
+
+    private fun resetRaidIfNeeded(id: InstanceId) {
+        val raid = sessionRaid(id)?.takeUnless { it.cleanupStarted } ?: return
+        if (
+            ToaWipeRules.isTrueWipe(raid.participants.values, raid.completionPending) &&
+                ToaRaidPauseRules.shouldAdvance(raid.participants.values)
+        ) {
+            resetEncounter(raid)
+        }
+    }
+
     fun tick() {
-        pendingResets
-            .filterValues { clock.cycle >= it }
-            .keys
-            .toList()
-            .forEach { id ->
-                val raid = sessionRaid(id)?.takeUnless { it.cleanupStarted }
-                if (raid == null) {
-                    pendingResets.remove(id)
-                    return@forEach
-                }
-                if (!ToaWipeRules.isTrueWipe(raid.participants.values, raid.completionPending)) {
-                    pendingResets.remove(id)
-                    return@forEach
-                }
-                if (!ToaRaidPauseRules.shouldAdvance(raid.participants.values)) return@forEach
-                pendingResets.remove(id)
-                resetEncounter(raid)
-            }
+        pendingResets.process()
         activeRaids().forEach { raid ->
             if (raid.state !in setOf(ToaRaidState.ACTIVE, ToaRaidState.WARDENS)) return@forEach
             processInvocationTimer(raid)
@@ -3875,8 +3894,14 @@ constructor(
         state.kephriSwarmStartLane =
             ((raid.party.id.leastSignificantBits xor state.phase.toLong()).toInt() and
                 Int.MAX_VALUE) % KephriArenaLayout.swarmLanes.size
-        state.kephriNextSwarmAt =
-            clock.cycle + KephriSwarms.FIRST_SPAWN_DELAY + if (state.phase == 2) 1 else 0
+        requireNotNull(state.kephriEncounterQueues) {
+            "Bind Kephri's native encounter timers before entering recovery."
+        }.armRecovery(
+            deadline =
+                clock.cycle + KephriSwarms.FIRST_SPAWN_DELAY + if (state.phase == 2) 1 else 0,
+            ready = { state.kephriRecovering && boss(raid) != null },
+            action = { processKephriRecoveryPass(raid) },
+        )
         if (invocationRules.aerialAssault) {
             armKephriBomber(raid, clock.cycle + KephriBomberScarabs.INITIAL_DELAY)
         } else state.kephriBombQueues?.clearBomber()
@@ -3898,12 +3923,14 @@ constructor(
     }
 
     private fun processKephriDeath(raid: ToaRaidSession) {
+        raid.encounter.kephriEncounterQueues?.processDeath()
+    }
+
+    private fun processKephriDeathCompletion(raid: ToaRaidSession) {
         val state = raid.encounter
-        if (!state.kephriDying || clock.cycle < state.kephriCompletesAt) return
         val hero =
             state.kephriDeathHero?.resolve(players) ?: activePlayers(raid).firstOrNull() ?: return
         state.kephriDying = false
-        state.kephriCompletesAt = -1
         completePathBoss(raid, hero)
     }
 
@@ -4313,6 +4340,11 @@ constructor(
         state.wardenCoreDowns = 0
         state.attackCounter = 0
         clearEncounterNpcs(raid)
+        state.wardenCoreQueues?.close()
+        state.wardenCoreQueues =
+            WardenCoreQueues(raid.instance, bossDeps.worldQueues, queueProcess, clock) {
+                isCurrent(raid) && isWardenRoom(raid.currentRoom)
+            }
         spawnNpc(
                 raid,
                 WardenObelisk.EXHAUSTED,
@@ -4437,14 +4469,24 @@ constructor(
         }
     }
 
+    private fun wardenCoreQueues(raid: ToaRaidSession): WardenCoreQueues =
+        raid.encounter.wardenCoreQueues
+            ?: WardenCoreQueues(raid.instance, bossDeps.worldQueues, queueProcess, clock) {
+                    isCurrent(raid) && isWardenRoom(raid.currentRoom)
+                }
+                .also { raid.encounter.wardenCoreQueues = it }
+
+    private fun pendingWardenCoreBody(raid: ToaRaidSession): Npc? =
+        raid.spawnedNpcs.firstOrNull {
+            it.hashCode() == raid.encounter.wardenCorePendingBody && it.isSlotAssigned
+        }
+
     private fun exposeWardenCore(raid: ToaRaidSession, bodyTile: CoordGrid) {
         val state = raid.encounter
         state.wardenStage = ToaWardenStage.CORE
         state.wardenAreaPulses.clear()
         state.pendingHitQueues?.clear()
-        state.wardenCoreReturnsAt = -1
-        state.wardenCoreProjectileAt = clock.cycle + 5
-        state.wardenCoreSpawnsAt = clock.cycle + 7
+        wardenCoreQueues(raid).clearCore()
         val bodyId =
             if (state.wardenPhaseTwoGod == WardenGod.ELIDINIS) ElidinisWarden.CORE_EJECTED
             else TumekenWarden.CORE_EJECTED
@@ -4465,29 +4507,43 @@ constructor(
                 bodyTile.z + WardenPhaseTwoMechanics.CORE_Z_OFFSET,
                 bodyTile.level,
             )
+        wardenCoreQueues(raid)
+            .armCore(
+                projectileAt = clock.cycle + 5,
+                spawnAt = clock.cycle + 7,
+                ready = {
+                    state.wardenStage == ToaWardenStage.CORE &&
+                        pendingWardenCoreBody(raid) != null &&
+                        state.wardenCorePendingTile != null
+                },
+                launchProjectile = { launchWardenCoreProjectile(raid) },
+                spawnCore = { spawnPendingWardenCore(raid) },
+            )
         raid.nextMechanicAt = state.wardenCoreProjectileAt
         message(raid.party, "The Warden begins ejecting its core.")
     }
 
     private fun processPendingWardenCore(raid: ToaRaidSession) {
+        if (raid.encounter.wardenStage != ToaWardenStage.CORE) return
+        raid.encounter.wardenCoreQueues?.processCoreEjection()
+    }
+
+    private fun launchWardenCoreProjectile(raid: ToaRaidSession) {
         val state = raid.encounter
-        if (state.wardenStage != ToaWardenStage.CORE) return
-        val body =
-            raid.spawnedNpcs.firstOrNull {
-                it.hashCode() == state.wardenCorePendingBody && it.isSlotAssigned
-            } ?: return
+        val body = pendingWardenCoreBody(raid) ?: return
         val coreTile = state.wardenCorePendingTile ?: return
-        if (state.wardenCoreProjectileAt >= 0 && clock.cycle >= state.wardenCoreProjectileAt) {
-            sendProjectile(
-                body,
-                coreTile,
-                WardenPhaseTwoMechanics.coreProjectile(state.wardenPhaseTwoGod),
-                travelTicks = 2,
-            )
-            state.wardenCoreProjectileAt = -1
-            raid.nextMechanicAt = state.wardenCoreSpawnsAt
-        }
-        if (state.wardenCoreSpawnsAt < 0 || clock.cycle < state.wardenCoreSpawnsAt) return
+        sendProjectile(
+            body,
+            coreTile,
+            WardenPhaseTwoMechanics.coreProjectile(state.wardenPhaseTwoGod),
+            travelTicks = 2,
+        )
+        raid.nextMechanicAt = state.wardenCoreSpawnsAt
+    }
+
+    private fun spawnPendingWardenCore(raid: ToaRaidSession) {
+        val state = raid.encounter
+        val coreTile = state.wardenCorePendingTile ?: return
         val coreId =
             if (state.wardenPhaseTwoGod == WardenGod.ELIDINIS) WardenCores.ELIDINIS
             else WardenCores.TUMEKEN
@@ -4502,8 +4558,20 @@ constructor(
         }
         val remainingPercent =
             state.wardenPhaseTwoRemaining * 100 / state.wardenPhaseTwoTrueMax.coerceAtLeast(1)
-        state.wardenCoreReturnsAt = clock.cycle + WardenCores.exposureTicks(remainingPercent)
-        state.wardenCoreSpawnsAt = -1
+        wardenCoreQueues(raid)
+            .armCoreReturn(
+                deadline = clock.cycle + WardenCores.exposureTicks(remainingPercent),
+                ready = {
+                    state.wardenStage == ToaWardenStage.CORE &&
+                        raid.npcRoles.values.any { it == ToaNpcRole.CORE }
+                },
+                resolve = {
+                    raid.npcRoles.entries
+                        .firstOrNull { it.value == ToaNpcRole.CORE }
+                        ?.key
+                        ?.let { resolveWardenCore(raid, it, null) }
+                },
+            )
         state.wardenCorePendingBody = -1
         state.wardenCorePendingTile = null
         raid.nextMechanicAt = state.wardenCoreReturnsAt
@@ -4598,9 +4666,7 @@ constructor(
                 }
                 .keys
                 .toList()
-        state.wardenCoreReturnsAt = -1
-        state.wardenCoreProjectileAt = -1
-        state.wardenCoreSpawnsAt = -1
+        state.wardenCoreQueues?.clearCore()
         state.wardenCorePendingBody = -1
         state.wardenCorePendingTile = null
         state.wardenCoreStartHitpoints = 0
@@ -4645,8 +4711,11 @@ constructor(
         cleanupWardenEffects(raid)
         closeWardenPhaseTwoBossBars(raid, listOfNotNull(phaseTwoBody))
         state.wardenStage = ToaWardenStage.PHASE_THREE_TRANSITION
-        state.wardenPhaseThreeTransitionEndsAt =
+        wardenCoreQueues(raid).armPhaseThree(
             clock.cycle + WardenPhaseThreeTransition.DURATION_TICKS
+        ) {
+            completeWardenPhaseThreeTransition(raid)
+        }
         state.wardenPendingSlam = null
         phaseTwoBody?.anim(WardenPhaseThreeTransition.SURVIVING_WARDEN_ANIMATION)
 
@@ -4718,22 +4787,21 @@ constructor(
     }
 
     private fun processWardenPhaseThreeTransition(raid: ToaRaidSession) {
+        if (raid.encounter.wardenStage != ToaWardenStage.PHASE_THREE_TRANSITION) return
+        raid.encounter.wardenCoreQueues?.processPhaseThree()
+    }
+
+    private fun completeWardenPhaseThreeTransition(raid: ToaRaidSession) {
         val state = raid.encounter
-        if (
-            state.wardenStage != ToaWardenStage.PHASE_THREE_TRANSITION ||
-                state.wardenPhaseThreeTransitionEndsAt < 0 ||
-                clock.cycle < state.wardenPhaseThreeTransitionEndsAt
-        ) {
-            return
-        }
+        if (state.wardenStage != ToaWardenStage.PHASE_THREE_TRANSITION) return
         clearEncounterNpcs(raid)
         raid.completedRooms += ToaRoom.WARDENS
         raid.currentRoom = ToaRoom.TUMEKEN_WARDEN
         raid.wardenPhase = 1
         state.wardenStage = ToaWardenStage.PHASE_THREE
-        state.wardenPhaseThreeTransitionEndsAt = -1
+        state.wardenCoreQueues?.clearPhaseThree()
         state.attackCounter = 0
-        state.wardenCoreReturnsAt = -1
+        state.wardenCoreQueues?.clearCore()
         state.wardenSkullsSent = 0
         state.wardenSiphonsSpawned = 0
         state.wardenSiphonPartySize = 1
@@ -5749,7 +5817,8 @@ constructor(
             when (special) {
                 BabaSpecial.ROCKFALL -> {
                     state.state = BabaState.ROCKFALL
-                    state.markRubbleSequenceStarted(clock.cycle)
+                    babaQueues(raid, source)
+                        .armRubbleCooldown(clock.cycle + BabaTuning.RUBBLE_COOLDOWN_TICKS.value)
                     source.anim(BabaAssets.ROCKFALL_CAST)
                     val targets = activePlayers(raid)
                     targets.forEach { target ->
@@ -7840,24 +7909,42 @@ constructor(
 
     private fun processKephriMedic(raid: ToaRaidSession) {
         val state = raid.encounter
+        val queues = state.kephriEncounterQueues ?: return
         val rules =
             KephriInvocationRules.resolve(
                 raid.startSnapshot.invocations,
                 raid.startSnapshot.partySize,
             )
         if (!rules.medicSwarmsOutsideShield || state.kephriRecovering || !raid.encounterStarted) {
-            state.kephriNextMedicAt = -1
+            queues.clearMedic()
             return
         }
-        val source = boss(raid) ?: return
+        if (boss(raid) == null) return
         if (state.kephriNextMedicAt < 0) {
-            state.kephriNextMedicAt = clock.cycle + rules.medicSpawnInterval
+            queues.armMedic(
+                deadline = clock.cycle + rules.medicSpawnInterval,
+                ready = {
+                    !state.kephriRecovering && raid.encounterStarted && boss(raid) != null
+                },
+                action = { processKephriMedicDue(raid, rules) },
+            )
             return
         }
-        if (clock.cycle < state.kephriNextMedicAt) return
+        queues.processMedic()
+    }
+
+    private fun processKephriMedicDue(raid: ToaRaidSession, rules: KephriInvocationProfile) {
+        val source = boss(raid) ?: return
         spawnKephriMedicSwarm(raid, rules)
         source.spotanim(ToaAssets.KEPHRI_BUG)
-        state.kephriNextMedicAt = clock.cycle + rules.medicSpawnInterval
+        val state = raid.encounter
+        state.kephriEncounterQueues?.armMedic(
+            deadline = clock.cycle + rules.medicSpawnInterval,
+            ready = {
+                !state.kephriRecovering && raid.encounterStarted && boss(raid) != null
+            },
+            action = { processKephriMedicDue(raid, rules) },
+        )
     }
 
     private fun spawnKephriMedicSwarm(raid: ToaRaidSession, rules: KephriInvocationProfile) {
@@ -7899,29 +7986,35 @@ constructor(
 
     private fun processKephriRecovery(raid: ToaRaidSession) {
         val state = raid.encounter
+        val queues = state.kephriEncounterQueues ?: return
+        if (!state.kephriRecovering) {
+            queues.clearRecovery()
+            return
+        }
+        queues.processRecovery()
+    }
+
+    private fun processKephriRecoveryPass(raid: ToaRaidSession) {
+        val state = raid.encounter
         if (!state.kephriRecovering) return
         val source = boss(raid) ?: return
 
         if (state.kephriRecoveryTotal == 0) {
-            if (clock.cycle >= state.kephriNextSwarmAt) finishKephriRecovery(raid, source)
+            finishKephriRecovery(raid, source)
             return
         }
-        if (
-            state.kephriRecoverySwarms < state.kephriRecoveryTotal &&
-                clock.cycle >= state.kephriNextSwarmAt
-        ) {
+        if (state.kephriRecoverySwarms < state.kephriRecoveryTotal) {
             val pathLevel = raid.pathLevels[ToaPath.SCABARAS] ?: 0
             val batch = if (pathLevel >= 2 && (state.kephriRecoverySwarms / 4) % 2 == 1) 3 else 1
             repeat(batch.coerceAtMost(state.kephriRecoveryTotal - state.kephriRecoverySwarms)) {
                 spawnKephriSwarm(raid)
             }
-            state.kephriNextSwarmAt =
-                clock.cycle + KephriSwarms.spawnInterval(state.kephriRecoverySwarms)
-        }
-        if (
-            state.kephriRecoverySwarms >= state.kephriRecoveryTotal &&
-                clock.cycle >= state.kephriNextSwarmAt
-        ) {
+            state.kephriEncounterQueues?.armRecovery(
+                deadline = clock.cycle + KephriSwarms.spawnInterval(state.kephriRecoverySwarms),
+                ready = { state.kephriRecovering && boss(raid) != null },
+                action = { processKephriRecoveryPass(raid) },
+            )
+        } else {
             finishKephriRecovery(raid, source)
         }
     }
@@ -8033,7 +8126,7 @@ constructor(
         source.moveRestrict = MoveRestrict.NoMove
         source.mode = null
         state.kephriRecovering = false
-        state.kephriNextSwarmAt = -1
+        state.kephriEncounterQueues?.clearRecovery()
         state.kephriBombQueues?.clearBomber()
         state.kephriRecoveryTotal = 0
         state.kephriRecoveryHealCap = 0
@@ -8073,16 +8166,8 @@ constructor(
         }
         if (state.wardenStage == ToaWardenStage.ENRAGE) processWardenFloorCollapse(raid)
         resolveWardenSlamIfDue(raid)
-        if (
-            raid.currentRoom == ToaRoom.WARDENS &&
-                state.wardenStage == ToaWardenStage.CORE &&
-                state.wardenCoreReturnsAt >= 0 &&
-                clock.cycle >= state.wardenCoreReturnsAt
-        ) {
-            raid.npcRoles.entries
-                .firstOrNull { it.value == ToaNpcRole.CORE }
-                ?.key
-                ?.let { resolveWardenCore(raid, it, null) }
+        if (raid.currentRoom == ToaRoom.WARDENS && state.wardenStage == ToaWardenStage.CORE) {
+            state.wardenCoreQueues?.processCoreReturn()
             return
         }
         if (raid.currentRoom != ToaRoom.TUMEKEN_WARDEN) return
@@ -8580,6 +8665,7 @@ constructor(
         )
         source.apRangeOverride = akkhaAttackRange(raid.akkha.style)
         ensureAkkhaShadows(raid, restoreHitpoints = true)
+        armAkkhaShadowCharge(raid, source, raid.akkha.shadowChargeEndsAt)
         rearmAkkhaAggression(raid, source, force = true)
         traceAkkha(
             raid,
@@ -8605,6 +8691,7 @@ constructor(
             AkkhaState.SPECIAL_ATTACK -> {
                 if (AkkhaSpecial.MEMORY_BLAST in state.activeSpecials) {
                     state.pauseShadowCharge()
+                    armAkkhaShadowCharge(raid, source, state.shadowChargeEndsAt)
                 } else {
                     processAkkhaShadowCharge(raid, source)
                 }
@@ -8795,16 +8882,44 @@ constructor(
         updateAkkhaShadowHeadbars(raid)
         if (state.activeShadowThreshold == null && state.pendingThresholds.isNotEmpty())
             startAkkhaShadowTransition(raid, source)
-        if (!state.hasChargingShadows()) return
-        state.shadowBlast?.let {
-            processAkkhaShadowBlast(raid, source, it)
-            if (!state.hasChargingShadows()) return
+        // A shadow can die during the blast. Even if that removes the final live headbar actor,
+        // retain and resolve the already-started blast at its original deadline.
+        if (!state.hasChargingShadows() && state.shadowBlast == null) return
+        val payloads = akkhaPayloads(raid)
+        payloads.processShadowCharge()
+        payloads.processShadowBlast()
+        state.shadowBlast?.let { processAkkhaShadowBlast(raid, source, it) }
+    }
+
+    private fun armAkkhaShadowCharge(raid: ToaRaidSession, source: Npc, deadline: Int) {
+        val payloads = akkhaPayloads(raid)
+        if (deadline < 0) {
+            payloads.clearShadowCharge()
             return
         }
-        if (clock.cycle < state.shadowChargeEndsAt) return
+        val center = roomCoord(raid, ToaRoom.AKKHA, true)
+        payloads.armShadowCharge(
+            deadline,
+            ready = {
+                raid.akkha.shadowBlast == null &&
+                    livingShadowQuadrants(raid, center).isNotEmpty() &&
+                    boss(raid) === source &&
+                    source.isSlotAssigned
+            },
+            resolve = { startAkkhaShadowBlast(raid, source) },
+        )
+    }
+
+    private fun startAkkhaShadowBlast(raid: ToaRaidSession, source: Npc) {
+        val state = raid.akkha
         val center = roomCoord(raid, ToaRoom.AKKHA, true)
         val living = livingShadowQuadrants(raid, center)
         val blast = state.startShadowBlast(clock.cycle, living) ?: return
+        akkhaPayloads(raid).armShadowBlast(
+            blast.resolvesAt,
+            ready = { state.shadowBlast === blast },
+            resolve = { processAkkhaShadowBlast(raid, source, blast) },
+        )
         traceAkkha(
             raid,
             source,
@@ -8841,6 +8956,7 @@ constructor(
         }
         state.finishShadowBlast(clock.cycle)
         updateAkkhaShadowHeadbars(raid)
+        armAkkhaShadowCharge(raid, source, state.shadowChargeEndsAt)
         traceAkkha(
             raid,
             source,
@@ -9033,31 +9149,21 @@ constructor(
 
     private fun processAkkhaTrailingOrbs(raid: ToaRaidSession, source: Npc) {
         val state = raid.akkha
+        val payloads =
+            state.payloadQueues
+                ?: run {
+                    check(state.trailEndsAt < 0 && state.trailOrbs.isEmpty()) {
+                        "Akkha trail state has no active native payload owner."
+                    }
+                    return
+                }
         val center = roomCoord(raid, ToaRoom.AKKHA, true)
+        payloads.processTrailWindow()
         if (state.trailEndsAt >= 0) {
             when {
-                clock.cycle >= state.trailEndsAt -> {
-                    activePlayers(raid).forEach {
-                        if (clock.cycle == state.trailEndsAt) {
-                            it.mes("<col=229628>The magical orbs stop materialising.</col>")
-                        }
-                        it.clearTint()
-                    }
-                    state.trailStartsAt = -1
-                    state.trailEndsAt = -1
-                    state.trailLastTiles.clear()
-                }
                 clock.cycle < state.trailStartsAt ->
                     activePlayers(raid).forEach { state.trailLastTiles[it.uid] = it.coords }
                 else -> {
-                    if (clock.cycle == state.trailStartsAt) {
-                        activePlayers(raid).forEach {
-                            it.mes(
-                                "<col=a53fff>Magical orbs begin to materialise behind you!</col>"
-                            )
-                            it.tint(PlayerTint(0, 605, 0, 0, 0, 112))
-                        }
-                    }
                     activePlayers(raid).forEach { player ->
                         val previous = state.trailLastTiles[player.uid] ?: player.previousCoords
                         state.trailLastTiles[player.uid] = player.coords
@@ -9103,6 +9209,19 @@ constructor(
                 }
             }
         }
+        payloads.processTrailOrbs(
+            hasOrbs = { state.trailOrbs.isNotEmpty() },
+            ready = {
+                state.trailOrbs.any {
+                    clock.cycle > it.spawnedAt || clock.cycle >= it.expiresAt
+                }
+            },
+            dispatch = { resolveAkkhaTrailOrbs(raid, source) },
+        )
+    }
+
+    private fun resolveAkkhaTrailOrbs(raid: ToaRaidSession, source: Npc) {
+        val state = raid.akkha
         val iterator = state.trailOrbs.iterator()
         while (iterator.hasNext()) {
             val orb = iterator.next()
@@ -9188,6 +9307,30 @@ constructor(
             AkkhaSpecial.TRAILING_ORBS -> {
                 source.anim(special.spearAnimation)
                 state.startTrailingOrbs(clock.cycle)
+                akkhaPayloads(raid)
+                    .armTrailWindow(
+                        state.trailStartsAt,
+                        state.trailEndsAt,
+                        onStart = {
+                            activePlayers(raid).forEach {
+                                it.mes(
+                                    "<col=a53fff>Magical orbs begin to materialise behind you!</col>"
+                                )
+                                it.tint(PlayerTint(0, 605, 0, 0, 0, 112))
+                            }
+                        },
+                        onEnd = {
+                            activePlayers(raid).forEach {
+                                if (clock.cycle == state.trailEndsAt) {
+                                    it.mes("<col=229628>The magical orbs stop materialising.</col>")
+                                }
+                                it.clearTint()
+                            }
+                            state.trailStartsAt = -1
+                            state.trailEndsAt = -1
+                            state.trailLastTiles.clear()
+                        },
+                    )
                 activePlayers(raid).forEach { state.trailLastTiles[it.uid] = it.coords }
                 AKKHA_TRAIL_CAST_RECOVERY
             }
@@ -9948,6 +10091,15 @@ constructor(
     private fun initializeKephri(raid: ToaRaidSession, source: Npc) {
         raid.encounter.reset()
         kephriPhases(raid, source)
+        raid.encounter.kephriEncounterQueues =
+            KephriEncounterQueues(
+                raid.instance,
+                bossDeps.worldQueues,
+                queueProcess,
+                clock,
+            ) {
+                isCurrent(raid) && raid.currentRoom == ToaRoom.KEPHRI
+            }
         raid.encounter.kephriBombQueues =
             KephriBombQueues(
                 bossDeps.encounterRegistry.of(source),
@@ -10618,9 +10770,34 @@ constructor(
             "target" to player.uid,
             "statusApplied" to quadrant,
         )
+        scheduleAkkhaStatusPass(raid, source)
     }
 
     private fun processAkkhaStatuses(raid: ToaRaidSession, source: Npc) {
+        val state = raid.akkha
+        val payloads =
+            state.payloadQueues
+                ?: run {
+                    check(state.statuses.isEmpty()) {
+                        "Akkha statuses have no active native payload owner."
+                    }
+                    return
+                }
+        payloads.processStatusPass()
+        scheduleAkkhaStatusPass(raid, source)
+    }
+
+    private fun scheduleAkkhaStatusPass(raid: ToaRaidSession, source: Npc) {
+        val deadline = raid.akkha.statuses.values.mapNotNull(AkkhaStatus::nextProcessAt).minOrNull()
+        if (deadline == null) akkhaPayloads(raid).clearStatusPass()
+        else {
+            akkhaPayloads(raid).armStatusPass(deadline) {
+                processAkkhaStatusPass(raid, source)
+            }
+        }
+    }
+
+    private fun processAkkhaStatusPass(raid: ToaRaidSession, source: Npc) {
         val statuses = raid.akkha.statuses.toMap()
         val burnSpreads = mutableListOf<Pair<Player, Int>>()
         statuses.forEach { (uid, status) ->
@@ -11087,10 +11264,9 @@ constructor(
                 .forEach { locs.del(it, Int.MAX_VALUE) }
         }
         state.kephriDungTiles.clear()
-        state.kephriNextMedicAt = -1
+        state.kephriEncounterQueues?.clear()
         state.kephriBombQueues?.clearBomber()
         state.kephriDying = false
-        state.kephriCompletesAt = -1
         state.kephriDeathHero = null
     }
 
@@ -11155,6 +11331,7 @@ constructor(
         raid.encounter.wardenNextEnergyPulseAt = -1
         raid.encounter.wardenNextPassiveChargeAt = -1
         raid.encounter.wardenObeliskQueues?.clear()
+        raid.encounter.wardenCoreQueues?.clear()
         raid.encounter.wardenNextPhantomAttackAt = -1
         raid.encounter.wardenPhantomAttackCounter = 0
         raid.encounter.wardenChargeBalls.clear()
@@ -11303,7 +11480,7 @@ constructor(
         terminalCleanupSupplies(raid)
         restoreWardenFloor(raid)
         raid.party.activeSession = null
-        pendingResets.remove(raid.instance.id)
+        pendingResets.cancel(raid.instance.id)
         parties.remove(raid.party.leader)
         raid.party.applicants.clear()
         viewedParties.entries.removeIf { it.value == raid.party.id }
@@ -11328,7 +11505,7 @@ constructor(
         }
         restoreWardenFloor(raid)
         raid.party.activeSession = null
-        pendingResets.remove(raid.instance.id)
+        pendingResets.cancel(raid.instance.id)
         if (terminateInstance) instances.terminate(raid.instance)
         log.info {
             "[ToA] abort party=${raid.party.id} instance=${raid.instance.id} reason=$reason"

@@ -84,6 +84,34 @@ class AkkhaEncounterTest {
     }
 
     @Test
+    fun `status owner deadlines preserve pulse cadence and inclusive burn and darkness endings`() {
+        assertEquals(
+            105,
+            AkkhaStatus(
+                burnExpiresAt = 120,
+                nextBurnAt = 105,
+                darknessExpiresAt = 130,
+                nextDarknessHitAt = 110,
+                lightningExpiresAt = 108,
+                freezeExpiresAt = 109,
+            ).nextProcessAt(),
+        )
+        assertEquals(
+            121,
+            AkkhaStatus(burnExpiresAt = 120, nextBurnAt = 122).nextProcessAt(),
+            "Burn ticks through its inclusive expiry, then clears on the next pass",
+        )
+        assertEquals(
+            131,
+            AkkhaStatus(darknessExpiresAt = 130, nextDarknessHitAt = 132).nextProcessAt(),
+            "Darkness ticks through its inclusive expiry, then clears on the next pass",
+        )
+        assertEquals(108, AkkhaStatus(lightningExpiresAt = 108).nextProcessAt())
+        assertEquals(109, AkkhaStatus(freezeExpiresAt = 109).nextProcessAt())
+        assertEquals(null, AkkhaStatus().nextProcessAt())
+    }
+
+    @Test
     fun `removed Akkha actor is never packed as a hit source`() {
         assertTrue(akkhaHitCanUseNpcSource(isSlotAssigned = true))
         assertFalse(akkhaHitCanUseNpcSource(isSlotAssigned = false))

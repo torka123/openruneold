@@ -492,7 +492,24 @@ internal data class AkkhaStatus(
     var freezeExpiresAt: Int = -1,
     var freezeAttackDelayApplied: Boolean = false,
     var combatDrained: Boolean = false,
-)
+) {
+    /** Next manager pass that can pulse or expire one of this player's effects. */
+    fun nextProcessAt(): Int? =
+        buildList {
+            if (burnExpiresAt >= 0) {
+                add(burnExpiresAt + 1)
+                if (nextBurnAt >= 0 && nextBurnAt <= burnExpiresAt) add(nextBurnAt)
+            }
+            if (darknessExpiresAt >= 0) {
+                add(darknessExpiresAt + 1)
+                if (nextDarknessHitAt >= 0 && nextDarknessHitAt <= darknessExpiresAt) {
+                    add(nextDarknessHitAt)
+                }
+            }
+            if (lightningExpiresAt >= 0) add(lightningExpiresAt)
+            if (freezeExpiresAt >= 0) add(freezeExpiresAt)
+        }.minOrNull()
+}
 
 internal data class AkkhaTraceEvent(
     val tick: Int,

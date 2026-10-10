@@ -20,6 +20,13 @@ class CorruptedGauntletAssetManifestTest {
         assertTrue(
             CorruptedGauntletConfig.Loc.ENABLED_ENTRANCE in CorruptedGauntletAssetManifest.locIds
         )
+        assertTrue(
+            CorruptedGauntletConfig.Loc.REWARD_CHEST_CLOSED in
+                CorruptedGauntletAssetManifest.locIds
+        )
+        assertTrue(
+            CorruptedGauntletConfig.Loc.REWARD_CHEST_OPEN in CorruptedGauntletAssetManifest.locIds
+        )
         assertEquals((637..641).toSet(), CorruptedGauntletAssetManifest.interfaceIds)
         assertEquals(
             (2_908..2_917).toSet() + 2_919,

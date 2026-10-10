@@ -27,4 +27,5 @@ dependencies {
     implementation(projects.engine.routefinder)
     implementation(projects.server.services)
     testImplementation(kotlin("test"))
+    testImplementation(libs.fastutil)
 }
