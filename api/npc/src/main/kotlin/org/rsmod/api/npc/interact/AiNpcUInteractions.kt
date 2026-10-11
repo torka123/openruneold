@@ -1,7 +1,6 @@
 package org.rsmod.api.npc.interact
 
 import com.github.michaelbull.logging.InlineLogger
-import dev.openrune.types.ItemServerType
 import dev.openrune.types.NpcServerType
 import jakarta.inject.Inject
 import org.rsmod.api.npc.access.StandardNpcAccess
@@ -96,11 +95,7 @@ private constructor(private val eventBus: EventBus, private val npcTypes: NpcSer
         }
     }
 
-    private suspend fun StandardNpcAccess.apNpcU(
-        target: Npc,
-        invSlot: Int,
-        objType: String,
-    ) {
+    private suspend fun StandardNpcAccess.apNpcU(target: Npc, invSlot: Int, objType: String) {
         val script = apTrigger(target, invSlot, target.visType, objType) ?: return
         eventBus.publish(this, script)
     }
