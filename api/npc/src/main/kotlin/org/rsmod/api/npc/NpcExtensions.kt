@@ -74,3 +74,8 @@ public fun Npc.isInCombat(): Boolean {
 public fun Npc.mapMultiway(checker: AreaChecker): Boolean {
     return checker.inArea("area.multiway", coords)
 }
+
+/** @return `true` if npc-versus-player combat is multiway at the npc's current tile. */
+public fun Npc.mapNpcMultiway(checker: AreaChecker): Boolean {
+    return mapMultiway(checker) || checker.inArea("area.npc_multiway", coords)
+}

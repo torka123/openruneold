@@ -1,51 +1,55 @@
 package org.rsmod.api.bosses.runtime
 
 import jakarta.inject.Singleton
+import org.rsmod.api.combat.NpcAttackOverride
 import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
-import org.rsmod.map.CoordGrid
 
 fun interface BossExtensionHandler {
-    /** [access] is null when the ability runs outside the npc's AI turn, e.g. from a hit reaction. */
-    fun invoke(access: StandardNpcAccess?, npc: Npc, target: Player, params: Any?)
+    suspend fun invoke(access: StandardNpcAccess, npc: Npc, target: Player, params: Any?)
 }
 
-/**
- * What a context handler receives. [access] is null outside the npc's AI turn; [tile] is the
- * `external(at = …)` tile, resolved where the effect runs (so `CurrentTile`/`ImpactTile` work),
- * or null when the effect has none.
- */
-class BossExtensionContext(
-    val access: StandardNpcAccess?,
-    val npc: Npc,
-    val target: Player,
-    val params: Any?,
-    val tile: CoordGrid?,
-)
+/** Computes per-launch geometry/equipment snapshots; must not launch or schedule an attack. */
+fun interface BossAttackParameters {
+    fun resolve(npc: Npc, target: Player, params: Any?): NpcAttackOverride
+}
 
 @Singleton
 class BossExtensionRegistry {
-    private val handlers = mutableMapOf<String, (BossExtensionContext) -> Unit>()
+    private val handlers = mutableMapOf<String, BossExtensionHandler>()
+    private val attackParameters = mutableMapOf<String, BossAttackParameters>()
+
+    fun registerAttackParameters(name: String, resolver: BossAttackParameters) {
+        require(attackParameters.putIfAbsent(name, resolver) == null) {
+            "Duplicate boss attack parameters registered: $name"
+        }
+    }
+
+    fun attackParameters(name: String, npc: Npc, target: Player, params: Any?): NpcAttackOverride =
+        (attackParameters[name] ?: error("No boss attack parameters registered: $name")).resolve(
+            npc,
+            target,
+            params,
+        )
+
+    fun containsAttackParameters(name: String): Boolean = name in attackParameters
 
     fun register(name: String, handler: BossExtensionHandler) {
-        handlers[name] = { handler.invoke(it.access, it.npc, it.target, it.params) }
+        require(handlers.putIfAbsent(name, handler) == null) {
+            "Duplicate boss extension registered: $name"
+        }
     }
 
-    fun register(name: String, handler: (BossExtensionContext) -> Unit) {
-        handlers[name] = handler
-    }
-
-    fun invoke(
+    suspend fun invoke(
         name: String,
-        access: StandardNpcAccess?,
+        access: StandardNpcAccess,
         npc: Npc,
         target: Player,
         params: Any?,
-        tile: CoordGrid? = null,
     ) {
         val handler = handlers[name] ?: error("No boss extension registered: $name")
-        handler(BossExtensionContext(access, npc, target, params, tile))
+        handler.invoke(access, npc, target, params)
     }
 
     fun contains(name: String): Boolean = name in handlers
