@@ -1,7 +1,6 @@
 package org.rsmod.api.npc.interact
 
 import com.github.michaelbull.logging.InlineLogger
-import dev.openrune.types.ItemServerType
 import jakarta.inject.Inject
 import org.rsmod.api.npc.access.StandardNpcAccess
 import org.rsmod.api.npc.events.interact.AiPlayerUContentEvents
@@ -30,11 +29,7 @@ public class AiPlayerUInteractions @Inject constructor(private val eventBus: Eve
         }
     }
 
-    private suspend fun StandardNpcAccess.opPlayerU(
-        target: Player,
-        invSlot: Int,
-        objType: String,
-    ) {
+    private suspend fun StandardNpcAccess.opPlayerU(target: Player, invSlot: Int, objType: String) {
         val script = opTrigger(target, invSlot, objType)
         if (script != null) {
             eventBus.publish(this, script)
@@ -78,11 +73,7 @@ public class AiPlayerUInteractions @Inject constructor(private val eventBus: Eve
         }
     }
 
-    private suspend fun StandardNpcAccess.apPlayerU(
-        target: Player,
-        invSlot: Int,
-        objType: String,
-    ) {
+    private suspend fun StandardNpcAccess.apPlayerU(target: Player, invSlot: Int, objType: String) {
         val script = apTrigger(target, invSlot, objType) ?: return
         eventBus.publish(this, script)
     }
