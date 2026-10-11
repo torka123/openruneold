@@ -1,7 +1,5 @@
 package org.rsmod.api.npc.vars
 
-import dev.openrune.types.VarnBitType
-import dev.openrune.types.VarnType
 import kotlin.reflect.KProperty
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.npc.NpcUid
