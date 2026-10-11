@@ -3,46 +3,58 @@ package org.rsmod.api.bosses.runtime
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import org.rsmod.api.bosses.spec.BossSpec
-import org.rsmod.game.MapClock
+import org.rsmod.api.random.GameRandom
 import org.rsmod.game.entity.Npc
+import org.rsmod.game.entity.npc.NpcUid
 
 @Singleton
-class EncounterRegistry @Inject constructor(private val mapClock: MapClock) {
-    private class Registration(val specs: Collection<BossSpec>, val default: BossSpec?)
+class EncounterRegistry @Inject constructor(private val random: GameRandom) {
+    private val encounters = mutableMapOf<NpcUid, BossEncounter>()
+    private val specs = mutableMapOf<Int, BossSpec>()
+    private val owners = linkedMapOf<String, BossSpec>()
 
-    private val encounters = mutableMapOf<Int, BossEncounter>()
-    private val registrations = mutableMapOf<Int, Registration>()
+    fun register(npcTypeId: Int, spec: BossSpec, ownerSlug: String) {
+        val previous = owners[ownerSlug]
+        require(previous == null || previous === spec) {
+            "Duplicate boss owner slug registered: $ownerSlug"
+        }
+        val previousSpec = specs[npcTypeId]
+        require(previousSpec == null || previousSpec === spec) {
+            "Duplicate boss NPC type registered: $npcTypeId"
+        }
+        specs[npcTypeId] = spec
+        owners[ownerSlug] = spec
+    }
+
+    fun registeredBosses(): Map<String, BossSpec> = owners.toMap()
+
+    fun registeredBoss(slug: String): BossSpec? = owners[slug]
+
+    fun registeredSpec(npc: Npc): BossSpec? = specs[npc.type.id] ?: specs[npc.visType.id]
+
+    /** Selection RNG belongs to first creation; lookups never reseed a running encounter. */
+    fun of(npc: Npc, selectionRandom: GameRandom = random): BossEncounter {
+        return encounters.getOrPut(npc.uid) {
+            val spec =
+                requireNotNull(registeredSpec(npc)) {
+                    "NPC type ${npc.type.id}/${npc.visType.id} has no registered boss combat owner."
+                }
+            BossEncounter(npc, spec, selectionRandom)
+        }
+    }
+
+    fun isCurrent(npc: Npc, encounter: BossEncounter): Boolean =
+        npc.hitpoints > 0 && isAttached(npc, encounter)
 
     /**
-     * [specs] are the specs an npc of [npcTypeId] may run. Without a [default], each npc must be
-     * given one with [start] before its encounter is first used.
+     * Identity/lifecycle check for already-launched hits whose declared lifetime includes death.
      */
-    fun register(npcTypeId: Int, specs: Collection<BossSpec>, default: BossSpec?) {
-        registrations[npcTypeId] = Registration(specs, default)
+    fun isAttached(npc: Npc, encounter: BossEncounter): Boolean =
+        npc.isSlotAssigned && !encounter.isEnded && encounters[npc.uid] === encounter
+
+    fun existing(npc: Npc): BossEncounter? = encounters[npc.uid]
+
+    fun remove(npc: Npc) {
+        encounters.remove(npc.uid)?.end()
     }
-
-    fun of(npc: Npc): BossEncounter {
-        return encounters.getOrPut(npc.slotId) {
-            val spec =
-                registration(npc).default
-                    ?: error("No spec assigned to npc type ${npc.type.id}; call startEncounter at spawn.")
-            BossEncounter(npc, spec, mapClock)
-        }
-    }
-
-    /** Starts [npc]'s encounter on [spec], one of the specs registered for its type. */
-    fun start(npc: Npc, spec: BossSpec): BossEncounter {
-        check(npc.slotId !in encounters) { "Npc type ${npc.type.id} already has an encounter." }
-        require(registration(npc).specs.any { it === spec }) {
-            "Spec is not one of those registered for npc type ${npc.type.id}."
-        }
-        return BossEncounter(npc, spec, mapClock).also { encounters[npc.slotId] = it }
-    }
-
-    fun remove(npc: Npc): BossEncounter? = encounters.remove(npc.slotId)
-
-    fun isActive(encounter: BossEncounter): Boolean = encounters[encounter.npc.slotId] === encounter
-
-    private fun registration(npc: Npc): Registration =
-        registrations[npc.type.id] ?: error("No boss spec registered for npc type ${npc.type.id}.")
 }

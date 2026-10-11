@@ -5,10 +5,11 @@ import dev.openrune.types.HitmarkTypeGroup
 import dev.openrune.types.ItemServerType
 import dev.openrune.types.NpcServerType
 import dev.openrune.types.SequenceServerType
-import dev.openrune.types.aconverted.AreaType
 import dev.openrune.types.aconverted.CategoryType
-import dev.openrune.types.aconverted.SpotanimType
 import dev.openrune.types.hunt.HuntVis
+import kotlin.coroutines.Continuation
+import kotlin.coroutines.EmptyCoroutineContext
+import kotlin.coroutines.startCoroutine
 import kotlin.getValue
 import kotlin.setValue
 import org.rsmod.annotations.InternalApi
@@ -57,6 +58,7 @@ public class StandardNpcAccess(
     public val npc: Npc,
     private val coroutine: GameCoroutine,
     private val context: StandardNpcAccessContext,
+    private val independentDelay: Boolean = false,
 ) {
     public val random: GameRandom by context::random
 
@@ -71,8 +73,51 @@ public class StandardNpcAccess(
 
     public suspend fun delay(cycles: Int = 1) {
         require(cycles > 0) { "`cycles` must be greater than 0. (cycles=$cycles)" }
+        if (independentDelay) {
+            val resumeTick = npc.currentMapClock + cycles
+            coroutine.pause { npc.processedMapClock >= resumeTick }
+            return
+        }
         npc.delay(cycles)
         coroutine.pause { npc.isNotDelayed }
+    }
+
+    /**
+     * Runs child actions on this NPC's game thread and joins all of them. Child waits have their
+     * own deadlines; only the parent delays the NPC. Cancelling the parent cancels every child,
+     * including suspended external mechanics. No world task, thread or second NPC launch is used.
+     */
+    public suspend fun parallel(actions: List<suspend StandardNpcAccess.() -> Unit>) {
+        val children = mutableListOf<GameCoroutine>()
+        var failure: Throwable? = null
+        val completion =
+            object : Continuation<Unit> {
+                override val context = EmptyCoroutineContext
+
+                override fun resumeWith(result: Result<Unit>) {
+                    result.exceptionOrNull()?.let { if (failure == null) failure = it }
+                }
+            }
+        try {
+            for (action in actions) {
+                val child = GameCoroutine("npc-parallel")
+                children += child
+                action.startCoroutine(
+                    StandardNpcAccess(npc, child, context, independentDelay = true),
+                    completion,
+                )
+                failure?.let { throw it }
+            }
+            while (children.any { it.isSuspended }) {
+                delay(1)
+                for (child in children) {
+                    child.advance()
+                    failure?.let { throw it }
+                }
+            }
+        } finally {
+            children.forEach { it.cancel() }
+        }
     }
 
     public suspend fun arriveDelay() {
@@ -370,7 +415,10 @@ public class StandardNpcAccess(
         npc.resetAnim()
     }
 
-    /** Sets a persistent idle animation kept displayed while the npc is stationary and not animating. */
+    /**
+     * Sets a persistent idle animation kept displayed while the npc is stationary and not
+     * animating.
+     */
     public fun setIdleAnim(seq: String) {
         npc.setIdleAnim(seq)
     }
