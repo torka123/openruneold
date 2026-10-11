@@ -1,12 +1,13 @@
 package org.rsmod.content.drops.tables.monsters
 
+import dtx.core.RollResult
 import dtx.rs.RSDropTable
 import dtx.rs.npcs
 import org.rsmod.api.config.constants
 import org.rsmod.api.droptable.DropRollItem
 import org.rsmod.api.droptable.RegisterDropTable
 import org.rsmod.api.droptable.dropRollable
-import org.rsmod.api.droptable.rsPlayerPrerollTable
+import org.rsmod.api.droptable.rsPlayerGuaranteedTable
 import org.rsmod.api.droptable.rsPlayerTertiaryTable
 import org.rsmod.api.droptable.rsPlayerWeightedTable
 import org.rsmod.content.drops.brimstoneKeyRoll
@@ -18,10 +19,11 @@ import org.rsmod.game.entity.Player
 @JvmField
 public val alchemicalHydraDropTable: RSDropTable<Player, DropRollItem> = RSDropTable(
     tableIdentifier = "Alchemical Hydra Drops",
-    npcs = npcs("npc.hydraboss", "npc.hydraboss_2", "npc.hydraboss_3", "npc.hydraboss_4", "npc.hydraboss_finaldeath", "npc.hydraboss_p1_transition", "npc.hydraboss_p2_transition", "npc.hydraboss_p3_transition"),
-    preRoll = rsPlayerPrerollTable {
-        1 outOf 2000 weight "obj.dragon_thrownaxe" count 500..1000
-    },
+    npcs = npcs("npc.hydraboss_4"),
+    guaranteed = rsPlayerGuaranteedTable { "obj.hydra_bones" count 2 },
+    separateRolls = AlchemicalHydraUniqueRoll,
+    mainRolls = 2,
+    mainRollsFor = { _, unique -> if (unique is RollResult.Nothing) 2 else 1 },
     mainTable = rsPlayerWeightedTable(total = 110) {
         name("Alchemical Hydra Drops")
         8 weight dropRollable(DropRollItem("obj.mystic_fire_staff", 1, bonusDrops = listOf(
@@ -60,21 +62,6 @@ public val alchemicalHydraDropTable: RSDropTable<Player, DropRollItem> = RSDropT
         1 weight "obj.crystal_key" count 1
 
         1 weight SharedDropTables.rareDrop
-        10 outOf 1811 separate "obj.hydra_eye" count 1
-        10 outOf 1811 separate "obj.hydra_fang" count 1
-        10 outOf 1811 separate "obj.hydra_heart" count 1
-        1 outOf 513 separate "obj.hydra_tail" count 1
-        1 outOf 514 separate "obj.hydra_leather" count 1
-        1 outOf 1001 separate "obj.hydra_claw" count 1
-        1 outOf 2001 separate "obj.dragon_knife" count 500..1000
-        5 outOf 323 separate "obj.cert_unidentified_avantoe" count 10..15
-        5 outOf 323 separate "obj.cert_unidentified_kwuarm" count 25..30
-        5 outOf 404 separate "obj.cert_unidentified_ranarr" count 10..15
-        5 outOf 404 separate "obj.cert_unidentified_snapdragon" count 10..15
-        5 outOf 404 separate "obj.cert_unidentified_cadantine" count 25..30
-        5 outOf 404 separate "obj.cert_unidentified_dwarf_weed" count 25..30
-        10 outOf 1077 separate "obj.cert_unidentified_lantadyme" count 25..30
-        10 outOf 1077 separate "obj.cert_unidentified_torstol" count 10..15
     },
     tertiaries = rsPlayerTertiaryTable {
         onBuilder { brimstoneKeyRoll(konarTaskBonus = true) }
