@@ -73,7 +73,7 @@ public class AiLocUInteractions @Inject private constructor(private val eventBus
             return defaultTypeScript
         }
 
-        val type = ServerCacheManager.getItem(internal.asRSCM(RSCMType.OBJ))?: return null
+        val type = ServerCacheManager.getItem(internal.asRSCM(RSCMType.OBJ)) ?: return null
 
         val objContentEvent = AiLocUContentEvents.OpContent(target, locType, type, invSlot)
         if (eventBus.contains(objContentEvent::class.java, objContentEvent.id)) {
@@ -133,7 +133,7 @@ public class AiLocUInteractions @Inject private constructor(private val eventBus
             return defaultTypeScript
         }
 
-        val type = ServerCacheManager.getItem(internal.asRSCM(RSCMType.OBJ))?: return null
+        val type = ServerCacheManager.getItem(internal.asRSCM(RSCMType.OBJ)) ?: return null
 
         val objContentEvent = AiLocUContentEvents.ApContent(target, locType, type, invSlot)
         if (eventBus.contains(objContentEvent::class.java, objContentEvent.id)) {
