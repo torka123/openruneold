@@ -1,125 +1,109 @@
 package org.rsmod.api.bosses.runtime
 
-import dev.openrune.ServerCacheManager
-import dev.openrune.rscm.RSCM.asRSCM
-import dev.openrune.rscm.RSCMType
-import dev.openrune.types.NpcServerType
-import kotlin.math.abs
-import kotlin.random.Random
-import org.rsmod.annotations.InternalApi
+import java.util.IdentityHashMap
 import org.rsmod.api.bosses.spec.*
+import org.rsmod.api.random.GameRandom
 import org.rsmod.game.MapClock
 import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
-import org.rsmod.map.CoordGrid
+import org.rsmod.game.entity.player.PlayerUid
+import org.rsmod.game.hit.HitScope
+import org.rsmod.game.queue.WorldQueueList
 
-class BossEncounter(
-    val npc: Npc,
-    val spec: BossSpec,
-    private val mapClock: MapClock,
-    private val npcType: (String) -> NpcServerType? = ::cacheNpcType,
-) {
+data class BossAttackTrace(
+    val ability: String,
+    val commitTick: Int,
+    var expectedRate: Int,
+    var style: HitType? = null,
+    var expectedImpactTick: Int? = null,
+    var actualImpactTick: Int? = null,
+)
+
+class BossEncounter(val npc: Npc, val spec: BossSpec, private val random: GameRandom) {
     var currentPhaseName: String = spec.phases.keys.firstOrNull() ?: ""
-
     var phaseEnteredTick: Int = -1
     var lastAbilityTick: Int = 0
     var lastAbilityName: String? = null
     var invulnerable: Boolean = false
     var damageScale: Double = 1.0
     var lethalHandled: Boolean = false
-
-    /** Tick until which multi-tick effects are still running; nothing new may start before it. */
-    var busyUntil: Int = 0
-
-    /** The player the latest combat tick ran against; timers fire against it. */
-    var lastTarget: Player? = null
-
-    /** Bumped on every [transitionTo], so phase timers can tell the phase was (re-)entered. */
-    internal var phaseEpoch: Int = 0
+    var phaseAbilityCount: Int = 0
         private set
 
-    internal var timersStarted: Boolean = false
-
-    private val ownedLocs = mutableMapOf<CoordGrid, OwnedLoc>()
-
-    fun ownsLocAt(tile: CoordGrid): Boolean = tile in ownedLocs
-
-    internal fun addOwnedLoc(tile: CoordGrid, loc: OwnedLoc) {
-        ownedLocs[tile] = loc
-    }
-
-    private val ownedNpcs = mutableListOf<Npc>()
-
-    internal fun addOwnedNpc(npc: Npc) {
-        ownedNpcs += npc
-    }
-
-    fun releaseOwnedNpcs(): List<Npc> {
-        val released = ownedNpcs.toList()
-        ownedNpcs.clear()
-        return released
-    }
-
-    /** Hands over every loc this encounter spawned, e.g. to remove them on a delay after death. */
-    fun releaseOwnedLocs(): Map<CoordGrid, OwnedLoc> {
-        val released = ownedLocs.toMap()
-        ownedLocs.clear()
-        return released
-    }
-
-    /** Bumped by [interrupt]; deferred ability steps started under an older epoch are dropped. */
-    var epoch: Int = 0
+    internal var phaseRevision: Long = 0
         private set
 
-    fun interrupt(tick: Int) {
-        epoch++
-        busyUntil = tick
-    }
-    internal val usedAbilities = mutableSetOf<String>()
-    private var queuedAbility: String? = null
-
-    /** Runs [ability] as the next priority ability once [busyUntil] has passed; replaces any earlier queue. */
-    fun forceNext(ability: String) {
-        require(ability in spec.abilities) { "Ability '$ability' does not exist in boss spec." }
-        queuedAbility = ability
-    }
-
-    /**
-     * Per-encounter attack-rate override (ticks between ability uses). Takes precedence over
-     * [PhaseSpec.attackRate] and [BossStats.attackRate]. Null by default and recreated with the
-     * encounter on respawn, so bosses that never set it are unaffected.
-     */
-    var attackRateOverride: Int? = null
-
-    /**
-     * Tick the next attack may start, set by the running ability's attack delay or
-     * [Effect.NextAttackIn]. While null, the next attack waits the attack rate after
-     * [lastAbilityTick]. Cleared when the next attack starts.
-     */
-    var nextAttackTick: Int? = null
-
-    internal fun attackReady(tick: Int): Boolean {
-        val attackRate = attackRateOverride ?: currentPhase?.attackRate ?: spec.stats.attackRate
-        return tick >= (nextAttackTick ?: (lastAbilityTick + attackRate))
-    }
-
-    /** Records [ability] as started by the attack loop on [tick]; call before running it. */
-    internal fun startAttack(ability: String, tick: Int) {
-        lastAbilityTick = tick
-        lastAbilityName = ability
-        usedAbilities += ability
-        nextAttackTick = spec.abilityAttackDelays[ability]?.let { tick + it }
-    }
+    /** Official upstream override; native attacks and ability readiness use the same cadence. */
+    private var attackRate: Int? = null
+    var attackRateOverride: Int?
+        get() = attackRate
+        set(value) {
+            require(value == null || value > 0) { "Attack rate must be positive." }
+            attackRate = value
+            if (decisions?.isActive != true) {
+                attackTraces.lastOrNull()?.expectedRate = expectedAttackRate()
+            }
+        }
 
     internal val firedTriggers = mutableSetOf<Int>()
     internal val firedPhaseEntries = mutableSetOf<String>()
-    private val cooldowns = mutableMapOf<String, Int>()
-    private val persistentCooldowns = mutableSetOf<String>()
+
+    private class SelectionState {
+        val cooldowns = mutableMapOf<String, Int>()
+        var rotationCursor = 0
+        val continuations = IdentityHashMap<Selector.RepeatSelected, ContinuationState>()
+
+        fun clear() {
+            cooldowns.clear()
+            rotationCursor = 0
+            continuations.clear()
+        }
+    }
+
+    private class ContinuationState {
+        val delegate = SelectionState()
+        var remaining = 0
+        var target: PlayerUid? = null
+
+        fun clear() {
+            remaining = 0
+            target = null
+        }
+    }
+
+    private val phaseSelection = SelectionState()
+    private val branchSelections = IdentityHashMap<Effect.Choose, SelectionState>()
+    private val cooldowns
+        get() = phaseSelection.cooldowns
+
     private val forcedTickLastFired = mutableMapOf<String, Int>()
-    private var rotationCursor = 0
-    private var rotationStarted = false
+    private var rotationCursor: Int
+        get() = phaseSelection.rotationCursor
+        set(value) {
+            phaseSelection.rotationCursor = value
+        }
+
     private var basicAttackCount = 0
+    var lastRotationIndex: Int = -1
+        private set
+
     private var forceAttackThreshold = -1
+    private val externalMarks = mutableSetOf<String>()
+    private val ownedNpcs = mutableSetOf<Npc>()
+    private val attackTraces = ArrayDeque<BossAttackTrace>()
+    private var forcedAbility: String? = null
+    private val cleanupActions = mutableListOf<() -> Unit>()
+    private val encounterState = mutableMapOf<String, Any>()
+    private var decisions: SeededDecisionState? = null
+    private var decisionAttackRate: Int? = null
+    private var phaseClock: (() -> Unit)? = null
+    private var cancelPhaseDeadline: (() -> Unit)? = null
+    internal val hasPhaseClock: Boolean
+        get() = phaseClock != null
+
+    internal val effectScope = HitScope()
+    var isEnded: Boolean = false
+        private set
 
     init {
         npc.movementLocked = currentPhase?.lockMovement == true
@@ -128,23 +112,242 @@ class BossEncounter(
     val currentPhase: PhaseSpec?
         get() = spec.phases[currentPhaseName]
 
-    /** Switches phase state only; does not run the phase's [PhaseSpec.entry]. */
+    /** Returns true exactly once for an encounter-scoped external mechanic marker. */
+    fun fireOnce(marker: String): Boolean = externalMarks.add(marker)
+
+    fun own(npc: Npc) {
+        ownedNpcs += npc
+    }
+
+    /** Detaches a retired summon without draining other live resources from this encounter. */
+    fun disown(npc: Npc) {
+        ownedNpcs.remove(npc)
+    }
+
+    fun drainOwnedNpcs(): Set<Npc> = ownedNpcs.toSet().also { ownedNpcs.clear() }
+
+    fun owned(): List<Npc> = ownedNpcs.toList()
+
+    /** Registers encounter-owned world state (locs, hazards, etc.) for deterministic cleanup. */
+    fun onCleanup(action: () -> Unit): () -> Unit {
+        check(!isEnded) { "Encounter has ended." }
+        cleanupActions += action
+        return {
+            cleanupActions.remove(action)
+            Unit
+        }
+    }
+
+    fun runCleanupActions() {
+        val actions = cleanupActions.toList()
+        cleanupActions.clear()
+        encounterState.clear()
+        decisions?.clear()
+        phaseSelection.clear()
+        branchSelections.clear()
+        var failure: Throwable? = null
+        actions.forEach { action ->
+            try {
+                action()
+            } catch (error: Throwable) {
+                if (failure == null) failure = error else failure!!.addSuppressed(error)
+            }
+        }
+        failure?.let { throw it }
+    }
+
+    internal fun end() {
+        if (isEnded) return
+        isEnded = true
+        phaseClock = null
+        cancelPhaseDeadline?.invoke()
+        cancelPhaseDeadline = null
+        effectScope.close()
+        forcedAbility = null
+        externalMarks.clear()
+        runCleanupActions()
+    }
+
+    /** Owns work on the existing world queue, releasing both callback and cleanup registration. */
+    fun schedule(queues: WorldQueueList, ticks: Int, action: () -> Unit) {
+        check(!isEnded) { "Encounter has ended." }
+        var unregister: () -> Unit = {}
+        val cancellation =
+            queues.addCancellable(ticks) {
+                unregister()
+                if (!isEnded) action()
+            }
+        unregister = onCleanup(cancellation::cancel)
+    }
+
+    /** Exact pre-input deadline on the existing world queue, independent of enqueue stage. */
+    fun scheduleAt(queues: WorldQueueList, clock: MapClock, tick: Int, action: () -> Unit) {
+        check(!isEnded) { "Encounter has ended." }
+        var unregister: () -> Unit = {}
+        val cancellation =
+            queues.addCancellable(0, ready = { clock.cycle >= tick }) {
+                unregister()
+                if (!isEnded) action()
+            }
+        unregister = onCleanup(cancellation::cancel)
+    }
+
+    /** Stores mechanic state on this encounter instead of in a plugin-global combat singleton. */
+    @Suppress("UNCHECKED_CAST")
+    fun <T : Any> state(key: String, create: () -> T): T {
+        check(!isEnded) { "Encounter has ended." }
+        val existing = encounterState[key]
+        if (existing != null) return existing as T
+        return create().also { encounterState[key] = it }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    fun <T : Any> stateOrNull(key: String): T? = encounterState[key] as? T
+
+    fun forceNextAbility(name: String): Boolean {
+        if (isEnded) return false
+        if (name !in spec.abilities) return false
+        forcedAbility = name
+        return true
+    }
+
+    fun consumeForcedAbility(): String? = forcedAbility.also { forcedAbility = null }
+
+    /** Opts into accepted-launch decision commits; calling again cannot reseed a live encounter. */
+    fun initializeDecisionSeed(seed: Long) {
+        check(!isEnded) { "Encounter has ended." }
+        val existing = decisions
+        require(existing == null || existing.seed == seed) {
+            "Encounter decision seed is already initialized."
+        }
+        if (existing == null) decisions = SeededDecisionState(seed)
+    }
+
+    /** Immutable names from spatial checks, used only by an opportunity starting on [tick]. */
+    fun prepareDecisionInputs(tick: Int, choices: Map<String, String>) {
+        check(!isEnded) { "Encounter has ended." }
+        checkNotNull(decisions) { "Initialize the encounter decision seed first." }
+            .prepare(tick, choices)
+    }
+
+    /**
+     * Native NpcAttack marks this automatically; a named spatial launcher acknowledges explicitly.
+     */
+    fun markDecisionLaunchAccepted() {
+        if (!isEnded) decisions?.accept()
+    }
+
+    /** Results describe the last accepted opportunity; rejected attempts leave them unchanged. */
+    fun decisionResult(stream: String): DecisionResult? = decisions?.result(stream)
+
+    fun decisionDrawCount(stream: String): Long = decisions?.drawCount(stream) ?: 0
+
+    /**
+     * An already-due spatial mechanic consumes one declared stream immediately. This does not
+     * select a phase ability, arm cadence, consume prepared inputs or replace ordinary results.
+     */
+    fun selectScheduledDecision(
+        selector: Selector.SeededWeighted,
+        tick: Int,
+        target: Player? = null,
+    ): DecisionResult? {
+        if (isEnded) return null
+        return checkNotNull(decisions) { "Initialize the encounter decision seed first." }
+            .selectScheduled(selector, tick) { evaluate(it, target) }
+    }
+
+    internal fun beginDecisionOpportunity(tick: Int): Boolean {
+        val state = decisions ?: return false
+        decisionAttackRate = attackRate
+        state.begin(tick)
+        return true
+    }
+
+    internal fun finishDecisionOpportunity(eligible: Boolean): Boolean {
+        val state = decisions ?: return false
+        if (!state.isActive) return false
+        val committed = state.finish(eligible && !isEnded)
+        if (!committed) attackRate = decisionAttackRate
+        return committed
+    }
+
+    fun recordAbilityCommit(tick: Int, ability: String, expectedRate: Int) =
+        recordAbilityCommit(tick, ability, expectedRate, countForPhase = true)
+
+    internal fun recordAcceptedDecisionCommit(
+        tick: Int,
+        ability: String,
+        expectedRate: Int,
+        selectedPhaseRevision: Long,
+    ) = recordAbilityCommit(tick, ability, expectedRate, phaseRevision == selectedPhaseRevision)
+
+    private fun recordAbilityCommit(
+        tick: Int,
+        ability: String,
+        expectedRate: Int,
+        countForPhase: Boolean,
+    ) {
+        if (countForPhase) phaseAbilityCount++
+        if (
+            countForPhase &&
+                currentPhase?.forceAbilities?.any {
+                    it.attackMin == null && it.ability == ability
+                } == true
+        ) {
+            forcedTickLastFired[ability] = tick
+        }
+        lastAbilityTick = tick
+        lastAbilityName = ability
+        attackTraces +=
+            BossAttackTrace(ability = ability, commitTick = tick, expectedRate = expectedRate)
+        while (attackTraces.size > 100) {
+            attackTraces.removeFirst()
+        }
+    }
+
+    fun recentAbilityCommitTicks(limit: Int = 20): List<Int> =
+        attackTraces.takeLast(limit.coerceAtLeast(0)).map { it.commitTick }
+
+    fun recordScheduledImpact(style: HitType, expectedTick: Int) {
+        val trace = attackTraces.lastOrNull() ?: return
+        if (trace.expectedImpactTick == null) {
+            trace.style = style
+            trace.expectedImpactTick = expectedTick
+        }
+    }
+
+    fun recordActualImpact(expectedTick: Int, actualTick: Int) {
+        attackTraces
+            .lastOrNull { it.expectedImpactTick == expectedTick && it.actualImpactTick == null }
+            ?.actualImpactTick = actualTick
+    }
+
+    fun recentAttackTraces(limit: Int = 20): List<BossAttackTrace> =
+        attackTraces.takeLast(limit.coerceAtLeast(0)).map { it.copy() }
+
+    fun attackTracesAfter(tick: Int): List<BossAttackTrace> =
+        attackTraces.filter { it.commitTick > tick }.map { it.copy() }
+
+    fun expectedAttackRate(): Int =
+        attackRateOverride ?: currentPhase?.attackRate ?: spec.stats.attackRate
+
     fun transitionTo(phaseName: String, tick: Int) {
+        phaseRevision++
+        cancelPhaseDeadline?.invoke()
+        cancelPhaseDeadline = null
         val from = currentPhaseName
         currentPhaseName = phaseName
-        queuedAbility = null
         phaseEnteredTick = tick
-        phaseEpoch++
-        rotationCursor = 0
-        rotationStarted = false
-        cooldowns.keys.retainAll(persistentCooldowns)
+        phaseSelection.clear()
+        lastRotationIndex = -1
+        cooldowns.clear()
+        branchSelections.clear()
         forcedTickLastFired.clear()
         basicAttackCount = 0
+        phaseAbilityCount = 0
         forceAttackThreshold = -1
 
         val phase = spec.phases[phaseName]
-
-        phase?.transmog?.let(npcType)?.let { npc.bossTransmog(it, Int.MAX_VALUE) }
 
         val idle = phase?.idleAnim
         if (idle != null) npc.setIdleAnim(idle) else npc.clearIdleAnim()
@@ -152,13 +355,31 @@ class BossEncounter(
         npc.movementLocked = phase?.lockMovement == true
 
         npc.clearFacingLock()
+        phaseClock?.invoke()
+    }
+
+    /**
+     * One native timed-phase owner per encounter. Rebinding replaces its captured target/lifetime
+     * without resetting phase time or canceling unrelated effects (for example a duo departure).
+     */
+    internal fun bindPhaseClock(arm: () -> Unit) {
+        check(!isEnded) { "Encounter has ended." }
+        cancelPhaseDeadline?.invoke()
+        cancelPhaseDeadline = null
+        phaseClock = arm
+        arm()
+    }
+
+    internal fun ownPhaseDeadline(cancel: () -> Unit) {
+        cancelPhaseDeadline = cancel
     }
 
     fun selectAbility(selector: Selector, tick: Int, target: Player? = null): String? {
+        if (isEnded) return null
         val phase = currentPhase ?: return null
 
         for (forced in phase.forceAbilities) {
-            if (forced.condition != null || forced.attackMin != null) continue
+            if (forced.attackMin != null) continue
             val lastFired = forcedTickLastFired[forced.ability] ?: phaseEnteredTick
             if (tick - lastFired >= forced.period) {
                 forcedTickLastFired[forced.ability] = tick
@@ -166,11 +387,11 @@ class BossEncounter(
             }
         }
 
-        val attackForced =
-            phase.forceAbilities.firstOrNull { it.condition == null && it.attackMin != null }
+        val attackForced = phase.forceAbilities.firstOrNull { it.attackMin != null }
         if (attackForced != null) {
             if (forceAttackThreshold < 0) {
-                forceAttackThreshold = randomThreshold(attackForced)
+                forceAttackThreshold =
+                    attackForced.firstAttackCount ?: randomThreshold(attackForced)
             }
             if (basicAttackCount >= forceAttackThreshold) {
                 basicAttackCount = 0
@@ -179,7 +400,7 @@ class BossEncounter(
             }
         }
 
-        val selected = pick(selector, tick, target)
+        val selected = select(selector, tick, target, phaseSelection)
         if (selected != null && attackForced != null) {
             basicAttackCount++
         }
@@ -187,155 +408,169 @@ class BossEncounter(
     }
 
     /**
-     * Picks a key from [selector] alone, ignoring the phase's forced abilities; used by
-     * [Effect.Choose] so a nested branch pick can't consume a phase-level force.
+     * Selects a declared branch without consuming ordinary phase opportunities or cadence. The
+     * interpreter and independently due native mechanics share this route. Reuse a stable choice
+     * instance: its identity owns its selection state for the lifetime of this encounter.
      */
-    fun pick(selector: Selector, tick: Int, target: Player? = null): String? =
-        when (selector) {
-            is Selector.WeightedRandom -> selectWeightedRandom(selector, tick, target)
-            is Selector.Rotation -> selectRotation(selector)
-        }
+    fun selectBranch(choice: Effect.Choose, tick: Int, target: Player?): String? =
+        if (isEnded) null
+        else
+            select(
+                choice.selector,
+                tick,
+                target,
+                branchSelections.getOrPut(choice) { SelectionState() },
+            )
 
-    fun selectPriorityAbility(tick: Int, target: Player?): String? {
-        if (tick < busyUntil) return null
-        queuedAbility?.let {
-            queuedAbility = null
-            return it
+    private fun select(
+        selector: Selector,
+        tick: Int,
+        target: Player?,
+        state: SelectionState,
+    ): String? =
+        when (selector) {
+            is Selector.WeightedRandom -> selectWeightedRandom(selector, tick, target, state)
+            is Selector.SeededWeighted ->
+                checkNotNull(decisions) { "Initialize the encounter decision seed first." }
+                    .select(selector, tick) { evaluate(it, target) }
+            is Selector.Rotation -> selectRotation(selector, state)
+            is Selector.RepeatSelected -> selectContinuation(selector, tick, target, state)
+            is Selector.MeleeOverrideRotation ->
+                selectMeleeOverrideRotation(selector, target, state)
+            is Selector.Conditional ->
+                selector.branches
+                    .firstOrNull { (condition, _) -> evaluate(condition, target) }
+                    ?.second ?: selector.fallback
         }
-        val phase = currentPhase ?: return null
-        for (forced in phase.forceAbilities) {
-            val condition = forced.condition ?: continue
-            if (forced.once && forced.ability in usedAbilities) continue
-            if (evaluate(condition, target)) return forced.ability
-        }
-        return null
-    }
 
     private fun randomThreshold(forced: ForcedAbility): Int {
         val min = forced.attackMin ?: return Int.MAX_VALUE
         val max = (forced.attackMax ?: min).coerceAtLeast(min)
-        return if (max == min) min else Random.nextInt(min, max + 1)
+        return if (max == min) min else random.of(min, max)
     }
 
-    private fun selectWeightedRandom(selector: Selector.WeightedRandom, tick: Int, target: Player? = null): String? {
-        val available = selector.entries.filter { ref ->
-            val onCooldown = cooldowns[ref.ability]?.let { tick - it < ref.cooldown } ?: false
-            !onCooldown && evaluate(ref.requires, target)
+    private fun selectContinuation(
+        selector: Selector.RepeatSelected,
+        tick: Int,
+        target: Player?,
+        state: SelectionState,
+    ): String? {
+        val continuation = state.continuations.getOrPut(selector) { ContinuationState() }
+        if (!evaluate(selector.eligible, target) || (selector.sameTarget && target == null)) {
+            continuation.clear()
+            return selector.ineligibleAbility
         }
+        if (
+            continuation.remaining > 0 &&
+                (!selector.sameTarget || continuation.target == target?.uid)
+        ) {
+            continuation.remaining--
+            if (continuation.remaining == 0) continuation.target = null
+            return selector.repeatedAbility
+        }
+        continuation.clear()
+        val selected = select(selector.delegate, tick, target, continuation.delegate)
+        if (selected == selector.repeatedAbility && selector.extraSelections > 0) {
+            continuation.remaining = selector.extraSelections
+            continuation.target = if (selector.sameTarget) target?.uid else null
+        }
+        return selected
+    }
+
+    private fun selectWeightedRandom(
+        selector: Selector.WeightedRandom,
+        tick: Int,
+        target: Player? = null,
+        state: SelectionState,
+    ): String? {
+        val available =
+            selector.entries.filter { ref ->
+                val onCooldown =
+                    state.cooldowns[ref.ability]?.let { tick - it < ref.cooldown } ?: false
+                !onCooldown && evaluate(ref.requires, target)
+            }
 
         if (available.isEmpty()) return null
 
         val totalWeight = available.sumOf { it.weight }
         if (totalWeight <= 0) return null
 
-        var roll = Random.nextInt(totalWeight)
+        var roll = random.of(totalWeight)
         for (ref in available) {
             roll -= ref.weight
             if (roll < 0) {
-                cooldowns[ref.ability] = tick
-                if (ref.persistCooldown) persistentCooldowns += ref.ability
+                state.cooldowns[ref.ability] = tick
+                if (state === phaseSelection) lastAbilityName = ref.ability
                 return ref.ability
             }
         }
         return available.last().ability
     }
 
-    private fun selectRotation(selector: Selector.Rotation): String? {
+    private fun selectRotation(selector: Selector.Rotation, state: SelectionState): String? {
         if (selector.sequence.isEmpty()) return null
-        if (!rotationStarted) {
-            rotationStarted = true
-            if (selector.randomStart) {
-                rotationCursor = Random.nextInt(selector.sequence.size)
-            }
-        }
-        val ability = selector.sequence[rotationCursor % selector.sequence.size]
-        rotationCursor++
+        val index = state.rotationCursor % selector.sequence.size
+        if (state === phaseSelection) lastRotationIndex = index
+        val ability = selector.sequence[index]
+        state.rotationCursor++
         return ability
     }
 
-    /**
-     * [tiles] is the effect this condition runs inside, if any, so conditions see the same bound
-     * tiles and tile sets as the effects around them. [hit] is the player hit an incoming rule or
-     * hit reaction is being checked for.
-     */
-    fun evaluate(
-        condition: Condition,
-        target: Player? = null,
-        tiles: TileScope? = null,
-        hit: HitContext? = null,
-    ): Boolean {
-        fun eval(inner: Condition) = evaluate(inner, target, tiles, hit)
-        fun requireHit(): HitContext =
-            checkNotNull(hit) { "$condition evaluated outside an incoming hit." }
+    private fun selectMeleeOverrideRotation(
+        selector: Selector.MeleeOverrideRotation,
+        target: Player?,
+        state: SelectionState,
+    ): String? {
+        if (selector.sequence.isEmpty()) return null
+        val index = state.rotationCursor % selector.sequence.size
+        if (state === phaseSelection) lastRotationIndex = index
+        state.rotationCursor++
+        // Melee is a positional replacement for this attack opportunity. It must not pause the
+        // underlying rotation: phase switches, movement, and specials remain tied to the same
+        // deterministic opportunity index even when a player steps next to a large boss.
+        return if (target != null && npc.isWithinDistance(target, 1)) {
+            selector.meleeAbility
+        } else {
+            selector.sequence[index]
+        }
+    }
+
+    fun evaluate(condition: Condition, target: Player? = null): Boolean {
         return when (condition) {
             is Condition.Always -> true
+            is Condition.OnSpawn -> false
+            is Condition.OnDeath -> false
             is Condition.WithinMeleeRange -> {
-                target != null && npc.isWithinDistance(target, 1)
+                target != null &&
+                    target.coords.level == npc.coords.level &&
+                    npc.isWithinDistance(target, 1)
             }
-            is Condition.HpBelow ->
-                if (condition.inclusive) hpFraction <= condition.fraction else hpFraction < condition.fraction
+            is Condition.HpBelow -> {
+                val fraction = npc.hitpoints.toDouble() / npc.baseHitpointsLvl.coerceAtLeast(1)
+                fraction < condition.fraction
+            }
             is Condition.HpExact -> npc.hitpoints == condition.hp
             is Condition.InPhase -> currentPhaseName == condition.phase
-            is Condition.AbilityUsed -> condition.ability in usedAbilities
-            is Condition.VarnIn -> npc.vars[condition.varn] in condition.range
-            is Condition.VarnExpired -> {
-                val deadline = npc.vars[condition.varn]
-                deadline > 0 && deadline <= mapClock.cycle
-            }
-            is Condition.LastAbility -> lastAbilityName == condition.ability
-            is Condition.TargetWithin -> {
-                if (target == null) return false
-                val of = tiles?.tile(condition.of) ?: npc.resolveTile(condition.of, target)
-                target.coords.chebyshevDistance(of) <= condition.distance
-            }
-            is Condition.TargetInArc -> {
-                val wanted = Angles.normalise(npc.vars[condition.bearingVarn] + condition.offset)
+            is Condition.AbilityCountModulo ->
+                phaseAbilityCount % condition.modulus == condition.remainder
+            is Condition.Not -> !evaluate(condition.c, target)
+            is Condition.And -> evaluate(condition.a, target) && evaluate(condition.b, target)
+            is Condition.Or -> evaluate(condition.a, target) || evaluate(condition.b, target)
+            is Condition.EveryNTicks -> false
+            is Condition.OnPhaseTick -> false
+            is Condition.IncomingHitDamageAtLeast -> false
+            is Condition.PlayerEnterRange ->
                 target != null &&
-                    abs(Angles.delta(Angles.bearing(npc.centreTile, target.coords), wanted)) <= condition.halfArc
-            }
-            is Condition.TilesEmpty -> {
-                val name = condition.name
-                val scope = checkNotNull(tiles) { "tilesEmpty(\"$name\") evaluated outside an effect." }
-                scope.set(name).isEmpty()
-            }
-            is Condition.Custom -> condition.test(npc, target)
-            is Condition.Not -> !eval(condition.c)
-            is Condition.And -> eval(condition.a) && eval(condition.b)
-            is Condition.Or -> eval(condition.a) || eval(condition.b)
-            is Condition.PhaseTicksAtLeast ->
-                phaseEnteredTick >= 0 && mapClock.cycle - phaseEnteredTick >= condition.ticks
-            is Condition.HitStyle -> requireHit().type == condition.type.toEngine()
-            is Condition.HitDemonbane -> requireHit().demonbane
-            is Condition.HitDamageAtLeast -> requireHit().damage >= condition.damage
-            is Condition.TargetPraying -> target != null && target.isProtectingFrom(condition.type)
+                    target.coords.level == npc.coords.level &&
+                    npc.isWithinDistance(target, condition.tiles)
+            is Condition.TargetPraying ->
+                target != null &&
+                    when (condition.type) {
+                        HitType.Melee -> target.vars["varbit.prayer_protectfrommelee"] == 1
+                        HitType.Ranged -> target.vars["varbit.prayer_protectfrommissiles"] == 1
+                        HitType.Magic -> target.vars["varbit.prayer_protectfrommagic"] == 1
+                        else -> false
+                    }
         }
     }
-
-    private val hpFraction: Double
-        get() = npc.hitpoints.toDouble() / npc.baseHitpointsLvl.coerceAtLeast(1)
-
-    private fun Player.isProtectingFrom(type: HitType): Boolean =
-        when (type) {
-            HitType.Melee -> vars[PROTECT_FROM_MELEE] > 0
-            HitType.Ranged -> vars[PROTECT_FROM_MISSILES] > 0
-            HitType.Magic,
-            HitType.Dragonfire,
-            HitType.DragonfireMetal,
-            HitType.WyvernIce -> vars[PROTECT_FROM_MAGIC] > 0
-            HitType.Typeless -> false
-        }
-
-    private companion object {
-        private const val PROTECT_FROM_MELEE = "varbit.prayer_protectfrommelee"
-        private const val PROTECT_FROM_MISSILES = "varbit.prayer_protectfrommissiles"
-        private const val PROTECT_FROM_MAGIC = "varbit.prayer_protectfrommagic"
-    }
-}
-
-internal fun cacheNpcType(name: String): NpcServerType? = ServerCacheManager.getNpc(name.asRSCM(RSCMType.NPC))
-
-@OptIn(InternalApi::class)
-internal fun Npc.bossTransmog(type: NpcServerType, duration: Int) {
-    transmog(type, duration)
-    assignUid()
 }

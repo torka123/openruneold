@@ -16,6 +16,8 @@ import org.rsmod.game.entity.Npc
 import org.rsmod.game.entity.Player
 import org.rsmod.game.hit.Hit
 import org.rsmod.game.hit.HitBuilder
+import org.rsmod.game.hit.HitContext
+import org.rsmod.game.hit.HitImpactHandler
 import org.rsmod.game.hit.HitType
 
 /* Standard hit functions. */
@@ -67,6 +69,8 @@ public fun Npc.queueHit(
     hitmark: HitmarkTypeGroup = visHitmark(),
     sourceWeapon: ItemServerType? = null,
     sourceSecondary: ItemServerType? = null,
+    impactHandler: HitImpactHandler? = null,
+    context: HitContext? = null,
 ): Hit {
     val builder =
         InternalNpcHits.createBuilder(
@@ -78,7 +82,8 @@ public fun Npc.queueHit(
             hitmark = hitmark,
             clientDelay = 0,
         )
-    return modifyAndQueueHit(delay, builder, modifier)
+    builder.context = HitContext.capture(source, this, context)
+    return modifyAndQueueHit(delay, builder, modifier, impactHandler)
 }
 
 /**
@@ -132,6 +137,8 @@ public fun Npc.queueHit(
     hitmark: HitmarkTypeGroup = visHitmark(),
     specific: Boolean = false,
     sourceSecondary: ItemServerType? = null,
+    impactHandler: HitImpactHandler? = null,
+    context: HitContext? = null,
 ): Hit {
     val builder =
         InternalNpcHits.createBuilder(
@@ -143,7 +150,8 @@ public fun Npc.queueHit(
             clientDelay = 0,
             specific = specific,
         )
-    return modifyAndQueueHit(delay, builder, modifier)
+    builder.context = HitContext.capture(source, this, context)
+    return modifyAndQueueHit(delay, builder, modifier, impactHandler)
 }
 
 /**
@@ -186,6 +194,8 @@ public fun Npc.queueHit(
     damage: Int,
     modifier: NpcHitModifier,
     hitmark: HitmarkTypeGroup = visHitmark(),
+    impactHandler: HitImpactHandler? = null,
+    context: HitContext? = null,
 ): Hit {
     val builder =
         InternalNpcHits.createBuilder(
@@ -196,7 +206,8 @@ public fun Npc.queueHit(
             hitmark = hitmark,
             clientDelay = 0,
         )
-    return modifyAndQueueHit(delay, builder, modifier)
+    builder.context = HitContext.capture(null, this, context)
+    return modifyAndQueueHit(delay, builder, modifier, impactHandler)
 }
 
 /**
@@ -223,15 +234,14 @@ public fun Npc.visHitmark(): HitmarkTypeGroup {
     return hitmark
 }
 
-public fun Npc.isStyleImmuneTo(type: HitType): Boolean =
-    when (type) {
-        HitType.Melee -> vars["varn.immune_melee"] == 1
-        HitType.Ranged -> vars["varn.immune_ranged"] == 1
-        HitType.Magic -> vars["varn.immune_magic"] == 1
-        HitType.Typeless -> false
-    }
-
-private fun Npc.modifyAndQueueHit(delay: Int, builder: HitBuilder, modifier: NpcHitModifier): Hit {
+private fun Npc.modifyAndQueueHit(
+    delay: Int,
+    builder: HitBuilder,
+    modifier: NpcHitModifier,
+    impactHandler: HitImpactHandler?,
+): Hit {
+    builder.impactHandler = impactHandler
+    if (!builder.context.isValid()) return builder.build()
     modifier.modify(builder, this)
     val hit = builder.build()
     queue("queue.hit", delay, hit)
@@ -243,5 +253,6 @@ private fun NpcHitModifier.modify(builder: HitBuilder, target: Npc): Unit = buil
 
 /* Hit processor helper functions. */
 internal fun NpcHitProcessor.process(access: StandardNpcAccess, hit: Hit) {
+    if (!hit.isValidNow()) return
     access.process(hit)
 }

@@ -22,7 +22,10 @@ public fun Npc.isSpawnOwnedBy(player: Player): Boolean = spawnOwner == player.ui
 
 public fun Npc.isSpawnOwnedBy(owner: PlayerUid): Boolean = spawnOwner == owner
 
-/** True when [hasSpawnOwner] and the owner is not [player] (e.g. block attacking another player's spawn). */
+/**
+ * True when [hasSpawnOwner] and the owner is not [player] (e.g. block attacking another player's
+ * spawn).
+ */
 public fun Npc.isSpawnOwnedByOther(player: Player): Boolean =
     hasSpawnOwner && spawnOwner != player.uid
 
