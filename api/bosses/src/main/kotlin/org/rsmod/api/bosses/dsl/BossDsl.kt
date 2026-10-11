@@ -3,10 +3,7 @@ package org.rsmod.api.bosses.dsl
 import dev.openrune.types.NpcMode
 import org.rsmod.api.bosses.spec.*
 import org.rsmod.api.bosses.validation.SpecValidator
-import org.rsmod.api.player.output.CamShakeAxis
-import org.rsmod.game.entity.Npc
-import org.rsmod.game.entity.Player
-import org.rsmod.map.CoordGrid
+import org.rsmod.api.combat.commons.types.MeleeAttackType
 
 @DslMarker annotation class BossDsl
 
@@ -21,25 +18,25 @@ class BossSpecBuilder(private val npcTypes: List<String>) {
 
     private var stats = BossStats()
     private val abilities = mutableMapOf<String, Effect>()
-    private val abilityAttackDelays = mutableMapOf<String, Int>()
     private val phases = mutableMapOf<String, PhaseSpec>()
     private val triggers = mutableListOf<TriggerSpec>()
-    private val hitReactions = mutableListOf<HitReaction>()
-    private val incomingRules = mutableListOf<IncomingRule>()
-    private val timers = mutableListOf<TimerSpec>()
 
-    fun stats(attackRate: Int = 4) {
-        stats = BossStats(attackRate)
+    fun stats(
+        attackRate: Int = 4,
+        aggressionRadius: Int = 8,
+        retaliateOnHit: Boolean = true,
+        hitFloor: Int? = null,
+    ) {
+        stats = BossStats(attackRate, aggressionRadius, retaliateOnHit, hitFloor)
     }
 
     fun ability(name: String, block: AbilityBuilder.() -> Unit): AbilityRef {
-        val builder = AbilityBuilder().apply(block)
-        return ability(name, builder.build(), builder.attackDelay)
+        abilities[name] = AbilityBuilder().apply(block).build()
+        return AbilityRef(name)
     }
 
-    fun ability(name: String, effect: Effect, attackDelay: Int? = null): AbilityRef {
+    fun ability(name: String, effect: Effect): AbilityRef {
         abilities[name] = effect
-        if (attackDelay != null) abilityAttackDelays[name] = attackDelay else abilityAttackDelays -= name
         return AbilityRef(name)
     }
 
@@ -48,10 +45,10 @@ class BossSpecBuilder(private val npcTypes: List<String>) {
         entryHp: Double? = null,
         transmog: String? = null,
         lockMovement: Boolean = false,
+        attackRate: Int? = null,
         exitAfter: Int? = null,
         nextPhase: String? = null,
         idleAnim: String? = null,
-        attackRate: Int? = null,
         block: PhaseBuilder.() -> Unit,
     ): PhaseRef {
         val builder = PhaseBuilder(name).apply(block)
@@ -63,55 +60,22 @@ class BossSpecBuilder(private val npcTypes: List<String>) {
                 lockMovement = lockMovement,
                 exitAfter = exitAfter,
                 nextPhase = nextPhase,
+                attackRate = attackRate,
                 idleAnim = idleAnim,
-                attackRate = attackRate ?: builder.attackRate,
                 entry = builder.entry,
+                exit = builder.exit,
                 selector = builder.selector,
                 forceAbilities = builder.forceAbilities,
-                timers = builder.timers,
             )
         return PhaseRef(name)
-    }
-
-    fun every(ticks: Int, effect: Effect, skipWhileBusy: Boolean = false) {
-        timers += TimerSpec(ticks..ticks, effect, skipWhileBusy)
-    }
-
-    fun every(ticks: IntRange, effect: Effect, skipWhileBusy: Boolean = false) {
-        timers += TimerSpec(ticks, effect, skipWhileBusy)
     }
 
     fun triggers(block: TriggerBuilder.() -> Unit) {
         TriggerBuilder(triggers).apply(block)
     }
 
-    /** See [HitReaction]. */
-    fun onIncomingHit(
-        ability: AbilityRef,
-        withObj: List<String> = emptyList(),
-        requires: Condition = Condition.Always,
-    ) {
-        hitReactions += HitReaction(Effect.Run(ability.name), withObj, requires)
-    }
-
-    /** Ordered, first-match rules for player hits landing on the boss; see [IncomingRule]. */
-    fun incoming(block: IncomingRulesBuilder.() -> Unit) {
-        IncomingRulesBuilder(incomingRules).apply(block)
-    }
-
     fun build(): BossSpec {
-        val spec =
-            BossSpec(
-                npcTypes,
-                stats,
-                abilities,
-                phases,
-                triggers,
-                hitReactions,
-                incomingRules,
-                abilityAttackDelays,
-                timers,
-            )
+        val spec = BossSpec(npcTypes, stats, abilities, phases, triggers)
         val errors = SpecValidator.validate(spec)
         if (errors.isNotEmpty()) {
             throw IllegalStateException(
@@ -134,15 +98,10 @@ class HitBuilder internal constructor() {
     var delay: Int = 0
     private var spotanimSpot: String? = null
     private var spotanimHeight: Int = 0
-    private var spotanimDelay: Int? = null
-    private var spotanimUnlessPraying: Boolean = false
-    private var penetrationPercent: Int = 0
-    private var penetrationWhen: Condition? = null
-    private var hazardHit: Boolean = false
-    private var missSpot: String? = null
-    private var onHitEffect: Effect? = null
-    private var onHitEvenOnMiss: Boolean = false
-    private var lifestealPercent: Int = 0
+    var accuracy: AccuracyMode = AccuracyMode.Standard
+    var meleeType: MeleeAttackType? = null
+    var protectionPrayer: ProtectionPrayer = ProtectionPrayer.Standard
+    private val impactEffects = mutableListOf<ImpactEffect>()
 
     fun damage(expr: DamageExpr) {
         damageExpr = expr
@@ -155,40 +114,39 @@ class HitBuilder internal constructor() {
         hitType = t
     }
 
-    /**
-     * Plays [spot] on the resolved target(s) when the hit lands, e.g. a magic impact graphic. By
-     * default only on a non-zero hit; with [unlessPraying], whenever the target isn't praying
-     * against this hit's type.
-     */
-    fun spotanim(spot: String, height: Int = 0, delay: Int? = null, unlessPraying: Boolean = false) {
+    /** Plays [spot] on the resolved target(s) when the hit lands, e.g. a magic impact graphic. */
+    fun spotanim(spot: String, height: Int = 0) {
         spotanimSpot = spot
         spotanimHeight = height
-        spotanimDelay = delay
-        spotanimUnlessPraying = unlessPraying
     }
 
-    /** Percentage (0-100) of a protection prayer's block this hit ignores, optionally only [whenever]. */
-    fun penetration(percent: Int, whenever: Condition? = null) {
-        penetrationPercent = percent
-        penetrationWhen = whenever
+    fun poisonOnImpact(
+        damage: Int,
+        chance: Int = 1,
+        outOf: Int = 1,
+        protection: ImpactProtection = ImpactProtection.None,
+    ) {
+        impactEffects += ImpactEffect.Poison(damage, chance, outOf, protection)
     }
 
-    /** Environmental damage: no retaliation and no defend anim. */
-    fun hazard() {
-        hazardHit = true
+    fun freezeOnImpact(
+        ticks: Int,
+        chance: Int = 1,
+        outOf: Int = 1,
+        protection: ImpactProtection = ImpactProtection.None,
+    ) {
+        impactEffects += ImpactEffect.Freeze(ticks, chance, outOf, protection)
     }
 
-    fun missSpotanim(spot: String) {
-        missSpot = spot
-    }
-
-    fun onHit(effect: Effect, evenOnMiss: Boolean = false) {
-        onHitEffect = effect
-        onHitEvenOnMiss = evenOnMiss
-    }
-
-    fun lifesteal(percent: Int) {
-        lifestealPercent = percent
+    fun statDrainOnImpact(
+        vararg stats: String,
+        amount: Int,
+        chance: Int = 1,
+        outOf: Int = 1,
+        protection: ImpactProtection = ImpactProtection.None,
+    ) {
+        require(stats.isNotEmpty()) { "statDrainOnImpact requires at least one stat." }
+        impactEffects += ImpactEffect.StatDrain(stats.toList(), amount, chance, outOf, protection)
     }
 
     internal fun commitDamage(expr: DamageExpr) {
@@ -206,15 +164,10 @@ class HitBuilder internal constructor() {
             delay = delay,
             spotanim = spotanimSpot,
             spotanimHeight = spotanimHeight,
-            spotanimDelay = spotanimDelay,
-            penetration = penetrationPercent,
-            missSpotanim = missSpot,
-            onHit = onHitEffect,
-            onHitEvenOnMiss = onHitEvenOnMiss,
-            lifesteal = lifestealPercent,
-            spotanimUnlessPraying = spotanimUnlessPraying,
-            penetrationWhen = penetrationWhen,
-            hazard = hazardHit,
+            accuracy = accuracy,
+            meleeType = meleeType,
+            protectionPrayer = protectionPrayer,
+            impactEffects = impactEffects.toList(),
         )
 }
 
@@ -235,36 +188,17 @@ internal constructor(private val builder: HitBuilder, private val range: IntRang
 class AbilityBuilder {
     private val effects = mutableListOf<Effect>()
 
-    /**
-     * Ticks from this ability's start to the next attack, replacing the attack rate for that gap;
-     * null keeps the attack rate. Only applies when the attack loop starts the ability, not when
-     * another ability `run`s it.
-     */
-    var attackDelay: Int? = null
-
     fun anim(seq: String, delay: Int = 0) {
         effects += Effect.Anim(seq, delay)
     }
 
-    fun idleAnim(seq: String) {
-        effects += Effect.IdleAnim(seq)
-    }
-
-    fun clearIdleAnim() {
-        effects += Effect.IdleAnim(null)
-    }
-
-    fun resetAnim() {
-        effects += Effect.ResetAnim
-    }
-
-    fun forceNext(ability: AbilityRef) {
-        effects += Effect.ForceNext(ability.name)
+    fun npcAttackAnim() {
+        effects += Effect.NpcAttackAnim
     }
 
     /** Plays [spot] on the caster (the boss npc itself), not on the target. */
-    fun spotanim(spot: String, height: Int = 0, delay: Int = 0, slot: Int = 0) {
-        effects += Effect.Spotanim(spot, height, delay, slot)
+    fun spotanim(spot: String, height: Int = 0, delay: Int = 0) {
+        effects += Effect.Spotanim(spot, height, delay)
     }
 
     fun say(text: String) {
@@ -275,36 +209,12 @@ class AbilityBuilder {
         effects += Effect.Sound(synth, radius)
     }
 
-    fun soundTo(synth: String, target: TargetExpr = TargetExpr.CurrentTarget, loops: Int = 1, delay: Int = 0) {
-        effects += Effect.SoundTo(synth, target, loops, delay)
-    }
-
     fun delay(ticks: Int) {
         effects += Effect.Delay(ticks)
     }
 
-    fun wait(ticks: Int) {
-        effects += Effect.Wait(ticks)
-    }
-
-    fun faceTarget() {
-        effects += Effect.FaceTarget
-    }
-
-    fun faceTile(at: TargetExpr.Single) {
-        effects += Effect.FaceTile(at)
-    }
-
     fun broadcastInArea(text: String, radius: Int = 15) {
         effects += Effect.Broadcast(text, radius)
-    }
-
-    fun camShake(axis: CamShakeAxis, random: Int, amplitude: Int = 0, rate: Int = 0, radius: Int = 15) {
-        effects += Effect.CamShake(axis, random, amplitude, rate, radius)
-    }
-
-    fun message(text: String, target: TargetExpr = TargetExpr.CurrentTarget) {
-        effects += Effect.Message(text, target)
     }
 
     fun run(ability: String) {
@@ -313,54 +223,6 @@ class AbilityBuilder {
 
     fun run(ability: AbilityRef) {
         effects += Effect.Run(ability.name)
-    }
-
-    fun setVarn(varn: String, value: Int) {
-        effects += org.rsmod.api.bosses.dsl.setVarn(varn, value)
-    }
-
-    fun setVarn(varn: String, value: VarExpr) {
-        effects += org.rsmod.api.bosses.dsl.setVarn(varn, value)
-    }
-
-    fun addVarn(varn: String, delta: Int, max: Int? = null) {
-        effects += org.rsmod.api.bosses.dsl.addVarn(varn, delta, max)
-    }
-
-    fun interrupt() {
-        effects += Effect.Interrupt
-    }
-
-    fun nextAttackIn(ticks: Int) {
-        effects += Effect.NextAttackIn(ticks)
-    }
-
-    fun headbar(headbar: String, fromPercent: Int, toPercent: Int, cycles: Int) {
-        effects += Effect.Headbar(headbar, fromPercent, toPercent, cycles)
-    }
-
-    fun clearHeadbar(headbar: String) {
-        effects += Effect.ClearHeadbar(headbar)
-    }
-
-    fun headIcon(slot: Int, graphic: Int, index: Int) {
-        effects += Effect.HeadIcon(slot, graphic, index)
-    }
-
-    fun clearHeadIcon(slot: Int) {
-        effects += Effect.ClearHeadIcon(slot)
-    }
-
-    fun lockMovement() {
-        effects += Effect.LockMovement(true)
-    }
-
-    fun unlockMovement() {
-        effects += Effect.LockMovement(false)
-    }
-
-    fun healSelf(amount: Int) {
-        effects += Effect.HealSelf(amount)
     }
 
     fun transitionTo(phase: String) {
@@ -385,10 +247,6 @@ class AbilityBuilder {
 
     fun freeze(ticks: Int, odds: Odds) {
         effects += Effect.Freeze(ticks, odds.chance, odds.outOf)
-    }
-
-    fun disablePrayers(overheadsOnly: Boolean = false) {
-        effects += Effect.DisablePrayers(overheadsOnly)
     }
 
     fun statDrain(block: StatDrainBuilder.() -> Unit) {
@@ -438,25 +296,8 @@ class AbilityBuilder {
         launch: String? = null,
         impact: String? = null,
         hit: Effect.Hit? = null,
-        resolveOnImpact: Boolean = false,
-        onImpact: Effect? = null,
-        from: TargetExpr.Single? = null,
-        impactRounding: ImpactRounding = ImpactRounding.Down,
     ) {
-        effects +=
-            Effect.Projectile(
-                spotanim,
-                travel,
-                config,
-                target,
-                launch,
-                impact,
-                hit,
-                resolveOnImpact,
-                onImpact,
-                from,
-                impactRounding,
-            )
+        effects += Effect.Projectile(spotanim, travel, config, target, launch, impact, hit)
     }
 
     /**
@@ -476,10 +317,6 @@ class AbilityBuilder {
         var target: TargetExpr = TargetExpr.CurrentTarget
         var launch: String? = null
         var impact: String? = null
-        var resolveOnImpact: Boolean = false
-        var onImpact: Effect? = null
-        var from: TargetExpr.Single? = null
-        var impactRounding: ImpactRounding = ImpactRounding.Down
         private var hitPayload: Effect.Hit? = null
 
         fun hit(
@@ -504,52 +341,34 @@ class AbilityBuilder {
                 launch = launch,
                 impact = impact,
                 hit = hitPayload,
-                resolveOnImpact = resolveOnImpact,
-                onImpact = onImpact,
-                from = from,
-                impactRounding = impactRounding,
             )
     }
 
     fun tileAoE(
-        tiles: (Npc, Player) -> Collection<CoordGrid>,
+        center: TargetExpr,
+        radius: Int,
         telegraph: TelegraphSpec? = null,
         damage: DamageExpr,
         type: HitType,
     ) {
-        effects += Effect.TileAoE(tiles, telegraph, damage, type)
+        effects += Effect.TileAoE(center, radius, telegraph, damage, type)
     }
 
     fun summon(
         npc: String,
         count: Int = 1,
         radius: Int = 3,
-        centeredOn: TargetExpr.Single = TargetExpr.Self,
+        centeredOn: TargetExpr = TargetExpr.Self,
         mode: NpcMode? = null,
-        duration: Int = 100,
-        onSummon: String? = null,
-        onSummonParams: Any? = null,
-        owned: Boolean = false,
     ) {
-        effects +=
-            Effect.Summon(
-                npc = npc,
-                count = count,
-                radius = radius,
-                centeredOn = centeredOn,
-                mode = mode,
-                duration = duration,
-                onSummon = onSummon,
-                onSummonParams = onSummonParams,
-                owned = owned,
-            )
+        effects += Effect.Summon(npc, count, radius, centeredOn, mode)
     }
 
     /**
      * Telegraphed, dodgeable area attack (falling rocks/debris). See [Effect.Debris]. A [telegraph]
-     * spotanim marks each tile, then after [windup] ticks players still standing on a marked tile take
-     * [damage]. Tiles target every player within [targetRadius] of the boss plus random scatter within
-     * [scatterRadius], totaling a value drawn from [count].
+     * spotanim marks each tile, then after [windup] ticks players still standing on a marked tile
+     * take [damage]. Tiles target every player within [targetRadius] of the boss plus random
+     * scatter within [scatterRadius], totaling a value drawn from [count].
      */
     fun debris(
         telegraph: String,
@@ -560,7 +379,7 @@ class AbilityBuilder {
         targetRadius: Int = 15,
         scatterRadius: Int = 5,
         count: IntRange = 1..1,
-        center: TargetExpr.Single = TargetExpr.Self,
+        center: TargetExpr = TargetExpr.Self,
     ) {
         effects +=
             Effect.Debris(
@@ -582,19 +401,9 @@ class AbilityBuilder {
 @BossDsl
 class PhaseBuilder(private val name: String) {
     var entry: String? = null
-
-    var attackRate: Int? = null
+    var exit: String? = null
     var selector: Selector = Selector.WeightedRandom()
     internal val forceAbilities = mutableListOf<ForcedAbility>()
-    internal val timers = mutableListOf<TimerSpec>()
-
-    fun every(ticks: Int, effect: Effect, skipWhileBusy: Boolean = false) {
-        timers += TimerSpec(ticks..ticks, effect, skipWhileBusy)
-    }
-
-    fun every(ticks: IntRange, effect: Effect, skipWhileBusy: Boolean = false) {
-        timers += TimerSpec(ticks, effect, skipWhileBusy)
-    }
 
     fun forceEvery(period: Int, ability: String) {
         forceAbilities += ForcedAbility(period, ability)
@@ -604,56 +413,34 @@ class PhaseBuilder(private val name: String) {
         forceAbilities += ForcedAbility(period, ability.name)
     }
 
-    fun forceEveryAttacks(min: Int, max: Int, ability: String) {
-        forceAbilities += ForcedAbility(period = 0, ability = ability, attackMin = min, attackMax = max)
+    fun forceEveryAttacks(min: Int, max: Int, ability: String, first: Int? = null) {
+        forceAbilities +=
+            ForcedAbility(
+                period = 0,
+                ability = ability,
+                attackMin = min,
+                attackMax = max,
+                firstAttackCount = first,
+            )
     }
 
-    fun forceEveryAttacks(min: Int, max: Int, ability: AbilityRef) {
-        forceAbilities += ForcedAbility(period = 0, ability = ability.name, attackMin = min, attackMax = max)
+    fun forceEveryAttacks(min: Int, max: Int, ability: AbilityRef, first: Int? = null) {
+        forceEveryAttacks(min, max, ability.name, first)
     }
 
-    fun forceWhen(condition: Condition, ability: String, once: Boolean = false) {
-        forceAbilities += ForcedAbility(period = 0, ability = ability, condition = condition, once = once)
-    }
-
-    fun forceWhen(condition: Condition, ability: AbilityRef, once: Boolean = false) {
-        forceWhen(condition, ability.name, once)
-    }
-
-    fun weightedSelectorRandom(block: WeightedRandomBuilder.() -> Unit) {
-        selector = weightedRandom(block)
+    fun weightedSelectorRandom(
+        noRepeatBias: Double = 0.5,
+        block: WeightedRandomBuilder.() -> Unit,
+    ) {
+        selector = weightedRandom(noRepeatBias, block)
     }
 
     fun rotationSelector(block: RotationBuilder.() -> Unit) {
         selector = rotation(block)
     }
-}
 
-@BossDsl
-class IncomingRulesBuilder internal constructor(private val rules: MutableList<IncomingRule>) {
-    fun rule(condition: Condition, block: IncomingActionsBuilder.() -> Unit) {
-        rules += IncomingRule(condition, IncomingActionsBuilder().apply(block).actions)
-    }
-}
-
-@BossDsl
-class IncomingActionsBuilder internal constructor() {
-    internal val actions = mutableListOf<IncomingAction>()
-
-    fun cap(max: Int, style: HitType? = null) {
-        actions += IncomingAction.Cap(max, style)
-    }
-
-    fun scalePercent(percent: Int, style: HitType? = null) {
-        actions += IncomingAction.ScalePercent(percent, style)
-    }
-
-    fun floorPercentOfMaxHit(percent: Int, style: HitType) {
-        actions += IncomingAction.FloorPercentOfMaxHit(percent, style)
-    }
-
-    fun run(ability: AbilityRef) {
-        actions += IncomingAction.Run(Effect.Run(ability.name))
+    fun meleeOverrideRotationSelector(melee: AbilityRef, block: RotationBuilder.() -> Unit) {
+        selector = Selector.MeleeOverrideRotation(melee.name, rotation(block).sequence)
     }
 }
 
